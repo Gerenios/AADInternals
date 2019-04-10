@@ -27,10 +27,13 @@ $functions=@(
     "Get-AccessTokenForAADGraph"
     "Get-AccessTokenForMSGraph"
     "Get-AccessTokenForPTA"
+    "Get-AccessTokenForEXO"
     "Get-TenantDetails"
     "Read-AccessToken"
     "Get-EndpointInstances"
     "Get-EndpointIps"
+    "Get-OpenIDConfiguration"
+    "Get-TenantId"
 
     # ProvisioningAPI.ps1
     "Set-DomainAuthentication"
@@ -46,12 +49,15 @@ $functions=@(
     "New-User" # TODO: remove unused parameters
     "Set-User" # TODO: remove unused parameters
     "Get-GlobalAdmins"
+    "New-Domain" # TODO: remove unused parameters
 
     #FederatedIdentityTools.ps1
     "Get-Certificate"
-    "Create-SAMLToken"
+    "New-SAMLToken"
+    "New-SAML2Token"
     "Get-ImmutableID"
     "ConvertTo-Backdoor"
+    "New-Backdoor"
     "Open-Office365Portal"
 
     # AzureADConnectAPI.ps1
@@ -68,6 +74,17 @@ $functions=@(
 
     # AzureManagementAPI.ps1
     "New-GuestInvitation"
+
+    # ActiveSync.ps1
+    "Get-EASAutoDiscover"
+    "Get-EASAutoDiscoverV1"
+    "Get-EASOptions"
+    "Send-EASMessage"
+    "Add-EASDevice"
+    "Set-EASSettings"
+
+    # OutlookAPI.ps1
+    "Send-OutlookMessage"
 )
 foreach($function in $functions)
 {
