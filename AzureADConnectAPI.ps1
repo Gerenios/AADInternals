@@ -214,6 +214,8 @@ function Set-AzureADObject
         [Parameter(Mandatory=$False)]
         [String]$commonName,
         [Parameter(Mandatory=$False)]
+        [String]$CloudAnchor,
+        [Parameter(Mandatory=$False)]
         [bool]$accountEnabled=$True,
         [Parameter(Mandatory=$False)]
         [bool]$cloudMastered=$True,
@@ -256,13 +258,14 @@ function Set-AzureADObject
         $body_mid+=Add-PropertyValue "onPremisesDistinguishedName" $onPremisesDistinguishedName
         $body_mid+=Add-PropertyValue "surname" $surname
         $body_mid+=Add-PropertyValue "userPrincipalName" $userPrincipalName
-        $body_mid+=Add-PropertyValue "cloudMastered" $cloudMastered
+        $body_mid+=Add-PropertyValue "cloudMastered" $cloudMastered -Type bool
         $body_mid+=Add-PropertyValue "usageLocation" $usageLocation
+        $body_mid+=Add-PropertyValue "CloudAnchor" $CloudAnchor
 
 $body_end=@"
                         </b:PropertyValues>
 						<b:SyncObjectType>$ObjectType</b:SyncObjectType>
-						<b:SyncOperation>Add</b:SyncOperation>
+						<b:SyncOperation>Set</b:SyncOperation>
 					</b:AzureADSyncObject>
 				</b:SyncObjects>
 			</syncRequest>
@@ -286,7 +289,7 @@ $body_end=@"
         
         if(IsRedirectResponse($xml_doc))
         {
-            return Update-AzureADObject -AccessToken $AccessToken -Recursion ($Recursion+1) -sourceAnchor $sourceAnchor -ObjectType $ObjectType -userPrincipalName $userPrincipalName -surname $surname -onPremisesSamAccountName $onPremisesSamAccountName -onPremisesDistinguishedName $onPremisesDistinguishedName -onPremiseSecurityIdentifier $onPremisesDistinguishedName -netBiosName $netBiosName -lastPasswordChangeTimestamp $lastPasswordChangeTimestamp -givenName $givenName -dnsDomainName $dnsDomainName -displayName $displayName -countryCode $countryCode -commonName $commonName -accountEnabled $accountEnabled -cloudMastered $cloudMastered -usageLocation $usageLocation
+            return Set-AzureADObject -AccessToken $AccessToken -Recursion ($Recursion+1) -sourceAnchor $sourceAnchor -ObjectType $ObjectType -userPrincipalName $userPrincipalName -surname $surname -onPremisesSamAccountName $onPremisesSamAccountName -onPremisesDistinguishedName $onPremisesDistinguishedName -onPremiseSecurityIdentifier $onPremisesDistinguishedName -netBiosName $netBiosName -lastPasswordChangeTimestamp $lastPasswordChangeTimestamp -givenName $givenName -dnsDomainName $dnsDomainName -displayName $displayName -countryCode $countryCode -commonName $commonName -accountEnabled $accountEnabled -cloudMastered $cloudMastered -usageLocation $usageLocation -CloudAnchor $CloudAnchor
         }
         
         # Return
@@ -529,6 +532,7 @@ function Set-UserPassword
 
     .DESCRIPTION
     Sets the password of the given user using Azure AD Sync API. If the Result is 0, the change was successful.
+    Requires that Directory Synchronization is enabled for the tenant!
 
     .Parameter AccessToken
     Access Token
