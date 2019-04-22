@@ -85,6 +85,9 @@ $functions=@(
 
     # OutlookAPI.ps1
     "Send-OutlookMessage"
+
+    # PSRP.ps1
+    "Get-TenantDomains"
 )
 foreach($function in $functions)
 {

