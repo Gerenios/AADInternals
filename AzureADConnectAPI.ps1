@@ -119,7 +119,130 @@ function Get-SyncConfiguration
     }
 }
 
+# Enables or disables Password Hash Sync (PHS)
+function Set-PasswordHashSyncEnabled
+{
+<#
+    .SYNOPSIS
+    Enables or disables password hash sync (PHS)
 
+    .DESCRIPTION
+    Enables or disables password hash sync (PHS) using Azure AD Sync API.
+    If dirsync is disabled, it's first enabled using Provisioning API.
+
+    Enabling / disabling the PHS usually takes less than 10 seconds. Check the status using Get-AADIntCompanyInformation.
+
+    .Parameter AccessToken
+    Access Token
+
+    .Parameter Enabled
+    True or False
+
+    .Example
+    Set-PasswordHashSyncEnabled -Enabled $true
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [Boolean]$Enabled
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+
+        # Get the current configuration
+        $CompanyConfig = Get-CompanyInformation -AccessToken $AccessToken
+
+        # Check whether the PHS sync is already enabled
+        if($Enabled -and $CompanyConfig["PasswordSynchronizationEnabled"].'#text' -eq "true")
+        {
+            Write-Host "Password Hash Synchronization already enabled"
+        }
+        else
+        {
+            # Check whether the dirsync is disabled
+            if($CompanyConfig["DirectorySynchronizationEnabled"].'#text' -ne "true")
+            {
+                # Turn dirsync on
+                Set-CompanyDirSyncEnabled -AccessToken $AccessToken -EnableDirSync $true
+            }
+
+            # Enable or disable PHS
+            if($Enabled)
+            {
+                Set-SyncFeatures -AccessToken $AccessToken -Features 41017
+            }
+            else
+            {
+                Set-SyncFeatures -AccessToken $AccessToken -Features 41016
+            }
+        }
+        
+    }
+}
+
+
+# Set dirsync features (i.e. enable or disable password sync).
+# May 8th 2019
+function Set-SyncFeatures
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [Validateset("41016","41017")] # 41016 = DirSync, 41017 = DirSync + Password Hash Sync
+        [String]$Features="41016",
+        [Parameter(Mandatory=$False)]
+        [int]$Recursion=1
+    )
+    Process
+    {
+        # Accept only three loops
+        if($Recursion -gt 3)
+        {
+            throw "Too many recursions"
+        }
+
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+
+        # Create the body block
+        $body=@"
+		<SetCompanyDirsyncFeatures xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
+            <dirsyncFeatures>$Features</dirsyncFeatures>
+        </SetCompanyDirsyncFeatures>
+"@
+        $Message_id=(New-Guid).ToString()
+        $Command="SetCompanyDirsyncFeatures"
+
+        $serverName=$Script:aadsync_server
+
+        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName
+        
+        # Call the API
+        $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
+
+        # Convert binary response to XML
+        $xml_doc=BinaryToXml $response
+
+        if(IsRedirectResponse($xml_doc))
+        {
+            return Set-SyncFeatures -AccessToken $AccessToken -Features $Features -Recursion ($Recursion+1)
+        }
+        else
+        {
+            # Create a return object
+            $res=$xml_doc.Envelope.Body.GetCompanyConfigurationResponse.GetCompanyConfigurationResult
+
+            
+        }
+    }
+}
 
 # Provision Azure AD Sync Object
 function Set-AzureADObject

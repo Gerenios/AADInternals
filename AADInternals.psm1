@@ -68,6 +68,7 @@ $functions=@(
     "Set-UserPassword"
     "Reset-ServiceAccount"
     "Set-PassThroughAuthentication"
+    "Set-PasswordHashSyncEnabled"
 
     # AzureManagementAPI_utils.ps1
     "Get-AuthTokenForAADIAMAPI"
