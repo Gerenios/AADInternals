@@ -103,7 +103,7 @@ function Get-TenantDomains
     company.mail.onmicrosoft.com
 
     .Example
-    $at = Get-AADIntAccessTokenForEXOPS
+    $at = Get-AADIntAccessTokenForEXO
     PS C:\>Get-AADIntTenantDomains -AccessToken $at -Domain company.com
 
     company.com
