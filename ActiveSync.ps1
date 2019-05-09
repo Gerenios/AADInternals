@@ -70,7 +70,7 @@ function Get-EASAutoDiscoverV1
             "Content-Type" = "text/xml"
         }
 
-        $user=Get-UserName -Auth $auth
+        $user=Get-UserNameFromAuthHeader -Auth $auth
         $domain=$user.Split("@")[1]
 
         # Default host for Office 365
