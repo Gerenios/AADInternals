@@ -89,6 +89,7 @@ $functions=@(
 
     # PSRP.ps1
     "Get-TenantDomains"
+    "Get-MobileDevices"
 )
 foreach($function in $functions)
 {
