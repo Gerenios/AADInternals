@@ -1,6 +1,7 @@
 ﻿# PowerShell Remoting Protocol functions
 
 # Creates a PowerShell remote shell
+# Apr 24th 2019
 function Create-PSRPShell
 {
     [cmdletbinding()]
@@ -74,6 +75,7 @@ function Create-PSRPShell
 }
 
 # Gets other domains of the given tenant
+# Apr 24th 2019
 function Get-TenantDomains
 {
 <#
@@ -257,6 +259,7 @@ function Get-TenantDomains
 
 
 # Removes the shell, a.k.a. disconnects from the ps host
+# Apr 24th 2019
 function Remove-PSRPShell
 {
     [cmdletbinding()]
@@ -282,5 +285,159 @@ function Remove-PSRPShell
         
 }
 
+# Get Mobile Devices
+# May 9th 2019
+function Get-MobileDevices
+{
+<#
+    .SYNOPSIS
+    Gets mobile devices for the current user or all devices (if admin)
 
+    .DESCRIPTION
+    Retrieves a list of mobile devices using Remote Exchange Online PowerShell
 
+    .Example
+    Get-AADIntMobileDevices -Credentials $Cred 
+
+    .Example
+    $at = Get-AADIntAccessTokenForEXO
+    PS C:\>Get-AADIntTenantDomains -AccessToken $at
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$True)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='AccessToken',Mandatory=$True)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # A fixed runspacel pool ID, used in PSRP messages
+        $runspacePoolId = [guid]"e5565a06-78ca-41aa-a6ef-4ab9cb1bd5ca"
+
+        # Counter for Object IDs
+        $ObjectId=10
+
+        $Oauth=$false
+        # If Access Token is given, create the credentials object manually
+        if(![string]::IsNullOrEmpty($AccessToken))
+        {
+            $upn = (Read-Accesstoken $AccessToken).upn
+            $password = ConvertTo-SecureString -String "Bearer $AccessToken" -AsPlainText -Force
+            $Credentials = [System.Management.Automation.PSCredential]::new($upn,$password)
+            $Oauth=$True
+        }
+
+        # Create a shell
+        $SessionId = (New-Guid).ToString().ToUpper()
+        
+        $Shell_Id = Create-PSRPShell -Credentials $Credentials -SessionId $SessionId -Oauth $Oauth
+        if([string]::IsNullOrEmpty($Shell_Id))
+        {
+            # Something went wrong, exit
+            return
+        }
+
+        # Create an arguments message
+        $arguments = @"
+<Obj RefId="0"><MS><Obj N="PowerShell" RefId="1"><MS><Obj N="Cmds" RefId="2"><TN RefId="0"><T>System.Collections.Generic.List`1[[System.Management.Automation.PSObject, System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35]]</T><T>System.Object</T></TN><LST><Obj RefId="3"><MS><S N="Cmd">Get-MobileDevice</S><B N="IsScript">false</B><Nil N="UseLocalScope" /><Obj N="MergeMyResult" RefId="4"><TN RefId="1"><T>System.Management.Automation.Runspaces.PipelineResultTypes</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeToResult" RefId="5"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergePreviousResults" RefId="6"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeError" RefId="7"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeWarning" RefId="8"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeVerbose" RefId="9"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeDebug" RefId="10"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeInformation" RefId="11"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="Args" RefId="12"><TNRef RefId="0" /><LST /></Obj></MS></Obj></LST></Obj><B N="IsNested">false</B><Nil N="History"/><B N="RedirectShellErrorOutputPipe">true</B></MS></Obj><B N="NoInput">true</B><Obj N="ApartmentState" RefId="13"><TN RefId="2"><T>System.Threading.ApartmentState</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>Unknown</ToString><I32>2</I32></Obj><Obj N="RemoteStreamOptions" RefId="14"><TN RefId="3"><T>System.Management.Automation.RemoteStreamOptions</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>0</ToString><I32>0</I32></Obj><B N="AddToHistory">true</B><Obj N="HostInfo" RefId="15"><MS><B N="_isHostNull">true</B><B N="_isHostUINull">true</B><B N="_isHostRawUINull">true</B><B N="_useRunspaceHost">true</B></MS></Obj><B N="IsNested">false</B></MS></Obj>
+"@
+        $message = Create-PSRPMessage -Data $arguments -Type Create_pipeline -ObjectId ($ObjectId++) -MSG_RPID $runspacePoolId
+            
+        $commandId = (New-Guid).ToString().ToUpper()
+        
+        $Body = @"
+        <rsp:CommandLine xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell" CommandId="$commandId">
+			<rsp:Command>Get-MobileDevice</rsp:Command>
+			<rsp:Arguments>$message</rsp:Arguments>
+		</rsp:CommandLine>
+"@
+        # Create the envelope for Get-FederationInfo -cmdlet
+        $Envelope = Create-PSRPEnvelope -Shell_Id $Shell_Id -SessionId $SessionId -Body $Body -Action Command
+        
+        $mobileDevices = @()
+        
+        try
+        {
+            # Make the command call
+            $response = Call-PSRP -Envelope $Envelope -Credentials $Credentials -Oauth $Oauth
+ 
+            $get_output = $true
+
+            # Get the output
+            while($get_output)
+            {
+                try
+                {
+                    [xml]$response = Receive-PSRP -Credentials $Credentials -SessionId $SessionId -Shell_Id $Shell_Id -CommandId $commandId -Oauth $Oauth
+
+                    # Loop through streams
+                    foreach($message in $response.Envelope.Body.ReceiveResponse.Stream)
+                    {
+                        $parsed_message = Parse-PSRPMessage -Base64Value $message.'#text'
+                        [xml]$xmlData = $parsed_message.Data
+
+                        if($parsed_message.'Message type' -eq "Pipeline output")
+                        {
+                            # Loop thru the attributes
+                            $attributes = [ordered]@{}
+                            foreach($node in $xmlData.Obj.Props.ChildNodes)
+                            {
+                                $name = $node.N
+                                $value = $node.InnerText
+                                if($name -eq "ObjectClass")
+                                {
+                                    # Special attribute..
+                                    $value=$node.LST.s[1]
+                                }
+                                $attributes[$name]=$value
+                            }
+                            $mobileDevices+=(New-Object psobject -Property $attributes)
+                        }
+                        elseif($parsed_message.'Message type' -eq "Pipeline state")
+                        {
+                            $errorRecord = (Select-Xml -Xml $xmlData -XPath "//*[@N='ErrorRecord']").Node.'#text'
+                            if(![string]::IsNullOrEmpty($errorRecord))
+                            {
+                                # Something went wrong, probably not an admin user
+                                Write-Error "Got an error! May be not an admin user?"
+                                Write-Verbose "ERROR: $errorRecord"
+                            }
+                        }
+                    }
+
+                    # Loop thru the CommandStates
+                    foreach($state in $response.Envelope.Body.ReceiveResponse.CommandState)
+                    {
+                        # Okay, we're done!
+                        $exitCode = $state.ExitCode
+                        if(![string]::IsNullOrEmpty($exitCode))
+                        {
+                            Write-Progress -Activity "Retrieving domains" -Completed
+                            $get_output = $false
+                        }
+                    }
+                }
+                catch
+                {
+                    # Something wen't wrong so exit the loop
+                    break
+                }
+            
+            }
+        }
+        catch
+        {
+            # Do nothing
+        }
+
+        
+        # Finally remove the shell
+        Remove-PSRPShell -Credentials $Credentials -Shell_Id $Shell_Id -SessionId $SessionId -Oauth $Oauth
+       
+        
+        return $MobileDevices
+
+    }
+        
+}
