@@ -113,7 +113,7 @@ function Update-SyncCredentials
     ADDomain                       company.com  
     ADUser                         MSOL_4bc4a34e95fa
     ADUserPassword                 Q9@p(poz{#:kF_G)(s/Iy@8c*9(t;...
-    AADUser                        Sync_SRV01_4bc4a34e95fa@company.onmicrosoft.com                                                      
+    AADUser                        Sync_SRV01_4bc4a34e95fa@company.onmicrosoft.com
     AADUserPassword                $.1%(lxZ&/kNZz[r
 
     .Example
@@ -125,7 +125,7 @@ function Update-SyncCredentials
     ADDomain                       company.com  
     ADUser                         MSOL_4bc4a34e95fa
     ADUserPassword                 Q9@p(poz{#:kF_G)(s/Iy@8c*9(t;...
-    AADUser                        Sync_SRV01_4bc4a34e95fa@company.onmicrosoft.com                                                      
+    AADUser                        Sync_SRV01_4bc4a34e95fa@company.onmicrosoft.com
     AADUserPassword                $.1%(lxZ&/kNZz[r
 
     WARNING: Waiting for service 'Microsoft Azure AD Sync (ADSync)' to stop...
@@ -184,6 +184,17 @@ function Update-SyncCredentials
  <attribute name="Password">$NewPassword</attribute>
 </encrypted-attributes>
 "@
+        # Read the encrypt/decrypt key settings
+        $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList "Data Source=(localdb)\.\ADSync;Initial Catalog=ADSync"
+        $SQLclient.Open()
+        $SQLcmd = $SQLclient.CreateCommand()
+        $SQLcmd.CommandText = "SELECT keyset_id, instance_id, entropy FROM mms_server_configuration"
+        $SQLreader = $SQLcmd.ExecuteReader()
+        $SQLreader.Read() | Out-Null
+        $key_id = $SQLreader.GetInt32(0)
+        $instance_id = $SQLreader.GetGuid(1)
+        $entropy = $SQLreader.GetGuid(2)
+        $SQLreader.Close()
 
         # Load keys
         $KeyMgr = New-Object -TypeName Microsoft.DirectoryServices.MetadirectoryServices.Cryptography.KeyManager
@@ -196,18 +207,6 @@ function Update-SyncCredentials
         # Encrypt
         $AADCryptedConfig = $null
         $key2.EncryptStringToBase64($ADDecryptedConfig,[ref]$AADCryptedConfig)
-
-        # Read the encrypt/decrypt key settings
-        $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList "Data Source=(localdb)\.\ADSync;Initial Catalog=ADSync"
-        $SQLclient.Open()
-        $SQLcmd = $SQLclient.CreateCommand()
-        $SQLcmd.CommandText = "SELECT keyset_id, instance_id, entropy FROM mms_server_configuration"
-        $SQLreader = $SQLcmd.ExecuteReader()
-        $SQLreader.Read() | Out-Null
-        $key_id = $SQLreader.GetInt32(0)
-        $instance_id = $SQLreader.GetGuid(1)
-        $entropy = $SQLreader.GetGuid(2)
-        $SQLreader.Close()
 
         # Write the updated AAD password
         $SQLcmd = $SQLclient.CreateCommand()
