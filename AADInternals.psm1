@@ -90,6 +90,10 @@ $functions=@(
     # PSRP.ps1
     "Get-TenantDomains"
     "Get-MobileDevices"
+
+    # AADSyncSettings.ps1
+    "Get-SyncCredentials"
+    "Update-SyncCredentials"
 )
 foreach($function in $functions)
 {
