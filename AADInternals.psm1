@@ -94,6 +94,11 @@ $functions=@(
     # AADSyncSettings.ps1
     "Get-SyncCredentials"
     "Update-SyncCredentials"
+
+    # PTASpy.ps1
+    "Install-PTASpy"
+    "Remove-PTASpy"
+    "Get-PTASpyLog"
 )
 foreach($function in $functions)
 {
