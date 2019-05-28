@@ -112,7 +112,26 @@ $const_Completed =    0x04
 $const_Failed =       0x05
 $const_Disconnected = 0x06
 
+# Waiting messages
+$waiting_messages=@(
+"Your PC is almost ready..."
+"We're getting everything ready for you..."
+"Almost there..."
+"Back in a moment..."
+"This might take several minutes..."
+"It's taking a bit longer than expected, but we'll get there as fast as we can..."
+"Don't turn off your PC..."
+"This might take a while..."
+"This might take a while, I'll tell you when we're ready.."
 
+)
+
+# Function returning a random waiting message
+function Get-WaitingMessage
+{
+    [int]$msg=Get-Random -Minimum 0 -Maximum ($waiting_messages.Count-1)
+    return $waiting_messages[$msg]
+}
 
 # Remove bom bytes from the byte array
 function Remove-Bom
@@ -185,6 +204,7 @@ function Parse-PSRPMessage
         # If Base64, decode to byte[]
         if(![String]::IsNullOrEmpty($Base64Value))
         {
+            Write-Verbose "Decoding message to bytes ($Base64Value)"
             [byte[]]$ByteArray = [System.Convert]::FromBase64String($Base64Value)
         }
 
@@ -232,7 +252,12 @@ function Parse-PSRPMessage
             [xml]$xml=[System.Text.Encoding]::UTF8.GetString($xmlBytes)
             $attributes["Data"]=$xml.OuterXml
             
-            $messages += New-Object PSObject -Property $attributes
+            $message = New-Object PSObject -Property $attributes
+
+            Write-Verbose "Found message:"
+            Write-Verbose $message
+
+            $messages +=  $message
         }
         
 
@@ -263,6 +288,8 @@ function Create-PSRPMessage
     )
     Process
     {
+        Write-Verbose "Creating PowerShell Remote Protocol message: $Destination, $Type"
+
         $ByteArray = [System.Text.Encoding]::UTF8.getBytes($Data)
 
         $messageLength = $ByteArray.Count+43 # Add the message header size
@@ -304,7 +331,11 @@ function Create-PSRPMessage
  
         $message += $ByteArray  
 
-        return [System.Convert]::ToBase64String([byte[]]$message)
+        $b64Message = [System.Convert]::ToBase64String([byte[]]$message)
+
+        Write-Verbose "Message created: $b64Message"
+         
+        return $b64Message
      }   
 }
 
@@ -328,6 +359,7 @@ function Create-PSRPEnvelope
     )
     Process
     {
+        Write-Verbose "Creating PowerShell Remote Protocol envelope: $action, $body"
         switch ( $Action )
         {
             "Command"  { $action_url = 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command'}
@@ -385,7 +417,7 @@ function Create-PSRPEnvelope
 	        </s:Body>
         </s:Envelope>
 "@
-        # This can be used to compress the data
+        # This can be used to compress the data (which we don't want to)
         # <rsp:CompressionType s:mustUnderstand="true" xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell">xpress</rsp:CompressionType>
 
         Write-Verbose "ENVELOPE: $Envelope"
@@ -409,6 +441,7 @@ function Call-PSRP
     )
     Process
     {
+        Write-Verbose "Calling the Remote PowerShell: $Envelope"
 
         $headers = @{
             "Authorization" = Create-AuthorizationHeader -Credentials $Credentials
@@ -454,6 +487,8 @@ function Receive-PSRP
     )
     Process
     {
+        Write-Verbose "Retrieving PowerShell Remote Protocol response" 
+
         $AuthHeader = Create-AuthorizationHeader -Credentials $Credentials
         
         $CommandIdString =""
@@ -472,6 +507,8 @@ function Receive-PSRP
         
         $response = Call-PSRP -Envelope $Envelope -Credentials $Credentials -Oauth $Oauth
         
+        Write-Verbose "RESPONSE: $response"
+
         return $response
     }
         

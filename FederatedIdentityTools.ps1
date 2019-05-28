@@ -461,7 +461,15 @@ function Open-Office365Portal
         }
         elseif($Certificate -eq $null) # Load the ceftificate
         {
-            $Certificate = Get-Certificate -FileName $PfxFileName -Password $PfxPassword
+            try
+            {
+                $Certificate = Get-Certificate -FileName $PfxFileName -Password $PfxPassword
+            }
+            catch
+            {
+                $_
+                return
+            }
         }
 
         $form=""
