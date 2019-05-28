@@ -87,11 +87,12 @@ function Get-TenantDomains
     domains from the tenant of the given domain. The tenant used to retrieve information can
     be any tenant having Exchange Online, including trial tenants. 
     The given user MUST have GlobalAdmin / CompanyAdministrator role in the tenant running the function,
-    but no rights to the target tenant are needed.
+    but no rights to the target tenant is needed.
 
-    Due to Exchange Online, this function is extremely slow, can take 10 seconds or more per domain.
+    Due to Exchange Online, this function is extremely slow, can take 10 seconds or more to complete.
 
-    The given domain SHOULD be Managed, federated domains are not always found for some reason.
+    The given domain SHOULD be Managed, federated domains are not always found for some reason. 
+    If nothing is found, try to use <domain>.onmicrosoft.com
 
     .Example
     Get-AADIntTenantDomains -Credentials $Cred -Domain company.com
@@ -123,6 +124,14 @@ function Get-TenantDomains
     )
     Process
     {
+        # First, check if the domain is registered to Azure AD
+        $tenantId = Get-TenantID -Domain $Domain
+        if([string]::IsNullOrEmpty($tenantId))
+        {
+            Write-Error "Domain $domain is not registered to any Azure AD tenant"
+            return
+        }
+
         # A fixed runspacel pool ID, used in PSRP messages
         $runspacePoolId = [guid]"e5565a06-78ca-41aa-a6ef-4ab9cb1bd5ca"
 
@@ -152,7 +161,7 @@ function Get-TenantDomains
 
         # Create an arguments message (uses the fixed runspace pool ID)
         $arguments = @"
-<Obj RefId="0"><MS><Obj N="PowerShell" RefId="1"><MS><Obj N="Cmds" RefId="2"><TN RefId="0"><T>System.Collections.Generic.List``1[[System.Management.Automation.PSObject, System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35]]</T><T>System.Object</T></TN><LST><Obj RefId="3"><MS><S N="Cmd">Get-FederationInformation</S><B N="IsScript">false</B><Nil N="UseLocalScope" /><Obj N="MergeMyResult" RefId="4"><TN RefId="1"><T>System.Management.Automation.Runspaces.PipelineResultTypes</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeToResult" RefId="5"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergePreviousResults" RefId="6"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeError" RefId="7"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeWarning" RefId="8"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeVerbose" RefId="9"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeDebug" RefId="10"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeInformation" RefId="11"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="Args" RefId="12"><TNRef RefId="0" /><LST><Obj RefId="13"><MS><S N="N">-DomainName:</S><S N="V">$Domain</S></MS></Obj></LST></Obj></MS></Obj></LST></Obj><B N="IsNested">false</B><Nil N="History" /><B N="RedirectShellErrorOutputPipe">true</B></MS></Obj><B N="NoInput">true</B><Obj N="ApartmentState" RefId="14"><TN RefId="2"><T>System.Threading.ApartmentState</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>Unknown</ToString><I32>2</I32></Obj><Obj N="RemoteStreamOptions" RefId="15"><TN RefId="3"><T>System.Management.Automation.RemoteStreamOptions</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>0</ToString><I32>0</I32></Obj><B N="AddToHistory">true</B><Obj N="HostInfo" RefId="16"><MS><B N="_isHostNull">true</B><B N="_isHostUINull">true</B><B N="_isHostRawUINull">true</B><B N="_useRunspaceHost">true</B></MS></Obj><B N="IsNested">false</B></MS></Obj>
+<Obj RefId="0"><MS><Obj N="PowerShell" RefId="1"><MS><Obj N="Cmds" RefId="2"><TN RefId="0"><T>System.Collections.Generic.List``1[[System.Management.Automation.PSObject, System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35]]</T><T>System.Object</T></TN><LST><Obj RefId="3"><MS><S N="Cmd">Get-FederationInformation</S><B N="IsScript">false</B><Nil N="UseLocalScope" /><Obj N="MergeMyResult" RefId="4"><TN RefId="1"><T>System.Management.Automation.Runspaces.PipelineResultTypes</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeToResult" RefId="5"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergePreviousResults" RefId="6"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeError" RefId="7"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeWarning" RefId="8"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeVerbose" RefId="9"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeDebug" RefId="10"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeInformation" RefId="11"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="Args" RefId="12"><TNRef RefId="0" /><LST><Obj RefId="13"><MS><S N="N">-DomainName:</S><S N="V">$Domain</S></MS></Obj><Obj RefId="14"><MS><S N="N">-BypassAdditionalDomainValidation:</S><Obj N="V" RefId="15"><TN RefId="2"><T>System.Management.Automation.SwitchParameter</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>True</ToString><Props><B N="IsPresent">true</B></Props></Obj></MS></Obj></LST></Obj></MS></Obj></LST></Obj><B N="IsNested">false</B><Nil N="History" /><B N="RedirectShellErrorOutputPipe">true</B></MS></Obj><B N="NoInput">true</B><Obj N="ApartmentState" RefId="14"><TN RefId="2"><T>System.Threading.ApartmentState</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>Unknown</ToString><I32>2</I32></Obj><Obj N="RemoteStreamOptions" RefId="15"><TN RefId="3"><T>System.Management.Automation.RemoteStreamOptions</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>0</ToString><I32>0</I32></Obj><B N="AddToHistory">true</B><Obj N="HostInfo" RefId="16"><MS><B N="_isHostNull">true</B><B N="_isHostUINull">true</B><B N="_isHostRawUINull">true</B><B N="_useRunspaceHost">true</B></MS></Obj><B N="IsNested">false</B></MS></Obj>
 "@
         $message = Create-PSRPMessage -Data $arguments -Type Create_pipeline -ObjectId ($ObjectId++) -MSG_RPID $runspacePoolId
             
@@ -168,6 +177,7 @@ function Get-TenantDomains
         $Envelope = Create-PSRPEnvelope -Shell_Id $Shell_Id -SessionId $SessionId -Body $Body -Action Command
         
         $Domains = @()
+
         
         try
         {
@@ -183,6 +193,9 @@ function Get-TenantDomains
                 {
                     [xml]$response = Receive-PSRP -Credentials $Credentials -SessionId $SessionId -Shell_Id $Shell_Id -CommandId $commandId -Oauth $Oauth
 
+                    # Update the progress so we know that something is going on..
+                    Write-Progress -Activity "Retrieving domains from tenant ($tenantId)" -Status $(Get-WaitingMessage) -PercentComplete 50
+
                     # Loop through streams
                     foreach($message in $response.Envelope.Body.ReceiveResponse.Stream)
                     {
@@ -194,20 +207,12 @@ function Get-TenantDomains
                             # Extract the StatusDescription and PercentComlete from the message
                             $StatusDescription = (Select-Xml -Xml $xmlData -XPath "//*[@N='StatusDescription']").Node.'#text'
                             [int]$PercentComlete = (Select-Xml -Xml $xmlData -XPath "//*[@N='PercentComplete']").Node.'#text'
-                            
-                            # Extract the domain name
-                            $s=$StatusDescription.IndexOf("'")+1
-                            $e=$StatusDescription.Length-$s-2
-                            $DomainName = $StatusDescription.Substring($s,$e)
+                        }
+                        elseif($parsed_message.'Message type' -eq "Pipeline output")
+                        {
+                            $DomainNames = (Select-Xml -Xml $xmlData -XPath "//*[@N='DomainNames']")
 
-                            # There might some text like "Finish" and "Complete" in the status which we don't need..
-                            if($DomainName.IndexOf(".") -gt 1)
-                            {
-                                $Domains += $DomainName
-                            }
-
-                            # Update the progress so we know what is going on..
-                            Write-Progress -Activity "Retrieving domains from tenant ($Domain)" -Status "Found $DomainName" -PercentComplete $PercentComlete
+                            $Domains = $DomainNames.node.lst.S
                         }
                         elseif($parsed_message.'Message type' -eq "Pipeline state")
                         {
@@ -250,8 +255,8 @@ function Get-TenantDomains
         # Finally remove the shell
         Remove-PSRPShell -Credentials $Credentials -Shell_Id $Shell_Id -SessionId $SessionId -Oauth $Oauth
        
-        # Same domain may be added more than once so do the Select -Unique
-        return $Domains | select -Unique | sort
+        # Return domain names
+        return $Domains | sort
 
     }
         

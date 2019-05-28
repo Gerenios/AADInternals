@@ -523,7 +523,14 @@ function Get-TenantID
                 $Domain = $UserName.Split("@")[1]
             }
 
-            $OpenIdConfig = Get-OpenIDConfiguration -Domain $domain
+            Try
+            {
+                $OpenIdConfig = Get-OpenIDConfiguration -Domain $domain
+            }
+            catch
+            {
+                return $null
+            }
 
             $TenantId = $OpenIdConfig.authorization_endpoint.Split("/")[3]
         }

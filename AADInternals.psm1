@@ -99,6 +99,11 @@ $functions=@(
     "Install-PTASpy"
     "Remove-PTASpy"
     "Get-PTASpyLog"
+
+    # ADFSTools.ps1
+    "New-ADFSSelfSignedCertificates"
+    "Restore-ADFSAutoRollover"
+    "Update-ADFSFederationSettings"
 )
 foreach($function in $functions)
 {
