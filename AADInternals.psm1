@@ -3,7 +3,7 @@ Add-type -AssemblyName System.xml.linq
 Add-Type -AssemblyName System.Runtime.Serialization
 Add-Type -AssemblyName System.Windows.Forms 
 Add-Type -AssemblyName System.Web
-Add-Type -AssemblyName System.Web.Extensions
+Add-Type -AssemblyName System.Web.Extensions 
 
 # Load the .ps1 scripts
 $scripts = @(Get-ChildItem -Path $PSScriptRoot\*.ps1 -ErrorAction SilentlyContinue)
@@ -28,6 +28,7 @@ $functions=@(
     "Get-AccessTokenForMSGraph"
     "Get-AccessTokenForPTA"
     "Get-AccessTokenForEXO"
+    "Get-AccessTokenForSARA"
     "Get-TenantDetails"
     "Read-AccessToken"
     "Get-EndpointInstances"
@@ -72,9 +73,11 @@ $functions=@(
 
     # AzureManagementAPI_utils.ps1
     "Get-AuthTokenForAADIAMAPI"
+    "Get-AccessTokenForAzureMgmtAPI"
 
     # AzureManagementAPI.ps1
     "New-GuestInvitation"
+    "Get-UserTenants"
 
     # ActiveSync.ps1
     "Get-EASAutoDiscover"
@@ -104,6 +107,22 @@ $functions=@(
     "New-ADFSSelfSignedCertificates"
     "Restore-ADFSAutoRollover"
     "Update-ADFSFederationSettings"
+
+    # ClientTools.ps1
+    "Get-OfficeUpdateBranch"
+    "Set-OfficeUpdateBranch"
+
+    # SARA.ps1
+    "Get-SARAUserInfo"
+    "Get-SARATenantInfo"
+
+    # SPO_utils.ps1
+    "Get-SPOAuthenticationHeader"
+
+    # SPO.ps1
+    "Get-SPOSiteUsers"
+    "Get-SPOSiteGroups"
+    "Get-SPOUserProperties"
 )
 foreach($function in $functions)
 {

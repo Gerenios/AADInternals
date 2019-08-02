@@ -29,6 +29,7 @@ $client_ids=@{
     "office_online" =       "bc59ab01-8403-45c6-8796-ac3ef710b3e3" # Office Online
     "powerbi_contentpack" = "2a0c3efa-ba54-4e55-bdc0-770f9e39e9ee" 
     "aad_account" =         "0000000c-0000-0000-c000-000000000000" # https://account.activedirectory.windowsazure.com
+    "sara" =                "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Microsoft Support and Recovery Assistant (SARA)
 }
 
 # AccessToken resource strings
@@ -41,6 +42,7 @@ $resources=@{
     "officeapps" =           "https://officeapps.live.com"
     "outlook" =              "https://outlook.office365.com"
     "webshellsuite" =        "https://webshell.suite.office.com"
+    "sara" =                 "https://api.diagnostics.office.com"
 }
 
 # Stored tokens (access & refresh)
@@ -821,20 +823,25 @@ function Prompt-Credentials
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$False)]
-        [ValidateSet('aad_graph_api','ms_graph_api','azureadmin','outlook')]
+        [ValidateSet('aad_graph_api','ms_graph_api','azureadmin','outlook','sara')]
         [String]$Resource="aad_graph_api",
-        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo')]
-        [String]$ClientId="graph_api"
+        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo','sara')]
+        [String]$ClientId="graph_api",
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant
     )
     Process
     {
-        
+        # Check the tenant
+        if([String]::IsNullOrEmpty($Tenant))        
+        {
+            $Tenant = "common"
+        }
 
         # Set variables
         $auth_redirect="urn:ietf:wg:oauth:2.0:oob"
         $client_id=$client_ids[$ClientId] # Usually should be graph_api
-
+        
         if($Resource -eq "teams")
         {
             # We are logging in as Teams, so need to use different auth_redirect
@@ -843,7 +850,7 @@ function Prompt-Credentials
         
         $request_id=(New-Guid).ToString()
         
-        $url="https://login.microsoftonline.com/common/oauth2/authorize?resource=$($Script:resources[$Resource])&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login"
+        $url="https://login.microsoftonline.com/$Tenant/oauth2/authorize?resource=$($Script:resources[$Resource])&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=openid profile"
 
         # Create the form
         $form = Create-LoginForm -Url $url -auth_redirect $auth_redirect
@@ -851,6 +858,8 @@ function Prompt-Credentials
 
         # Show the form and wait for the return value
         if($form.ShowDialog() -ne "OK") {
+            # Dispose the control
+        $form.Controls[0].Dispose()
             Write-Verbose "Login cancelled"
             return $null
         }
@@ -866,12 +875,15 @@ function Prompt-Credentials
             redirect_uri=$auth_redirect
         }
 
+        # Dispose the control
+        $form.Controls[0].Dispose()
+
         # Verbose
         Write-Verbose "AUTHENTICATION BODY: $($body | Out-String)"
 
         # Set the content type and call the Microsoft Online authentication API
         $contentType="application/x-www-form-urlencoded"
-        $jsonResponse=Invoke-RestMethod -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body
+        $jsonResponse=Invoke-RestMethod -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token" -ContentType $contentType -Method POST -Body $body
 
         # return 
         $jsonResponse
@@ -886,7 +898,7 @@ function Get-AccessTokenFromCache
         [Parameter()]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
-        [ValidateSet('aad_graph_api','ms_graph_api','windows_net_mgmt_api','cloudwebappproxy','officeapps','outlook')]
+        [ValidateSet('aad_graph_api','ms_graph_api','windows_net_mgmt_api','cloudwebappproxy','officeapps','outlook','azureportal')]
         [String]$Resource="aad_graph_api"
     )
     Process
@@ -898,7 +910,7 @@ function Get-AccessTokenFromCache
             if([string]::IsNullOrEmpty($Script:tokens[$Resource]))
             {
                 # Empty, so throw the exception
-                Throw "No saved tokens. Please call Get-AADIntAccessTokenForAADGraph"
+                Throw "No saved tokens. Please call Get-AADIntAccessTokenFor<service>"
             }
             else
             {
@@ -948,11 +960,13 @@ function Get-AccessTokenForAADGraph
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
-        [String]$SAMLToken
+        [String]$SAMLToken,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "aad_graph_api" -ClientId "graph_api" -SAMLToken $SAMLToken
+        Get-AccessToken -Credentials $Credentials -Resource "aad_graph_api" -ClientId "graph_api" -SAMLToken $SAMLToken -Tenant $Tenant
     }
 }
 
@@ -1124,6 +1138,38 @@ function Get-AccessTokenForEXOPS
     }
 }
 
+# Gets the access token for SARA
+# Jul 8th 2019
+function Get-AccessTokenForSARA
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for SARA
+
+    .DESCRIPTION
+    Gets OAuth Access Token for Microsoft Support and Recovery Assistant (SARA)
+
+    .Parameter Credentials
+    Credentials of the user.
+    
+    .Example
+    Get-AADIntAccessTokenForEXOPS
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForEXOPS -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        
+    )
+    Process
+    {
+        # Office app has the required rights to Exchange Online
+        Get-AccessToken -Resource "sara" -ClientId "sara"
+    }
+}
+
 # Gets the access token for provisioning API and stores to cache
 function Get-AccessToken
 {
@@ -1135,10 +1181,12 @@ function Get-AccessToken
         [String]$SAMLToken,
         [Parameter()]
         [switch]$UseAdalCache=$false,
-        [ValidateSet('aad_graph_api','ms_graph_api','windows_net_mgmt_api','cloudwebappproxy','officeapps','outlook')]
+        [ValidateSet('aad_graph_api','ms_graph_api','windows_net_mgmt_api','cloudwebappproxy','officeapps','outlook','sara')]
         [String]$Resource="aad_graph_api",
-        [ValidateSet('graph_api','aadsync','pta','teams','office','exo')]
-        [String]$ClientId="graph_api"
+        [ValidateSet('graph_api','aadsync','pta','teams','office','exo','sara')]
+        [String]$ClientId="graph_api",
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant
     )
     Process
     {
@@ -1180,7 +1228,7 @@ function Get-AccessToken
                 }
                 else
                 {
-                    $OAuthInfo = Prompt-Credentials -ClientId $ClientId
+                    $OAuthInfo = Prompt-Credentials -ClientId $ClientId -Tenant $Tenant
                 }
                 
             }
@@ -1229,6 +1277,8 @@ function Get-AccessToken
                     "refresh_token"=$RefreshToken
                     "scope"="openid"
                 }
+
+                $id_token = 
 
                 # Verbose
                 Write-Verbose "ACCESS TOKEN BODY: $($body | Out-String)"
@@ -1398,11 +1448,26 @@ function Create-LoginForm
         [Parameter(Mandatory=$True)]
         [String]$Url,
         [Parameter(Mandatory=$True)]
-        [String]$auth_redirect
+        [String]$auth_redirect,
+        [Parameter(Mandatory=$False)]
+        [String]$Headers
     )
     Process
     {
-    
+        # Check the registry value for WebBrowser control emulation. Should be IE 11
+        $reg=Get-ItemProperty -Path "HKCU:\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION"
+
+        if([String]::IsNullOrEmpty($reg.'powershell.exe') -or [String]::IsNullOrEmpty($reg.'powershell_ise.exe'))
+        {
+            Write-Warning "WebBrowser control emulation not set for PowerShell or PowerShell ISE!"
+            $answer = Read-Host -Prompt "Do you wan't set the emulation to IE 11? (Y/N)"
+            if($answer -eq "Y")
+            {
+                Set-ItemProperty -Path "HKCU:\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION" -Name "powershell_ise.exe" -Value 0x00002af9
+                Set-ItemProperty -Path "HKCU:\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION" -Name "powershell.exe" -Value 0x00002af9
+                Write-Host "Emulation set. Remember to restart PowerShell/ISE!"
+            }
+        }
 
         # Create the form and add a WebBrowser control to it
         $form = New-Object Windows.Forms.Form
@@ -1416,24 +1481,71 @@ function Create-LoginForm
         $web.Anchor = "Left,Top,Right,Bottom"
         $form.Controls.Add($web)
 
+        # Clear WebBrowser control cache
+        Clear-WebBrowser
+
         # Add an event listener to track down where the browser is
         $web.add_Navigated({
             # If the url matches the redirect url, close with OK.
-            Write-Verbose "NAVIGATED TO: $($_.Url.ToString())"
-            if($_.Url.ToString().StartsWith($auth_redirect)) {
+            $curl=$_.Url.ToString()
+            Write-Verbose "NAVIGATED TO: $($curl)"
+            if($curl.StartsWith($auth_redirect)) {
+
+                # Hack for Azure Portal Login. Jul 11th 2019 
+                # Check whether the body has the Bearer
+                if(![String]::IsNullOrEmpty($form.Controls[0].Document.GetElementsByTagName("script")))
+                {
+                    $script=$form.Controls[0].Document.GetElementsByTagName("script").outerhtml
+                    if($script.Contains("Bearer")){
+                        $s=$script.IndexOf('Bearer ')+7
+                        $e=$script.IndexOf('"',$s)
+                        $script:AccessToken=$script.Substring($s,$e-$s)
+                        Write-Verbose "ACCESSTOKEN $script:accessToken"
+                    }
+                    elseif($curl.StartsWith("https://portal.azure.com"))
+                    {
+                        Write-Verbose "WAITING FOR THE TOKEN!"
+                        # Do nothing, wait for it..
+                        return
+                    }
+                }
+                
+
+
                 $form.DialogResult = "OK"
                 $form.Close()
-                Write-Verbose "PROMPT CREDENTIALS URL: $_.Url"
+                Write-Verbose "PROMPT CREDENTIALS URL: $url"
             } # Automatically logs in -> need to logout first
-            elseif($_.Url.ToString().StartsWith($url)) {
-                $form.DialogResult = "Cancel"
-                $form.Close()
-                Write-Error "Please logout first using Clear-AADIntLiveIdSession."
+            elseif($curl.StartsWith($url)) {
+                # All others
+                Write-Warning "Returned to the starting url, someone already logged in?"
             }
         })
 
+        
+        # Add an event listener to track down where the browser is going
+        $web.add_Navigating({
+            $curl=$_.Url.ToString()
+            Write-Verbose "NAVIGATING TO: $curl"
+            # SharePoint login
+            if($curl.EndsWith("/_forms/default.aspx"))
+            {
+                $_.Cancel=$True
+                $form.DialogResult = "OK"
+                $form.Close()
+            }
+        })
+        
+
         # Set the url
-        $web.Navigate($url)
+        if([String]::IsNullOrEmpty($Headers))
+        {
+            $web.Navigate($url)
+        }
+        else
+        {
+            $web.Navigate($url,"",$null,$Headers)
+        }
 
         # Return
         return $form
@@ -1442,13 +1554,16 @@ function Create-LoginForm
 
 # Clear the Forms.WebBrowser data
 $source=@"
-[DllImport("wininet.dll")]
-
+[DllImport("wininet.dll", SetLastError = true)]
 public static extern bool InternetSetOption(IntPtr hInternet, int dwOption, IntPtr lpBuffer, int lpdwBufferLength);
+
+[DllImport("wininet.dll", SetLastError = true)]
+public static extern bool InternetGetCookieEx(string pchURL, string pchCookieName, System.Text.StringBuilder pchCookieData, ref uint pcchCookieData, int dwFlags, IntPtr lpReserved);
 "@
 #Create type from source
-$wininet = Add-Type -memberDefinition $source -passthru -name ClearBrowser -ErrorAction SilentlyContinue
+$WebBrowser = Add-Type -memberDefinition $source -passthru -name WebBrowser -ErrorAction SilentlyContinue
 $INTERNET_OPTION_END_BROWSER_SESSION = 42;
+$INTERNET_COOKIE_HTTPONLY = 0x00002000;
 function Clear-WebBrowser
 {
     [cmdletbinding()]
@@ -1456,7 +1571,48 @@ function Clear-WebBrowser
     )
     Process
     {
-        $wininet::InternetSetOption([IntPtr]::Zero, $INTERNET_OPTION_END_BROWSER_SESSION, [IntPtr]::Zero, 0)|out-null
+        
+        [IntPtr] $optionPointer = [IntPtr]::Zero
+        $s=[System.Runtime.InteropServices.Marshal]::SizeOf($INTERNET_OPTION_END_BROWSER_SESSION)
+        $optionPointer = [System.Runtime.InteropServices.Marshal]::AllocCoTaskMem($s)
+        [System.Runtime.InteropServices.Marshal]::WriteInt32($optionPointer, ([ref]$INTERNET_OPTION_END_BROWSER_SESSION).Value)
+        $status = $WebBrowser::InternetSetOption([IntPtr]::Zero, $INTERNET_OPTION_END_BROWSER_SESSION, [IntPtr]::Zero, 0)
+        Write-Verbose "Clearing Web browser cache. Status:$status"
+
+        [System.Runtime.InteropServices.Marshal]::Release($optionPointer)|out-null
+    }
+}
+
+function Get-WebBrowserCookies
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Url
+    )
+    Process
+    {
+        $dataSize = 1024
+        $cookieData = [System.Text.StringBuilder]::new($dataSize)
+        $status = $WebBrowser::InternetGetCookieEx($Url,$null,$cookieData, [ref]$dataSize, $INTERNET_COOKIE_HTTPONLY, [IntPtr]::Zero)
+        Write-Verbose "GETCOOKIEEX Status: $status, length: $($cookieData.Length)"
+        if(!$status)
+        {
+            $LastError = [ComponentModel.Win32Exception][Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Verbose "GETCOOKIEEX ERROR: $LastError"
+        }
+
+        if($cookieData.Length -gt 0)
+        {
+            $cookies = $cookieData.ToString()
+            Write-Verbose "Cookies for $url`: $cookies"
+            Return $cookies
+        }
+        else
+        {
+            Write-Warning "Cookies not found for $url"
+        }
+
     }
 }
 

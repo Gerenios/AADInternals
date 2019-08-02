@@ -7,11 +7,11 @@ function Get-AzureManagementUsers
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        $AuthToken
+        $AccessToken
     )
     Process
     {
-        $response=Call-AzureManagementAPI -AuthToken $AuthToken -Command "Users?searchText=&top=100&nextLink=&orderByThumbnails=false&maxThumbnailCount=999&filterValue=All&state=All&adminUnit="
+        $response=Call-AzureAADIAMAPI -AccessToken $AccessToken -Command "Users?searchText=&top=100&nextLink=&orderByThumbnails=false&maxThumbnailCount=999&filterValue=All&state=All&adminUnit="
         return $response.items
     }
 }
@@ -23,7 +23,7 @@ function New-AzureManagementUser
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        $AuthToken,
+        $AccessToken,
         [Parameter(Mandatory=$True)]
         [string]$UserPrincipalnName,
         [Parameter(Mandatory=$True)]
@@ -57,7 +57,7 @@ function New-AzureManagementUser
 
         }
 
-        return Call-AzureManagementAPI -AuthToken $AuthToken -Command "UserDetails" -Body $Body -Method "Post"
+        return Call-AzureAADIAMAPI -AccessToken $AccessToken -Command "UserDetails" -Body $Body -Method "Post"
     }
 }
 
@@ -69,13 +69,13 @@ function Remove-AzureManagementUser
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        $AuthToken,
+        $AccessToken,
         [Parameter(Mandatory=$True)]
         [string]$ObjectId
     )
     Process
     {
-        return Call-AzureManagementAPI -AuthToken $AuthToken -Command "Users/$ObjectId" -Method Delete
+        return Call-AzureAADIAMAPI -AccessToken $AccessToken -Command "Users/$ObjectId" -Method Delete
     }
 }
 
@@ -86,13 +86,13 @@ function Remove-AzureManagementUsers
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        $AuthToken,
+        $AccessToken,
         [Parameter(Mandatory=$True)]
         [string[]]$ObjectIds
     )
     Process
     {
-        return Call-AzureManagementAPI -AuthToken $AuthToken -Command "Users" -Method Delete -Body $ObjectIds
+        return Call-AzureAADIAMAPI -AccessToken $AccessToken -Command "Users" -Method Delete -Body $ObjectIds
     }
 }
 
@@ -103,19 +103,19 @@ function Is-ExternalUserUnique
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        $AuthToken,
+        $AccessToken,
         [Parameter(Mandatory=$True)]
         [string]$EmailAddress
         
     )
     Process
     {
-        return Call-AzureManagementAPI -AuthToken $AuthToken -Command "Users/IsUPNUniqueOrPending/$EmailAddress" 
+        return Call-AzureAADIAMAPI -AccessToken $AccessToken -Command "Users/IsUPNUniqueOrPending/$EmailAddress" 
     }
 }
 
 
-# Invites an external user go AAD
+# Invites an external user to AAD
 # Oct 23rd 2018
 function New-GuestInvitation
 {
@@ -127,7 +127,7 @@ function New-GuestInvitation
     .DESCRIPTION
     Invites an user to AAD using Azure Management API
 
-    .Parameter AuthToken
+    .Parameter AccessToken
     Auth Token
 
     .Parameter EmailAddress
@@ -138,7 +138,7 @@ function New-GuestInvitation
 
     .Example
     PS C:\>$cred=Get-Credential
-    PS C:\>Get-AADIntAuthTokenForAADIAMAPI -Credentials $cred
+    PS C:\>Get-AADIntAccessTokenForAADIAMAPI -Credentials $cred
     PS C:\>New-AADIntGuestInvitation -EmailAddress someone@company.com -Message "Welcome to our Tenant!"
 
     accountEnabled                        : True
@@ -202,7 +202,7 @@ function New-GuestInvitation
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        $AuthToken,
+        $AccessToken,
         [Parameter(Mandatory=$True)]
         [string]$EmailAddress,
         [Parameter(Mandatory=$False)]
@@ -228,7 +228,7 @@ function New-GuestInvitation
             "inviteMessage"=$Message
         }
 
-        return Call-AzureManagementAPI -AuthToken $AuthToken -Command "Users/Invite" -Method "Put" -Body $Body
+        return Call-AzureAADIAMAPI -AccessToken $AccessToken -Command "Users/Invite" -Method "Put" -Body $Body
     }
 }
 
@@ -239,7 +239,7 @@ function Set-AzureManagementAdminRole
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        $AuthToken,
+        $AccessToken,
         [Parameter(Mandatory=$True)]
         [string]$ObjectId
         
@@ -251,18 +251,18 @@ function Set-AzureManagementAdminRole
         }
 
 
-        return Call-AzureManagementAPI -AuthToken $AuthToken -Command "Roles/User/$ObjectId" -Method "Put" -Body $Role
+        return Call-AzureAADIAMAPI -AccessToken $AccessToken -Command "Roles/User/$ObjectId" -Method "Put" -Body $Role
     }
 }
 
-# Sets the user as Global Admin
+# Gets azure activity log
 # Oct 23rd 2018
 function Get-AzureActivityLog
 {
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        $AuthToken,
+        $AccessToken,
         [Parameter(Mandatory=$False)]
         [datetime]$Start=$((Get-Date).AddDays(-30)),
         [Parameter(Mandatory=$False)]
@@ -278,10 +278,52 @@ function Get-AzureActivityLog
 
         
 
-        $response = Call-AzureManagementAPI -AuthToken $AuthToken -Command "Reports/SignInEventsV2" -Method Post -Body $Body
+        $response = Call-AzureAADIAMAPI -AccessToken $AccessToken -Command "Reports/SignInEventsV2" -Method Post -Body $Body
 
         
         # Return
         $response.items
+    }
+}
+
+# Get user's Azure AD tenants
+# Jul 11th 2019
+function Get-UserTenants
+{
+<#
+    .SYNOPSIS
+    Returns tenants the given user is member of
+
+    .DESCRIPTION
+    Returns tenants the given user is member of using Azure Management API
+
+    .Example
+    $at=Get-AccessTokenForAzureMgmtAPI -Credentials $cred
+    PS C:\> Get-UserTenants -AccessToken $at
+    Get-AADIntLoginInformation -Domain outlook.com
+
+    id               : 3087e687-0d37-4c21-87c5-ecac88f0374a
+    domainName       : company.onmicrosoft.com
+    displayName      : Company Ltd
+    isSignedInTenant : True
+    tenantCategory   : 
+
+    id               : 2968be53-ede5-4e30-844a-96d66479fb10
+    domainName       : company2.onmicrosoft.com
+    displayName      : Company2
+    isSignedInTenant : False
+    tenantCategory   : 
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        $AccessToken
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource azureportal
+
+        $response=Call-AzureManagementAPI -AccessToken $AccessToken -Command "directories/List"
+        return $response.tenants
     }
 }

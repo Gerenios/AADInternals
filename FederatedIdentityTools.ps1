@@ -54,6 +54,12 @@ function New-SAMLToken
         [Parameter(Mandatory=$False)]
         [bool]$ByPassMFA=$true,
 
+        [Parameter(Mandatory=$False)]
+        [DateTime]$NotBefore,
+
+        [Parameter(Mandatory=$False)]
+        [DateTime]$NotAfter,
+
         [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
         [switch]$UseBuiltInCertificate,
 
@@ -82,18 +88,28 @@ function New-SAMLToken
         # Import the assemblies
         Add-Type -AssemblyName 'System.IdentityModel, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
         
+        # Check the dates
+        if([String]::IsNullOrEmpty($NotBefore))
+        {
+            $NotBefore = Get-Date
+        }
+        if([String]::IsNullOrEmpty($NotAfter))
+        {
+            $NotAfter = $NotBefore.AddHours(1)
+        }
+
         # Create a new SAML assertion
         $assertion = New-Object System.IdentityModel.Tokens.SamlAssertion
         
         # Set id, time, and issuer
         $assertion.AssertionId = "_$((New-Guid).ToString())"
-        $assertion.IssueInstant = (get-date).ToUniversalTime()
+        $assertion.IssueInstant = $NotBefore.ToUniversalTime()
         $assertion.Issuer = $Issuer
 
         # Create audience and SAML conditions objects
         $audienceCondition = New-Object System.IdentityModel.Tokens.SamlAudienceRestrictionCondition -ArgumentList @(,[System.Uri[]]@(New-Object System.Uri("urn:federation:MicrosoftOnline")))
         $SAMLConditionList = @($audienceCondition)
-        $SAMLConditions = New-Object System.IdentityModel.Tokens.SamlConditions((Get-Date), (Get-Date).AddHours(1), [System.IdentityModel.Tokens.SamlAudienceRestrictionCondition[]]$SAMLConditionList)
+        $SAMLConditions = New-Object System.IdentityModel.Tokens.SamlConditions($NotBefore, $NotAfter, [System.IdentityModel.Tokens.SamlAudienceRestrictionCondition[]]$SAMLConditionList)
         $assertion.Conditions=$SAMLConditions
         
         # Create subject and attribute statements
@@ -116,7 +132,7 @@ function New-SAMLToken
         $assertion.Statements.Add($statement)
 
         # Create authentication statement
-        $assertion.Statements.Add((New-Object System.IdentityModel.Tokens.SamlAuthenticationStatement($subject,"urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport", (Get-Date), $null, $null, $null)))
+        $assertion.Statements.Add((New-Object System.IdentityModel.Tokens.SamlAuthenticationStatement($subject,"urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport", $NotBefore, $null, $null, $null)))
 
         # Sign the assertion
         $ski = New-Object System.IdentityModel.Tokens.SecurityKeyIdentifier((New-Object System.IdentityModel.Tokens.X509RawDataKeyIdentifierClause($Certificate))) 
@@ -186,6 +202,12 @@ function New-SAML2Token
         [Parameter(Mandatory=$False)]
         [String]$InResponseTo,
 
+        [Parameter(Mandatory=$False)]
+        [DateTime]$NotBefore,
+
+        [Parameter(Mandatory=$False)]
+        [DateTime]$NotAfter,
+
         [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
         [switch]$UseBuiltInCertificate,
 
@@ -219,7 +241,16 @@ function New-SAML2Token
         # Import the assemblies
         Add-Type -AssemblyName 'System.IdentityModel, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
 
-        $now = (get-date).ToUniversalTime()
+        # Check the dates
+        if([String]::IsNullOrEmpty($NotBefore))
+        {
+            $NotBefore = Get-Date
+        }
+        if([String]::IsNullOrEmpty($NotAfter))
+        {
+            $NotAfter = $NotBefore.AddHours(1)
+        }
+        
         
         # Create a new SAML2 assertion
         $identifier = New-Object System.IdentityModel.Tokens.Saml2NameIdentifier($Issuer)
@@ -227,7 +258,7 @@ function New-SAML2Token
         
         # Set id, time, and issuer
         $assertion.Id = "_$((New-Guid).ToString())"
-        $assertion.IssueInstant = $now
+        $assertion.IssueInstant = $NotBefore.ToUniversalTime()
         
         # Create subject and related objects
         $subject = New-Object System.IdentityModel.Tokens.Saml2Subject
@@ -235,7 +266,7 @@ function New-SAML2Token
         $subject.NameId.Format = New-Object System.Uri("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent")
         $confirmationData = New-Object System.IdentityModel.Tokens.Saml2SubjectConfirmationData
         $confirmationData.InResponseTo = New-Object System.IdentityModel.Tokens.Saml2Id($InResponseTo)
-        $confirmationData.NotOnOrAfter = $now.AddHours(1)
+        $confirmationData.NotOnOrAfter = $NotAfter
         $confirmationData.Recipient = New-Object System.uri("https://login.microsoftonline.com/login.srf")
         $confirmation = New-Object System.IdentityModel.Tokens.Saml2SubjectConfirmation(New-Object System.Uri("urn:oasis:names:tc:SAML:2.0:cm:bearer"))#, $confirmationData)
         $confirmation.SubjectConfirmationData = $confirmationData
@@ -244,8 +275,8 @@ function New-SAML2Token
 
         # Create condition and audience objects
         $conditions = New-Object System.IdentityModel.Tokens.Saml2Conditions
-        $conditions.NotBefore = $now
-        $conditions.NotOnOrAfter = $now.AddHours(1)
+        $conditions.NotBefore = $NotBefore
+        $conditions.NotOnOrAfter = $NotAfter
         $conditions.AudienceRestrictions.Add((New-Object System.IdentityModel.Tokens.Saml2AudienceRestriction(New-Object System.Uri("urn:federation:MicrosoftOnline", [System.UriKind]::RelativeOrAbsolute))))
         $assertion.Conditions = $conditions
 
@@ -256,7 +287,7 @@ function New-SAML2Token
         $assertion.Statements.Add($statement)
         $authenticationContext = New-Object System.IdentityModel.Tokens.Saml2AuthenticationContext(New-Object System.Uri("urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport"))
         $authenticationStatement = New-Object System.IdentityModel.Tokens.Saml2AuthenticationStatement($authenticationContext)
-        $authenticationStatement.AuthenticationInstant = $now
+        $authenticationStatement.AuthenticationInstant = $NotBefore
         $authenticationStatement.SessionIndex = $assertion.Id.Value
         $assertion.Statements.Add($authenticationStatement)
 
@@ -285,17 +316,33 @@ function New-WSFedResponse
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [String]$SAMLToken
+        [String]$SAMLToken,
+
+        [Parameter(Mandatory=$False)]
+        [DateTime]$NotBefore,
+
+        [Parameter(Mandatory=$False)]
+        [DateTime]$NotAfter
     )
     Process
     {
+
+        # Check the dates
+        if([String]::IsNullOrEmpty($NotBefore))
+        {
+            $NotBefore = Get-Date
+        }
+        if([String]::IsNullOrEmpty($NotAfter))
+        {
+            $NotAfter = $NotBefore.AddHours(1)
+        }
 
         # Create the Request Security Token Response
         $response=@"
         <t:RequestSecurityTokenResponse xmlns:t="http://schemas.xmlsoap.org/ws/2005/02/trust">
             <t:Lifetime>
-                <wsu:Created xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">$((Get-Date).toString("o"))</wsu:Created>
-                <wsu:Expires xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">$((Get-Date).AddHours(1).toString("o"))</wsu:Expires>
+                <wsu:Created xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">$($NotBefore.toString("o"))</wsu:Created>
+                <wsu:Expires xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">$($NotAfter.toString("o"))</wsu:Expires>
             </t:Lifetime>
             <wsp:AppliesTo xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy">
                 <wsa:EndpointReference xmlns:wsa="http://www.w3.org/2005/08/addressing">
@@ -321,14 +368,32 @@ function New-SAMLPResponse
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [String]$SAML2Token
+        [String]$SAML2Token,
+
+        [Parameter(Mandatory=$False)]
+        [DateTime]$NotBefore,
+
+        [Parameter(Mandatory=$False)]
+        [DateTime]$NotAfter,
+
+        [Parameter(Mandatory=$False)]
+        [String]$InResponseTo
     )
     Process
     {
+        # Check the dates
+        if([String]::IsNullOrEmpty($NotBefore))
+        {
+            $NotBefore = Get-Date
+        }
+        if([String]::IsNullOrEmpty($NotAfter))
+        {
+            $NotAfter = $NotBefore.AddHours(1)
+        }
 
         # Create the Request Security Token Response
         $response=@"
-        <samlp:Response ID="_$((New-Guid).ToString())" Version="2.0" IssueInstant="$((Get-Date).toString('s'))Z" Destination="https://login.microsoftonline.com/login.srf" Consent="urn:oasis:names:tc:SAML:2.0:consent:unspecified" InResponseTo="$InResponseTo" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
+        <samlp:Response ID="_$((New-Guid).ToString())" Version="2.0" IssueInstant="$($NotBefore.toString('s'))Z" Destination="https://login.microsoftonline.com/login.srf" Consent="urn:oasis:names:tc:SAML:2.0:consent:unspecified" InResponseTo="$InResponseTo" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
             <Issuer xmlns="urn:oasis:names:tc:SAML:2.0:assertion">$Issuer</Issuer>
             <samlp:Status>
                 <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success" />
@@ -442,6 +507,12 @@ function Open-Office365Portal
         [bool]$ByPassMFA=$true,
         [ValidateSet('WSFED','SAMLP')]
         $TokenType="WSFED",
+        
+        [Parameter(Mandatory=$False)]
+        [DateTime]$NotBefore,
+        [Parameter(Mandatory=$False)]
+        [DateTime]$NotAfter,
+
         [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
         [switch]$UseBuiltInCertificate,
         [Parameter(ParameterSetName='Certificate',Mandatory=$True)]
@@ -454,6 +525,16 @@ function Open-Office365Portal
     )
     Process
     {
+        # Check the dates
+        if([String]::IsNullOrEmpty($NotBefore))
+        {
+            $NotBefore = Get-Date
+        }
+        if([String]::IsNullOrEmpty($NotAfter))
+        {
+            $NotAfter = $NotBefore.AddHours(1)
+        }
+
         # Do we use built-in certificate (any.sts)
         if($UseBuiltInCertificate)
         {
@@ -477,8 +558,8 @@ function Open-Office365Portal
         if($TokenType -eq "WSFED")
         {
             # Create SAML token and WSFED response
-            $token=New-SAMLToken -UserName $UserName -ImmutableID $ImmutableId -Issuer $Issuer -Certificate $Certificate
-            $wsfed=New-WSFedResponse -SAMLToken $token
+            $token=New-SAMLToken -UserName $UserName -ImmutableID $ImmutableId -Issuer $Issuer -Certificate $Certificate -NotBefore $NotBefore -NotAfter $NotAfter -ByPassMFA $ByPassMFA
+            $wsfed=New-WSFedResponse -SAMLToken $token -NotBefore $NotBefore -NotAfter $NotAfter
 
             # Create a login form
             $form=@"
@@ -498,8 +579,8 @@ function Open-Office365Portal
         else
         {
             # Create SAML2 token and SAMLP response
-            $token=New-SAML2Token -UserName $UserName -ImmutableID $ImmutableId -Issuer $Issuer -Certificate $Certificate
-            $samlp=New-SAMLPResponse -SAML2Token $token
+            $token=New-SAML2Token -UserName $UserName -ImmutableID $ImmutableId -Issuer $Issuer -Certificate $Certificate -NotBefore $NotBefore -NotAfter $NotAfter
+            $samlp=New-SAMLPResponse -SAML2Token $token -NotBefore $NotBefore -NotAfter $NotAfter
 
             # Create a login form
             $form=@"

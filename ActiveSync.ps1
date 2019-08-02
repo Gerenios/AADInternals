@@ -3,7 +3,7 @@
     Performs autodiscover for the given user and protocol
 
     .DESCRIPTION
-    Performs autodiscover for the given user using AutoDiscover V2. Returns the url of the requested protocol
+    Performs autodiscover for the given user using AutoDiscover V2. Returns the url of the requested protocol, defaults to ActiveSync
 
     .Example
     Get-AADIntEASAutoDiscover -Email user@company.com
@@ -14,11 +14,20 @@
 
 
     .Example
-    Get-AADIntEASAutoDiscover -Email user@company.com -Protocol Ews
+    Get-AADIntEASAutoDiscover -Email user@company.com -Protocol All
 
-    Protocol Url                                            
-    -------- ---                                            
-    ews      https://outlook.office365.com/EWS/Exchange.asmx
+    Protocol                     Url                                                        
+    --------                     ---                                                        
+    Rest                         https://outlook.office.com/api                             
+    ActiveSync                   https://outlook.office365.com/Microsoft-Server-ActiveSync  
+    Ews                          https://outlook.office365.com/EWS/Exchange.asmx            
+    Substrate                    https://substrate.office.com                               
+    Substratesearchservice       https://outlook.office365.com/search                       
+    AutodiscoverV1               https://outlook.office365.com/autodiscover/autodiscover.xml
+    substratesearchservice       https://outlook.office365.com/search                       
+    substratenotificationservice https://substrate.office.com/insights                      
+    outlookmeetingscheduler      https://outlook.office.com/scheduling/api                  
+    outlookpay                   https://outlook.office.com/opay
     
 #>
 function Get-EASAutoDiscover
@@ -27,15 +36,28 @@ function Get-EASAutoDiscover
             
             [Parameter(Mandatory=$True)]
             [String]$Email,
-            [ValidateSet('Rest','ActiveSync','Ews','Substrate','Substratesearchservice','AutodiscoverV1','substratesearchservice','substratenotificationservice','outlookmeetingscheduler','outlookpay')]
-            [String]$Protocol="ActiveSync"
+            [ValidateSet('All','Rest','ActiveSync','Ews','Substrate','Substratesearchservice','AutodiscoverV1','substratesearchservice','substratenotificationservice','outlookmeetingscheduler','outlookpay')]
+            [String]$Protocol="All"
         )
     Process
     {
-        
-        $url = "https://outlook.office365.com/Autodiscover/Autodiscover.json?Email=$Email&Protocol=$Protocol"
+        if($Protocol -eq "All")
+        {
+            $Protocols = @('Rest','ActiveSync','Ews','Substrate','Substratesearchservice','AutodiscoverV1','substratesearchservice','substratenotificationservice','outlookmeetingscheduler','outlookpay')
+            $Response = @()
+            foreach($p in $Protocols)
+            {
+                $url = "https://outlook.office365.com/Autodiscover/Autodiscover.json?Email=$Email&Protocol=$p"
 
-        $response=Invoke-RestMethod -Uri $url -Method Get
+                $response+=Invoke-RestMethod -Uri $url -Method Get
+            }
+        }
+        else
+        {
+            $url = "https://outlook.office365.com/Autodiscover/Autodiscover.json?Email=$Email&Protocol=$Protocol"
+
+            $response=Invoke-RestMethod -Uri $url -Method Get
+        }
         $response
     }
 }
@@ -209,7 +231,9 @@ function Send-EASMessage
             [Parameter(Mandatory=$True)]
             [String]$DeviceId,
             [Parameter(Mandatory=$False)]
-            [String]$DeviceType="Android"
+            [String]$DeviceType="Android",
+            [Parameter(Mandatory=$False)]
+            [String]$DeviceOS
         )
     Process
     {
@@ -231,7 +255,7 @@ $(Get-MessageAsBase64 -Message $Message)
 ]]></MIME></SendMail>
 "@
 
-        $response = Call-EAS -Request $request -Command SendMail -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken) -DeviceId $DeviceId -DeviceType $DeviceType
+        $response = Call-EAS -Request $request -Command SendMail -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken) -DeviceId $DeviceId -DeviceType $DeviceType -DeviceOS $DeviceOS
 
         return $response
     }
