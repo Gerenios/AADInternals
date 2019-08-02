@@ -533,6 +533,8 @@ function Call-EAS
         [String]$DeviceId,
         [Parameter(Mandatory=$False)]
         [String]$DeviceType="Android",
+        [Parameter(Mandatory=$False)]
+        [String]$DeviceOS,
         [Parameter(Mandatory=$True)]
         [ValidateSet('Sync','SendMail','SmartForward','SmartReply','GetAttachment','GetHierarchy','CreateCollection','DeleteCollection','MoveCollection','FolderSync','FolderCreate','FolderDelete','FolderUpdate','MoveItems','GetItemEstimate','MeetingResponse','Search','Settings','Ping','ItemOperations','Provision','ResolveRecipients','ValidateCert','Find')]
         [String]$Command,
@@ -550,7 +552,7 @@ function Call-EAS
     Process
         {
     
-        $url="https://outlook.office365.com/Microsoft-Server-ActiveSync?Cmd=$Command&User=$(Get-UserNameFromAuthHeader($Authorization))&DeviceId=$DeviceId&DeviceType=$DeviceType"    
+        $url="https://outlook.office365.com/Microsoft-Server-ActiveSync?Cmd=$Command&User=$(Get-UserNameFromAuthHeader($Authorization))&DeviceId=$DeviceId&DeviceType=$DeviceType&DeviceOS=$DeviceOS"    
 
         $headers = @{
             "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken

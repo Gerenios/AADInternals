@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.2.3'
+	ModuleVersion = '0.2.4'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -23,7 +23,7 @@
 
 
 	# Description of the functionality provided by this module
-	Description = 'The AADInternals PowerShell Module utilises several internal features of Azure Active Directory and related admin tools. DISCLAIMER: Functionality provided through this module are not supported by Microsoft and thus should not be used in a production environment. Use on your own risk!'
+	Description = 'The AADInternals PowerShell Module utilises several internal features of Azure Active Directory, Office 365, and related admin tools. DISCLAIMER: Functionality provided through this module are not supported by Microsoft and thus should not be used in a production environment. Use on your own risk!'
 
 	# Minimum version of the Windows PowerShell engine required by this module
 	# PowerShellVersion = ''

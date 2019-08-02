@@ -10,7 +10,7 @@ function Create-WebSession
         [Parameter(Mandatory=$True)]
         [string]$Domain
     )
-    Process
+    Process 
     {
         
         
@@ -44,6 +44,29 @@ function Create-WebSession
             }
             
         }
+        elseif($domain.EndsWith(".sharepoint.com")) # Sharepoint
+        {
+            $SetCookie = $SetCookieHeader.Replace("HttpOnly","|").Split("|")
+            foreach($Cookie in $SetCookie) 
+            {
+                if(![String]::IsNullOrEmpty($Cookie))
+                {
+                    $Cookie = $Cookie.Split(";")[0].trim()
+                    $name = $Cookie.Split("=")[0].trim()
+                    $value = $Cookie.Substring($name.Length+1)
+
+                    # Strip the trailing semi colon
+                    $value=$value.Split(";")[0]
+                
+                    $webCookie = New-Object System.Net.Cookie
+                    $webCookie.Name = $name
+                    $webCookie.Value = $value
+                    $webCookie.Domain = $Domain
+                    $session.Cookies.Add($webCookie)
+                    Write-Verbose "COOKIE [$Domain]: $webCookie"
+                }
+            }
+        }
         else # login.microsoftonline.com: 
         {
             # Split the cookie string
@@ -56,7 +79,7 @@ function Create-WebSession
                 {
                     $webCookie = New-Object System.Net.Cookie
                     $webCookie.Name = $Cookie.Split("=")[0]
-                    $webCookie.Value = $Cookie.Split("=")[1]
+                    $webCookie.Value = $Cookie.Substring($webCookie.Name.Length+1)
                     $webCookie.Domain = $Domain
                     $session.Cookies.Add($webCookie)
                     Write-Verbose "COOKIE [$Domain]: $webCookie"
@@ -106,7 +129,8 @@ function Create-WebSession2
 # Gets the access token for Azure Management API
 # Uses totally different flow than other access tokens.
 # Oct 23rd 2018
-function Get-AuthTokenForAzureMgmtAPI
+# TODO: Add support for form based & SAML authentication
+function Get-AccessTokenForAzureMgmtAPI
 {
 <#
     .SYNOPSIS
@@ -129,242 +153,292 @@ function Get-AuthTokenForAzureMgmtAPI
     )
     Process
     {
-        $userName = $Credentials.UserName
-        $password = $credentials.GetNetworkCredential().Password
-
-
-        # Step 1: Go to portal.azure.com to get cookies and authentication url
-        $response = Invoke-WebRequest -uri "https://portal.azure.com/signin/idpRedirect.js/?feature.settingsportalinstance=&idpRedirectCount=0."
-        $html=$response.Content
-        $s=$html.IndexOf('https://login.microsoftonline.com')
-        $e=$html.IndexOf('"',$s)
-        $url=$html.Substring($s,$e-$s)
-        $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "portal.azure.com"
-
-        # Step 2: Go to login.microsoftonline.com to get configuration and cookies
-        $response = Invoke-WebRequest -uri $url -Headers @{Cookie="x-ms-gateway-slice=004; stsservicecookie=ests; AADSSO=NANoExtension; SSOCOOKIEPULLED=1"}
-        $html = $response.Content
-
-        $s=$html.IndexOf('$Config=')
-        $e=$html.IndexOf('};',$s+8)
-        $config=$html.Substring($s+8,$e-$s-7) | ConvertFrom-Json
-        $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
-
-        # Step3: Get user information, including Flow Token
-        $userInfo=Get-CredentialType -UserName $userName -FlowToken $config.sFT
-
-        # LOGIN.LIVE.COM
-        if($userInfo.EstsProperties.DomainType -eq 2) # =live account
+        $accessToken=""
+        # Check if we got credentials
+        if([string]::IsNullOrEmpty($Credentials) -and [string]::IsNullOrEmpty($SAMLToken))
         {
-            # Step L1: Go to login.live.com to get configuration and cookies
-            $response = Invoke-WebRequest -uri $config.urlGoToAADError
-            $html = $response.Content
-
-            $s=$html.IndexOf('ServerData =')
-            $e=$html.IndexOf('};',$s+13)
-            $config=$html.Substring($s+13,$e-$s-12) 
-            
-            # ConvertFrom-Json is caseinsensitive so need to use this one
-            $config = (New-Object -TypeName System.Web.Script.Serialization.JavaScriptSerializer -Property @{MaxJsonLength=67108864}).DeserializeObject($config)
-
-            $liveWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.live.com"
-
-            $sFTTag= [xml]$config.sFTTag
-            $PPFT = $sFTTag.SelectSingleNode("//input[@name='PPFT']").value
-            
-
-            # Step L2: Login to login.live.com
-            $body=@{
-                "login" = $userName
-                "loginFmt" = $userName
-                "i13"="0"
-                "type"="11"
-                "LoginOptions"="3"
-                "passwd"=$password
-                "ps"="2"
-                "canary"=""
-                "ctx"=""
-                "NewUser"="1"
-                "fspost"="0"
-                "i21"="0"
-                "CookieDisclosure"="1"
-                "IsFidoSupported"="1"
-                "hpgrequestid"=""
-                "PPSX"="Pa"
-                "PPFT"=$PPFT
-                "i18"="__ConvergedLoginPaginatedStrings|1,__OldConvergedLogin_PCore|1,"
-                "i2"="1"
-                }
-            $headers=@{
-                "User-Agent"="Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-                "Upgrade-Insecure-Requests" = "1"
-
-            }
-
-            $response = Invoke-WebRequest -Uri $config.urlPost -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $liveWebSession
-            $html = $response.Content
-
-            # No well formed xml, so need to do some tricks.. First, find the form start and end tags
-            $s=$html.IndexOf("<form")
-            $e=$html.IndexOf("</form>")
-            $form = $html.Substring($s,$e-$s) # Strip the form end tag
-            # End all tags
-            $form=$form.replace('">','"/>')
-            # Add start and end tags
-            $form="<html>$form</html>"
-
-            $html=[xml]$form
-
-            $fmHF = $html.SelectSingleNode("//form[@name='fmHF']").action
-            $code = $html.SelectSingleNode("//input[@name='code']").value
-            $state = $html.SelectSingleNode("//input[@name='state']").value
+            # No credentials given, so prompt for credentials
+            $accessToken = Prompt-AzureADCredentials
+                
+        }
+        else
+        {
+            $userName = $Credentials.UserName
+            $password = $credentials.GetNetworkCredential().Password
 
 
-            # Step L3: Login to login.microsoftonline.com with code and state
-            $body = @{
-                "code" = $code
-                "state" = $state
-            }
-            $response = Invoke-WebRequest -Uri $fmHF -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
-            $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
-            $html = $response.Content
-            $s=$html.IndexOf('$Config=')
-            $e=$html.IndexOf('};',$s+8)
-            $config=$html.Substring($s+8,$e-$s-7) | ConvertFrom-Json
-            
-
-            # Step L4: Get code, id_token, and state information
-            $body=@{
-                "LoginOptions"="0"
-                "flowToken"=$config.sFT
-                "canary"=$config.canary
-                "ctx"=$config.sCtx
-                "hpgrequestid"=(New-Guid).ToString()
-            }
-            $response = Invoke-WebRequest -Uri "https://login.microsoftonline.com/kmsi" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
-            $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
-            $html = [xml]$response.Content
-            $code = $html.SelectSingleNode("//input[@name='code']").value
-            $id_token = $html.SelectSingleNode("//input[@name='id_token']").value
-            $state = $html.SelectSingleNode("//input[@name='state']").value
-            $session_state = $html.SelectSingleNode("//input[@name='session_state']").value
-
-            # Step L5: Sign in to portal.azure.com to get redirect URL
-            $body=@{
-                "code"= $code
-                "id_token" = $id_token
-                "state" = $state
-                "session_state" = $session_state
-            }
-            $response = Invoke-WebRequest -Uri "https://portal.azure.com/signin/index/" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
-            $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "portal.azure.com"
-            $html=$response.Content
-            $s=$html.IndexOf('Auth.redirect("')
-            $e=$html.IndexOf('")',$s)
-            $url=$html.Substring($s+15,$e-$s-15) #|ConvertFrom-Json
-
-            # Step L6: Go to portal.azure.com to get another redirect URL
-            $response = Invoke-WebRequest -Uri $url -Method Get -Headers $headers -WebSession $azureWebSession
-            $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "portal.azure.com"
+            # Step 1: Go to portal.azure.com to get cookies and authentication url
+            $response = Invoke-WebRequest -uri "https://portal.azure.com/signin/idpRedirect.js/?feature.settingsportalinstance=&idpRedirectCount=0."
             $html=$response.Content
             $s=$html.IndexOf('https://login.microsoftonline.com')
             $e=$html.IndexOf('"',$s)
-            $url=$html.Substring($s,$e-$s)# |ConvertFrom-Json
-
-            # Step L7: Login to login.microsoftonline.com (again) using the received url to get code etc.
-            $response = Invoke-WebRequest -Uri $url -Method Get -ContentType "application/x-www-form-urlencoded" -Headers $headers -WebSession $MSOnlineComwebSession
-            $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
-            $html = [xml]$response.Content
-            $code = $html.SelectSingleNode("//input[@name='code']").value
-            $id_token = $html.SelectSingleNode("//input[@name='id_token']").value
-            $state = $html.SelectSingleNode("//input[@name='state']").value
-            $session_state = $html.SelectSingleNode("//input[@name='session_state']").value
-            $url = $html.SelectSingleNode("//form[@name='hiddenform']").action
-
-            # Step L8: Sign in to portal.azure.com to get OAuth token
-            $body=@{
-                "code"= $code
-                "id_token" = $id_token
-                "state" = $state
-                "session_state" = $session_state
-            }
-            $response = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
+            $url=$html.Substring($s,$e-$s)
             $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "portal.azure.com"
-            
-        }
-        else # LOGIN.MICROSOFTONLINE.COM
-        {
 
-            # Step M1: Login to login.microsoftonline.com
-            $body=@{
-                "login" = $userName
-                "loginFmt" = $userName
-                "i13"="0"
-                "type"="11"
-                "LoginOptions"="3"
-                "passwd"=$password
-                "ps"="2"
-                "flowToken"=$userInfo.FlowToken
-                "canary"=$config.canary
-                "ctx"=$config.sCtx
-                "NewUser"="1"
-                "fspost"="0"
-                "i21"="0"
-                "CookieDisclosure"="1"
-                "IsFidoSupported"="1"
-                "hpgrequestid"=(New-Guid).ToString()
-            }
-            $headers=@{
-                "User-Agent"="Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-                "Upgrade-Insecure-Requests" = "1"
-
-            }
-            $response = Invoke-WebRequest -Uri "https://login.microsoftonline.com/common/login" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
-            $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
+            # Step 2: Go to login.microsoftonline.com to get configuration and cookies
+            $response = Invoke-WebRequest -uri $url -Headers @{Cookie="x-ms-gateway-slice=004; stsservicecookie=ests; AADSSO=NANoExtension; SSOCOOKIEPULLED=1"}
             $html = $response.Content
+
             $s=$html.IndexOf('$Config=')
             $e=$html.IndexOf('};',$s+8)
             $config=$html.Substring($s+8,$e-$s-7) | ConvertFrom-Json
             $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
 
-            # Step M2: Get code, id_token, and state information
-            $body=@{
-                "LoginOptions"="0"
-                "flowToken"=$config.sFT
-                "canary"=$config.canary
-                "ctx"=$config.sCtx
-                "hpgrequestid"=(New-Guid).ToString()
-            }
-            $response = Invoke-WebRequest -Uri "https://login.microsoftonline.com/kmsi" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
-            $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
-            $html = [xml]$response.Content
-            $code = $html.SelectSingleNode("//input[@name='code']").value
-            $id_token = $html.SelectSingleNode("//input[@name='id_token']").value
-            $state = $html.SelectSingleNode("//input[@name='state']").value
-            $session_state = $html.SelectSingleNode("//input[@name='session_state']").value
+            # Step3: Get user information, including Flow Token
+            $userInfo=Get-CredentialType -UserName $userName -FlowToken $config.sFT
 
-            # Step M3: Sign in to portal.azure.com
-            $body=@{
-                "code"= $code
-                "id_token" = $id_token
-                "state" = $state
-                "session_state" = $session_state
+            # LOGIN.LIVE.COM
+            if($userInfo.EstsProperties.DomainType -eq 2) # =live account
+            {
+                # Step L1: Go to login.live.com to get configuration and cookies
+                $response = Invoke-WebRequest -uri $config.urlGoToAADError
+                $html = $response.Content
+
+                $s=$html.IndexOf('ServerData =')
+                $e=$html.IndexOf('};',$s+13)
+                $config=$html.Substring($s+13,$e-$s-12) 
+            
+                # ConvertFrom-Json is caseinsensitive so need to use this one
+                $config = (New-Object -TypeName System.Web.Script.Serialization.JavaScriptSerializer -Property @{MaxJsonLength=67108864}).DeserializeObject($config)
+
+                $liveWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.live.com"
+
+                $sFTTag= [xml]$config.sFTTag
+                $PPFT = $sFTTag.SelectSingleNode("//input[@name='PPFT']").value
+            
+
+                # Step L2: Login to login.live.com
+                $body=@{
+                    "login" = $userName
+                    "loginFmt" = $userName
+                    "i13"="0"
+                    "type"="11"
+                    "LoginOptions"="3"
+                    "passwd"=$password
+                    "ps"="2"
+                    "canary"=""
+                    "ctx"=""
+                    "NewUser"="1"
+                    "fspost"="0"
+                    "i21"="0"
+                    "CookieDisclosure"="1"
+                    "IsFidoSupported"="1"
+                    "hpgrequestid"=""
+                    "PPSX"="Pa"
+                    "PPFT"=$PPFT
+                    "i18"="__ConvergedLoginPaginatedStrings|1,__OldConvergedLogin_PCore|1,"
+                    "i2"="1"
+                    }
+                $headers=@{
+                    "User-Agent"="Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                    "Upgrade-Insecure-Requests" = "1"
+
+                }
+
+                $response = Invoke-WebRequest -Uri $config.urlPost -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $liveWebSession
+                $html = $response.Content
+
+                # No well formed xml, so need to do some tricks.. First, find the form start and end tags
+                $s=$html.IndexOf("<form")
+                $e=$html.IndexOf("</form>")
+                $form = $html.Substring($s,$e-$s) # Strip the form end tag
+                # End all tags
+                $form=$form.replace('">','"/>')
+                # Add start and end tags
+                $form="<html>$form</html>"
+
+                $html=[xml]$form
+
+                $fmHF = $html.SelectSingleNode("//form[@name='fmHF']").action
+                $code = $html.SelectSingleNode("//input[@name='code']").value
+                $state = $html.SelectSingleNode("//input[@name='state']").value
+
+
+                # Step L3: Login to login.microsoftonline.com with code and state
+                $body = @{
+                    "code" = $code
+                    "state" = $state
+                }
+                $response = Invoke-WebRequest -Uri $fmHF -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
+                $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
+                $html = $response.Content
+                $s=$html.IndexOf('$Config=')
+                $e=$html.IndexOf('};',$s+8)
+                $config=$html.Substring($s+8,$e-$s-7) | ConvertFrom-Json
+            
+
+                # Step L4: Get code, id_token, and state information
+                $body=@{
+                    "LoginOptions"="0"
+                    "flowToken"=$config.sFT
+                    "canary"=$config.canary
+                    "ctx"=$config.sCtx
+                    "hpgrequestid"=(New-Guid).ToString()
+                }
+                $response = Invoke-WebRequest -Uri "https://login.microsoftonline.com/kmsi" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
+                $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
+                $html = [xml]$response.Content
+                $code = $html.SelectSingleNode("//input[@name='code']").value
+                $id_token = $html.SelectSingleNode("//input[@name='id_token']").value
+                $state = $html.SelectSingleNode("//input[@name='state']").value
+                $session_state = $html.SelectSingleNode("//input[@name='session_state']").value
+
+                # Step L5: Sign in to portal.azure.com to get redirect URL
+                $body=@{
+                    "code"= $code
+                    "id_token" = $id_token
+                    "state" = $state
+                    "session_state" = $session_state
+                }
+                $response = Invoke-WebRequest -Uri "https://portal.azure.com/signin/index/" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
+                $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "portal.azure.com"
+                $html=$response.Content
+                $s=$html.IndexOf('MsPortalImpl.redirectToUri("')
+                $e=$html.IndexOf('")',$s)
+                $url=$html.Substring($s+28,$e-$s-28) 
+
+                # Step L6: Go to portal.azure.com to get another redirect URL
+                $response = Invoke-WebRequest -Uri $url -Method Get -Headers $headers -WebSession $azureWebSession
+                $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "portal.azure.com"
+                $html=$response.Content
+                $s=$html.IndexOf('https://login.microsoftonline.com')
+                $e=$html.IndexOf('"',$s)
+                $url=$html.Substring($s,$e-$s)# |ConvertFrom-Json
+
+                # Step L7: Login to login.microsoftonline.com (again) using the received url to get code etc.
+                $response = Invoke-WebRequest -Uri $url -Method Get -ContentType "application/x-www-form-urlencoded" -Headers $headers -WebSession $MSOnlineComwebSession
+                $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
+                $html = [xml]$response.Content
+                $code = $html.SelectSingleNode("//input[@name='code']").value
+                $id_token = $html.SelectSingleNode("//input[@name='id_token']").value
+                $state = $html.SelectSingleNode("//input[@name='state']").value
+                $session_state = $html.SelectSingleNode("//input[@name='session_state']").value
+                $url = $html.SelectSingleNode("//form[@name='hiddenform']").action
+
+                # Step L8: Sign in to portal.azure.com to get OAuth token
+                $body=@{
+                    "code"= $code
+                    "id_token" = $id_token
+                    "state" = $state
+                    "session_state" = $session_state
+                }
+                $response = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
+                $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "portal.azure.com"
+            
             }
-            $response = Invoke-WebRequest -Uri "https://portal.azure.com/signin/index/" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
+            else # LOGIN.MICROSOFTONLINE.COM
+            {
+
+                # Step M1: Login to login.microsoftonline.com
+                $body=@{
+                    "login" = $userName
+                    "loginFmt" = $userName
+                    "i13"="0"
+                    "type"="11"
+                    "LoginOptions"="3"
+                    "passwd"=$password
+                    "ps"="2"
+                    "flowToken"=$userInfo.FlowToken
+                    "canary"=$config.canary
+                    "ctx"=$config.sCtx
+                    "NewUser"="1"
+                    "fspost"="0"
+                    "i21"="0"
+                    "CookieDisclosure"="1"
+                    "IsFidoSupported"="1"
+                    "hpgrequestid"=(New-Guid).ToString()
+                }
+                $headers=@{
+                    "User-Agent"="Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                    "Upgrade-Insecure-Requests" = "1"
+
+                }
+                $response = Invoke-WebRequest -Uri "https://login.microsoftonline.com/common/login" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
+                $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
+                $html = $response.Content
+                $s=$html.IndexOf('$Config=')
+                $e=$html.IndexOf('};',$s+8)
+                $config=$html.Substring($s+8,$e-$s-7) | ConvertFrom-Json
+                $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
+
+                # Step M2: Get code, id_token, and state information
+                $body=@{
+                    "LoginOptions"="0"
+                    "flowToken"=$config.sFT
+                    "canary"=$config.canary
+                    "ctx"=$config.sCtx
+                    "hpgrequestid"=(New-Guid).ToString()
+                }
+                $response = Invoke-WebRequest -Uri "https://login.microsoftonline.com/kmsi" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
+                $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
+                $html = [xml]$response.Content
+                $code = $html.SelectSingleNode("//input[@name='code']").value
+                $id_token = $html.SelectSingleNode("//input[@name='id_token']").value
+                $state = $html.SelectSingleNode("//input[@name='state']").value
+                $session_state = $html.SelectSingleNode("//input[@name='session_state']").value
+
+                # Step M3: Sign in to portal.azure.com
+                $body=@{
+                    "code"= $code
+                    "id_token" = $id_token
+                    "state" = $state
+                    "session_state" = $session_state
+                }
+                $response = Invoke-WebRequest -Uri "https://portal.azure.com/signin/index/" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
+            }
+
+            # Get the OAuth token
+            $html=$response.Content
+
+            $s=$html.IndexOf('{"oAuthToken":')
+            $e=$html.IndexOf('}}',$s)
+            $token=$html.Substring($s,$e-$s+2) |ConvertFrom-Json
+
+            # Return
+            $accessToken = $token.oAuthToken.authHeader.Split(" ")[1]
         }
 
-        # Get the OAuth token
-        $html=$response.Content
-
-        $s=$html.IndexOf('{"oAuthToken":')
-        $e=$html.IndexOf('}}',$s)
-        $token=$html.Substring($s,$e-$s+2) |ConvertFrom-Json
+        # Save the tokens to cache
+        $tokenToCache = New-Object PSObject -Property @{access_token = $accessToken}
+        $Script:tokens["azureportal"]=$tokenToCache
 
         # Return
-        $token.oAuthToken
+        $accessToken
+    
     }
 }
 
+# Gets the access token for Azure AD IAM API
+# Oct 24th 2018
+# TODO: Add support for form based & SAML authentication
+function Get-AccessTokenForAADIAMAPI
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Azure AD IAM API
+
+    .DESCRIPTION
+    Gets OAuth Access Token for Azure AD IAM API
+
+    .Parameter Credentials
+    Credentials of the user.
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForAADIAMAPI -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter()]
+        [System.Management.Automation.PSCredential]$Credentials
+    )
+    Process
+    {
+        $AADAuth = Get-AccessTokenForAzureMgmtAPI($Credentials)
+        $token = Get-DelegationToken -ExtensionName Microsoft_AAD_IAM -AccessToken $AADAuth
+        return $token.authHeader.Split(" ")[1]
+    }
+}
 
 # Get delegation token for the given extension
 function Get-DelegationToken
@@ -377,14 +451,14 @@ function Get-DelegationToken
         [Parameter(Mandatory=$False)]
         $ResourceName="self",
         [Parameter(Mandatory=$True)]
-        $AuthToken
+        $AccessToken
     )
     Process
     {
         # Check the expiration
-        if(Is-AccessTokenExpired($AuthToken))
+        if(Is-AccessTokenExpired($AccessToken))
         {
-            throw "AuthToken has expired"
+            throw "AccessToken has expired"
         }
 
 
@@ -404,9 +478,9 @@ function Get-DelegationToken
 
         $Body=@{
             "extensionName" = $ExtensionName
-            "portalAuthorization" = $AuthToken.refreshToken
+            "portalAuthorization" = $AccessToken.refreshToken
             "resourceName" = $ResourceName
-            "tenant" = Get-TenantId $AuthToken
+            "tenant" = Get-TenantId -AccessToken $AccessToken
         }
         # Call the API
         $response = Invoke-RestMethod -Uri "https://portal.azure.com/api/DelegationToken?feature.tokencaching=true" -ContentType "application/json" -Method POST -Body ($Body | ConvertTo-Json) #-Headers $Headers -WebSession $Script:azureWebSession
@@ -416,15 +490,15 @@ function Get-DelegationToken
     }
 }
 
-# Calls the Azure Management API
-function Call-AzureManagementAPI
+# Calls the Azure AD IAM API
+function Call-AzureAADIAMAPI
 {
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
         $Body,
         [Parameter(Mandatory=$True)]
-        $AuthToken,
+        $AccessToken,
         [Parameter(Mandatory=$True)]
         $Command,
         [Parameter(Mandatory=$False)]
@@ -434,13 +508,13 @@ function Call-AzureManagementAPI
     Process
     {
         # Check the expiration
-        if(Is-AccessTokenExpired($AuthToken))
+        if(Is-AccessTokenExpired($AccessToken))
         {
-            throw "AuthToken has expired"
+            throw "AccessToken has expired"
         }
 
         $headers=@{
-            "Authorization" = $AuthToken.authHeader
+            "Authorization" = "Bearer $AccessToken"
             "X-Requested-With" = "XMLHttpRequest"
             "x-ms-client-request-id" = (New-Guid).ToString()
         }
@@ -455,32 +529,76 @@ function Call-AzureManagementAPI
     }
 }
 
-# Gets the access token for Azure AD IAM API
-# Oct 24th2018
-function Get-AuthTokenForAADIAMAPI
+# Calls the Azure Management API
+# Jul 11th 2019
+function Call-AzureManagementAPI
 {
-<#
-    .SYNOPSIS
-    Gets OAuth Access Token for Azure AD IAM API
-
-    .DESCRIPTION
-    Gets OAuth Access Token for Azure AD IAM API
-
-    .Parameter Credentials
-    Credentials of the user.
-    
-    .Example
-    PS C:\>$cred=Get-Credential
-    PS C:\>Get-AADIntAuthTokenForAADIAMAPI -Credentials $cred
-#>
     [cmdletbinding()]
     Param(
-        [Parameter()]
-        [System.Management.Automation.PSCredential]$Credentials
+        [Parameter(Mandatory=$False)]
+        $Body,
+        [Parameter(Mandatory=$True)]
+        $AccessToken,
+        [Parameter(Mandatory=$True)]
+        $Command
     )
     Process
     {
-        $AADAuth = Get-AuthTokenForAzureMgmtAPI($Credentials)
-        return Get-DelegationToken -ExtensionName Microsoft_AAD_IAM -AuthToken $AADAuth
+        # Check the expiration
+        if(Is-AccessTokenExpired($AccessToken))
+        {
+            throw "AccessToken has expired"
+        }
+
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+            "X-Requested-With" = "XMLHttpRequest"
+            "x-ms-client-request-id" = (New-Guid).ToString()
+        }
+        # Call the API
+        $response=Invoke-RestMethod -Uri "https://portal.azure.com/api/$command" -Method Post -Headers $headers
+    
+        # Return
+        return $response
+       
+    }
+}
+
+
+
+# Prompts for credentials and gets the access token
+# Supports MFA, federation, etc.
+# Jul 11th 2019
+function Prompt-AzureADCredentials
+{
+    [cmdletbinding()]
+    Param(
+    )
+    Process
+    {
+        # Set variables
+        $auth_redirect="https://portal.azure.com/signin/index/"
+        $url="https://portal.azure.com/"
+
+        # Create the form
+        $form = Create-LoginForm -Url $url -auth_redirect $auth_redirect
+
+        # Show the form and wait for the return value
+        if($form.ShowDialog() -ne "OK") {
+            # Dispose the control
+            $form.Controls[0].Dispose()
+            Write-Verbose "Login cancelled"
+            return $null
+        }
+
+        # Dispose the control
+        $form.Controls[0].Dispose()
+
+        # Get the access token from script scope variable
+        $accessToken = $script:accessToken
+        $script:accessToken = $null
+
+        # Return
+        $accessToken
     }
 }
