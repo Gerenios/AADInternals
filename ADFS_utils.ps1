@@ -1,4 +1,175 @@
-﻿#May 24th 2019
+﻿# Updated Aug 8th 2019
+
+function Export-ADFSSigningCertificate
+{
+<#
+    .SYNOPSIS
+    Exports ADFS token signing certificate
+
+    .Description
+    Exports ADFS signing certificate from WID configuration database. Must be run on ADFS server
+    as domain administrator or ADFS service user (requires access to DKM container).
+    The exported certificate DOES NOT HAVE PASSWORD!
+  
+    .Parameter fileName
+    Filename of the certificate to be exported. Default is ADFSSigningCertificate.pfx.
+
+    .Example
+    Export-AADIntADFSSigningCertificate
+    
+    .Example
+    Export-AADIntADFSSigningCertificate -fileName myadfs.pfx
+    
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$fileName="ADFSSigningCertificate.pfx"
+    )
+    Process
+    {
+        Export-ADFSCertificate -fileName $fileName -type Signing 
+    }
+}
+
+function Export-ADFSEncryptionCertificate
+{
+<#
+    .SYNOPSIS
+    Exports ADFS token encryption certificate
+
+    .Description
+    Exports ADFS encryption certificate from WID configuration database. Must be run on ADFS server
+    as domain administrator or ADFS service user (requires access to DKM container).
+    The exported certificate DOES NOT HAVE PASSWORD!
+  
+    .Parameter fileName
+    Filename of the certificate to be exported. Default is ADFSEncryptionCertificate.pfx.
+
+    .Example
+    Export-AADIntADFSEncryptionCertificate
+    
+    .Example
+    Export-AADIntADFSEncryptionCertificate -fileName myadfs.pfx
+    
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$fileName="ADFSEncryptionCertificate.pfx"
+    )
+    Process
+    {
+        Export-ADFSCertificate -fileName $fileName -type Encryption 
+    }
+}
+
+function Export-ADFSCertificate
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$fileName="ADFSSigningCertificate.pfx",
+        [Parameter(Mandatory=$True)]
+        [ValidateSet('Encryption','Signing')]
+        [String]$type
+    )
+    Process
+    {
+        # Check that we are on ADFS server
+        if((Get-Service ADFSSRV -ErrorAction SilentlyContinue) -eq $null)
+        {
+            Write-Error "This command needs to be run on ADFS server"
+            return
+        }
+
+        # Get the database connection string
+        $ADFS = Get-WmiObject -Namespace root/ADFS -Class SecurityTokenService
+        $conn = $ADFS.ConfigurationDatabaseConnectionString
+        Write-Verbose "ConnectionString: $conn"
+
+        # Read the service settings from the database
+        $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList $conn
+        $SQLclient.Open()
+        $SQLcmd = $SQLclient.CreateCommand()
+        $SQLcmd.CommandText = "SELECT ServiceSettingsData from IdentityServerPolicy.ServiceSettings"
+        $SQLreader = $SQLcmd.ExecuteReader()
+        $SQLreader.Read() | Out-Null
+        $settings=$SQLreader.GetTextReader(0).ReadToEnd()
+        $SQLreader.Dispose()
+        Write-Verbose "Settings: $settings"
+
+        # Read the XML, get the encrypted PFX, and save the bytes to a variable
+        [xml]$xml=$settings
+        if($type -eq "Signing")
+        {
+            $encPfx=$xml.ServiceSettingsData.SecurityTokenService.AdditionalSigningTokens.CertificateReference.EncryptedPfx
+        }
+        else
+        {
+            $encPfx=$xml.ServiceSettingsData.SecurityTokenService.AdditionalEncryptionTokens.CertificateReference.EncryptedPfx
+        }
+        $encPfxBytes=[System.Convert]::FromBase64String($encPfx)
+
+         # Get DKM container info
+        $group=$xml.ServiceSettingsData.PolicyStore.DkmSettings.Group
+        $container=$xml.ServiceSettingsData.PolicyStore.DkmSettings.ContainerName
+        $parent=$xml.ServiceSettingsData.PolicyStore.DkmSettings.ParentContainerDn
+        $base="CN=$group,$container,$parent"
+
+        # Read the encryption key from AD object
+        $key=(Get-ADObject -filter 'ObjectClass -eq "Contact" -and name -ne "CryptoPolicy"' -SearchBase $base -Properties thumbnailPhoto).thumbnailPhoto
+        Write-Verbose "Key:"
+        Write-Verbose "$($key|Format-Hex)"
+             
+        # Get the key material - some are needed, some not. 
+        # Values are Der encoded except cipher text and mac, so the first byte is tag and the second one size of the data. 
+        $guid=        $encPfxBytes[8..25]  # 18 bytes
+        $KDF_oid=     $encPfxBytes[26..36] # 11 bytes
+        $MAC_oid=     $encPfxBytes[37..47] # 11 bytes
+        $enc_oid=     $encPfxBytes[48..58] # 11 bytes
+        $nonce=       $encPfxBytes[59..92] # 34 bytes
+        $iv=          $encPfxBytes[93..110] # 18 bytes
+        $ciphertext = $encPfxBytes[115..$($encPfxBytes.Length-33)]
+        $cipherMAC =  $encPfxBytes[$($encPfxBytes.Length-32)..$($encPfxBytes.Length)]
+
+        # Create the label
+        $label = $enc_oid + $MAC_oid
+
+        # Derive the decryption key using (almost) standard NIST SP 800-108. The last bit array should be the size of the key in bits, but MS is using bytes (?)
+        # As the key size is only 16 bytes (128 bits), no need to loop.
+        $hmac = New-Object System.Security.Cryptography.HMACSHA256 -ArgumentList @(,$key)
+        $hmacOutput = $hmac.ComputeHash( @(0x00,0x00,0x00,0x01) + $label + @(0x00) + $nonce[2..33] + @(0x00,0x00,0x00,0x30) )
+        $decryptionKey = $hmacOutput[0..15]
+        Write-Verbose "Decryption key:"
+        Write-Verbose "$($decryptionKey|Format-Hex)"
+         
+        # Create a decryptor and decrypt
+        $Crypto = [System.Security.Cryptography.SymmetricAlgorithm]::Create("AES")
+        $Crypto.Mode="CBC"
+        $Crypto.KeySize = 128
+        $Crypto.BlockSize = 128
+        $Crypto.Padding = "None"
+        $Crypto.Key = $decryptionKey
+        $Crypto.IV = $iv[2..17]
+
+        $decryptor = $Crypto.CreateDecryptor()
+
+        # Create a memory stream and write the cipher text to it through CryptoStream
+        $ms = New-Object System.IO.MemoryStream
+        $cs = New-Object System.Security.Cryptography.CryptoStream($ms,$decryptor,[System.Security.Cryptography.CryptoStreamMode]::Write)
+        $cs.Write($ciphertext,0,$ciphertext.Count)
+        $cs.Close()
+
+        # Get the results and export to the file
+        $pfx = $ms.ToArray()
+        $ms.Close()
+
+        $pfx |  Set-Content $fileName -Encoding Byte 
+    }
+}
+
+#May 24th 2019
 function New-ADFSSelfSignedCertificates
 {
 <#

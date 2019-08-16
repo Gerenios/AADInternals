@@ -56,6 +56,6 @@ function Set-OfficeUpdateBranch
     {
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\office\$Version\common\officeupdate\" -Name "updateBranch" -Value $UpdateBranch
 
-        Get-OfficeUpdateBranch -Version version
+        Get-OfficeUpdateBranch -Version $Version
     }
 }

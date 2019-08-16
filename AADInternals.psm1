@@ -19,8 +19,12 @@ foreach ($script in $scripts) {
 
 # Export functions
 $functions=@(
-    # Export-ADFSSigningCertificate.ps1
+    # ADFS_utils.ps1
     "Export-ADFSSigningCertificate"
+    "Export-ADFSEncryptionCertificate"
+    "New-ADFSSelfSignedCertificates"
+    "Restore-ADFSAutoRollover"
+    "Update-ADFSFederationSettings"
 
     # AccessToken_utils.ps1
     "Get-LoginInformation"
@@ -72,7 +76,7 @@ $functions=@(
     "Set-PasswordHashSyncEnabled"
 
     # AzureManagementAPI_utils.ps1
-    "Get-AuthTokenForAADIAMAPI"
+    "Get-AccessTokenForAADIAMAPI"
     "Get-AccessTokenForAzureMgmtAPI"
 
     # AzureManagementAPI.ps1
@@ -102,11 +106,6 @@ $functions=@(
     "Install-PTASpy"
     "Remove-PTASpy"
     "Get-PTASpyLog"
-
-    # ADFSTools.ps1
-    "New-ADFSSelfSignedCertificates"
-    "Restore-ADFSAutoRollover"
-    "Update-ADFSFederationSettings"
 
     # ClientTools.ps1
     "Get-OfficeUpdateBranch"
