@@ -149,7 +149,9 @@ function Get-AccessTokenForAzureMgmtAPI
     [cmdletbinding()]
     Param(
         [Parameter()]
-        [System.Management.Automation.PSCredential]$Credentials
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter()]
+        [Switch]$ExportTokenObject
     )
     Process
     {
@@ -396,14 +398,23 @@ function Get-AccessTokenForAzureMgmtAPI
 
             # Return
             $accessToken = $token.oAuthToken.authHeader.Split(" ")[1]
+            $refreshToken = $token.oAuthToken.refreshToken
+
         }
 
         # Save the tokens to cache
-        $tokenToCache = New-Object PSObject -Property @{access_token = $accessToken}
+        $tokenToCache = New-Object PSObject -Property @{"access_token" = $accessToken; "refresh_token"=$refreshToken}
         $Script:tokens["azureportal"]=$tokenToCache
 
         # Return
-        $accessToken
+        if($ExportTokenObject)
+        {
+            return $tokenToCache
+        }
+        else
+        {
+            $accessToken
+        }
     
     }
 }
@@ -434,7 +445,7 @@ function Get-AccessTokenForAADIAMAPI
     )
     Process
     {
-        $AADAuth = Get-AccessTokenForAzureMgmtAPI($Credentials)
+        $AADAuth = Get-AccessTokenForAzureMgmtAPI -Credentials $Credentials -ExportTokenObject
         $token = Get-DelegationToken -ExtensionName Microsoft_AAD_IAM -AccessToken $AADAuth
         return $token.authHeader.Split(" ")[1]
     }
@@ -456,7 +467,7 @@ function Get-DelegationToken
     Process
     {
         # Check the expiration
-        if(Is-AccessTokenExpired($AccessToken))
+        if(Is-AccessTokenExpired($AccessToken.access_token))
         {
             throw "AccessToken has expired"
         }
@@ -478,7 +489,7 @@ function Get-DelegationToken
 
         $Body=@{
             "extensionName" = $ExtensionName
-            "portalAuthorization" = $AccessToken.refreshToken
+            "portalAuthorization" = $AccessToken.refresh_token
             "resourceName" = $ResourceName
             "tenant" = Get-TenantId -AccessToken $AccessToken
         }
