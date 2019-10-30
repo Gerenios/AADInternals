@@ -1,5 +1,32 @@
 ﻿# This module contains functions to extract and update AADConnect sync credentials
 
+# Oct 29th 2019
+function Check-Server
+{
+    # Check that we are on AADConnect server
+    if((Get-Service ADSync -ErrorAction SilentlyContinue) -eq $null)
+    {
+        Write-Error "This command needs to be run on a computer with AADConnect"
+        return $false
+    }
+
+    # Add the encryption reference (should always be there)
+    Add-Type -path 'C:\Program Files\Microsoft Azure AD Sync\Bin\mcrypt.dll’
+
+    # Check the version number 1.4.xx.xx changed the location of key sets so not working :(
+    try
+    {
+        $ver=((Get-WmiObject Win32_Service -Filter "Name='ADSync'").PathName.Split('"')[1] | Get-Item).VersionInfo.FileVersion
+        $ver2=$ver.split('.')
+        if($ver2[0] -eq 1 -and $ver2[1] -ge 4)
+        {
+            Write-Warning "Passwords can be extracted only for ADSync version 1.3.xx.xx! The current version is $ver"
+        }
+    }
+    catch{}
+}
+
+
 # May 15th 2019
 function Get-SyncCredentials
 {
@@ -26,15 +53,11 @@ function Get-SyncCredentials
     Param()
     Process
     {
-        # Check that we are on AADConnect server
-        if((Get-Service ADSync -ErrorAction SilentlyContinue) -eq $null)
+        # Do the checks
+        if((Check-Server) -eq $false)
         {
-            Write-Error "This command needs to be run on a computer with AADConnect"
             return
         }
-
-        # Add the encryption reference (should always be there)
-        Add-Type -path 'C:\Program Files\Microsoft Azure AD Sync\Bin\mcrypt.dll’
 
         # Read the encrypt/decrypt key settings
         $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList "Data Source=(localdb)\.\ADSync;Initial Catalog=ADSync"
@@ -67,25 +90,34 @@ function Get-SyncCredentials
         $SQLreader.Close()
         $SQLclient.Close()
 
-        # Decrypt config data
-        $KeyMgr = New-Object -TypeName Microsoft.DirectoryServices.MetadirectoryServices.Cryptography.KeyManager
-        $KeyMgr.LoadKeySet($entropy, $instance_id, $key_id)
-        $key = $null
-        $KeyMgr.GetActiveCredentialKey([ref]$key)
-        $key2 = $null
-        $KeyMgr.GetKey(1, [ref]$key2)
-        $ADDecryptedConfig = $null
-        $AADDecryptedConfig = $null
-        $key2.DecryptBase64ToString($ADCryptedConfig, [ref]$ADDecryptedConfig)
-        $key2.DecryptBase64ToString($AADCryptedConfig, [ref]$AADDecryptedConfig)
-
         # Extract the data
         $attributes=@{}
         $attributes["ADUser"]=([xml]$ADConfig).'adma-configuration'.'forest-login-user'
         $attributes["ADDomain"]=([xml]$ADConfig).'adma-configuration'.'forest-login-domain'
-        $attributes["ADUserPassword"]=([xml]$ADDecryptedConfig).'encrypted-attributes'.attribute.'#text'
         $attributes["AADUser"]=([xml]$AADConfig).MAConfig.'parameter-values'.parameter[0].'#text'
-        $attributes["AADUserPassword"]=([xml]$AADDecryptedConfig).'encrypted-attributes'.attribute.'#text'
+
+        # Decrypt config data
+        $KeyMgr = New-Object -TypeName Microsoft.DirectoryServices.MetadirectoryServices.Cryptography.KeyManager
+        try
+        {
+            $KeyMgr.LoadKeySet($entropy, $instance_id, $key_id)
+            $key = $null
+            $KeyMgr.GetActiveCredentialKey([ref]$key)
+            $key2 = $null
+            $KeyMgr.GetKey(1, [ref]$key2)
+            $ADDecryptedConfig = $null
+            $AADDecryptedConfig = $null
+            $key2.DecryptBase64ToString($ADCryptedConfig, [ref]$ADDecryptedConfig)
+            $key2.DecryptBase64ToString($AADCryptedConfig, [ref]$AADDecryptedConfig)
+
+            # Extract the ecrypted data
+            $attributes["ADUserPassword"]=([xml]$ADDecryptedConfig).'encrypted-attributes'.attribute.'#text'
+            $attributes["AADUserPassword"]=([xml]$AADDecryptedConfig).'encrypted-attributes'.attribute.'#text'
+        }
+        catch
+        {
+            Write-Error "Could not load key set!"
+        }
 
         # Return
         return New-Object -TypeName PSObject -Property $attributes
@@ -139,11 +171,10 @@ function Update-SyncCredentials
      )
     Process
     {
-        # Check that we are on AADConnect server
-        if((Get-Service ADSync -ErrorAction SilentlyContinue) -eq $null)
+        # Do the checks
+        if((Check-Server) -eq $false)
         {
-            Write-Error "This command needs to be run on a computer with AADConnect"
-            return
+           return
         }
 
         # Get from cache if not provided
@@ -156,9 +187,6 @@ function Update-SyncCredentials
         }
         # Admin user
         $AdminUser = (Read-Accesstoken -AccessToken $at).upn
-
-        # Add the encryption reference (should always be there)
-        Add-Type -path 'C:\Program Files\Microsoft Azure AD Sync\Bin\mcrypt.dll’
 
         # Get the current configuration
         $SyncCreds = Get-SyncCredentials
@@ -291,6 +319,8 @@ function Set-ADSyncAccountPassword
             Write-Error "This command needs to be run on a computer with AADConnect"
             return
         }
+        
+        
 
         # Add the encryption reference (should always be there)
         Add-Type -path 'C:\Program Files\Microsoft Azure AD Sync\Bin\mcrypt.dll’

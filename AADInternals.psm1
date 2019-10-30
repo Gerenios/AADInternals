@@ -72,8 +72,11 @@ $functions=@(
     "Get-SyncObjects"
     "Set-UserPassword"
     "Reset-ServiceAccount"
-    "Set-PassThroughAuthentication"
+    "Set-PassThroughAuthenticationEnabled"
     "Set-PasswordHashSyncEnabled"
+    "Set-DesktopSSOEnabled"
+    "Get-DesktopSSO"
+    "Set-DesktopSSO"
 
     # AzureManagementAPI_utils.ps1
     "Get-AccessTokenForAADIAMAPI"
@@ -122,6 +125,9 @@ $functions=@(
     "Get-SPOSiteUsers"
     "Get-SPOSiteGroups"
     "Get-SPOUserProperties"
+
+    # Kerberos.ps1
+    "New-KerberosTicket"
 )
 foreach($function in $functions)
 {

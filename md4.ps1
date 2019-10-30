@@ -2,12 +2,15 @@
     PARAM(
         [String]$String,
         [Byte[]]$bArray,
-        [Switch]$UpperCase
+        [Switch]$UpperCase,
+        [Switch]$AsByteArray # Added by Nestori Syynimaa Aug 23th 2019
     )
     
     # Author: Larry.Song@outlook.com
     # Reference: https://tools.ietf.org/html/rfc1320
-    # MD4('abc'): a448017aaf21d8525fc10ae87aa6729d
+    # MD4('abc'): 
+    #     a448017aaf21d8525fc10ae87aa6729d UTF-8
+    #     e0fba38268d0ec66ef1cb452d5885e53 Unicode
     $Array = [byte[]]@()
     if($String)
     {
@@ -144,12 +147,20 @@ public class Shift
     $D = ('{0:x8}' -f $D) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
     # Output end
 
-    if($UpperCase)
+    
+    if($AsByteArray)
     {
-        return "$A$B$C$D".ToUpper()
+        return [byte[]]("$A$B$C$D" -replace '..', '0x$&,' -split ',' -ne '')
     }
     else
     {
-        return "$A$B$C$D"
+        if($UpperCase)
+        {
+            return "$A$B$C$D".ToUpper()
+        }
+        else
+        {
+            return "$A$B$C$D"
+        }
     }
 }
