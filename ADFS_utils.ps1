@@ -118,7 +118,13 @@ function Export-ADFSCertificate
         $base="CN=$group,$container,$parent"
 
         # Read the encryption key from AD object
-        $key=(Get-ADObject -filter 'ObjectClass -eq "Contact" -and name -ne "CryptoPolicy"' -SearchBase $base -Properties thumbnailPhoto).thumbnailPhoto
+        $ADSearch = New-Object System.DirectoryServices.DirectorySearcher
+        $ADSearch.PropertiesToLoad.Add("thumbnailphoto") | Out-Null
+        $ADSearch.Filter='(&(objectclass=contact)(!name=CryptoPolicy))'
+        $ADUser=$ADSearch.FindOne() 
+        $key=[byte[]]$aduser.Properties["thumbnailphoto"][0] 
+        Write-Verbose "Key:"
+        Write-Verbose "$($key|Format-Hex)"
         Write-Verbose "Key:"
         Write-Verbose "$($key|Format-Hex)"
              

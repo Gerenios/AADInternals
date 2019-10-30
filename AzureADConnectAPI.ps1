@@ -840,7 +840,7 @@ function Reset-ServiceAccount
 }
 
 # Enable or disable pass-through authentication
-function Set-PassThroughAuthentication
+function Set-PassThroughAuthenticationEnabled
 {
 <#
     .SYNOPSIS
@@ -898,3 +898,193 @@ function Set-PassThroughAuthentication
     }
 }
 
+# Aug 21st 2019
+function Get-DesktopSSO
+{
+<#
+    .SYNOPSIS
+    Returns the status of Seamless SSO status
+
+    .DESCRIPTION
+    Returns the status of Seamless SSO status
+
+    .Parameter AccessToken
+    Access Token.
+
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>$pt=Get-AADIntAccessTokenForPTA -Credentials $cred
+    PS C:\>Get-AADIntSeamlessSSO -AccessToken $pt
+
+    Domains      : company.com
+    Enable       : True
+    ErrorMessage : 
+    Exists       : True
+    IsSuccessful : True
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        $tenantId = (Read-Accesstoken $AccessToken).tid
+        $url="https://$tenantId.registration.msappproxy.net/register/GetDesktopSsoStatus"
+
+        $body=@"
+        <TokenAuthenticationRequest xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Security.AadSecurity" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	        <AuthenticationToken>$AccessToken</AuthenticationToken>
+        </TokenAuthenticationRequest>
+"@
+        $results=Invoke-RestMethod -Uri $url -Body $body -Method Post -ContentType "application/xml; charset=utf-8"
+
+        $attributes=@{
+            "ErrorMessage" = $results.DesktopSsoStatusResult.ErrorMessage
+            "IsSuccessful" = $($results.DesktopSsoStatusResult.IsSuccessful -eq "true")
+            "Enabled" = $($results.DesktopSsoStatusResult.Enable -eq "true")
+            "Exists" = $($results.DesktopSsoStatusResult.Exists -eq "true")
+            "Domains" = $results.DesktopSsoStatusResult.domains.string
+        }
+
+        return New-Object -TypeName PSObject -Property $attributes
+    }
+}
+
+# Aug 21st 2019
+function Set-DesktopSSO
+{
+<#
+    .SYNOPSIS
+    Enables or disables Seamless SSO for the given domain
+
+    .DESCRIPTION
+    Enables or disables Seamless SSO for the given domain
+
+    .Parameter AccessToken
+    Access Token.
+
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>$pt=Get-AADIntAccessTokenForPTA -Credentials $cred
+    PS C:\>Set-AADIntSeamlessSSO -AccessToken $pt -DomainName "company.net" -Password "MySecretPassWord"
+
+    IsSuccessful ErrorMessage
+    ------------ ------------
+            True             
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [String]$ComputerName="AZUREADSSOACC",
+        [Parameter(Mandatory=$True)]
+        [String]$DomainName,
+        [Parameter(Mandatory=$False)]
+        [Bool]$Enable=$True,
+        [Parameter(Mandatory=$True)]
+        [String]$Password
+    )
+    Process
+    {
+        $tenantId = (Read-Accesstoken $AccessToken).tid
+        $url="https://$tenantId.registration.msappproxy.net/register/EnableDesktopSso"
+
+        $body=@"
+        <DesktopSsoRequest xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.RegistrationCommons.Registration" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	        <AuthenticationToken xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Security.AadSecurity">$AccessToken</AuthenticationToken>
+	        <ComputerName>$ComputerName</ComputerName>
+	        <DomainName>$DomainName</DomainName>
+	        <Enable>$($Enable.ToString().ToLower())</Enable>
+	        <Secret>$([System.Security.SecurityElement]::Escape($Password))</Secret>
+        </DesktopSsoRequest>
+"@
+        $results=Invoke-RestMethod -Uri $url -Body $body -Method Post -ContentType "application/xml; charset=utf-8"
+
+
+        $attributes=@{
+            "ErrorMessage" = $results.DesktopSsoEnablementResult.ErrorMessage
+            "IsSuccessful" = $($results.DesktopSsoEnablementResult.IsSuccessful -eq "true")
+        }
+
+        $setPwd=Read-Host -Prompt "Would you like to set the password of $ComputerName to `"$Password`"(yes/no)?"
+        if($setPwd -eq "yes")
+        {
+            
+            try
+            {
+                $computer = Get-ADComputer AZUREADSSOACC
+                Set-ADAccountPassword -Identity $computer.DistinguishedName -NewPassword (ConvertTo-SecureString -AsPlainText $Password -Force)
+
+                # TGT ticket can be alive for a week..
+                Write-Warning "Password set for $ComputerName. The Kerberos Key Distribution Center should be restarted for the change to take effect."
+            }
+            catch
+            {
+                Write-Error "Could not set password for $ComputerName! Set it manually using Set-ADAccountPassword -Identity $($computer.DistinguishedName) -NewPassword (ConvertTo-SecureString -AsPlainText `"$Password`" -Force)"
+            }
+        }
+        else
+        {
+            # If not set, users won't be able to login..
+            Write-Warning "Password NOT set for $ComputerName! Set it manually to `"$Password`" and restart Kerberos Key Distribution Center for the change to take effect."
+        }
+
+        return New-Object -TypeName PSObject -Property $attributes
+    }
+}
+
+# Aug 21st 2019
+function Set-DesktopSSOEnabled
+{
+<#
+    .SYNOPSIS
+    Enables or disables Seamless SSO 
+
+    .DESCRIPTION
+    Enables or disables Seamless SSO 
+
+    .Parameter AccessToken
+    Access Token.
+
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>$pt=Get-AADIntAccessTokenForPTA -Credentials $cred
+    PS C:\>Set-AADIntSeamlessSSOEnabled -AccessToken $pt -Enable $true 
+
+    Domains      : company.com
+    Enabled      : True
+    ErrorMessage : 
+    Exists       : True
+    IsSuccessful : True          
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [Bool]$Enable=$True
+    )
+    Process
+    {
+        $tenantId = (Read-Accesstoken $AccessToken).tid
+        $url="https://$tenantId.registration.msappproxy.net/register/EnableDesktopSsoFlag"
+
+        $body=@"
+        <DesktopSsoEnablementRequest  xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.RegistrationCommons.Registration" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	        <AuthenticationToken xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Security.AadSecurity">$AccessToken</AuthenticationToken>
+	        <Enable>$($Enable.ToString().ToLower())</Enable>
+        </DesktopSsoEnablementRequest >
+"@
+        $results=Invoke-RestMethod -Uri $url -Body $body -Method Post -ContentType "application/xml; charset=utf-8"
+
+
+        $attributes=@{
+            "ErrorMessage" = $results.DesktopSsoEnablementResult.ErrorMessage
+            "IsSuccessful" = $($results.DesktopSsoEnablementResult.IsSuccessful -eq "true")
+        }
+
+        return New-Object -TypeName PSObject -Property $attributes
+    }
+}

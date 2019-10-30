@@ -30,6 +30,8 @@ $client_ids=@{
     "powerbi_contentpack" = "2a0c3efa-ba54-4e55-bdc0-770f9e39e9ee" 
     "aad_account" =         "0000000c-0000-0000-c000-000000000000" # https://account.activedirectory.windowsazure.com
     "sara" =                "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Microsoft Support and Recovery Assistant (SARA)
+    "office_mgmt" =         "389b1b32-b5d5-43b2-bddc-84ce938d6737" # Office Management API Editor https://manage.office.com 
+    "onedrive" =            "ab9b8c07-8f02-4f72-87fa-80105867a763" # OneDrive Sync Engine
 }
 
 # AccessToken resource strings
@@ -43,6 +45,7 @@ $resources=@{
     "outlook" =              "https://outlook.office365.com"
     "webshellsuite" =        "https://webshell.suite.office.com"
     "sara" =                 "https://api.diagnostics.office.com"
+    "office_mgmt" =          "https://manage.office.com"
 }
 
 # Stored tokens (access & refresh)
@@ -580,7 +583,7 @@ function Get-OAuthInfoUsingSAML
         [String]$SAMLToken,
         [ValidateSet('aad_graph_api','ms_graph_api')]
         [String]$Resource="aad_graph_api",
-        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo')]
+        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo','office_mgmt')]
         [String]$ClientId="graph_api"
     )
     Process
@@ -626,7 +629,7 @@ function Get-OAuthInfo
         [System.Management.Automation.PSCredential]$Credentials,
         [ValidateSet('aad_graph_api','ms_graph_api')]
         [String]$Resource="aad_graph_api",
-        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo')]
+        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo','office_mgmt')]
         [String]$ClientId="graph_api"
     )
     Process
@@ -898,7 +901,7 @@ function Get-AccessTokenFromCache
         [Parameter()]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
-        [ValidateSet('aad_graph_api','ms_graph_api','windows_net_mgmt_api','cloudwebappproxy','officeapps','outlook','azureportal')]
+        [ValidateSet('aad_graph_api','ms_graph_api','windows_net_mgmt_api','cloudwebappproxy','officeapps','outlook','azureportal','office_mgmt')]
         [String]$Resource="aad_graph_api"
     )
     Process
@@ -947,6 +950,15 @@ function Get-AccessTokenForAADGraph
 
     .Parameter Credentials
     Credentials of the user. If not given, credentials are prompted.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos ticket
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
     
     .Example
     Get-AADIntAccessTokenForAADGraph
@@ -961,12 +973,16 @@ function Get-AccessTokenForAADGraph
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
         [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
         [Parameter(Mandatory=$False)]
         [String]$Tenant
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "aad_graph_api" -ClientId "graph_api" -SAMLToken $SAMLToken -Tenant $Tenant
+        Get-AccessToken -Credentials $Credentials -Resource "aad_graph_api" -ClientId "graph_api" -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain
     }
 }
 
@@ -983,6 +999,15 @@ function Get-AccessTokenForMSGraph
 
     .Parameter Credentials
     Credentials of the user. If not given, credentials are prompted.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
     
     .Example
     Get-AADIntAccessTokenForMSGraph
@@ -996,11 +1021,15 @@ function Get-AccessTokenForMSGraph
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
-        [String]$SAMLToken
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "ms_graph_api" -ClientId "graph_api" -SAMLToken $SAMLToken
+        Get-AccessToken -Credentials $Credentials -Resource "ms_graph_api" -ClientId "graph_api" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
     }
 }
 
@@ -1016,6 +1045,15 @@ function Get-AccessTokenForPTA
 
     .Parameter Credentials
     Credentials of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
     
     .Example
     Get-AADIntAccessTokenForPTA
@@ -1029,11 +1067,15 @@ function Get-AccessTokenForPTA
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
-        [String]$SAMLToken
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "cloudwebappproxy" -ClientId "pta" -SAMLToken $SAMLToken
+        Get-AccessToken -Credentials $Credentials -Resource "cloudwebappproxy" -ClientId "pta" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
     }
 }
 
@@ -1049,6 +1091,15 @@ function Get-AccessTokenForOfficeApps
 
     .Parameter Credentials
     Credentials of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
     
     .Example
     Get-AADIntAccessTokenForOfficeApps
@@ -1062,11 +1113,15 @@ function Get-AccessTokenForOfficeApps
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
-        [String]$SAMLToken
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "officeapps" -ClientId "graph_api" -SAMLToken $SAMLToken
+        Get-AccessToken -Credentials $Credentials -Resource "officeapps" -ClientId "graph_api" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
     }
 }
 
@@ -1082,6 +1137,15 @@ function Get-AccessTokenForEXO
 
     .Parameter Credentials
     Credentials of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
     
     .Example
     Get-AADIntAccessTokenForEXO
@@ -1095,12 +1159,16 @@ function Get-AccessTokenForEXO
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
-        [String]$SAMLToken
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain
     )
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Credentials $Credentials -Resource "outlook" -ClientId "office" -SAMLToken $SAMLToken
+        Get-AccessToken -Credentials $Credentials -Resource "outlook" -ClientId "office" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
     }
 }
 
@@ -1116,6 +1184,18 @@ function Get-AccessTokenForEXOPS
 
     .Parameter Credentials
     Credentials of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
     
     .Example
     Get-AADIntAccessTokenForEXOPS
@@ -1129,12 +1209,16 @@ function Get-AccessTokenForEXOPS
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
-        [String]$SAMLToken
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain
     )
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Credentials $Credentials -Resource "outlook" -ClientId "exo" -SAMLToken $SAMLToken
+        Get-AccessToken -Credentials $Credentials -Resource "outlook" -ClientId "exo" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -UserPrincipalName $UserPrincipalName
     }
 }
 
@@ -1149,24 +1233,30 @@ function Get-AccessTokenForSARA
     .DESCRIPTION
     Gets OAuth Access Token for Microsoft Support and Recovery Assistant (SARA)
 
-    .Parameter Credentials
-    Credentials of the user.
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token. 
     
     .Example
-    Get-AADIntAccessTokenForEXOPS
+    Get-AADIntAccessTokenForSARA
     
     .Example
     PS C:\>$cred=Get-Credential
-    PS C:\>Get-AADIntAccessTokenForEXOPS -Credentials $cred
+    PS C:\>Get-AADIntAccessTokenForSARA -Credentials $cred
 #>
     [cmdletbinding()]
     Param(
-        
+        [Parameter(Mandatory=$False)]
+        [String]$KerberosTicket,
+        [Parameter(Mandatory=$False)]
+        [String]$Domain
     )
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Resource "sara" -ClientId "sara"
+        Get-AccessToken -Resource "sara" -ClientId "sara" -KerberosTicket $KerberosTicket -Domain $Domain
     }
 }
 
@@ -1181,17 +1271,27 @@ function Get-AccessToken
         [String]$SAMLToken,
         [Parameter()]
         [switch]$UseAdalCache=$false,
-        [ValidateSet('aad_graph_api','ms_graph_api','windows_net_mgmt_api','cloudwebappproxy','officeapps','outlook','sara')]
+        [ValidateSet('aad_graph_api','ms_graph_api','windows_net_mgmt_api','cloudwebappproxy','officeapps','outlook','sara','office_mgmt')]
         [String]$Resource="aad_graph_api",
-        [ValidateSet('graph_api','aadsync','pta','teams','office','exo','sara')]
+        [ValidateSet('graph_api','aadsync','pta','teams','office','exo','sara','office_mgmt')]
         [String]$ClientId="graph_api",
         [Parameter(Mandatory=$False)]
-        [String]$Tenant
+        [String]$Tenant,
+        [Parameter(Mandatory=$False)]
+        [String]$KerberosTicket,
+        [Parameter(Mandatory=$False)]
+        [String]$Domain
     )
     Process
     {
+        # Check if we got the kerberos token
+        if(![String]::IsNullOrEmpty($KerberosTicket))
+        {
+            # Get token using the kerberos token
+            $access_token = Get-AccessTokenWithKerberosTicket -KerberosTicket $KerberosTicket -Domain $Domain -Resource $Resource -ClientId $ClientId
+        }
         # Check if we want to get AccessToken from ADAL cache
-        if($UseAdalCache)
+        elseif($UseAdalCache)
         {
             # Items from cache for the given resource
             $cache = [Microsoft.IdentityModel.Clients.ActiveDirectory.TokenCache]::DefaultShared
@@ -1241,7 +1341,7 @@ function Get-AccessToken
                 }
                 else
                 {
-                    if($ClientId -eq "pta" -or $ClientId -eq "azureadmin" -or $ClientId -eq "teams" -or $ClientId -eq "office" -or $ClientId -eq "exo")
+                    if($ClientId -eq "pta" -or $ClientId -eq "azureadmin" -or $ClientId -eq "teams" -or $ClientId -eq "office" -or $ClientId -eq "exo" -or $ClientId -eq "office_mgmt")
                     {
                         # Requires same clientId
                         $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId
@@ -1252,6 +1352,11 @@ function Get-AccessToken
                         $OAuthInfo = Get-OAuthInfo -Credentials $Credentials
                     }
                 }
+            }
+
+            if([String]::IsNullOrEmpty($OAuthInfo))
+            {
+                throw "Could not get OAuthInfo!"
             }
 
             if($ClientId -eq "aadsync")
@@ -1299,6 +1404,10 @@ function Get-AccessToken
         }
 
         # Return
+        if([string]::IsNullOrEmpty($access_token))
+        {
+            Throw "Could not get Access Token!"
+        }
         $access_token
     }
 }
@@ -1454,18 +1563,30 @@ function Create-LoginForm
     )
     Process
     {
+        # Check does the registry key exists
+        $regPath="HKCU:\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION"
+        if(!(Test-Path -Path $regPath )){
+            Write-Warning "WebBrowser control emulation registry key not found!"
+            $answer = Read-Host -Prompt "Would you like to create the registry key? (Y/N)"
+            if($answer -eq "Y")
+            {
+                New-Item -ItemType directory -Path $regPath -Force
+            }
+        }
+
         # Check the registry value for WebBrowser control emulation. Should be IE 11
-        $reg=Get-ItemProperty -Path "HKCU:\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION"
+        $reg=Get-ItemProperty -Path $regPath
 
         if([String]::IsNullOrEmpty($reg.'powershell.exe') -or [String]::IsNullOrEmpty($reg.'powershell_ise.exe'))
         {
             Write-Warning "WebBrowser control emulation not set for PowerShell or PowerShell ISE!"
-            $answer = Read-Host -Prompt "Do you wan't set the emulation to IE 11? (Y/N)"
+            $answer = Read-Host -Prompt "Would you like set the emulation to IE 11? Otherwise the login form may not work! (Y/N)"
             if($answer -eq "Y")
             {
-                Set-ItemProperty -Path "HKCU:\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION" -Name "powershell_ise.exe" -Value 0x00002af9
-                Set-ItemProperty -Path "HKCU:\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION" -Name "powershell.exe" -Value 0x00002af9
-                Write-Host "Emulation set. Remember to restart PowerShell/ISE!"
+                Set-ItemProperty -Path $regPath -Name "powershell_ise.exe" -Value 0x00002af9
+                Set-ItemProperty -Path $regPath -Name "powershell.exe" -Value 0x00002af9
+                Write-Host "Emulation set. Restart PowerShell/ISE!"
+                return
             }
         }
 

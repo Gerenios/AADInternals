@@ -118,6 +118,8 @@ function Call-AnalysisAPI
 }
 
 # Jul 8th 2019
+function Get-SARAUserInfo
+{
 <#
     .SYNOPSIS
     Gets user information using SARA API
@@ -180,8 +182,6 @@ function Call-AnalysisAPI
     IsHybridTenant            : False
     Forest                    : EURP185.PROD.OUTLOOK.COM
 #>
-function Get-SARAUserInfo
-{
     [cmdletbinding()]
     Param(
         [Parameter(ParameterSetName='AccessToken', Mandatory=$True)]
@@ -202,6 +202,28 @@ function Get-SARAUserInfo
     }
 }
 
+
+# Jul 8th 2019
+function Get-SARATenantInfo
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='AccessToken', Mandatory=$True)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get the results
+        $results = Call-AnalysisAPI -Command tenantInfo -AccessToken $AccessToken
+     
+        $results
+        
+    }
+}
+
+# Jul 8th 2019
+function Get-SARAAuthInfo
+{
 <#
     .SYNOPSIS
     Gets tenant information using SARA API
@@ -296,27 +318,6 @@ function Get-SARAUserInfo
     SaraSessionId         : 00000000-0000-0000-0000-000000000000
     Id                    : 81157ffa-d946-4bf8-8d6e-a391b96e4bf6
 #>
-# Jul 8th 2019
-function Get-SARATenantInfo
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(ParameterSetName='AccessToken', Mandatory=$True)]
-        [String]$AccessToken
-    )
-    Process
-    {
-        # Get the results
-        $results = Call-AnalysisAPI -Command tenantInfo -AccessToken $AccessToken
-     
-        $results
-        
-    }
-}
-
-# Jul 8th 2019
-function Get-SARAAuthInfo
-{
     [cmdletbinding()]
     Param(
         [Parameter(ParameterSetName='AccessToken', Mandatory=$True)]
