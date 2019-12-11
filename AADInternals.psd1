@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.2.6'
+	ModuleVersion = '0.2.7'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()

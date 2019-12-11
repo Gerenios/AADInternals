@@ -32,6 +32,7 @@ $client_ids=@{
     "sara" =                "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Microsoft Support and Recovery Assistant (SARA)
     "office_mgmt" =         "389b1b32-b5d5-43b2-bddc-84ce938d6737" # Office Management API Editor https://manage.office.com 
     "onedrive" =            "ab9b8c07-8f02-4f72-87fa-80105867a763" # OneDrive Sync Engine
+    "adibizaux" =           "74658136-14ec-4630-ad9b-26e160ff0fc6" # Azure portal UI "ADIbizaUX"
 }
 
 # AccessToken resource strings
@@ -46,6 +47,7 @@ $resources=@{
     "webshellsuite" =        "https://webshell.suite.office.com"
     "sara" =                 "https://api.diagnostics.office.com"
     "office_mgmt" =          "https://manage.office.com"
+    "office_apps" =          "https://officeapps.live.com"
 }
 
 # Stored tokens (access & refresh)
@@ -581,9 +583,9 @@ function Get-OAuthInfoUsingSAML
     Param(
         [Parameter(Mandatory=$True)]
         [String]$SAMLToken,
-        [ValidateSet('aad_graph_api','ms_graph_api')]
-        [String]$Resource="aad_graph_api",
-        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo','office_mgmt')]
+        [Parameter(Mandatory=$True)]
+        [String]$Resource,
+        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo','office_mgmt','onedrive')]
         [String]$ClientId="graph_api"
     )
     Process
@@ -595,7 +597,7 @@ function Get-OAuthInfoUsingSAML
 
         # Create a body for API request
         $body = @{
-            "resource"=$resources[$Resource]
+            "resource"=$Resource
             "client_id"=$client_ids[$ClientId]
             "grant_type"="urn:ietf:params:oauth:grant-type:saml1_1-bearer"
             "assertion"=$encodedSamlToken
@@ -627,9 +629,9 @@ function Get-OAuthInfo
     Param(
         [Parameter(Mandatory=$True)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [ValidateSet('aad_graph_api','ms_graph_api')]
-        [String]$Resource="aad_graph_api",
-        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo','office_mgmt')]
+        [Parameter(Mandatory=$True)]
+        [String]$Resource,
+        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo','office_mgmt','onedrive')]
         [String]$ClientId="graph_api"
     )
     Process
@@ -645,7 +647,7 @@ function Get-OAuthInfo
 
             # Create a body for REST API request
             $body = @{
-                "resource"=$resources[$Resource]
+                "resource"=$Resource
                 "client_id"=$client_ids[$ClientId]
                 "grant_type"="password"
                 "username"=$Credentials.UserName
@@ -826,9 +828,8 @@ function Prompt-Credentials
 {
     [cmdletbinding()]
     Param(
-        [ValidateSet('aad_graph_api','ms_graph_api','azureadmin','outlook','sara')]
-        [String]$Resource="aad_graph_api",
-        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo','sara')]
+        [Parameter(Mandatory=$True)]
+        [String]$Resource,
         [String]$ClientId="graph_api",
         [Parameter(Mandatory=$False)]
         [String]$Tenant
@@ -853,7 +854,7 @@ function Prompt-Credentials
         
         $request_id=(New-Guid).ToString()
         
-        $url="https://login.microsoftonline.com/$Tenant/oauth2/authorize?resource=$($Script:resources[$Resource])&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=openid profile"
+        $url="https://login.microsoftonline.com/$Tenant/oauth2/authorize?resource=$Resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=openid profile"
 
         # Create the form
         $form = Create-LoginForm -Url $url -auth_redirect $auth_redirect
@@ -902,7 +903,7 @@ function Get-AccessTokenFromCache
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
         [ValidateSet('aad_graph_api','ms_graph_api','windows_net_mgmt_api','cloudwebappproxy','officeapps','outlook','azureportal','office_mgmt')]
-        [String]$Resource="aad_graph_api"
+        [String]$Resource=$resources["aad_graph_api"]
     )
     Process
     {
@@ -982,7 +983,7 @@ function Get-AccessTokenForAADGraph
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "aad_graph_api" -ClientId "graph_api" -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain
+        Get-AccessToken -Credentials $Credentials -Resource $resources["aad_graph_api"] -ClientId "graph_api" -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain
     }
 }
 
@@ -1029,7 +1030,7 @@ function Get-AccessTokenForMSGraph
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "ms_graph_api" -ClientId "graph_api" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
+        Get-AccessToken -Credentials $Credentials -Resource $resources["ms_graph_api"] -ClientId "graph_api" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
     }
 }
 
@@ -1075,7 +1076,7 @@ function Get-AccessTokenForPTA
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "cloudwebappproxy" -ClientId "pta" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
+        Get-AccessToken -Credentials $Credentials -Resource $resources["cloudwebappproxy"] -ClientId "pta" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
     }
 }
 
@@ -1121,7 +1122,7 @@ function Get-AccessTokenForOfficeApps
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "officeapps" -ClientId "graph_api" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
+        Get-AccessToken -Credentials $Credentials -Resource $resources["officeapps"] -ClientId "graph_api" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
     }
 }
 
@@ -1168,7 +1169,7 @@ function Get-AccessTokenForEXO
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Credentials $Credentials -Resource "outlook" -ClientId "office" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
+        Get-AccessToken -Credentials $Credentials -Resource $resources["outlook"] -ClientId "office" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
     }
 }
 
@@ -1218,7 +1219,7 @@ function Get-AccessTokenForEXOPS
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Credentials $Credentials -Resource "outlook" -ClientId "exo" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -UserPrincipalName $UserPrincipalName
+        Get-AccessToken -Credentials $Credentials -Resource $resources["outlook"] -ClientId "exo" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -UserPrincipalName $UserPrincipalName
     }
 }
 
@@ -1256,7 +1257,109 @@ function Get-AccessTokenForSARA
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Resource "sara" -ClientId "sara" -KerberosTicket $KerberosTicket -Domain $Domain
+        Get-AccessToken -Resource $resources["sara"] -ClientId "sara" -KerberosTicket $KerberosTicket -Domain $Domain
+    }
+}
+
+# Gets an access token for OneDrive
+# Nov 26th 2019
+function Get-AccessTokenForOneDrive
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for OneDrive
+
+    .DESCRIPTION
+    Gets OAuth Access Token for OneDrive Sync client
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+    
+    .Example
+    Get-AADIntAccessTokenForOneDrive
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForOneDrive -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Tenant,
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain
+    )
+    Process
+    {
+        Get-AccessToken -Resource "https://$Tenant-my.sharepoint.com/" -ClientId "onedrive" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials
+    }
+}
+
+# Gets an access token for OfficeApps
+# Nov 26th 2019
+function Get-AccessTokenForOfficeApps
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Office Apps
+
+    .DESCRIPTION
+    Gets OAuth Access Token for Office Apps
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+    
+    .Example
+    Get-AADIntAccessTokenForOneOfficeApps
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForOneOfficeApps -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain
+    )
+    Process
+    {
+        Get-AccessToken -Resource "https://officeapps.live.com" -ClientId "onedrive" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials
     }
 }
 
@@ -1271,9 +1374,9 @@ function Get-AccessToken
         [String]$SAMLToken,
         [Parameter()]
         [switch]$UseAdalCache=$false,
-        [ValidateSet('aad_graph_api','ms_graph_api','windows_net_mgmt_api','cloudwebappproxy','officeapps','outlook','sara','office_mgmt')]
-        [String]$Resource="aad_graph_api",
-        [ValidateSet('graph_api','aadsync','pta','teams','office','exo','sara','office_mgmt')]
+        [Parameter(Mandatory=$True)]
+        [String]$Resource,
+        [ValidateSet('graph_api','aadsync','pta','teams','office','exo','sara','office_mgmt','onedrive')]
         [String]$ClientId="graph_api",
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
@@ -1295,7 +1398,7 @@ function Get-AccessToken
         {
             # Items from cache for the given resource
             $cache = [Microsoft.IdentityModel.Clients.ActiveDirectory.TokenCache]::DefaultShared
-            $adalItems = $cache.ReadItems() | where Resource -eq $Script:resources[$Resource]
+            $adalItems = $cache.ReadItems() | where Resource -eq $Resource
             
             # Get the first item
             $adalItem=$adalItems[0]
@@ -1304,7 +1407,7 @@ function Get-AccessToken
             $token.access_token=$adalItem.AccessToken
             $token.id_token=$adalItem.IdToken
             $token.expires_on=(New-TimeSpan –Start $Script:epoch –End $adalItem.ExpiresOn.Date).TotalSeconds
-            $token.resource=$Script:resources[$Resource]
+            $token.resource=$Resource
 
             $upn=$adalItem.DisplayableId
             Write-Verbose "ADAL CACHE: Using cached access token of $upn"
@@ -1324,11 +1427,11 @@ function Get-AccessToken
                 # No credentials given, so prompt for credentials
                 if($ClientId -eq "office" -or $ClientId -eq "exo")
                 {
-                    $OAuthInfo = Prompt-Credentials -Resource "outlook" -ClientId $ClientId
+                    $OAuthInfo = Prompt-Credentials -Resource $script:resources["outlook"] -ClientId $ClientId
                 }
                 else
                 {
-                    $OAuthInfo = Prompt-Credentials -ClientId $ClientId -Tenant $Tenant
+                    $OAuthInfo = Prompt-Credentials -Resource $script:resources["aad_graph_api"] -ClientId $ClientId -Tenant $Tenant
                 }
                 
             }
@@ -1337,19 +1440,19 @@ function Get-AccessToken
                 # Get OAuth info for user
                 if(![string]::IsNullOrEmpty($SAMLToken))
                 {
-                    $OAuthInfo = Get-OAuthInfoUsingSAML -SAMLToken $SAMLToken -ClientId $ClientId
+                    $OAuthInfo = Get-OAuthInfoUsingSAML -SAMLToken $SAMLToken -ClientId $ClientId -Resource $script:resources["aad_graph_api"]
                 }
                 else
                 {
-                    if($ClientId -eq "pta" -or $ClientId -eq "azureadmin" -or $ClientId -eq "teams" -or $ClientId -eq "office" -or $ClientId -eq "exo" -or $ClientId -eq "office_mgmt")
+                    if($ClientId -eq "pta" -or $ClientId -eq "azureadmin" -or $ClientId -eq "teams" -or $ClientId -eq "office" -or $ClientId -eq "exo" -or $ClientId -eq "office_mgmt" -or $ClientId -eq "onedrive")
                     {
                         # Requires same clientId
-                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId
+                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId -Resource $script:resources["aad_graph_api"]
                     }
                     else
                     {
                         # "Normal" flow
-                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials
+                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -Resource $script:resources["aad_graph_api"]
                     }
                 }
             }
@@ -1376,21 +1479,28 @@ function Get-AccessToken
 
                 # Set the body for API call
                 $body = @{
-                    "resource"=$resources[$Resource]
+                    "resource"=$Resource
                     "client_id"=$client_ids[$ClientId]
                     "grant_type"="refresh_token"
                     "refresh_token"=$RefreshToken
                     "scope"="openid"
                 }
 
-                $id_token = 
+                if($ClientId -eq "onedrive")
+                {
+                    $url = "https://login.windows.net/common/oauth2/token"
+                }
+                else
+                {
+                    $url = "https://login.microsoftonline.com/$tenant_id/oauth2/token"
+                }
 
                 # Verbose
                 Write-Verbose "ACCESS TOKEN BODY: $($body | Out-String)"
         
                 # Set the content type and call the API
                 $contentType="application/x-www-form-urlencoded"
-                $response=Invoke-RestMethod -Uri "https://login.microsoftonline.com/$tenant_id/oauth2/token" -ContentType $contentType -Method POST -Body $body
+                $response=Invoke-RestMethod -Uri $url -ContentType $contentType -Method POST -Body $body
 
                 # Verbose
                 Write-Verbose "ACCESS TOKEN RESPONSE: $response"
