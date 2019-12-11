@@ -5,6 +5,12 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Web
 Add-Type -AssemblyName System.Web.Extensions 
 
+# Print the welcome message
+$manifest = Import-PowerShellDataFile "$PSScriptRoot\AADInternals.psd1"
+$version = $manifest.ModuleVersion
+$host.ui.RawUI.WindowTitle="AADInternals $version"
+Write-Host "AADInternals v$version by @NestoriSyynimaa" -ForegroundColor Yellow
+
 # Load the .ps1 scripts
 $scripts = @(Get-ChildItem -Path $PSScriptRoot\*.ps1 -ErrorAction SilentlyContinue)
 
@@ -33,6 +39,8 @@ $functions=@(
     "Get-AccessTokenForPTA"
     "Get-AccessTokenForEXO"
     "Get-AccessTokenForSARA"
+    "Get-AccessTokenForOneDrive"
+    "Get-AccessTokenForOfficeApps"
     "Get-TenantDetails"
     "Read-AccessToken"
     "Get-EndpointInstances"
@@ -128,6 +136,16 @@ $functions=@(
 
     # Kerberos.ps1
     "New-KerberosTicket"
+
+    # PTA.ps1
+    "Register-PTAAgent"
+
+    # OneDrive_utils.ps1
+    "New-OneDriveSettings"
+
+    # OneDrive.ps1
+    "Get-OneDriveFiles"
+    "Send-OneDriveFile"
 )
 foreach($function in $functions)
 {

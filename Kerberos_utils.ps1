@@ -421,13 +421,15 @@ function Get-AccessTokenWithKerberosTicket
         [String]$KerberosTicket,
         [Parameter(Mandatory=$True)]
         [String]$Domain,
-        [ValidateSet('aad_graph_api','ms_graph_api','windows_net_mgmt_api','cloudwebappproxy','officeapps','outlook','sara','office_mgmt')]
-        [String]$Resource="aad_graph_api",
-        [ValidateSet('graph_api','aadsync','pta','teams','office','exo','sara','office_mgmt')]
+        [Parameter(Mandatory=$False)]
+        [String]$Resource="https://graph.windows.net",
+        [ValidateSet('graph_api','aadsync','pta','teams','office','exo','sara','office_mgmt','onedrive')]
         [String]$ClientId="graph_api"
     )
     Process
     {
+        $requestId = (New-Guid).ToString()
+
         # Step 1: Get desktop sso token using kerberos ticket
         $url="https://autologon.microsoftazuread-sso.com/$domain/winauth/trust/2005/windowstransport?client-request-id=$requestId"
         $body=@"
@@ -477,7 +479,7 @@ function Get-AccessTokenWithKerberosTicket
             "grant_type" = "urn:ietf:params:oauth:grant-type:saml1_1-bearer"
             "assertion" = $B64samlAssertion
             "client_id" = $client_ids[$ClientId]
-            "resource" = $Script:resources[$Resource]
+            "resource" = $Resource
             "tbidv2" = "" # Optional, see https://tools.ietf.org/html/draft-ietf-tokbind-protocol-19
             "scope" = "openid"
             "redirect_uri" = "urn:ietf:wg:oauth:2.0:oob" # Originally: "ms-appx-web://Microsoft.AAD.BrokerPlugin/$clientId"
