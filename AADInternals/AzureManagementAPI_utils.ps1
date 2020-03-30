@@ -156,21 +156,30 @@ function Get-AccessTokenForAzureMgmtAPI
     Process
     {
         $accessToken=""
+        $refreshToken=""
         # Check if we got credentials
         if([string]::IsNullOrEmpty($Credentials) -and [string]::IsNullOrEmpty($SAMLToken))
         {
             # No credentials given, so prompt for credentials
-            $accessToken = Prompt-AzureADCredentials
-                
+            $tokens = Prompt-AzureADCredentials
+
+            $accessToken = $tokens["access_token"]
+            $refreshToken = $tokens["refresh_token"]
         }
         else
         {
             $userName = $Credentials.UserName
             $password = $credentials.GetNetworkCredential().Password
 
-
             # Step 1: Go to portal.azure.com to get cookies and authentication url
-            $response = Invoke-WebRequest -uri "https://portal.azure.com/signin/idpRedirect.js/?feature.settingsportalinstance=&idpRedirectCount=0."
+            $headers=@{
+                "Sec-Fetch-Dest" = "script"
+                "Sec-Fetch-Site" = "same-origin"
+                "Sec-Fetch-Mode" = "no-cors"
+                "Referer"="https://portal.azure.com"
+
+            }
+            $response = Invoke-WebRequest -uri "https://portal.azure.com/signin/idpRedirect.js/?feature.settingsportalinstance=&feature.refreshtokenbinding=true&feature.usemsallogin=true&feature.snivalidation=true&feature.setsamesitecookieattribute=true&feature.argsubscriptions=&feature.showservicehealthalerts=&idpRedirectCount=0" -Headers $headers
             $html=$response.Content
             $s=$html.IndexOf('https://login.microsoftonline.com')
             $e=$html.IndexOf('"',$s)
@@ -491,7 +500,7 @@ function Get-DelegationToken
             "extensionName" = $ExtensionName
             "portalAuthorization" = $AccessToken.refresh_token
             "resourceName" = $ResourceName
-            "tenant" = Get-TenantId -AccessToken $AccessToken
+            "tenant" = Get-TenantId -AccessToken $AccessToken.access_token
         }
         # Call the API
         $response = Invoke-RestMethod -Uri "https://portal.azure.com/api/DelegationToken?feature.tokencaching=true" -ContentType "application/json" -Method POST -Body ($Body | ConvertTo-Json) #-Headers $Headers -WebSession $Script:azureWebSession

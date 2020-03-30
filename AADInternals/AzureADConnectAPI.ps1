@@ -348,6 +348,8 @@ function Set-AzureADObject
         [ValidateSet('User','Group','Contact')]
         [String]$ObjectType="User",
         [Parameter(Mandatory=$False)]
+        [String[]]$proxyAddresses,
+        [Parameter(Mandatory=$False)]
         [int]$Recursion=1
     )
     Process
@@ -384,6 +386,7 @@ function Set-AzureADObject
         $body_mid+=Add-PropertyValue "cloudMastered" $cloudMastered -Type bool
         $body_mid+=Add-PropertyValue "usageLocation" $usageLocation
         $body_mid+=Add-PropertyValue "CloudAnchor" $CloudAnchor
+        $body_mid+=Add-PropertyValue "proxyAddresses" $proxyAddresses -Type ArrayOfstring
 
 $body_end=@"
                         </b:PropertyValues>
@@ -1014,7 +1017,7 @@ function Set-DesktopSSO
             
             try
             {
-                $computer = Get-ADComputer AZUREADSSOACC
+                $computer = Get-ADComputer $ComputerName
                 Set-ADAccountPassword -Identity $computer.DistinguishedName -NewPassword (ConvertTo-SecureString -AsPlainText $Password -Force)
 
                 # TGT ticket can be alive for a week..

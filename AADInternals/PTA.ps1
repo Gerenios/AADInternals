@@ -1,6 +1,49 @@
-﻿# This script contains utility functions for Cloud Web Application Proxy 
+﻿# This script contains utility functions for PTA
 
-# Registers an app to Cloud WAP
+# Error codes
+$ERROR_ACCESS_DENIED = 5
+$ERROR_ACCOUNT_DISABLED = 1331
+$ERROR_ACCOUNT_EXPIRED = 1793
+$ERROR_ACCOUNT_LOCKED_OUT = 1909
+$ERROR_ACCOUNT_RESTRICTION = 1327
+$ERROR_AUTHENTICATION_FIREWALL_FAILED = 1935
+$ERROR_BAD_ARGUMENTS = 160
+$ERROR_DOMAIN_CONTROLLER_NOT_FOUND = 1908
+$ERROR_DOMAIN_TRUST_INCONSISTENT = 1810
+$ERROR_FILENAME_EXCED_RANGE = 206
+$ERROR_INTERNAL_ERROR = 1359
+$ERROR_INVALID_ACCESS = 12
+$ERROR_INVALID_LOGON_HOURS = 1328
+$ERROR_INVALID_SERVER_STATE = 1352
+$ERROR_INVALID_WORKSTATION = 1329
+$ERROR_LDAP_FILTER_ERROR = 87
+$ERROR_LDAP_OPERATIONS_ERROR = 1
+$ERROR_LOGON_FAILURE = 1326
+$ERROR_LOGON_TYPE_NOT_GRANTED = 1385
+$ERROR_NETLOGON_NOT_STARTED = 1792
+$ERROR_NOT_ENOUGH_MEMORY = 8
+$ERROR_NOT_ENOUGH_SERVER_MEMORY = 1130
+$ERROR_NO_LOGON_SERVERS = 1311
+$ERROR_NO_SUCH_DOMAIN = 1355
+$ERROR_NO_SUCH_PACKAGE = 1364
+$ERROR_NO_SUCH_USER = 1317
+$ERROR_NO_SYSTEM_RESOURCES = 1450
+$ERROR_NO_TRUST_SAM_ACCOUNT = 1787
+$ERROR_OUTOFMEMORY = 14
+$ERROR_PASSWORD_EXPIRED = 1330
+$ERROR_PASSWORD_MUST_CHANGE = 1907
+$ERROR_PASSWORD_RESTRICTION = 1325
+$ERROR_REQUEST_NOT_SUPPORTED = 50
+$ERROR_RPC_S_CALL_FAILED = 1726
+$ERROR_RPC_S_SERVER_UNAVAILABLE = 1722
+$ERROR_TIME_SKEW = 1398
+$ERROR_TOO_MANY_CONTEXT_IDS = 1384
+$ERROR_TRUSTED_DOMAIN_FAILURE = 1788
+$ERROR_TRUSTED_RELATIONSHIP_FAILURE = 1789
+$ERROR_WRONG_PASSWORD = 1323
+$SEC_E_SMARTCARD_LOGON_REQUIRED = -2146892994
+
+# Registers PTAAgent to the Azure AD
 # Nov 10th 2019
 function Register-PTAAgent
 {
@@ -71,7 +114,8 @@ function Register-PTAAgent
 </Base64Csr>
             <AuthenticationToken>$AccessToken</AuthenticationToken>
             <Base64Pkcs10Csr i:nil="true"/>
-            <Feature>PassthroughAuthentication</Feature>
+            <Feature>ApplicationProxy</Feature>
+            <FeatureString>PassthroughAuthentication</FeatureString>
             <RegistrationRequestSettings>
                 <SystemSettingsInformation i:type="a:SystemSettings" xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.RegistrationCommons" xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Utilities.SystemSettings">
                     <a:MachineName>$machineName</a:MachineName>
@@ -135,127 +179,80 @@ function Register-PTAAgent
     }
 }
 
-function Get-BootstrapConfiguration
+# Sets the certificate used by Azure AD Authentication Agent
+# Mar 3rd 2020
+function Set-PTACertificate
 {
 <#
     .SYNOPSIS
-    Registers an app to Cloud WAP
+    Sets the certificate used by Azure AD Authentication Agent
 
     .DESCRIPTION
-    Registers an app to Cloud Web Application Proxy
+    Sets the certificate used by Azure AD Authentication Agent. The certificate must be created with Register-AADIntPTAAgent function.
 
     .Example
-    Get-AADIntLoginInformation -Domain outlook.com
-
-    
+    Set-AADIntPTACertificate -PfxFileName server1.pfx -PfxPassword "password"
 
     .Example
-    Get-AADIntLoginInformation -UserName someone@company.com
+    $pt=Get-AADIntAccessTokenForPTA
+    PS C:\>Register-AADIntPTAAgent -MachineName "server1.company.com" -AccessToken $pt
 
-              : 
+    PTA agent registered as server1.company.com
+    Certificate saved to PTA_client_certificate.pfx
 
+    PS C:\>Set-AADIntPTACertificate
+    Certification information set, remember to restart the service.
    
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName="AccessToken", Mandatory=$True)]
-        [String]$AccessToken,
-        [Parameter(ParameterSetName="TenantId", Mandatory=$True)]
-        [String]$TenantId,
-        [Parameter(Mandatory=$True)]
-        [String]$MachineName,
         [Parameter(Mandatory=$False)]
-        [String]$fileName="PTA_client_certificate.pfx"
+        [String]$PfxFileName="PTA_client_certificate.pfx",
+        [Parameter(Mandatory=$False)]
+        [String]$PfxPassword,
+        [Parameter(Mandatory=$False)]
+        [String]$TenantId
     )
     Process
     {
-        if(![string]::IsNullOrEmpty($AccessToken))
+        # Check if the file exists
+        if(($PfxFile=Get-Item $PfxFileName -ErrorAction SilentlyContinue) -eq $null)
         {
-            $TenantId = Get-TenantID -AccessToken $AccessToken
+            Write-Error "The file ($PfxFile.FullName) does not exist!"
+            return
+        }
+        
+        # Get the certificate and serial number
+        $cert=Get-Certificate -FileName $PfxFile.FullName -Password $PfxPassword
+        $serString = $cert.SerialNumber
+
+        # Convert serial number to byte array
+        $s=[byte[]][object[]]::new(16)
+        for($a = 0 ; $a -lt 32 ; $a+=2)
+        {
+            $s[$a/2] = [convert]::ToByte($serString.Substring($a, 2), 16)
         }
 
-        $fullPath = (Get-Item $fileName).FullName
+        # Convert serial number to GUID
+        $InstanceID = ([guid]$s).Tostring()
 
-        $OSLanguage="1033"
-        $OSLocale="0409"
-        $OSSku="8"
-        $OSVersion="10.0.17763"
-      
-        $body=@"
-        <BootstrapRequest xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.SignalerDataModel" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
-	        <BootstrapDataModelVersion>1.5.644.0</BootstrapDataModelVersion>
-	        <ConnectorId>12161898-a592-413a-b018-9756e89b71ce</ConnectorId>
-	        <ConnectorVersion>1.5.644.0</ConnectorVersion>
-	        <ConsecutiveFailures>118</ConsecutiveFailures>
-	        <CurrentProxyPortResponseMode>Primary</CurrentProxyPortResponseMode>
-	        <FailedRequestMetrics xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.BootstrapDataModel"/>
-	        <InitialBootstrap>true</InitialBootstrap>
-	        <IsProxyPortResponseFallbackDisabledFromRegistry>true</IsProxyPortResponseFallbackDisabledFromRegistry>
-	        <LatestDotNetVersionInstalled>461814</LatestDotNetVersionInstalled>
-	        <MachineName>$machineName</MachineName>
-	        <OperatingSystemLanguage>$OSLanguage</OperatingSystemLanguage>
-	        <OperatingSystemLocale>$OSLocale</OperatingSystemLocale>
-	        <OperatingSystemSKU>$OSSku</OperatingSystemSKU>
-	        <OperatingSystemVersion>$OSVersion</OperatingSystemVersion>
-	        <PerformanceMetrics xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.BootstrapDataModel"/>
-	        <ProxyDataModelVersion>1.5.644.0</ProxyDataModelVersion>
-	        <RequestId>$((New-Guid).ToString())</RequestId>
-	        <SubscriptionId>$TenantId</SubscriptionId>
-	        <SuccessRequestMetrics xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.BootstrapDataModel"/>
-	        <TriggerErrors/>
-	        <UpdaterStatus>Running</UpdaterStatus>
-	        <UseServiceBusTcpConnectivityMode>false</UseServiceBusTcpConnectivityMode>
-	        <UseSpnegoAuthentication>false</UseSpnegoAuthentication>
-        </BootstrapRequest>
-"@
-        $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromCertFile($fullPath)
+        # Set the registry value (the registy entry should already exists)
+        Write-Verbose "Setting HKLM:\SOFTWARE\Microsoft\Azure AD Connect Agents\Azure AD Connect Authentication Agent\InstanceID to $InstanceID"
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Azure AD Connect Agents\Azure AD Connect Authentication Agent" -Name "InstanceID" -Value $InstanceID
 
-        $url="https://$TenantId.bootstrap.msappproxy.net/ConnectorBootstrap"
-        # The cert must be "linked" to this web page by IE + it needs to be installed on the personal etc. store.
-        $response = Invoke-WebRequest -Uri $url -Method Post -Certificate $cert -Body $body -ContentType "application/xml; charset=utf-8"
-        
-        [xml]$xmlResponse = $response.Content
+        if(![string]::IsNullOrEmpty($TenantId))
+        {
+            Write-Verbose "Setting HKLM:\SOFTWARE\Microsoft\Azure AD Connect Agents\Azure AD Connect Authentication Agent\TenantID to $TenantId"
+            Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Azure AD Connect Agents\Azure AD Connect Authentication Agent" -Name "TenantID" -Value $TenantId
+        }
 
-        return $xmlResponse.BootstrapResponse.SignalingListenerEndpoints.SignalingListenerEndpointSettings
+        # Set the certificate thumb print to config file
+        $configFile = "$env:ProgramData\Microsoft\Azure AD Connect Authentication Agent\Config\TrustSettings.xml"
+        Write-Verbose "Setting the certificate thumb print to $configFile"
+        [xml]$TrustConfig = Get-Content $configFile
+        $TrustConfig.ConnectorTrustSettingsFile.CloudProxyTrust.Thumbprint = $cert.Thumbprint
+        $TrustConfig.OuterXml | Set-Content $configFile
 
-        
-    }
-}
-
-
-function Get-SASToken
-{
-
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [String]$Url,
-        [Parameter(Mandatory=$True)]
-        [String]$Key,
-        [Parameter(Mandatory=$True)]
-        [String]$KeyName
-    )
-    Process
-    {
-        # Create the HMAC object
-        $keyBytes=[Text.Encoding]::UTF8.GetBytes($Key)
-        $hmac = [System.Security.Cryptography.HMACSHA256]::new($keyBytes)
-
-        # Get the current time
-        $expires=([DateTimeOffset]::Now.ToUnixTimeSeconds())
-
-        # Form the string to sign (urlencoded uri + \n + expires)
-        $namespace = $url.split("/")[2]
-        $urlToSign = [System.Web.HttpUtility]::UrlEncode("https://$namespace/") + "`n" + [string]$expires
-        $byteUrl=[Text.Encoding]::UTF8.GetBytes($encUrl)
-
-        # Calculate the signature
-        $byteHash = $hmac.ComputeHash($byteUrl)
-        $signature = [System.Convert]::ToBase64String($byteHash)
-
-        # Form the token
-        $SASToken = "SharedAccessSignature sr=" + [System.Web.HttpUtility]::UrlEncode($Url) + "&sig=" + [System.Web.HttpUtility]::UrlEncode($signature) + "&se=" + $expires + "&skn=" + $KeyName
-
-        return $SASToken
+        Write-Host "Certification information set, remember to restart the service."
     }
 }

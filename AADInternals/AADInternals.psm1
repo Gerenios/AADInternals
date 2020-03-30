@@ -139,6 +139,10 @@ $functions=@(
 
     # PTA.ps1
     "Register-PTAAgent"
+    "Set-PTACertificate"
+
+    # PTAAgent.ps1
+    "Invoke-PTAAgent"
 
     # OneDrive_utils.ps1
     "New-OneDriveSettings"
@@ -146,6 +150,10 @@ $functions=@(
     # OneDrive.ps1
     "Get-OneDriveFiles"
     "Send-OneDriveFile"
+
+    # MFA.ps1
+    "Get-UserMFA"
+    "Set-UserMFA"
 )
 foreach($function in $functions)
 {

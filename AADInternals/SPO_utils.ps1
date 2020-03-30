@@ -16,7 +16,7 @@ function Get-SPOAuthenticationHeader
     Url for the SharePoint Online
     
     .Example
-    Get-AADIntSPOAuthenticationCookie
+    Get-AADIntSPOAuthenticationHeader
 #>
     [cmdletbinding()]
     Param(
