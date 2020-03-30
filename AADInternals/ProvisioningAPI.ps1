@@ -2961,7 +2961,7 @@ function Get-Users
         $request_elements=@"
 		    <b:UserSearchDefinition xmlns:c="http://schemas.datacontract.org/2004/07/Microsoft.Online.Administration">
 			    <c:PageSize>$PageSize</c:PageSize>
-			    <c:SearchString i:nil="true"/>
+                $(Add-CElement -Parameter "SearchString" -Value $SearchString)			    
 			    <c:SortDirection>$SortDirection</c:SortDirection>
 			    <c:SortField>$SortField</c:SortField>
 			    <c:AccountSku i:nil="true"/>

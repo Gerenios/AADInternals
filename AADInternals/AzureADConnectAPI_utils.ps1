@@ -289,7 +289,7 @@ function Add-PropertyValue
         [String]$Key,
         [Parameter(Mandatory=$True)]
         [PSobject]$Value,
-        [ValidateSet('string','bool','base64','long')]
+        [ValidateSet('string','bool','base64','long','ArrayOfstring')]
         [String]$Type="string"
     )
     Process
@@ -303,6 +303,15 @@ function Add-PropertyValue
                 'long' { $PropBlock += "<c:Value i:type=""d:long"" xmlns:d=""http://www.w3.org/2001/XMLSchema"">$Value</c:Value>" }
                 'bool' { $PropBlock += "<c:Value i:type=""d:boolean"" xmlns:d=""http://www.w3.org/2001/XMLSchema"">$(b2s($Value))</c:Value>" }
                 'base64'{ $PropBlock += "<c:Value i:type=""d:base64Binary"" xmlns:d=""http://www.w3.org/2001/XMLSchema"">$Value</c:Value>" }
+                'ArrayOfstring'{ 
+                    $PropBlock += "<c:Value i:type=""c:ArrayOfstring"">"
+                    foreach($stringValue in $Value)
+                    {
+                        $PropBlock += "<c:string>$stringValue</c:string>"
+                    }
+
+                    $PropBlock += "</c:Value>" 
+                    }
                 default { $PropBlock += "<c:Value i:type=""d:string"" xmlns:d=""http://www.w3.org/2001/XMLSchema"">$Value</c:Value>" }
             }
 

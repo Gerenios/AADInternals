@@ -33,6 +33,8 @@ $client_ids=@{
     "office_mgmt" =         "389b1b32-b5d5-43b2-bddc-84ce938d6737" # Office Management API Editor https://manage.office.com 
     "onedrive" =            "ab9b8c07-8f02-4f72-87fa-80105867a763" # OneDrive Sync Engine
     "adibizaux" =           "74658136-14ec-4630-ad9b-26e160ff0fc6" # Azure portal UI "ADIbizaUX"
+    "msmamservice" =        "27922004-5251-4030-b22d-91ecd9a37ea4" # MS MAM Service API
+    "teamswebclient" =      "5e3ce6c0-2b1f-4285-8d4b-75ee78787346"
 }
 
 # AccessToken resource strings
@@ -47,7 +49,8 @@ $resources=@{
     "webshellsuite" =        "https://webshell.suite.office.com"
     "sara" =                 "https://api.diagnostics.office.com"
     "office_mgmt" =          "https://manage.office.com"
-    "office_apps" =          "https://officeapps.live.com"
+    "msmamservice" =         "https://msmamservice.api.application"
+    "spacesapi" =            "https://api.spaces.skype.com"
 }
 
 # Stored tokens (access & refresh)
@@ -1727,10 +1730,13 @@ function Create-LoginForm
                 if(![String]::IsNullOrEmpty($form.Controls[0].Document.GetElementsByTagName("script")))
                 {
                     $script=$form.Controls[0].Document.GetElementsByTagName("script").outerhtml
-                    if($script.Contains("Bearer")){
-                        $s=$script.IndexOf('Bearer ')+7
-                        $e=$script.IndexOf('"',$s)
-                        $script:AccessToken=$script.Substring($s,$e-$s)
+                    if($script.Contains('"oAuthToken":')){
+                        $s=$script.IndexOf('"oAuthToken":')+13
+                        $e=$script.IndexOf('}',$s)+1
+                        $oAuthToken=$script.Substring($s,$e-$s) | ConvertFrom-Json
+                        $at=$oAuthToken.authHeader.Split(" ")[1]
+                        $rt=$oAuthToken.refreshToken
+                        $script:AccessToken = @{"access_token"=$at; "refresh_token"=$rt}
                         Write-Verbose "ACCESSTOKEN $script:accessToken"
                     }
                     elseif($curl.StartsWith("https://portal.azure.com"))
