@@ -438,17 +438,13 @@ namespace AADInternals
 
                     status[settings.url] = creds;
 
-                    Console.WriteLine("*");
-                    Console.WriteLine("*  AuthReq - Upn: \"{0}\" Pwd: \"{1}\"", cred.userName, cred.password);
-                    Console.WriteLine("*");
-
                     try
                     {
                         await client.PostAsync(url, null);
                     }
                     catch
                     {
-                        Console.WriteLine("Oops, that didn't work :(");
+                        //Console.WriteLine("Oops, that didn't work :(");
                     }
 
                     // Close the socket

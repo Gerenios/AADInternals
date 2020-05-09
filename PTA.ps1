@@ -57,14 +57,14 @@ function Register-PTAAgent
     .Example
     Register-AADIntPTAAgent -MachineName "server1.company.com"
 
-    PTA agent registered as server1.company.com
+    PTA Agent (005b136f-db3e-4b54-9d8b-8994f7717de6) registered as server1.company.com
     Certificate saved to PTA_client_certificate.pfx
 
     .Example
     $pt=Get-AADIntAccessTokenForPTA
     PS C:\>Register-AADIntPTAAgent -AccessToken $pt -MachineName "server1.company.com" -FileName server1.pfx
 
-    PTA agent registered as server1.company.com
+    PTA Agent (005b136f-db3e-4b54-9d8b-8994f7717de6) registered as server1.company.com
     Certificate saved to server1.pfx
    
 #>
@@ -79,105 +79,11 @@ function Register-PTAAgent
     )
     Process
     {
-        # Set some variables
-        $tenantId = Get-TenantID -AccessToken $AccessToken
-        $OSLanguage="1033"
-        $OSLocale="0409"
-        $OSSku="8"
-        $OSVersion="10.0.17763"
-        
-        # Create a private key and do something with it to get it stored
-        $rsa=[System.Security.Cryptography.RSA]::Create(2048)
-                
-        # Initialize the Certificate Signing Request object
-        $CN="" # The name doesn't matter
-        $req = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($CN, $rsa, [System.Security.Cryptography.HashAlgorithmName]::SHA256,[System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
-        
-        # Key usage
-        $req.CertificateExtensions.Add([System.Security.Cryptography.X509Certificates.X509KeyUsageExtension]::new([System.Security.Cryptography.X509Certificates.X509KeyUsageFlags]::DigitalSignature -bor [System.Security.Cryptography.X509Certificates.X509KeyUsageFlags]::NonRepudiation -bor [System.Security.Cryptography.X509Certificates.X509KeyUsageFlags]::KeyEncipherment -bor [System.Security.Cryptography.X509Certificates.X509KeyUsageFlags]::DataEncipherment, $false))
-        # TLS Web client authentication
-        $oidCollection = [System.Security.Cryptography.OidCollection]::new()
-        $oidCollection.Add([System.Security.Cryptography.Oid]::new("1.3.6.1.5.5.7.3.2")) | Out-Null
-        $req.CertificateExtensions.Add([System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]::new($oidCollection, $true))
-
-        # Add the public Key to the request
-        $req.CertificateExtensions.Add([System.Security.Cryptography.X509Certificates.X509SubjectKeyIdentifierExtension]::new($req.PublicKey,$false))
-
-        # Create the signing request and convert to Base 64
-        $csr=$req.CreateSigningRequest()
-        $b64Csr=[convert]::ToBase64String($csr)
-
-        # Create the request body 
-        $body=@"
-        <RegistrationRequest xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Registration" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
-            <Base64Csr>$b64Csr
-</Base64Csr>
-            <AuthenticationToken>$AccessToken</AuthenticationToken>
-            <Base64Pkcs10Csr i:nil="true"/>
-            <Feature>ApplicationProxy</Feature>
-            <FeatureString>PassthroughAuthentication</FeatureString>
-            <RegistrationRequestSettings>
-                <SystemSettingsInformation i:type="a:SystemSettings" xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.RegistrationCommons" xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Utilities.SystemSettings">
-                    <a:MachineName>$machineName</a:MachineName>
-                    <a:OsLanguage>$OSLanguage</a:OsLanguage>
-                    <a:OsLocale>$OSLocale</a:OsLocale>
-                    <a:OsSku>$OSSku</a:OsSku>
-                    <a:OsVersion>$OSVersion</a:OsVersion>
-                </SystemSettingsInformation>
-                <PSModuleVersion>1.5.643.0</PSModuleVersion>
-                <SystemSettings i:type="a:SystemSettings" xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Utilities.SystemSettings">
-                    <a:MachineName>$machineName</a:MachineName>
-                    <a:OsLanguage>$OSLanguage</a:OsLanguage>
-                    <a:OsLocale>$OSLocale</a:OsLocale>
-                    <a:OsSku>$OSSku</a:OsSku>
-                    <a:OsVersion>$OSVersion</a:OsVersion>
-                </SystemSettings>
-            </RegistrationRequestSettings>
-            <TenantId>$tenantId</TenantId>
-            <UserAgent>PassthroughAuthenticationConnector/1.5.643.0</UserAgent>
-        </RegistrationRequest>
-"@
-        
-        # Register the app and get the certificate
-        $response = Invoke-RestMethod -Uri "https://$tenantId.registration.msappproxy.net/register/RegisterConnector" -Method Post -Body $body -Headers @{"Content-Type"="application/xml; charset=utf-8"}
-        if($response.RegistrationResult.IsSuccessful -eq "true")
-        {
-            # Get the certificate and convert to byte array
-            $b64Cert = $response.RegistrationResult.Certificate
-            $binCert = [convert]::FromBase64String($b64Cert)
-            
-            # Create a new x509certificate 
-            $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($binCert,"",[System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::UserKeySet -band [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
-
-            # Store the private key so that it can be exported
-            $cspParameters = [System.Security.Cryptography.CspParameters]::new()
-            $cspParameters.ProviderName = "Microsoft Enhanced RSA and AES Cryptographic Provider"
-            $cspParameters.ProviderType = 24
-            $cspParameters.KeyContainerName ="AADInternals"
-            
-            # Set the private key
-            $privateKey = [System.Security.Cryptography.RSACryptoServiceProvider]::new(2048,$cspParameters)
-            $privateKey.ImportParameters($rsa.ExportParameters($true))
-            $cert.PrivateKey = $privateKey
-
-            # Export the certificate to pfx
-            $binCert = $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)
-            $binCert | Set-Content $fileName -Encoding Byte
-
-            # Remove the private key from the store
-            $privateKey.PersistKeyInCsp=$false
-            $privateKey.Clear()
-
-            Write-Host "PTA agent registered as $machineName"
-            Write-Host "Certificate saved to $fileName"
-        }
-        else
-        {
-            # Something went wrong
-            Write-Error $response.RegistrationResult.ErrorMessage
-        }
+        return Register-ProxyAgent -AccessToken $AccessToken -MachineName $MachineName -FileName $FileName -AgentType PTA
     }
 }
+
+
 
 # Sets the certificate used by Azure AD Authentication Agent
 # Mar 3rd 2020
@@ -192,26 +98,13 @@ function Set-PTACertificate
 
     .Example
     Set-AADIntPTACertificate -PfxFileName server1.pfx -PfxPassword "password"
-
-    .Example
-    $pt=Get-AADIntAccessTokenForPTA
-    PS C:\>Register-AADIntPTAAgent -MachineName "server1.company.com" -AccessToken $pt
-
-    PTA agent registered as server1.company.com
-    Certificate saved to PTA_client_certificate.pfx
-
-    PS C:\>Set-AADIntPTACertificate
-    Certification information set, remember to restart the service.
-   
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
         [String]$PfxFileName="PTA_client_certificate.pfx",
         [Parameter(Mandatory=$False)]
-        [String]$PfxPassword,
-        [Parameter(Mandatory=$False)]
-        [String]$TenantId
+        [String]$PfxPassword
     )
     Process
     {
@@ -221,20 +114,28 @@ function Set-PTACertificate
             Write-Error "The file ($PfxFile.FullName) does not exist!"
             return
         }
-        
-        # Get the certificate and serial number
-        $cert=Get-Certificate -FileName $PfxFile.FullName -Password $PfxPassword
-        $serString = $cert.SerialNumber
 
-        # Convert serial number to byte array
-        $s=[byte[]][object[]]::new(16)
-        for($a = 0 ; $a -lt 32 ; $a+=2)
+        # Load the certificate
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromCertFile($PfxFile)
+
+        # Get the Tenant Id and Instance Id
+        $TenantId = $cert.Subject.Split("=")[1]
+        $InstanceID = [guid]$cert.GetSerialNumberString()
+
+        # Actually, it is not the serial number but this oid for Private Enterprise Number. Microsoft = 1.3.6.1.4.1.311
+        foreach($extension in $cert.Extensions)
         {
-            $s[$a/2] = [convert]::ToByte($serString.Substring($a, 2), 16)
+            if($extension.Oid.Value -eq "1.3.6.1.4.1.311.82.1")
+            {
+                $InstanceID = [guid]$extension.RawData
+            }
         }
 
-        # Convert serial number to GUID
-        $InstanceID = ([guid]$s).Tostring()
+        # Import the certificate to Local Machine\My
+        $store = [System.Security.Cryptography.X509Certificates.X509Store]::new([System.Security.Cryptography.X509Certificates.StoreName]::My, [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
+        $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+        $store.Add($cert)
+        $store.Close()
 
         # Set the registry value (the registy entry should already exists)
         Write-Verbose "Setting HKLM:\SOFTWARE\Microsoft\Azure AD Connect Agents\Azure AD Connect Authentication Agent\InstanceID to $InstanceID"
@@ -253,6 +154,31 @@ function Set-PTACertificate
         $TrustConfig.ConnectorTrustSettingsFile.CloudProxyTrust.Thumbprint = $cert.Thumbprint
         $TrustConfig.OuterXml | Set-Content $configFile
 
-        Write-Host "Certification information set, remember to restart the service."
+        # Set the read access to private key
+        # Get the service information
+        $Service=Get-WMIObject -namespace "root\cimv2" -class Win32_Service -Filter 'Name="AzureADConnectAuthenticationAgent"'
+
+        # Create an accessrule for private key
+        $AccessRule = New-Object Security.AccessControl.FileSystemAccessrule $service.StartName, "read", allow
+        $Root = "C:\ProgramData\Microsoft\Crypto\RSA\MachineKeys"
+
+        # Give read permissions to the private key
+        $rsaCert = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($cert)
+        $fileName = $rsaCert.key.UniqueName
+        $path="$Root\$fileName"
+        Write-Verbose "Setting read access for ($($service.StartName)) to the private key ($path)"
+        
+        try
+        {
+            $permissions = Get-Acl -Path $path -ErrorAction SilentlyContinue
+            $permissions.AddAccessRule($AccessRule)
+            Set-Acl -Path $path -AclObject $permissions -ErrorAction SilentlyContinue
+        }
+        catch
+        {
+            Write-Warning "Could not give read access for ($($service.StartName)) to the private key ($path) but this is propably okay."
+        }
+
+        Write-Host "`nCertification information set, remember to (re)start the service."
     }
 }
