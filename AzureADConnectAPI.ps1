@@ -3,8 +3,8 @@
 # NOTE: Azure AD Sync API gets redirected quite often 2-3 times per request. 
 # Therefore the functions need to be called recursively and use $Recursion parameter.
 
-# Get company configuration
-# Oct 11th 2018
+# Get synchronization configuration using Provisioning and Azure AD Sync API
+# May 6th 2020
 function Get-SyncConfiguration
 {
 <#
@@ -12,7 +12,118 @@ function Get-SyncConfiguration
     Gets tenant's synchronization configuration
 
     .DESCRIPTION
-    Gets tenant's synchronization configuration using Azure AD Sync API.
+    Gets tenant's synchronization configuration using Provisioning and Azure AD Sync API.
+    If the user doesn't have admin rights, only a subset of information is returned.
+
+    .Parameter AccessToken
+    Access Token
+
+    .Example
+    Get-AADIntSyncConfiguration
+
+    AllowedFeatures                         : {ObjectWriteback,  , PasswordWriteback}
+    AnchorAttribute                         : mS-DS-ConsistencyGuid
+    ApplicationVersion                      : 1651564e-7ce4-4d99-88be-0a65050d8dc3
+    ClientVersion                           : 1.4.38.0
+    DirSyncClientMachine                    : SERVER1
+    DirSyncFeatures                         : 41016
+    DisplayName                             : Company Ltd
+    IsDirSyncing                            : true
+    IsPasswordSyncing                       : false
+    IsTrackingChanges                       : false
+    MaxLinksSupportedAcrossBatchInProvision : 15000
+    PreventAccidentalDeletion               : EnabledForCount
+    SynchronizationInterval                 : PT30M
+    TenantId                                : 57cf9f28-1ad7-40f4-bee8-d3ab9877f0a8
+    TotalConnectorSpaceObjects              : 1
+    TresholdCount                           : 500
+    TresholdPercentage                      : 0
+    UnifiedGroupContainer                   : 
+    UserContainer                           : 
+    DirSyncAnchorAttribute                  : mS-DS-ConsistencyGuid
+    DirSyncServiceAccount                   : Sync_SERVER1_xxxxxxxxxxx@company.onmicrosoft.com
+    DirectorySynchronizationStatus          : Enabled
+    InitialDomain                           : company.onmicrosoft.com
+    LastDirSyncTime                         : 2020-03-03T10:23:09Z
+    LastPasswordSyncTime                    : 2020-03-04T10:23:43Z
+
+    .Example
+    Get-AADIntSyncConfiguration
+
+    ApplicationVersion                      : 1651564e-7ce4-4d99-88be-0a65050d8dc3
+    ClientVersion                           : 1.4.38.0
+    DirSyncAnchorAttribute                  : mS-DS-ConsistencyGuid
+    DirSyncClientMachine                    : SERVER1
+    DirSyncServiceAccount                   : Sync_SERVER1_xxxxxxxxxxx@company.onmicrosoft.com
+    DirectorySynchronizationStatus          : Enabled
+    DisplayName                             : Company Ltd
+    InitialDomain                           : company.onmicrosoft.com
+    IsDirSyncing                            : true
+    LastDirSyncTime                         : 2020-03-03T10:23:09Z
+    LastPasswordSyncTime                    : 2020-03-04T10:23:43Z
+   
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+
+        # First get configuration from Provisioning API (no admin rights needed)
+        $config = Get-CompanyInformation -AccessToken $AccessToken
+
+        # Return value
+        $attributes=[ordered]@{
+            ApplicationVersion =              $config.DirSyncApplicationType                 
+            ClientVersion =                   $config.DirSyncClientVersion
+            DirSyncAnchorAttribute =          $config.DirSyncAnchorAttribute
+            DirSyncClientMachine =            $config.DirSyncClientMachineName                 
+            DirSyncServiceAccount =           $config.DirSyncServiceAccount
+            DirectorySynchronizationStatus =  $config.DirectorySynchronizationStatus
+            DisplayName =                     $config.DisplayName
+            InitialDomain =                   $config.InitialDomain
+            IsDirSyncing =                    $config.DirectorySynchronizationEnabled
+            LastDirSyncTime =                 $config.LastDirSyncTime 
+            LastPasswordSyncTime =            $config.LastPasswordSyncTime
+        }
+        
+        # Try to get synchronization information using Azure AD Sync
+        try
+        {
+            $config2=Get-SyncConfiguration2 -AccessToken $AccessToken
+
+            # Merge the configs
+            foreach($key in $attributes.Keys)
+            {
+                $config2[$key] = $attributes[$key]
+            }
+
+            return New-Object PSObject -Property $config2
+        }
+        catch
+        {
+            return New-Object PSObject -Property $attributes
+        }
+
+        
+
+    }
+}
+
+# Get synchronization configuration using Sync API
+# Oct 11th 2018
+function Get-SyncConfiguration2
+{
+<#
+    .SYNOPSIS
+    Gets tenant's synchronization configuration
+
+    .DESCRIPTION
+    Gets tenant's synchronization configuration using Provisioning and Azure AD Sync API.
 
     .Parameter AccessToken
     Access Token
@@ -86,35 +197,36 @@ function Get-SyncConfiguration
             # Create a return object
             $res=$xml_doc.Envelope.Body.GetCompanyConfigurationResponse.GetCompanyConfigurationResult
 
-            $details=@{}
-
             $AllowedFeatures = @()
             foreach($feature in $res.AllowedFeatures.'#text')
             {
                 $AllowedFeatures += $feature
             }
-            $details.AllowedFeatures = $AllowedFeatures
 
-            $details.UserContainer = $res.WriteBack.UserContainer
-            $details.UnifiedGroupContainer = $res.WriteBack.UnifiedGroupContainer
-            $details.DirSyncClientMachine = $res.DirSyncConfiguration.CurrentExport.DirSyncClientMachineName
-            $details.TotalConnectorSpaceObjects = $res.DirSyncConfiguration.CurrentExport.TotalConnectorSpaceObjects
-            $details.AnchorAttribute = $res.DirSyncConfiguration.AnchorAttribute
-            $details.ApplicationVersion = $res.DirSyncConfiguration.ApplicationVersion
-            $details.ClientVersion = $res.DirSyncConfiguration.ClientVersion
-            $details.IsTrackingChanges = $res.DirSyncConfiguration.IsTrackingChanges
-            $details.PreventAccidentalDeletion = $res.DirSyncConfiguration.PreventAccidentalDeletion.DeletionPrevention
-            $details.TresholdCount = $res.DirSyncConfiguration.PreventAccidentalDeletion.ThresholdCount
-            $details.TresholdPercentage = $res.DirSyncConfiguration.PreventAccidentalDeletion.ThresholdPercentage
-            $details.DirSyncFeatures = $res.DirSyncFeatures
-            $details.DisplayName = $res.DisplayName
-            $details.IsDirSyncing = $res.IsDirSyncing
-            $details.IsPasswordSyncing = $res.IsPasswordSyncing
-            $details.MaxLinksSupportedAcrossBatchInProvision = $res.MaxLinksSupportedAcrossBatchInProvision2
-            $details.SynchronizationInterval = $res.SynchronizationInterval
-            $details.TenantId = $res.TenantId
+            $config=[ordered]@{
 
-            return New-Object -TypeName PSObject -Property $details
+                AllowedFeatures =            $AllowedFeatures
+                AnchorAttribute =            $res.DirSyncConfiguration.AnchorAttribute
+                ApplicationVersion =         $res.DirSyncConfiguration.ApplicationVersion
+                ClientVersion =              $res.DirSyncConfiguration.ClientVersion
+                DirSyncClientMachine =       $res.DirSyncConfiguration.CurrentExport.DirSyncClientMachineName
+                DirSyncFeatures =            $res.DirSyncFeatures
+                DisplayName =                $res.DisplayName
+                IsDirSyncing =               $res.IsDirSyncing
+                IsPasswordSyncing =          $res.IsPasswordSyncing
+                IsTrackingChanges =          $res.DirSyncConfiguration.IsTrackingChanges
+                MaxLinksSupportedAcrossBatchInProvision = $res.MaxLinksSupportedAcrossBatchInProvision2
+                PreventAccidentalDeletion =  $res.DirSyncConfiguration.PreventAccidentalDeletion.DeletionPrevention
+                SynchronizationInterval =    $res.SynchronizationInterval
+                TenantId =                   $res.TenantId
+                TotalConnectorSpaceObjects = $res.DirSyncConfiguration.CurrentExport.TotalConnectorSpaceObjects
+                TresholdCount =              $res.DirSyncConfiguration.PreventAccidentalDeletion.ThresholdCount
+                TresholdPercentage =         $res.DirSyncConfiguration.PreventAccidentalDeletion.ThresholdPercentage
+                UnifiedGroupContainer =      $res.WriteBack.UnifiedGroupContainer
+                UserContainer =              $res.WriteBack.UserContainer
+            }
+
+            return $config
         }
     }
 }

@@ -112,6 +112,8 @@ $functions=@(
     # AADSyncSettings.ps1
     "Get-SyncCredentials"
     "Update-SyncCredentials"
+    "Get-SyncEncryptionKeyInfo"
+    "Get-SyncEncryptionKey"
 
     # PTASpy.ps1
     "Install-PTASpy"
@@ -154,6 +156,21 @@ $functions=@(
     # MFA.ps1
     "Get-UserMFA"
     "Set-UserMFA"
+
+    # SyncAgent.ps1
+    "Register-SyncAgent"
+
+    # MSAppProxy.ps1
+    "Get-ProxyAgents"
+    "Get-ProxyAgentGroups"
+
+    # AD_Utils.ps1
+    "Get-DPAPIKeys"
+    "Get-LSASecrets"
+    "Get-LSABackupKeys"
+    "Get-UserMasterkeys"
+    "Get-LocalUserCredentials"
+    "Get-SystemMasterkeys"
 )
 foreach($function in $functions)
 {

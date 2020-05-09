@@ -35,6 +35,9 @@ $client_ids=@{
     "adibizaux" =           "74658136-14ec-4630-ad9b-26e160ff0fc6" # Azure portal UI "ADIbizaUX"
     "msmamservice" =        "27922004-5251-4030-b22d-91ecd9a37ea4" # MS MAM Service API
     "teamswebclient" =      "5e3ce6c0-2b1f-4285-8d4b-75ee78787346"
+    "OMEX" =                "c606301c-f764-4e6b-aa45-7caaaea93c9a"
+    "pinredemption" =       "06c6433f-4fb8-4670-b2cd-408938296b8e"
+    "vstudio" =             "872cd9fa-d31f-45e0-9eab-6e460a02d1f1" # Visual Studio
 }
 
 # AccessToken resource strings

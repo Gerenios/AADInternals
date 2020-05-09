@@ -325,6 +325,11 @@ function Get-DERLengthBytes
         {
             return $length
         }
+        elseif($length -lt 256)
+        {
+            # We return 1000 0010 = multibyte (1000), one bytes (0001)
+            return @(0x81, $length)
+        }
         else
         {
             $secondByte = $length % 256
@@ -353,16 +358,56 @@ function Add-DERTag
     }
 }
 
+
+function Add-DERSet
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Data
+    )
+    Process
+    {
+        $output = @(0x31)
+        $output += Get-DERLengthBytes($Data)
+        $output += $Data
+        return $output
+    }
+}
+function Add-DERSequence
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Data
+    )
+    Process
+    {
+        $output = @(0x30)
+        $output += Get-DERLengthBytes($Data)
+        $output += $Data
+        return $output
+    }
+}
+
 function Add-DERUnicodeString
 {
     Param(
         [Parameter(Mandatory=$True)]
         [String]$Text,
         [byte]$Tag=0x04
+
     )
     Process
     {
         $data = [system.text.encoding]::Unicode.GetBytes($Text)
+
+        # swap the bytes (little-endian)
+        for($a = 0; $a -lt $data.Length ; $a+=2)
+        {
+            $t=$data[$a]
+            $data[$a]=$data[$a+1]
+            $data[$a+1]=$t
+        }
+
         $output = @($Tag)
         $output += Get-DERLengthBytes($data)
         $output += $data
@@ -380,6 +425,23 @@ function Add-DERUtf8String
     Process
     {
         $data = [system.text.encoding]::UTF8.GetBytes($Text)
+        $output = @($Tag)
+        $output += Get-DERLengthBytes($data)
+        $output += $data
+        return $output
+    }
+}
+
+function Add-DERIA5String
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Text,
+        [byte]$Tag=0x16
+    )
+    Process
+    {
+        $data = [system.text.encoding]::ASCII.GetBytes($Text)
         $output = @($Tag)
         $output += Get-DERLengthBytes($data)
         $output += $data
