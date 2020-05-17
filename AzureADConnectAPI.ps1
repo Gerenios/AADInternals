@@ -46,6 +46,10 @@ function Get-SyncConfiguration
     InitialDomain                           : company.onmicrosoft.com
     LastDirSyncTime                         : 2020-03-03T10:23:09Z
     LastPasswordSyncTime                    : 2020-03-04T10:23:43Z
+    ADSyncBlackListEnabled                  : false
+    ADSyncBlackList                         : {1.0}
+    ADSyncLatestVersion                     : 3.2
+    ADSyncMinimumVersion                    : 1.0
 
     .Example
     Get-AADIntSyncConfiguration
@@ -100,6 +104,14 @@ function Get-SyncConfiguration
             foreach($key in $attributes.Keys)
             {
                 $config2[$key] = $attributes[$key]
+            }
+
+            $capabilities=Get-SyncCapabilities -AccessToken $AccessToken
+
+            # Merge the configs
+            foreach($key in $capabilities.Keys)
+            {
+                $config2[$key] = $capabilities[$key]
             }
 
             return New-Object PSObject -Property $config2
@@ -251,7 +263,7 @@ function Set-PasswordHashSyncEnabled
     True or False
 
     .Example
-    Set-PasswordHashSyncEnabled -Enabled $true
+    Set-AADIntPasswordHashSyncEnabled -Enabled $true
 
 #>
     [cmdletbinding()]
@@ -280,7 +292,7 @@ function Set-PasswordHashSyncEnabled
             if($CompanyConfig["DirectorySynchronizationEnabled"].'#text' -ne "true")
             {
                 # Turn dirsync on
-                Set-CompanyDirSyncEnabled -AccessToken $AccessToken -EnableDirSync $true
+                Set-ADSyncEnabled -AccessToken $AccessToken -EnableDirSync $true
             }
 
             # Enable or disable PHS
@@ -784,6 +796,9 @@ function Set-UserPassword
     .Parameter ChangeDate
     Time of the password change. Can be now or in the past.
 
+    .Parameter Iterations
+    The number of iterations of pbkdf2. Defaults to 1000.
+
     .Example
     Set-AADIntUserPassword -SourceAnchor "Vvl6blILG0/Cr/8TWOe9pg==" -Password "MyPassword" -ChangeDate ((Get-Date).AddYears(-1))
 
@@ -802,7 +817,9 @@ function Set-UserPassword
         [Parameter(Mandatory=$False)]
         [DateTime]$ChangeDate=(Get-Date),
         [Parameter(Mandatory=$False)]
-        [int]$Recursion=1
+        [int]$Recursion=1,
+        [parameter(Mandatory=$false)]
+        [int]$Iterations=1000
     )
     Process
     {
@@ -812,11 +829,17 @@ function Set-UserPassword
             throw "Too many recursions"
         }
 
+        # Warn once about iterations over 1000
+        if($Recursion -eq 1 -and $Iterations -gt 1000)
+        {
+            Write-Warning "Iterations are more than 1000, login may not work correctly!"
+        }
+
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache($AccessToken)
 
         # Create AAD hash
-        $CredentialData = Create-AADHash -Password $Password
+        $CredentialData = Create-AADHash -Password $Password -Iterations $Iterations
 
         # Create the body block
         $body=@"
@@ -851,7 +874,7 @@ function Set-UserPassword
 
         if(IsRedirectResponse($xml_doc))
         {
-            return Set-UserPassword -AccessToken $AccessToken -Recursion ($Recursion+1) -SourceAnchor $SourceAnchor -Password $Password -ChangeDate $ChangeDate
+            return Set-UserPassword -AccessToken $AccessToken -Recursion ($Recursion+1) -SourceAnchor $SourceAnchor -Password $Password -ChangeDate $ChangeDate -Iterations $Iterations
         }
         else
         {
@@ -1082,7 +1105,7 @@ function Set-DesktopSSO
     .Example
     PS C:\>$cred=Get-Credential
     PS C:\>$pt=Get-AADIntAccessTokenForPTA -Credentials $cred
-    PS C:\>Set-AADIntSeamlessSSO -AccessToken $pt -DomainName "company.net" -Password "MySecretPassWord"
+    PS C:\>Set-AADIntDesktopSSO -AccessToken $pt -DomainName "company.net" -Password "MySecretPassWord"
 
     IsSuccessful ErrorMessage
     ------------ ------------
@@ -1201,5 +1224,549 @@ function Set-DesktopSSOEnabled
         }
 
         return New-Object -TypeName PSObject -Property $attributes
+    }
+}
+
+# Gets the kerberos domain sync configuration
+# May 11th 2020
+function Get-KerberosDomainSyncConfig
+{
+<#
+    .SYNOPSIS
+    Gets tenant's Kerberos domain sync configuration
+
+    .DESCRIPTION
+    Gets tenant's Kerberos domain sync configuration using Azure AD Sync API
+
+    .Parameter AccessToken
+    Access Token
+
+    .Example
+
+    Get-AADIntKerberosDomainSyncConfig
+
+    PublicEncryptionKey                                                                              SecuredEncryptionAlgorithm SecuredKeyId SecuredPartitionId
+    -------------------                                                                              -------------------------- ------------ ------------------
+    RUNLMSAAAABOD8OPj7I3nfeuh7ELE47OtA3yvyryQ0wamf5jPy2uGKibaTRKJd/kFexTpJ8siBxszKCXC2sn1Fd9pEG2y7fu 5                          2            15001 
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [int]$Recursion=1
+    )
+    Process
+    {
+        # Accept only three loops
+        if($Recursion -gt 3)
+        {
+            throw "Too many recursions"
+        }
+
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+
+        # Create the body block
+        $body=@"
+		<GetKerberosDomainSyncConfig xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
+        </GetKerberosDomainSyncConfig>
+"@
+        $Message_id=(New-Guid).ToString()
+        $Command="GetKerberosDomainSyncConfig"
+
+        $serverName=$Script:aadsync_server
+
+        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName
+        
+        # Call the API
+        $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
+
+        # Convert binary response to XML
+        $xml_doc=BinaryToXml $response
+
+        if(IsRedirectResponse($xml_doc))
+        {
+            return Get-KerberosDomainSyncConfig -AccessToken $AccessToken -Recursion ($Recursion+1)
+        }
+        else
+        {
+            # Create a return object
+            $res=$xml_doc.Envelope.Body.GetKerberosDomainSyncConfigResponse.GetKerberosDomainSyncConfigResult
+
+            $attributes=[ordered]@{
+                "PublicEncryptionKey" =        $res.PublicEncryptionKey
+                "SecuredEncryptionAlgorithm" = $res.SecuredEncryptionAlgorithm
+                "SecuredKeyId" =               $res.SecuredKeyId
+                "SecuredPartitionId" =         $res.SecuredPartitionId
+            }
+
+            return New-Object psobject -Property $attributes
+
+        }
+    }
+}
+
+# Gets the kerberos domain
+# May 11th 2020
+function Get-KerberosDomain
+{
+<#
+    .SYNOPSIS
+    Gets tenant's synchronized objects
+
+    .DESCRIPTION
+    Gets tenant's synchronized objects using Azure AD Sync API
+
+    .Parameter AccessToken
+    Access Token
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$DomainName,
+        [Parameter(Mandatory=$False)]
+        [int]$Recursion=1
+    )
+    Process
+    {
+        # Accept only three loops
+        if($Recursion -gt 3)
+        {
+            throw "Too many recursions"
+        }
+
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+
+        # Create the body block
+        $body=@"
+		<GetKerberosDomain xmlns="http://schemas.microsoft.com/online/aws/change/2010/01" i:nil="true" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+            <dnsDomainName>$DomainName</dnsDomainName>
+        </GetKerberosDomain>
+"@
+        $Message_id=(New-Guid).ToString()
+        $Command="GetKerberosDomain"
+
+        $serverName=$Script:aadsync_server
+
+        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName
+        
+        # Call the API
+        $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
+
+        # Convert binary response to XML
+        $xml_doc=BinaryToXml $response
+
+        if(IsRedirectResponse($xml_doc))
+        {
+            return Get-KerberosDomain -AccessToken $AccessToken -Recursion ($Recursion+1) -DomainName $DomainName
+        }
+        else
+        {
+            # Create a return object
+            $res=$xml_doc.Envelope.Body.GetKerberosDomainSyncConfigResponse.GetKerberosDomainSyncConfigResult
+
+            $attributes=[ordered]@{
+                "PublicEncryptionKey" =        $res.PublicEncryptionKey
+                "SecuredEncryptionAlgorithm" = $res.SecuredEncryptionAlgorithm
+                "SecuredKeyId" =               $res.SecuredKeyId
+                "SecuredPartitionId" =         $res.SecuredPartitionId
+            }
+
+            return New-Object psobject -Property $attributes
+
+        }
+    }
+}
+
+# Gets monitoring tenant certificate. No idea what this is..
+# May 11th 2020
+function Get-MonitoringTenantCertificate
+{
+
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [int]$Recursion=1
+    )
+    Process
+    {
+        # Accept only three loops
+        if($Recursion -gt 3)
+        {
+            throw "Too many recursions"
+        }
+
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+
+        # Create the body block
+        $body=@"
+		<GetMonitoringTenantCertificate xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
+        </GetMonitoringTenantCertificate>
+"@
+        $Message_id=(New-Guid).ToString()
+        $Command="GetMonitoringTenantCertificate"
+
+        $serverName=$Script:aadsync_server
+
+        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName
+        
+        # Call the API
+        $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
+
+        # Convert binary response to XML
+        $xml_doc=BinaryToXml $response
+
+        if(IsRedirectResponse($xml_doc))
+        {
+            return Get-MonitoringTenantCertificate -AccessToken $AccessToken -Recursion ($Recursion+1)
+        }
+        else
+        {
+            # Create a return object
+            $res=$xml_doc.Envelope.Body.GetMonitoringTenantCertificateResponse.GetMonitoringTenantCertificateResult
+
+            
+            return $res
+
+        }
+    }
+}
+
+# Gets the windows credentials sync configuration - if the Azure Domain Services is used
+# May 11th 2020
+function Get-WindowsCredentialsSyncConfig
+{
+<#
+    .SYNOPSIS
+    Gets tenant's Windows credentials synchronization config
+
+    .DESCRIPTION
+    Gets tenant's Windows credentials synchronization config using Azure AD Sync API
+
+    .Parameter AccessToken
+    Access Token
+
+    .Example
+    Get-AADIntWindowsCredentialsSyncConfig
+
+    EnableWindowsLegacyCredentials EnableWindowsSupplementaCredentials SecretEncryptionCertificate                                                                            
+    ------------------------------ ----------------------------------- ---------------------------                                                                            
+                              True                               False MIIDJTCCAg2gAwIBAgIQFwRSInW7I...
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [int]$Recursion=1
+    )
+    Process
+    {
+        # Accept only three loops
+        if($Recursion -gt 3)
+        {
+            throw "Too many recursions"
+        }
+
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+
+        # Create the body block
+        $body=@"
+		<GetWindowsCredentialsSyncConfig xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
+        </GetWindowsCredentialsSyncConfig>
+"@
+        $Message_id=(New-Guid).ToString()
+        $Command="GetWindowsCredentialsSyncConfig"
+
+        $serverName=$Script:aadsync_server
+
+        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName
+        
+        # Call the API
+        $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
+
+        # Convert binary response to XML
+        $xml_doc=BinaryToXml $response
+
+        if(IsRedirectResponse($xml_doc))
+        {
+            return Get-WindowsCredentialsSyncConfig -AccessToken $AccessToken -Recursion ($Recursion+1)
+        }
+        else
+        {
+            # Create a return object
+            $res=$xml_doc.Envelope.Body.GetWindowsCredentialsSyncConfigResponse.GetWindowsCredentialsSyncConfigResult
+
+            $attributes=[ordered]@{
+                "EnableWindowsLegacyCredentials" =      $res.EnableWindowsLegacyCredentials -eq "true"
+                "EnableWindowsSupplementaCredentials" = $res.EnableWindowsSupplementaCredentials -eq "true"
+                "SecretEncryptionCertificate" =         $res.SecretEncryptionCertificate.InnerText
+
+            }
+
+            return New-Object psobject -Property $attributes
+            
+            return $res
+
+        }
+    }
+}
+
+# Gets tenant's sync device configuration
+# May 11th 2020
+function Get-SyncDeviceConfiguration
+{
+<#
+    .SYNOPSIS
+    Gets tenant's synchronization device configuration
+
+    .DESCRIPTION
+    Gets tenant's synchronization device configuration using Azure AD Sync API
+
+    .Parameter AccessToken
+    Access Token
+
+    .Example
+    Get-AADIntSyncDeviceConfiguration
+
+    PublicIssuerCertificates CloudPublicIssuerCertificates                                                                                                                    
+    ------------------------ -----------------------------                                                                                                                    
+    {$null}                  {MIIDejCCAmKgAwIBAgIQzsvx7rE77rJM...
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [int]$Recursion=1
+    )
+    Process
+    {
+        # Accept only three loops
+        if($Recursion -gt 3)
+        {
+            throw "Too many recursions"
+        }
+
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+
+        # Create the body block
+        $body=@"
+		<GetDeviceConfiguration xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
+        </GetDeviceConfiguration>
+"@
+        $Message_id=(New-Guid).ToString()
+        $Command="GetDeviceConfiguration"
+
+        $serverName=$Script:aadsync_server
+
+        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName
+        
+        # Call the API
+        $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
+
+        # Convert binary response to XML
+        $xml_doc=BinaryToXml $response
+
+        if(IsRedirectResponse($xml_doc))
+        {
+            return Get-DeviceConfiguration -AccessToken $AccessToken -Recursion ($Recursion+1)
+        }
+        else
+        {
+            # Create a return object
+            $res=$xml_doc.Envelope.Body.GetDeviceConfigurationResponse.GetDeviceConfigurationResult
+
+            $resCloudCerts = $res.CloudPublicIssuerCertificates
+            $resCerts =      $res.PublicIssuerCertificates
+            $cloudCerts = @()
+            $certs = @()
+
+            foreach($cert in $resCloudCerts)
+            {
+                $cloudCerts += $cert.base64Binary
+            }
+
+            foreach($cert in $resCerts)
+            {
+                $certs += $cert.base64Binary
+            }
+
+            return New-Object psobject -Property @{"CloudPublicIssuerCertificates" = $cloudCerts; "PublicIssuerCertificates" = $certs}
+
+            
+
+        }
+    }
+}
+
+
+# Get sync objects from Azure AD with a reduced attributes
+# May 11th 2020
+function Get-SyncObjects2
+{
+<#
+    .SYNOPSIS
+    Gets tenant's synchronized objects
+
+    .DESCRIPTION
+    Gets tenant's synchronized objects using Azure AD Sync API
+
+    .Parameter AccessToken
+    Access Token
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [int]$Recursion=1
+    )
+    Process
+    {
+        # Accept only three loops
+        if($Recursion -gt 3)
+        {
+            throw "Too many recursions"
+        }
+
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+
+        # Create the body block
+        $body=@"
+		<ReadBackAzureADSyncObjects2 xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
+            <includeLicenseInformation>true</includeLicenseInformation>
+            <inputCookie i:nil="true" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"></inputCookie>
+            <isFullSync>true</isFullSync>
+        </ReadBackAzureADSyncObjects2>
+"@
+        $Message_id=(New-Guid).ToString()
+        $Command="ReadBackAzureADSyncObjects2"
+
+        $serverName=$Script:aadsync_server
+
+        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName
+        
+        # Call the API
+        $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
+
+        # Convert binary response to XML
+        $xml_doc=BinaryToXml $response
+
+        if(IsRedirectResponse($xml_doc))
+        {
+            return Get-SyncObjects2 -AccessToken $AccessToken -Recursion ($Recursion+1)
+        }
+        else
+        {
+            # Create a return object
+            $res=$xml_doc.Envelope.Body.ReadBackAzureADSyncObjects2Response.ReadBackAzureADSyncObjects2Result
+
+            # Loop through objects
+            foreach($obj in $res.ResultObjects.AzureADSyncObject)
+            {
+                $details=@{}
+                $details.SyncObjectType=$obj.SyncObjectType
+                $details.SyncOperation=$obj.SyncOperation
+
+                # Loop through all key=value pairs
+                foreach($kv in $obj.PropertyValues.KeyValueOfstringanyType)
+                {
+                    $details[$kv.Key]=$kv.value.'#text'
+                }
+
+                # Return
+                New-Object -TypeName PSObject -Property $details
+            }
+
+        }
+    }
+}
+
+# Get sync capabilities
+# May 12th 2020
+function Get-SyncCapabilities
+{
+<#
+    .SYNOPSIS
+    Gets tenant's synchronization capabilities
+
+    .DESCRIPTION
+    Gets tenant's synchronization capabilities using Azure AD Sync API
+
+    .Parameter AccessToken
+    Access Token
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [int]$Recursion=1
+    )
+    Process
+    {
+        # Accept only three loops
+        if($Recursion -gt 3)
+        {
+            throw "Too many recursions"
+        }
+
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+
+        # Create the body block
+        $body=@"
+		<Capabilities xmlns="http://schemas.microsoft.com/online/aws/change/2010/01" />
+"@
+        $Message_id=(New-Guid).ToString()
+        $Command="Capabilities"
+
+        $serverName=$Script:aadsync_server
+
+        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName
+        
+        # Call the API
+        $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
+
+        # Convert binary response to XML
+        $xml_doc=BinaryToXml $response
+
+        if(IsRedirectResponse($xml_doc))
+        {
+            return Get-SyncObjects2 -AccessToken $AccessToken -Recursion ($Recursion+1)
+        }
+        else
+        {
+            # Create a return object
+            $res=[xml]$xml_doc.Envelope.Body.CapabilitiesResponse.CapabilitiesResult
+
+            $cap=$res.ServiceCapability.MicrosoftOnline.Protocol.Application
+
+            $blacklist = @()
+
+            foreach($client in $cap.BlackList)
+            {
+                $blacklist += $client.ClientVersion
+            }
+
+            return @{
+                "ADSyncLatestVersion" =    $cap.LatestProductVersion
+                "ADSyncMinimumVersion" =   $cap.MinimumProductVersion
+                "ADSyncBlackList" =        $blacklist
+                "ADSyncBlackListEnabled" = $cap.BlackList.Enabled
+                }
+
+        }
     }
 }

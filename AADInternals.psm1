@@ -63,6 +63,7 @@ $functions=@(
     "Set-User" # TODO: remove unused parameters
     "Get-GlobalAdmins"
     "New-Domain" # TODO: remove unused parameters
+    "Set-ADSyncEnabled"
 
     #FederatedIdentityTools.ps1
     "Get-Certificate"
@@ -85,6 +86,9 @@ $functions=@(
     "Set-DesktopSSOEnabled"
     "Get-DesktopSSO"
     "Set-DesktopSSO"
+    "Get-KerberosDomainSyncConfig"
+    "Get-WindowsCredentialsSyncConfig"
+    "Get-SyncDeviceConfiguration"
 
     # AzureManagementAPI_utils.ps1
     "Get-AccessTokenForAADIAMAPI"
@@ -160,7 +164,7 @@ $functions=@(
     # SyncAgent.ps1
     "Register-SyncAgent"
 
-    # MSAppProxy.ps1
+    # MSAppProxy_utils.ps1
     "Get-ProxyAgents"
     "Get-ProxyAgentGroups"
 

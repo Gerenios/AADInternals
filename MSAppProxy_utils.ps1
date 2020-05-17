@@ -345,7 +345,7 @@ function NewCSRforSync
                         Add-DERSet -Data @(           
                             Add-DERSequence -Data @(
                                 Add-DERInteger 0x01
-                                Add-DERUnicodeString -Tag 0x1E "Microsoft Enhanced RSA and AES Cryptographic Provider"
+                                Add-DERUnicodeString -Tag 0x1E "Microsoft Enhanced RSA and AES Cryptographic Provider" -LE
                                 Add-DERTag -Tag 0x03 -Data 0x00 # Bit string
                             )
                         )

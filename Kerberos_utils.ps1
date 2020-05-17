@@ -393,7 +393,8 @@ function Add-DERUnicodeString
     Param(
         [Parameter(Mandatory=$True)]
         [String]$Text,
-        [byte]$Tag=0x04
+        [byte]$Tag=0x04,
+        [switch]$LE
 
     )
     Process
@@ -401,11 +402,14 @@ function Add-DERUnicodeString
         $data = [system.text.encoding]::Unicode.GetBytes($Text)
 
         # swap the bytes (little-endian)
-        for($a = 0; $a -lt $data.Length ; $a+=2)
+        if($LE)
         {
-            $t=$data[$a]
-            $data[$a]=$data[$a+1]
-            $data[$a+1]=$t
+            for($a = 0; $a -lt $data.Length ; $a+=2)
+            {
+                $t=$data[$a]
+                $data[$a]=$data[$a+1]
+                $data[$a+1]=$t
+            }
         }
 
         $output = @($Tag)

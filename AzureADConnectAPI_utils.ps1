@@ -380,7 +380,9 @@ Function Create-AADHash {
 
     param(
         [parameter(Mandatory=$true)]
-        [String]$Password
+        [String]$Password,
+        [parameter(Mandatory=$false)]
+        [int]$Iterations=1000
     )
     process{
         # Calculate MD4 from the password (Unicode)
@@ -391,15 +393,21 @@ Function Create-AADHash {
         $salt = Get-Random 0,1,2,3,4,5,6,7,8,9,0xA,0xB,0xC,0xD,0xE,0xF -count 10
 
         # Calculate hash using 1000 iterations and SHA256
-        $pbkdf2 = New-Object System.Security.Cryptography.Rfc2898DeriveBytes($md4bytes,$salt,1000,"SHA256")
+        $pbkdf2 = New-Object System.Security.Cryptography.Rfc2898DeriveBytes($md4bytes,$salt,$Iterations,"SHA256")
         $bytes = $pbkdf2.GetBytes(32)
 
         # Convert to hex strings
         $hexbytes=Convert-ByteArrayToHex $bytes
         $hexsalt=Convert-ByteArrayToHex $salt
 
+        # Create the return value
+        $retVal = "v1;PPH1_MD4,$hexsalt,$Iterations,$hexbytes;"
+
+        # Verbose
+        Write-Verbose $retVal
+        
         # Return
-        return "v1;PPH1_MD4,$hexsalt,1000,$hexbytes;"
+        return $retVal
     }
     
 }

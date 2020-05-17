@@ -18,6 +18,7 @@ $client_ids=@{
     "dynamicscrm"=          "00000007-0000-0000-c000-000000000000" # Dynamics CRM
     "o365suiteux"=          "4345a7b9-9a63-4910-a426-35363201d503" # O365 Suite UX
     "aadsync"=              "cb1056e2-e479-49de-ae31-7812af012ed8" # Azure AD Sync
+    "aadconnectv2"=         "6eb59a73-39b2-4c23-a70f-e2e3ce8965b1" # AAD Connect v2
     "synccli"=              "1651564e-7ce4-4d99-88be-0a65050d8dc3"
     "azureadmin" =          "c44b4083-3bb0-49c1-b47d-974e53cbdf3c" # Azure Admin web ui
     "pta" =                 "cb1056e2-e479-49de-ae31-7812af012ed8" # Pass-through authentication
@@ -35,9 +36,9 @@ $client_ids=@{
     "adibizaux" =           "74658136-14ec-4630-ad9b-26e160ff0fc6" # Azure portal UI "ADIbizaUX"
     "msmamservice" =        "27922004-5251-4030-b22d-91ecd9a37ea4" # MS MAM Service API
     "teamswebclient" =      "5e3ce6c0-2b1f-4285-8d4b-75ee78787346"
-    "OMEX" =                "c606301c-f764-4e6b-aa45-7caaaea93c9a"
-    "pinredemption" =       "06c6433f-4fb8-4670-b2cd-408938296b8e"
-    "vstudio" =             "872cd9fa-d31f-45e0-9eab-6e460a02d1f1" # Visual Studio
+    "azuregraphclientint" = "7492bca1-9461-4d94-8eb8-c17896c61205" # Microsoft Azure Graph Client Library 2.1.9 Internal
+    "azure_mgmt" =          "84070985-06ea-473d-82fe-eb82b4011c9d" # Windows Azure Service Management API
+
 }
 
 # AccessToken resource strings
@@ -646,7 +647,12 @@ function Get-OAuthInfo
         $userRealm = Get-UserRealm($Credentials.UserName)
 
         # Check the authentication type
-        if($userRealm.account_type -eq "Managed")
+        if($userRealm.account_type -eq "Unknown")
+        {
+            Write-Error "User type  of $($Credentials.Username) is Unknown!"
+            return $null
+        }
+        elseif($userRealm.account_type -eq "Managed")
         {
             # If authentication type is managed, we authenticate directly against Microsoft Online
             # with user name and password to get access token
