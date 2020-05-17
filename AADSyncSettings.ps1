@@ -3,6 +3,7 @@
 # Oct 29th 2019
 function Check-Server
 {
+    [cmdletbinding()]
     Param(
             [Parameter(Mandatory=$true)]
             [bool]$AsADSync,
@@ -12,7 +13,7 @@ function Check-Server
     process
     {
         # Check that we are on AADConnect server and that the service is running
-        if($force -ne $true -and (Get-Service ADSync -ErrorAction SilentlyContinue) -eq $null)
+        if($force -ne $true -and (($adSyncService = Get-Service ADSync -ErrorAction SilentlyContinue) -eq $null -or $adSyncService.Status -ne "Running"))
         {
             Write-Error "This command needs to be run on a computer with ADSync running!"
             return $false
@@ -51,7 +52,7 @@ function Check-Server
         {
             # First we need to get connection once to the DB to get token. 
             # If done after "elevating" to ADSync, all SQL connections to configuration database will fail.
-            $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList "Data Source=(localdb)\.\ADSync;Initial Catalog=ADSync"
+            $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList (Get-AADConfigDbConnection)
             $SQLclient.Open()
             $SQLclient.Close()
             try
@@ -99,11 +100,52 @@ function Get-SyncCredentials
     ADUserPassword                 Q9@p(poz{#:kF_G)(s/Iy@8c*9(t;...
     AADUser                        Sync_SRV01_4bc4a34e95fa@company.onmicrosoft.com                                                      
     AADUserPassword                $.1%(lxZ&/kNZz[r
+
+    .Example
+    Get-AADIntSyncCredentials -AsCredentials
+
+    UserName                                                            Password
+    --------                                                            --------
+    MSOL_4bc4a34e95fa                               System.Security.SecureString
+    Sync_SRV01_4bc4a34e95fa@company.onmicrosoft.com System.Security.SecureString
+
+    .Example
+    $syncCreds=Get-AADIntSyncCredentials -AsCredentials
+    PS C:\>$at=Get-AADIntAccessTokenForAADGraph -Credentials $syncCreds[1]
+    PS C:\>Get-AADIntSyncConfiguration -AccessToken $at
+
+    AllowedFeatures                         : {ObjectWriteback,  , PasswordWriteback}
+    AnchorAttribute                         : mS-DS-ConsistencyGuid
+    ApplicationVersion                      : 1651564e-7ce4-4d99-88be-0a65050d8dc3
+    ClientVersion                           : 1.4.38.0
+    DirSyncClientMachine                    : SERVER1
+    DirSyncFeatures                         : 41016
+    DisplayName                             : Company Ltd
+    IsDirSyncing                            : true
+    IsPasswordSyncing                       : false
+    IsTrackingChanges                       : false
+    MaxLinksSupportedAcrossBatchInProvision : 15000
+    PreventAccidentalDeletion               : EnabledForCount
+    SynchronizationInterval                 : PT30M
+    TenantId                                : 57cf9f28-1ad7-40f4-bee8-d3ab9877f0a8
+    TotalConnectorSpaceObjects              : 1
+    TresholdCount                           : 500
+    TresholdPercentage                      : 0
+    UnifiedGroupContainer                   : 
+    UserContainer                           : 
+    DirSyncAnchorAttribute                  : mS-DS-ConsistencyGuid
+    DirSyncServiceAccount                   : Sync_SERVER1_xxxxxxxxxxx@company.onmicrosoft.com
+    DirectorySynchronizationStatus          : Enabled
+    InitialDomain                           : company.onmicrosoft.com
+    LastDirSyncTime                         : 2020-03-03T10:23:09Z
+    LastPasswordSyncTime                    : 2020-03-04T10:23:43Z
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$false)]
         [bool]$AsADSync=$true,
+        [Parameter(Mandatory=$false)]
+        [switch]$AsCredentials,
         [Parameter(Mandatory=$false)]
         [switch]$force
     )
@@ -116,7 +158,7 @@ function Get-SyncCredentials
         }
 
         # Read the encrypt/decrypt key settings
-        $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList "Data Source=(localdb)\.\ADSync;Initial Catalog=ADSync"
+        $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList (Get-AADConfigDbConnection)
         $SQLclient.Open()
         $SQLcmd = $SQLclient.CreateCommand()
         $SQLcmd.CommandText = "SELECT keyset_id, instance_id, entropy FROM mms_server_configuration"
@@ -177,7 +219,17 @@ function Get-SyncCredentials
         }
 
         # Return
-        return New-Object -TypeName PSObject -Property $attributes
+        if($AsCredentials)
+        {
+            $adCreds =  New-Object System.Management.Automation.PSCredential($attributes["ADUser"],  (ConvertTo-SecureString $attributes["ADUserPassword"] -AsPlainText -Force))
+            $aadCreds = New-Object System.Management.Automation.PSCredential($attributes["AADUser"], (ConvertTo-SecureString $attributes["AADUserPassword"] -AsPlainText -Force))
+
+            return @($adCreds, $aadCreds)
+        }
+        else
+        {
+            return New-Object -TypeName PSObject -Property $attributes
+        }
         
     }
 }
@@ -275,7 +327,7 @@ function Update-SyncCredentials
 </encrypted-attributes>
 "@
         # Read the encrypt/decrypt key settings
-        $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList "Data Source=(localdb)\.\ADSync;Initial Catalog=ADSync"
+        $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList -ArgumentList (Get-AADConfigDbConnection)
         $SQLclient.Open()
         $SQLcmd = $SQLclient.CreateCommand()
         $SQLcmd.CommandText = "SELECT keyset_id, instance_id, entropy FROM mms_server_configuration"
@@ -416,7 +468,7 @@ function Set-ADSyncAccountPassword
 </encrypted-attributes>
 "@
         # Read the encrypt/decrypt key settings
-        $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList "Data Source=(localdb)\.\ADSync;Initial Catalog=ADSync"
+        $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList (Get-AADConfigDbConnection)
         $SQLclient.Open()
         $SQLcmd = $SQLclient.CreateCommand()
         $SQLcmd.CommandText = "SELECT keyset_id, instance_id, entropy FROM mms_server_configuration"
@@ -730,7 +782,7 @@ function Get-SyncEncryptionKeyInfo
     param()
 
     # Read the encrypt/decrypt key settings
-    $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList "Data Source=(localdb)\.\ADSync;Initial Catalog=ADSync"
+    $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList (Get-AADConfigDbConnection)
     $SQLclient.Open()
     $SQLcmd = $SQLclient.CreateCommand()
     $SQLcmd.CommandText = "SELECT keyset_id, instance_id, entropy FROM mms_server_configuration"
@@ -743,4 +795,27 @@ function Get-SyncEncryptionKeyInfo
     $SQLClient.Close()
 
     return New-Object PSObject @{Entropy = $entropy; InstanceId = $instance_id}
+}
+
+# Gets the db connection string from the registry
+# May 11th
+function Get-AADConfigDbConnection
+{
+    [cmdletbinding()]
+    Param()
+    Begin
+    {
+        # Create the connection string for the configuration database
+        $parametersPath =    "HKLM:\SYSTEM\CurrentControlSet\Services\ADSync\Parameters"
+        $dBServer =          Get-ItemPropertyValue -Path $parametersPath -Name "Server"
+        $dBName =            Get-ItemPropertyValue -Path $parametersPath -Name "DBName"
+        $dBInstance =        Get-ItemPropertyValue -Path $parametersPath -Name "SQLInstance"
+        $connectionString  = "Data Source=$dbServer\$dBInstance;Initial Catalog=$dBName"
+    }
+    Process
+    {
+        Write-Verbose "ConnectionString=$connectionString"
+
+        return $connectionString
+    }
 }

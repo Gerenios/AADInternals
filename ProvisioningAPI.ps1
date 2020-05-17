@@ -3429,10 +3429,29 @@ function Remove-ServicePrincipalCredentials
 }
 
 
-# Set-CompanyDirSyncEnabled
+# Set-ADDirSyncEnabled
 # May 8th 2019
-function Set-CompanyDirSyncEnabled
+function Set-ADSyncEnabled
 {
+<#
+    .SYNOPSIS
+    Enables or disables directory synchronization
+
+    .DESCRIPTION
+    Enables or disables directory synchronization using provisioning API.
+    
+    Enabling / disabling the synchrnoization usually takes less than 10 seconds. Check the status using Get-AADIntCompanyInformation.
+
+    .Parameter AccessToken
+    Access Token
+
+    .Parameter Enabled
+    True or False
+
+    .Example
+    Set-AADIntADSyncEnabled -Enabled $true
+
+#>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
