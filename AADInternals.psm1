@@ -9,7 +9,18 @@ Add-Type -AssemblyName System.Web.Extensions
 $manifest = Import-PowerShellDataFile "$PSScriptRoot\AADInternals.psd1"
 $version = $manifest.ModuleVersion
 $host.ui.RawUI.WindowTitle="AADInternals $version"
-Write-Host "AADInternals v$version by @NestoriSyynimaa" -ForegroundColor Yellow
+
+$logo=@"
+    ___    ___    ____  ____      __                        __    
+   /   |  /   |  / __ \/  _/___  / /____  _________  ____ _/ /____
+  / /| | / /| | / / / // // __ \/ __/ _ \/ ___/ __ \/ __ ``/ / ___/
+ / ___ |/ ___ |/ /_/ _/ // / / / /_/  __/ /  / / / / /_/ / (__  ) 
+/_/  |_/_/  |_/_____/___/_/ /_/\__/\___/_/  /_/ /_/\__,_/_/____/  
+  
+ v$version by @NestoriSyynimaa - psconf.eu edition
+"@
+
+Write-Host $logo -ForegroundColor Yellow
 
 # Load the .ps1 scripts
 $scripts = @(Get-ChildItem -Path $PSScriptRoot\*.ps1 -ErrorAction SilentlyContinue)
