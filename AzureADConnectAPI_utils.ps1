@@ -180,18 +180,30 @@ function Create-SyncEnvelope
         [bool]$IsInstalledOnDc=$False,
 
         [Parameter()]
-        [bool]$RichCoexistenceEnabled=$False
-
+        [bool]$RichCoexistenceEnabled=$False,
+        
+        [Parameter()]
+        [int]$Version=1
     )
     Process
     {
+        # Set the client ID
+        if($Version -eq 2)
+        {
+            $applicationClient= $client_ids["aadconnectv2"]
+        }
+        else
+        {
+            $applicationClient = $client_ids["synccli"]
+        }
+
         # Create the envelope
         $envelope=@"
 <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://www.w3.org/2005/08/addressing">
 	        <s:Header>
 		        <a:Action s:mustUnderstand="1">http://schemas.microsoft.com/online/aws/change/2010/01/IProvisioningWebService/$Command</a:Action>
 		        <SyncToken s:role="urn:microsoft.online.administrativeservice" xmlns="urn:microsoft.online.administrativeservice" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
-			        <ApplicationId xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">$($client_ids["synccli"])</ApplicationId>
+			        <ApplicationId xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">$applicationClient</ApplicationId>
 			        <BearerToken xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">$AccessToken</BearerToken>
 			        <ClientVersion xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">$aadsync_client_version</ClientVersion>
 			        <DirSyncBuildNumber xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">$aadsync_client_build</DirSyncBuildNumber>
@@ -298,7 +310,7 @@ function Add-PropertyValue
     Param(
         [Parameter(Mandatory=$True)]
         [String]$Key,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [PSobject]$Value,
         [ValidateSet('string','bool','base64','long','ArrayOfstring')]
         [String]$Type="string"

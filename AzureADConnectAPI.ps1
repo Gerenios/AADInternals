@@ -80,6 +80,12 @@ function Get-SyncConfiguration
         # First get configuration from Provisioning API (no admin rights needed)
         $config = Get-CompanyInformation -AccessToken $AccessToken
 
+        # Show the warning of the pending state
+        if($config.DirectorySynchronizationStatus.StartsWith("Pending"))
+        {
+            Write-Warning "Synchronization status is $($config.DirectorySynchronizationStatus) and it may be stuck to this state for up to 72h!"
+        }
+
         # Return value
         $attributes=[ordered]@{
             ApplicationVersion =              $config.DirSyncApplicationType                 
@@ -474,7 +480,10 @@ function Set-AzureADObject
         [Parameter(Mandatory=$False)]
         [String[]]$proxyAddresses,
         [Parameter(Mandatory=$False)]
-        [int]$Recursion=1
+        [int]$Recursion=1,
+        [Parameter(Mandatory=$False)]
+        [ValidateSet(1,2)]
+        [Int]$Version=2
     )
     Process
     {
@@ -528,7 +537,7 @@ $body_end=@"
 
         $serverName=$aadsync_server
 
-        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName
+        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName -Version $Version
         
         # Call the API
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
@@ -702,13 +711,74 @@ function Get-SyncObjects
 
     .Parameter AccessToken
     Access Token
+
+    .Parameter Version
+    Version number of AD Sync, defaults to 2. Version 2 returns only non-empty attributes and is thus much more efficient.
+
+    .Example
+    Get-AADIntSyncObjects -AccessToken $at -Version 1
+
+    AccountEnabled                      : true
+    Alias                               : 
+    City                                : 
+    CloudAnchor                         : User_64c6616b-f961-4882-a03e-9209d01711aa
+    CloudLegacyExchangeDN               : /o=ExchangeLabs/ou=Exchange Administrative Group (FYDIBOHF23SPDLT)/cn=Recipients/cn=7e07ff8b-5d1c-4319-b608-c371914fbd99-Megan Bowen
+    CloudMSExchArchiveStatus            : 
+    CloudMSExchBlockedSendersHash       : 
+    CloudMSExchRecipientDisplayType     : 1073741824
+    CloudMSExchSafeRecipientsHash       : 
+    CloudMSExchSafeSendersHash          : 
+    CloudMSExchTeamMailboxExpiration    : 
+    CloudMSExchTeamMailboxSharePointUrl : 
+    CloudMSExchUCVoiceMailSettings      : 
+    CloudMSExchUserHoldPolicies         : 
+    CloudMastered                       : false
+    CommonName                          : Megan Bowen
+    Company                             : 
+    Country                             : 
+    CountryCode                         : 0
+    CountryLetterCode                   : 
+    Department                          : 
+    Description                         : 
+    DisplayName                         : Megan Bowen
+    DnsDomainName                       : company.com
+    ...
+
+    .Example
+    Get-AADIntSyncObjects -AccessToken $at
+
+    AccountEnabled                  : true
+    CloudAnchor                     : User_64c6616b-f961-4882-a03e-9209d01711aa
+    CloudLegacyExchangeDN           : /o=ExchangeLabs/ou=Exchange Administrative Group (FYDIBOHF23SPDLT)/cn=Recipients/cn=7e07ff8b-5d1c-4319-b608-c371914fbd99-Megan Bowen
+    CloudMSExchRecipientDisplayType : 1073741824
+    CloudMastered                   : false
+    CommonName                      : Megan Bowen
+    CountryCode                     : 0
+    DisplayName                     : Megan Bowen
+    DnsDomainName                   : company.com
+    GivenName                       : Megan
+    LastPasswordChangeTimestamp     : 20190801164342.0Z
+    NetBiosName                     : COMPANY
+    OnPremiseSecurityIdentifier     : 
+    OnPremisesDistinguishedName     : CN=Megan Bowen,OU=Domain Users,DC=company,DC=com
+    OnPremisesSamAccountName        : MeganB
+    SourceAnchor                    : 
+    Surname                         : Bowen
+    SyncObjectType                  : User
+    SyncOperation                   : Set
+    UsageLocation                   : US
+    UserPrincipalName               : MeganB@company.com
+    UserType                        : Member
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
-        [int]$Recursion=1
+        [int]$Recursion=1,
+        [Parameter(Mandatory=$False)]
+        [ValidateSet(1,2)]
+        [Int]$Version=2
     )
     Process
     {
@@ -718,19 +788,25 @@ function Get-SyncObjects
             throw "Too many recursions"
         }
 
+        # Check the version
+        if($Version -eq 2)
+        {
+            $txtVer = $Version.ToString()
+        }
+
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache($AccessToken)
 
         # Create the body block
         $body=@"
-		<ReadBackAzureADSyncObjects xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
+		<ReadBackAzureADSyncObjects$txtVer xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
             <includeLicenseInformation>true</includeLicenseInformation>
             <inputCookie i:nil="true" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"></inputCookie>
             <isFullSync>true</isFullSync>
-        </ReadBackAzureADSyncObjects>
+        </ReadBackAzureADSyncObjects$txtVer>
 "@
         $Message_id=(New-Guid).ToString()
-        $Command="ReadBackAzureADSyncObjects"
+        $Command="ReadBackAzureADSyncObjects$txtVer"
 
         $serverName=$Script:aadsync_server
 
@@ -744,12 +820,19 @@ function Get-SyncObjects
 
         if(IsRedirectResponse($xml_doc))
         {
-            return Get-SyncObjects -AccessToken $AccessToken -Recursion ($Recursion+1)
+            return Get-SyncObjects -AccessToken $AccessToken -Recursion ($Recursion+1) -Version $Version
         }
         else
         {
             # Create a return object
-            $res=$xml_doc.Envelope.Body.ReadBackAzureADSyncObjectsResponse.ReadBackAzureADSyncObjectsResult
+            if($Version -eq 2)
+            {
+                $res=$xml_doc.Envelope.Body.ReadBackAzureADSyncObjects2Response.ReadBackAzureADSyncObjects2Result
+            }
+            else
+            {
+                $res=$xml_doc.Envelope.Body.ReadBackAzureADSyncObjectsResponse.ReadBackAzureADSyncObjectsResult
+            }
 
             # Loop through objects
             foreach($obj in $res.ResultObjects.AzureADSyncObject)
@@ -805,12 +888,21 @@ function Set-UserPassword
     CloudAnchor Result SourceAnchor            
     ----------- ------ ------------            
     CloudAnchor 0      Vvl6blILG0/Cr/8TWOe9pg==
+
+    .Example
+    Set-AADIntUserPassword -CloudAnchor "User_60f87269-f258-4473-8cca-267b50110e7a" -Password "MyPassword" -ChangeDate ((Get-Date).AddYears(-1))
+
+    CloudAnchor                               Result SourceAnchor            
+    -----------                               ------ ------------            
+    User_60f87269-f258-4473-8cca-267b50110e7a 0      SourceAnchor
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
+        [Parameter(ParameterSetName='Cloud', Mandatory=$True)]
+        [String]$CloudAnchor,
+        [Parameter(ParameterSetName='Source', Mandatory=$True)]
         [String]$SourceAnchor,
         [Parameter(Mandatory=$True)]
         [String]$Password,
@@ -848,10 +940,10 @@ function Set-UserPassword
 		        <b:RequestItems>
 			        <b:SyncCredentialsChangeItem>
 				        <b:ChangeDate>$($ChangeDate.ToUniversalTime().ToString("o"))</b:ChangeDate>
-				        <b:CloudAnchor i:nil="true"/>
+				        $(if($CloudAnchor){"<b:CloudAnchor>$CloudAnchor</b:CloudAnchor>"}else{"<b:CloudAnchor i:nil=""true""/>"})
 				        <b:CredentialData>$CredentialData</b:CredentialData>
 				        <b:ForcePasswordChangeOnLogon>false</b:ForcePasswordChangeOnLogon>
-				        <b:SourceAnchor>$SourceAnchor</b:SourceAnchor>
+				        $(if($SourceAnchor){"<b:SourceAnchor>$SourceAnchor</b:SourceAnchor>"}else{"<b:SourceAnchor i:nil=""true""/>"})
 				        <b:WindowsLegacyCredentials i:nil="true"/>
 				        <b:WindowsSupplementalCredentials i:nil="true"/>
 			        </b:SyncCredentialsChangeItem>
@@ -1610,88 +1702,6 @@ function Get-SyncDeviceConfiguration
 }
 
 
-# Get sync objects from Azure AD with a reduced attributes
-# May 11th 2020
-function Get-SyncObjects2
-{
-<#
-    .SYNOPSIS
-    Gets tenant's synchronized objects
-
-    .DESCRIPTION
-    Gets tenant's synchronized objects using Azure AD Sync API
-
-    .Parameter AccessToken
-    Access Token
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [String]$AccessToken,
-        [Parameter(Mandatory=$False)]
-        [int]$Recursion=1
-    )
-    Process
-    {
-        # Accept only three loops
-        if($Recursion -gt 3)
-        {
-            throw "Too many recursions"
-        }
-
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
-
-        # Create the body block
-        $body=@"
-		<ReadBackAzureADSyncObjects2 xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
-            <includeLicenseInformation>true</includeLicenseInformation>
-            <inputCookie i:nil="true" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"></inputCookie>
-            <isFullSync>true</isFullSync>
-        </ReadBackAzureADSyncObjects2>
-"@
-        $Message_id=(New-Guid).ToString()
-        $Command="ReadBackAzureADSyncObjects2"
-
-        $serverName=$Script:aadsync_server
-
-        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName
-        
-        # Call the API
-        $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
-
-        # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
-
-        if(IsRedirectResponse($xml_doc))
-        {
-            return Get-SyncObjects2 -AccessToken $AccessToken -Recursion ($Recursion+1)
-        }
-        else
-        {
-            # Create a return object
-            $res=$xml_doc.Envelope.Body.ReadBackAzureADSyncObjects2Response.ReadBackAzureADSyncObjects2Result
-
-            # Loop through objects
-            foreach($obj in $res.ResultObjects.AzureADSyncObject)
-            {
-                $details=@{}
-                $details.SyncObjectType=$obj.SyncObjectType
-                $details.SyncOperation=$obj.SyncOperation
-
-                # Loop through all key=value pairs
-                foreach($kv in $obj.PropertyValues.KeyValueOfstringanyType)
-                {
-                    $details[$kv.Key]=$kv.value.'#text'
-                }
-
-                # Return
-                New-Object -TypeName PSObject -Property $details
-            }
-
-        }
-    }
-}
 
 # Get sync capabilities
 # May 12th 2020
