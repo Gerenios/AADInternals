@@ -38,6 +38,8 @@ $client_ids=@{
     "teamswebclient" =      "5e3ce6c0-2b1f-4285-8d4b-75ee78787346"
     "azuregraphclientint" = "7492bca1-9461-4d94-8eb8-c17896c61205" # Microsoft Azure Graph Client Library 2.1.9 Internal
     "azure_mgmt" =          "84070985-06ea-473d-82fe-eb82b4011c9d" # Windows Azure Service Management API
+    "az" =                  "1950a258-227b-4e31-a9cf-717495945fc2" # AZ PowerShell Module
+    # 7f59a773-2eaf-429c-a059-50fc5bb28b44 https://docs.microsoft.com/en-us/rest/api/authorization/globaladministrator/elevateaccess#code-try-0
 
 }
 
@@ -583,6 +585,138 @@ function Is-AccessTokenExpired
     }
 }
 
+# Check if the access token signature is valid
+# May 20th 2020
+function Is-AccessTokenValid
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Token sections
+        $sections =  $AccessToken.Split(".")
+        $header =    $sections[0]
+        $payload =   $sections[1]
+        $signature = $sections[2]
+
+        $signatureValid = $false
+
+        # Fill the header with padding for Base 64 decoding
+        while ($header.Length % 4)
+        {
+            $header += "="
+        }
+
+        # Convert the token to string and json
+        $headerBytes=[System.Convert]::FromBase64String($header)
+        $headerArray=[System.Text.Encoding]::ASCII.GetString($headerBytes)
+        $headerObj=$headerArray | ConvertFrom-Json
+
+        # Get the signing key
+        $KeyId=$headerObj.kid
+        Write-Verbose "PARSED TOKEN HEADER: $($headerObj | Format-List | Out-String)"
+
+        # The algorithm should be RSA with SHA-256, i.e. RS256
+        if($headerObj.alg -eq "RS256")
+        {
+            # Get the public certificate
+            $publicCert = Get-APIKeys -KeyId $KeyId
+            Write-Verbose "TOKEN SIGNING CERT: $publicCert"
+            $certBin=[convert]::FromBase64String($publicCert)
+
+            # Construct the JWT data to be verified
+            $dataToVerify="{0}.{1}" -f $header,$payload
+            $dataBin = [text.encoding]::UTF8.GetBytes($dataToVerify)
+
+            # Remove the Base64 URL encoding from the signature and add padding
+            $signature=$signature.Replace("-","+").Replace("_","/")
+            while ($signature.Length % 4)
+            {
+                $signature += "="
+            }
+            $signBytes = [convert]::FromBase64String($signature)
+
+            # Extract the modulus and exponent from the certificate
+            for($a=0;$a -lt $certBin.Length ; $a++)
+            {
+                # Read the bytes    
+                $byte =  $certBin[$a] 
+                $nByte = $certBin[$a+1] 
+
+                # We are only interested in 0x02 tag where our modulus is hidden..
+                if($byte -eq 0x02 -and $nByte -band 0x80)
+                {
+                    $a++
+                    if($nbyte -band 0x02)
+                    {
+                        $byteCount = [System.BitConverter]::ToInt16($certBin[$($a+2)..$($a+1)],0)
+                        $a+=3
+                    }
+                    elseif($nbyte -band 0x01)
+                    {
+                        $byteCount = $certBin[$($a+1)]
+                        $a+=2
+                    }
+
+                    # If the first byte is 0x00, skip it
+                    if($certBin[$a] -eq 0x00)
+                    {
+                        $a++
+                        $byteCount--
+                    }
+
+                    # Now we have the modulus!
+                    $modulus = $certBin[$a..$($a+$byteCount-1)]
+
+                    # Next byte value is the exponent
+                    $a+=$byteCount
+                    if($certBin[$a++] -eq 0x02)
+                    {
+                        $byteCount = $certBin[$a++]
+                        $exponent =  $certBin[$a..$($a+$byteCount-1)]
+                        Write-Verbose "MODULUS:  $(Convert-ByteArrayToHex -Bytes $modulus)"
+                        Write-Verbose "EXPONENT: $(Convert-ByteArrayToHex -Bytes $exponent)"
+                        break
+                    }
+                    else
+                    {
+                        Write-Verbose "Error getting modulus and exponent"
+                    }
+                }
+            }
+
+            if($exponent -and $modulus)
+            {
+                # Create the RSA and other required objects
+                $rsa = New-Object -TypeName System.Security.Cryptography.RSACryptoServiceProvider
+                $rsaParameters = New-Object -TypeName System.Security.Cryptography.RSAParameters
+    
+                # Set the verification parameters
+                $rsaParameters.Exponent = $exponent
+                $rsaparameters.Modulus = $modulus
+                $rsa.ImportParameters($rsaParameters)
+                
+                $signatureValid = $rsa.VerifyData($dataBin, $signBytes,[System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+
+                $rsa.Dispose() 
+                  
+            }
+                
+        }
+        else
+        {
+            Write-Error "Access Token signature algorithm $($headerObj.alg) not supported!"
+        }
+
+        return $signatureValid 
+    }
+}
+
+
+
 # Gets OAuth information using SAML token
 function Get-OAuthInfoUsingSAML
 {
@@ -791,19 +925,85 @@ function Read-Accesstoken
     PS C:\>$token=Get-AADIntReadAccessTokenForAADGraph
     PS C:\>Parse-AADIntAccessToken -AccessToken $token
 
+    aud                 : https://graph.windows.net
+    iss                 : https://sts.windows.net/f2b2ba53-ed2a-4f4c-a4c3-85c61e548975/
+    iat                 : 1589477501
+    nbf                 : 1589477501
+    exp                 : 1589481401
+    acr                 : 1
+    aio                 : ASQA2/8PAAAALe232Yyx9l=
+    amr                 : {pwd}
+    appid               : 1b730954-1685-4b74-9bfd-dac224a7b894
+    appidacr            : 0
+    family_name         : company
+    given_name          : admin
+    ipaddr              : 107.210.220.129
+    name                : admin company
+    oid                 : 1713a7bf-47ba-4826-a2a7-bbda9fabe948
+    puid                : 100354
+    rh                  : 0QfALA.
+    scp                 : user_impersonation
+    sub                 : BGwHjKPU
+    tenant_region_scope : NA
+    tid                 : f2b2ba53-ed2a-4f4c-a4c3-85c61e548975
+    unique_name         : admin@company.onmicrosoft.com
+    upn                 : admin@company.onmicrosoft.com
+    uti                 : -EWK6jMDrEiAesWsiAA
+    ver                 : 1.0
+
+    .Example
+    PS C:\>Parse-AADIntAccessToken -AccessToken $token -Validate
+
+    Read-Accesstoken : Access Token is expired
+    At line:1 char:1
+    + Read-Accesstoken -AccessToken $at -Validate -verbose
+    + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException
+        + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,Read-Accesstoken
+
+    aud                 : https://graph.windows.net
+    iss                 : https://sts.windows.net/f2b2ba53-ed2a-4f4c-a4c3-85c61e548975/
+    iat                 : 1589477501
+    nbf                 : 1589477501
+    exp                 : 1589481401
+    acr                 : 1
+    aio                 : ASQA2/8PAAAALe232Yyx9l=
+    amr                 : {pwd}
+    appid               : 1b730954-1685-4b74-9bfd-dac224a7b894
+    appidacr            : 0
+    family_name         : company
+    given_name          : admin
+    ipaddr              : 107.210.220.129
+    name                : admin company
+    oid                 : 1713a7bf-47ba-4826-a2a7-bbda9fabe948
+    puid                : 100354
+    rh                  : 0QfALA.
+    scp                 : user_impersonation
+    sub                 : BGwHjKPU
+    tenant_region_scope : NA
+    tid                 : f2b2ba53-ed2a-4f4c-a4c3-85c61e548975
+    unique_name         : admin@company.onmicrosoft.com
+    upn                 : admin@company.onmicrosoft.com
+    uti                 : -EWK6jMDrEiAesWsiAA
+    ver                 : 1.0
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
         [String]$AccessToken,
         [Parameter()]
-        [Switch]$ShowDate
+        [Switch]$ShowDate,
+        [Parameter()]
+        [Switch]$Validate
 
     )
     Process
     {
-        # Get only the token payload
-        $payload = $AccessToken.Split(".")[1]
+        # Token sections
+        $sections =  $AccessToken.Split(".")
+        $header =    $sections[0]
+        $payload =   $sections[1]
+        $signature = $sections[2]
 
         # Fill with padding for Base 64 decoding
         while ($payload.Length % 4)
@@ -822,6 +1022,29 @@ function Read-Accesstoken
             $payloadObj.exp=($epoch.Date.AddSeconds($payloadObj.exp)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
             $payloadObj.iat=($epoch.Date.AddSeconds($payloadObj.iat)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
             $payloadObj.nbf=($epoch.Date.AddSeconds($payloadObj.nbf)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
+        }
+
+        if($Validate)
+        {
+            # Check the signature
+            if((Is-AccessTokenValid -AccessToken $AccessToken))
+            {
+                Write-Verbose "Access Token signature successfully verified"
+            }
+            else
+            {
+                Write-Error "Access Token signature could not be verified"
+            }
+
+            # Check the timestamp
+            if((Is-AccessTokenExpired -AccessToken $AccessToken))
+            {
+                Write-Error "Access Token is expired"
+            }
+            else
+            {
+                Write-Verbose "Access Token is not expired"
+            }
 
         }
 
@@ -1372,6 +1595,56 @@ function Get-AccessTokenForOfficeApps
     Process
     {
         Get-AccessToken -Resource "https://officeapps.live.com" -ClientId "onedrive" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials
+    }
+}
+
+# Gets an access token for Azure Core Management
+# May 29th 2020
+function Get-AccessTokenForAzureCoreManagement
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Azure Core Management
+
+    .DESCRIPTION
+    Gets OAuth Access Token for Azure Core Management
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+    
+    .Example
+    Get-AADIntAccessTokenForOneOfficeApps
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForAzureCoreManagement -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain
+    )
+    Process
+    {
+        Get-AccessToken -Resource "https://management.core.windows.net" -ClientId "graph_api" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials
     }
 }
 
@@ -2019,5 +2292,31 @@ function Create-AuthorizationHeader
         }
 
         return $auth
+    }
+}
+
+
+# Gets Microsoft online services' public keys
+# May 18th 2020
+function Get-APIKeys
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter()]
+        [String]$KeyId
+    )
+    Process
+    {
+        $keys=Invoke-RestMethod "https://login.microsoftonline.com/common/discovery/keys"
+
+        if($KeyId)
+        {
+            $keys.keys | Where-Object -Property kid -eq $KeyId | Select-Object -ExpandProperty x5c
+        }
+        else
+        {
+            $keys.keys
+        }
+        
     }
 }
