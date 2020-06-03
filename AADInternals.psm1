@@ -17,7 +17,7 @@ $logo=@"
  / ___ |/ ___ |/ /_/ _/ // / / / /_/  __/ /  / / / / /_/ / (__  ) 
 /_/  |_/_/  |_/_____/___/_/ /_/\__/\___/_/  /_/ /_/\__,_/_/____/  
   
- v$version by @NestoriSyynimaa - psconf.eu edition
+ v$version by @NestoriSyynimaa
 "@
 
 Write-Host $logo -ForegroundColor Yellow
@@ -52,6 +52,7 @@ $functions=@(
     "Get-AccessTokenForSARA"
     "Get-AccessTokenForOneDrive"
     "Get-AccessTokenForOfficeApps"
+    "Get-AccessTokenForAzureCoreManagement"
     "Get-TenantDetails"
     "Read-AccessToken"
     "Get-EndpointInstances"
@@ -186,6 +187,16 @@ $functions=@(
     "Get-UserMasterkeys"
     "Get-LocalUserCredentials"
     "Get-SystemMasterkeys"
+
+    # AzureCoreManagement.ps1
+    "Get-AzureClassicAdministrators"
+    "Grant-AzureUserAccessAdminRole"
+    "Get-AzureSubscriptions"
+    "Set-AzureRoleAssignment"
+    "Get-AzureResourceGroups"
+    "Get-AzureVMs"
+    "Invoke-AzureVMScript"
+    "Get-AzureVMRdpSettings"
 )
 foreach($function in $functions)
 {

@@ -382,13 +382,16 @@ function Set-AzureADObject
     Creates or updates Azure AD object using Azure AD Sync API
 
     .DESCRIPTION
-    Creates or updates Azure AD object using Azure AD Sync API
+    Creates or updates Azure AD object using Azure AD Sync API. Can also set cloud-only user's sourceAnchor (ImmutableId) and onPremisesSAMAccountName. SourceAnchor can only be set once!
 
     .Parameter AccessToken
     Access Token
 
     .Parameter sourceAnchor
     The source anchor for the Azure AD object. Typically Base 64 encoded GUID of on-prem AD object.
+
+    .Parameter cloudAnchor
+    The cloud anchor for the Azure AD object in the form "<type>_<objectid>". For example "User_a98368aa-f0cb-41b5-a7c6-10f18c6c837d"
 
     .Parameter userPrincipalName
     User Principal Name of the Azure AD object
@@ -440,8 +443,10 @@ function Set-AzureADObject
     Param(
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
-        [String]$sourceAnchor,
+        [Parameter(Mandatory=$False)]
+        [String]$CloudAnchor,
+        [Parameter(Mandatory=$False)]
+        [String]$SourceAnchor,
         [Parameter(Mandatory=$False)]
         [String]$userPrincipalName,
         [Parameter(Mandatory=$False)]
@@ -463,15 +468,13 @@ function Set-AzureADObject
         [Parameter(Mandatory=$False)]
         [String]$displayName,
         [Parameter(Mandatory=$False)]
-        [int]$countryCode=0,
+        $countryCode,
         [Parameter(Mandatory=$False)]
         [String]$commonName,
         [Parameter(Mandatory=$False)]
-        [String]$CloudAnchor,
+        $accountEnabled,
         [Parameter(Mandatory=$False)]
-        [bool]$accountEnabled=$True,
-        [Parameter(Mandatory=$False)]
-        [bool]$cloudMastered=$True,
+        $cloudMastered,
         [Parameter(Mandatory=$False)]
         [ValidateSet('AF','AX','AL','DZ','AS','AD','AO','AI','AQ','AG','AR','AM','AW','AU','AT','AZ','BS','BH','BD','BB','BY','BE','BZ','BJ','BM','BT','BO','BQ','BA','BW','BV','BR','IO','BN','BG','BF','BI','KH','CM','CA','CV','KY','CF','TD','CL','CN','CX','CC','CO','KM','CG','CD','CK','CR','CI','HR','CU','CW','CY','CZ','DK','DJ','DM','DO','EC','EG','SV','GQ','ER','EE','ET','FK','FO','FJ','FI','FR','GF','PF','TF','GA','GM','GE','DE','GH','GI','GR','GL','GD','GP','GU','GT','GG','GN','GW','GY','HT','HM','VA','HN','HK','HU','IS','IN','ID','IQ','IE','IR','IM','IL','IT','JM','JP','JE','JO','KZ','KE','KI','KP','KR','KW','KG','LA','LV','LB','LS','LR','LY','LI','LT','LU','MO','MK','MG','MW','MY','MV','ML','MT','MH','MQ','MR','MU','YT','MX','FM','MD','MC','MN','ME','MS','MA','MZ','MM','NA','NR','NP','NL','NC','NZ','NI','NE','NG','NU','NF','MP','NO','OM','PK','PW','PS','PA','PG','PY','PE','PH','PN','PL','PT','PR','QA','RE','RO','RU','RW','BL','SH','KN','LC','MF','PM','VC','WS','SM','ST','SA','SN','RS','SC','SL','SG','SX','SK','SI','SB','SO','ZA','GS','SS','ES','LK','SD','SR','SJ','SZ','SE','CH','SY','TW','TJ','TZ','TH','TL','TG','TK','TO','TT','TN','TR','TM','TC','TV','UG','UA','AE','GB','US','UM','UY','UZ','VU','VE','VN','VG','VI','WF','EH','YE','ZM','ZW')][String]$usageLocation,
         [Parameter(Mandatory=$False)]
@@ -480,10 +483,7 @@ function Set-AzureADObject
         [Parameter(Mandatory=$False)]
         [String[]]$proxyAddresses,
         [Parameter(Mandatory=$False)]
-        [int]$Recursion=1,
-        [Parameter(Mandatory=$False)]
-        [ValidateSet(1,2)]
-        [Int]$Version=2
+        [int]$Recursion=1
     )
     Process
     {
@@ -496,32 +496,30 @@ function Set-AzureADObject
         $AccessToken = Get-AccessTokenFromCache($AccessToken)
 
         # Create the body block
-        $body_start=@"
+        $body=@"
         <ProvisionAzureADSyncObjects xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
 			<syncRequest xmlns:b="http://schemas.microsoft.com/online/aws/change/2014/06" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
 				<b:SyncObjects>
 					<b:AzureADSyncObject>
 						<b:PropertyValues xmlns:c="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
-"@
-        $body_mid= Add-PropertyValue "SourceAnchor" $sourceAnchor
-        $body_mid+=Add-PropertyValue "accountEnabled" $accountEnabled -Type bool
-        $body_mid+=Add-PropertyValue "commonName" $commonName
-        $body_mid+=Add-PropertyValue "countryCode" $countryCode -Type long
-        $body_mid+=Add-PropertyValue "displayName" $displayName
-        $body_mid+=Add-PropertyValue "dnsDomainName" $dnsDomainName
-        $body_mid+=Add-PropertyValue "givenName" $givenName
-        $body_mid+=Add-PropertyValue "lastPasswordChangeTimestamp" $lastPasswordChangeTimestamp
-        $body_mid+=Add-PropertyValue "netBiosName" $netBiosName
-        $body_mid+=Add-PropertyValue "onPremiseSecurityIdentifier" $onPremiseSecurityIdentifier -Type base64
-        $body_mid+=Add-PropertyValue "onPremisesDistinguishedName" $onPremisesDistinguishedName
-        $body_mid+=Add-PropertyValue "surname" $surname
-        $body_mid+=Add-PropertyValue "userPrincipalName" $userPrincipalName
-        $body_mid+=Add-PropertyValue "cloudMastered" $cloudMastered -Type bool
-        $body_mid+=Add-PropertyValue "usageLocation" $usageLocation
-        $body_mid+=Add-PropertyValue "CloudAnchor" $CloudAnchor
-        $body_mid+=Add-PropertyValue "proxyAddresses" $proxyAddresses -Type ArrayOfstring
-
-$body_end=@"
+                            
+                            $(Add-PropertyValue "SourceAnchor" $sourceAnchor)
+                            $(Add-PropertyValue "accountEnabled" $accountEnabled -Type bool)
+                            $(Add-PropertyValue "commonName" $commonName)
+                            $(Add-PropertyValue "countryCode" $countryCode -Type long)
+                            $(Add-PropertyValue "displayName" $displayName)
+                            $(Add-PropertyValue "dnsDomainName" $dnsDomainName)
+                            $(Add-PropertyValue "givenName" $givenName)
+                            $(Add-PropertyValue "lastPasswordChangeTimestamp" $lastPasswordChangeTimestamp)
+                            $(Add-PropertyValue "netBiosName" $netBiosName)
+                            $(Add-PropertyValue "onPremiseSecurityIdentifier" $onPremiseSecurityIdentifier -Type base64)
+                            $(Add-PropertyValue "onPremisesDistinguishedName" $onPremisesDistinguishedName)
+                            $(Add-PropertyValue "surname" $surname)
+                            $(Add-PropertyValue "userPrincipalName" $userPrincipalName)
+                            $(Add-PropertyValue "cloudMastered" $cloudMastered -Type bool)
+                            $(Add-PropertyValue "usageLocation" $usageLocation)
+                            $(Add-PropertyValue "CloudAnchor" $CloudAnchor)
+                            $(Add-PropertyValue "proxyAddresses" $proxyAddresses -Type ArrayOfstring)
                         </b:PropertyValues>
 						<b:SyncObjectType>$ObjectType</b:SyncObjectType>
 						<b:SyncOperation>Set</b:SyncOperation>
@@ -531,13 +529,12 @@ $body_end=@"
 		</ProvisionAzureADSyncObjects>
 "@
 
-        $body=$body_start+$body_mid+$body_end
         $Message_id=(New-Guid).ToString()
         $Command="ProvisionAzureADSyncObjects"
 
         $serverName=$aadsync_server
 
-        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName -Version $Version
+        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName
         
         # Call the API
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
@@ -551,6 +548,12 @@ $body_end=@"
             return Set-AzureADObject -AccessToken $AccessToken -Recursion ($Recursion+1) -sourceAnchor $sourceAnchor -ObjectType $ObjectType -userPrincipalName $userPrincipalName -surname $surname -onPremisesSamAccountName $onPremisesSamAccountName -onPremisesDistinguishedName $onPremisesDistinguishedName -onPremiseSecurityIdentifier $onPremisesDistinguishedName -netBiosName $netBiosName -lastPasswordChangeTimestamp $lastPasswordChangeTimestamp -givenName $givenName -dnsDomainName $dnsDomainName -displayName $displayName -countryCode $countryCode -commonName $commonName -accountEnabled $accountEnabled -cloudMastered $cloudMastered -usageLocation $usageLocation -CloudAnchor $CloudAnchor
         }
         
+        # Check whether this is an error message
+        if($xml_doc.Envelope.Body.Fault)
+        {
+            Throw $xml_doc.Envelope.Body.Fault.Reason.Text.'#text'
+        }
+
         # Return
         $xml_doc.Envelope.Body.ProvisionAzureADSyncObjectsResponse.ProvisionAzureADSyncObjectsResult.SyncObjectResults.AzureADSyncObjectResult
     }
@@ -582,7 +585,8 @@ function Remove-AzureADObject
         [Parameter(Mandatory=$True)]
         [String]$sourceAnchor,
         [Parameter(Mandatory=$False)]
-        [ValidateSet('User')][String]$ObjectType="User",
+        [ValidateSet('User','Group','Contact')]
+        [String]$ObjectType="User",
         [Parameter(Mandatory=$False)]
         [int]$Recursion=1
     )
@@ -597,17 +601,13 @@ function Remove-AzureADObject
         $AccessToken = Get-AccessTokenFromCache($AccessToken)
 
         # Create the body block
-        $body_start=@"
+        $body=@"
         <ProvisionAzureADSyncObjects xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
 			<syncRequest xmlns:b="http://schemas.microsoft.com/online/aws/change/2014/06" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
 				<b:SyncObjects>
 					<b:AzureADSyncObject>
 						<b:PropertyValues xmlns:c="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
-"@
-        $body_mid= Add-PropertyValue "SourceAnchor" $sourceAnchor
-        
-
-$body_end=@"
+                            $(Add-PropertyValue "SourceAnchor" $sourceAnchor)
                         </b:PropertyValues>
 						<b:SyncObjectType>$ObjectType</b:SyncObjectType>
 						<b:SyncOperation>Delete</b:SyncOperation>
@@ -617,7 +617,6 @@ $body_end=@"
 		</ProvisionAzureADSyncObjects>
 "@
 
-        $body=$body_start+$body_mid+$body_end
         $Message_id=(New-Guid).ToString()
         $Command="ProvisionAzureADSyncObjects"
 
@@ -873,6 +872,9 @@ function Set-UserPassword
     .Parameter SourceAnchor
     User's source anchor (ImmutableId)
 
+    .Parameter CloudAnchor
+    User's cloud anchor "<Type>_<objectid>". For example "User_60f87269-f258-4473-8cca-267b50110e7a"
+
     .Parameter Password
     User's new password
 
@@ -904,6 +906,8 @@ function Set-UserPassword
         [String]$CloudAnchor,
         [Parameter(ParameterSetName='Source', Mandatory=$True)]
         [String]$SourceAnchor,
+        [Parameter(ParameterSetName='UPN', Mandatory=$True)]
+        [String]$UserPrincipalName,
         [Parameter(Mandatory=$True)]
         [String]$Password,
         [Parameter(Mandatory=$False)]
@@ -924,11 +928,18 @@ function Set-UserPassword
         # Warn once about iterations over 1000
         if($Recursion -eq 1 -and $Iterations -gt 1000)
         {
-            Write-Warning "Iterations are more than 1000, login may not work correctly!"
+            Write-Warning "Iterations more than 1000, login may not work correctly!"
         }
 
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache($AccessToken)
+
+        # If the UserPrincipalName is given, get the user's cloudAnchor
+        if($UserPrincipalName)
+        {
+            $user = Get-User -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName
+            $CloudAnchor="User_$($user.ObjectId)"
+        }
 
         # Create AAD hash
         $CredentialData = Create-AADHash -Password $Password -Iterations $Iterations
@@ -1405,13 +1416,16 @@ function Get-KerberosDomain
 {
 <#
     .SYNOPSIS
-    Gets tenant's synchronized objects
+    Gets the kerberos domain information.
 
     .DESCRIPTION
-    Gets tenant's synchronized objects using Azure AD Sync API
+    Gets the kerberos domain information.
 
     .Parameter AccessToken
     Access Token
+
+    .Parameter DomaiName
+    Domain name
 #>
     [cmdletbinding()]
     Param(
