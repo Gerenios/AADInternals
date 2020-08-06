@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.3.3'
+	ModuleVersion = '0.4.0'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -21,9 +21,13 @@
 	# Copyright statement for this module
 	Copyright = '(c) 2018 - 2020 Nestori Syynimaa. Distributed under MIT license.'
 
-
 	# Description of the functionality provided by this module
-	Description = 'The AADInternals PowerShell Module utilises several internal features of Azure Active Directory, Office 365, and related admin tools. DISCLAIMER: Functionality provided through this module are not supported by Microsoft and thus should not be used in a production environment. Use on your own risk!'
+	Description = 'The AADInternals PowerShell Module utilises several internal features of Azure Active Directory, Office 365, and related admin tools.
+
+AADInternals allows you to export ADFS certificates, Azure AD Connect passwords, and modify numerous Azure AD / Office 365 settings not otherwise possible.
+
+DISCLAIMER: Functionality provided through this module are not supported by Microsoft and thus should not be used in a production environment. Use on your own risk! 
+'
 
 	# Minimum version of the Windows PowerShell engine required by this module
 	# PowerShellVersion = ''
@@ -88,13 +92,13 @@
 		PSData = @{
 
 			# Tags applied to this module. These help with module discovery in online galleries.
-			# Tags = @()
+			Tags = @('Office 365','Microsoft 365','Azure','AAD','Security')
 
 			# A URL to the license for this module.
 			# LicenseUri = ''
 
 			# A URL to the main website for this project.
-			# ProjectUri = ''
+			ProjectURI = 'https://o365blog.com/aadinternals'
 
 			# A URL to an icon representing this module.
 			# IconUri = ''

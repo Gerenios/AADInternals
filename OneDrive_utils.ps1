@@ -161,6 +161,24 @@ function Invoke-ODCommand
 # Creates an OneDrive settings object to be used in OneDrive functions
 function New-OneDriveSettings
 {
+<#
+    .SYNOPSIS
+    Creates a new OneDriveSettings object
+
+    .DESCRIPTION
+    Creates a new OneDriveSettings object used with OneDrive functions
+
+    .Example
+    $os = New-AADIntOneDriveSettings
+    PS C:\> Get-AADIntOneDriveFiles -OneDriveSettings $os | Format-Table
+
+    Path                              Size  Created            Modified           ResourceID                   
+    ----                              ----  -------            --------           ----------                   
+    \RootFolder\Document1.docx        11032 2.12.2019 20.47.23 2.12.2019 20.48.46 5e7acf393a2e45f18c1ce6caa7...
+    \RootFolder\Book.xlsx             8388  2.12.2019 20.49.14 2.12.2019 20.50.14 b26c0a38d4d14b23b785576e29...
+    \RootFolder\Docs\Document1.docx   84567 9.12.2019 11.24.40 9.12.2019 12.17.50 d9d51e47b66c4805aff3a08763...
+    \RootFolder\Docs\Document2.docx   31145 7.12.2019 17.28.37 7.12.2019 17.28.37 972f9c317e1e468fb2b6080ac2...
+#>
     [cmdletbinding()]
     Param(
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
@@ -178,10 +196,10 @@ function New-OneDriveSettings
         $ODSettings=[OneDriveSettings]::new()
 
         # Get AccessToken for OfficeApps
-        $OAtoken=Get-AccessToken -Resource "https://officeapps.live.com" -ClientId "onedrive" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials
+        $OAtoken=Get-AccessToken -Resource "https://officeapps.live.com" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -IncludeRefreshToken $true
 
         # Get the connection details
-        $connections = Get-UserConnections -AccessToken $OAtoken
+        $connections = Get-UserConnections -AccessToken $OAtoken[0]
 
         # Get the url
         foreach($connection in $connections)
@@ -189,7 +207,7 @@ function New-OneDriveSettings
             if($connection.EnabledCapabilities -eq 2051) # Should be OneDrive
             {
                 $url = $connection.ConnectionUrl
-                # String the "/Documents" from the end of the url
+                # Strip the "/Documents" from the end of the url
                 $ODSettings.Url = $url.Substring(0,$url.LastIndexOf("/"))
                 break
             }
@@ -198,13 +216,13 @@ function New-OneDriveSettings
         if([string]::IsNullOrEmpty($ODSettings.Url))
         {
             # The user doesn't have onedrive :(
-            $upn = (Read-Accesstoken $OAtoken).upn
+            $upn = (Read-Accesstoken $OAtoken[0]).upn
             Write-Error "The user $upn doesn't have OneDrive :("
             return
         }
 
         # Get AccessToken for OneDrive
-        $ODtoken=Get-AccessToken -Resource "https://$(($ODSettings.Url.Split("/"))[2])" -ClientId "onedrive" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials
+        $ODtoken=Get-AccessTokenWithRefreshToken -Resource "https://$(($ODSettings.Url.Split("/"))[2])" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -RefreshToken $OAtoken[1] -TenantId ((Read-Accesstoken -AccessToken $OAtoken[0]).tid)
 
         # Get the authentication cookie
         $ODSettings.AuthenticationCookie = Get-ODAuthenticationCookie -AccessToken $ODtoken
@@ -219,7 +237,7 @@ function New-OneDriveSettings
         $dlUrl = $syncPolicy.DownloadUrlTemplate
         $ODSettings.DownloadUrlTemplate = $dlUrl.Substring(0,$dlUrl.IndexOf("{"))
 
-        # Set the ItemCoung
+        # Set the ItemCount
         $ODSettings.ItemCount = [int]$syncPolicy.ItemCount
 
         # return

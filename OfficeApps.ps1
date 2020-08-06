@@ -19,11 +19,14 @@ function Get-UserConnections
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "ab9b8c07-8f02-4f72-87fa-80105867a763" -Resource "https://officeapps.live.com"
+
         $headers = @{
             "Authorization"="Bearer $AccessToken"
         }
@@ -51,7 +54,7 @@ function Get-RecentLocations
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
         [ValidateSet('Word','PowerPoint','OneNote','Excel','Visio','Sway','All')]
@@ -61,6 +64,9 @@ function Get-RecentLocations
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "ab9b8c07-8f02-4f72-87fa-80105867a763" -Resource "https://officeapps.live.com"
+
         $headers = @{
             "Authorization"="Bearer $AccessToken"
         }
@@ -95,11 +101,14 @@ function Get-SharedWithUser
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "ab9b8c07-8f02-4f72-87fa-80105867a763" -Resource "https://officeapps.live.com"
+
         $headers = @{
             "Authorization"="Bearer $AccessToken"
         }

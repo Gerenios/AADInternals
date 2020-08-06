@@ -110,8 +110,8 @@ function Create-Envelope
 	        </s:Body>
         </s:Envelope>
 "@
-        # Verbose
-        Write-Verbose "ENVELOPE ($Command): $envelope"
+        # Debug
+        Write-Debug "ENVELOPE ($Command): $envelope"
 
         # Return
         return $envelope
@@ -406,5 +406,82 @@ function Add-DElement
     Process
     {
         Add-Element -NameSpace "d" -Parameter $Parameter -Value $Value
+    }
+}
+
+# Converts xml to PSObject
+function ConvertXmlTo-PSObject
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [System.Xml.XmlLinkedNode]$xml
+    )
+    Begin
+    {
+        $XMLProperties=@(
+            "InnerText"
+            "InnerXml"
+            "OuterXml"
+            "BaseURI"
+            "Prefix"
+            "NamespaceURI"
+            "Name"
+            "LocalName"
+            "Value"
+            "IsEmpty"
+            "HasAttributes"
+            "HasChildNodes"
+            "IsReadOnly"
+            "ChildNodes"
+        )
+    }
+    Process
+    {
+        $attributes=[ordered]@{}
+
+        foreach($property in $xml.PSObject.Properties)
+        {
+            if(!$XMLProperties.Contains($property.Name))
+            {
+                switch($property.TypeNameOfValue)
+                {
+                    "System.String"
+                    {
+                        $attributes[$property.Name] = $property.Value
+                        break
+                    }
+                    "System.Boolean"
+                    {
+                        $attributes[$property.Name] = $property.Value
+                        break
+                    }
+                    "System.Object[]"
+                    {
+                        $values=@()
+                        foreach($value in $property.Value)
+                        {
+                            $values += $value
+                        }
+                        $attributes[$property.Name] = $values
+                        break
+                    }
+                    "System.Xml.XmlElement" 
+                    {
+                        $values = ConvertXmlTo-PSObject -xml $property.Value
+                        $attributes[$property.Name] = $values.PSObject.Properties.Value
+                        break
+                    }
+                    "System.Xml.XmlNodeList" 
+                    {
+                        $attributes[$property.Name] = $property.Value
+                        break
+                    }
+                    
+                }
+            }
+        }
+
+        return New-Object psobject -Property $attributes
     }
 }

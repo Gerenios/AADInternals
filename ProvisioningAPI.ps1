@@ -30,7 +30,7 @@ function Get-PartnerContracts
         $command="ListPartnerContracts"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -98,7 +98,7 @@ function Set-PartnerInformation
         $command="SetPartnerInformation"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -169,7 +169,7 @@ function Set-PartnerInformation
         $command="SetPartnerInformation"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -219,7 +219,7 @@ function Remove-UserByUpn
         $command="RemoveUserByUpn"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -256,7 +256,7 @@ function Remove-AdministrativeUnit
         $command="RemoveAdministrativeUnit"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -292,7 +292,7 @@ function Get-Contact
         $command="GetContact"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -328,7 +328,7 @@ function Get-AdministrativeUnit
         $command="GetAdministrativeUnit"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -366,7 +366,7 @@ function Get-ServicePrincipalCredentialsByAppPrincipalId
         $command="ListServicePrincipalCredentialsByAppPrincipalId"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -403,7 +403,7 @@ function Remove-ServicePrincipal
         $command="RemoveServicePrincipal"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -439,7 +439,7 @@ function Get-ServicePrincipalBySpn
         $command="GetServicePrincipalBySpn"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -475,7 +475,7 @@ function Remove-Domain
         $command="RemoveDomain"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -513,7 +513,7 @@ function Navigate-AdministrativeUnitResults
         $command="NavigateAdministrativeUnitResults"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -552,7 +552,7 @@ function Remove-RoleMembers
         $command="RemoveRoleMembers"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -630,7 +630,7 @@ function Get-Subscriptions
         $command="ListSubscriptions"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -716,7 +716,7 @@ function Set-PasswordPolicy
         $command="SetPasswordPolicy"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -780,7 +780,7 @@ function Get-Groups
         $command="ListGroups"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -828,7 +828,7 @@ function Get-Subscription
         $command="GetSubscription"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -866,7 +866,7 @@ function Remove-GroupMembers
         $command="RemoveGroupMembers"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -905,7 +905,7 @@ function Navigate-ContactResults
         $command="NavigateContactResults"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -942,7 +942,7 @@ function Get-Domain
         $command="GetDomain"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -984,7 +984,7 @@ function Add-AdministrativeUnit
         $command="AddAdministrativeUnit"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1023,7 +1023,7 @@ function Get-ServicePrincipal
         $command="GetServicePrincipal"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1104,7 +1104,7 @@ function Get-AccountSkus
         $command="ListAccountSkus"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1177,7 +1177,7 @@ function Set-CompanyMultiNationalEnabled
         $command="SetCompanyMultiNationalEnabled"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1214,7 +1214,7 @@ function Remove-ServicePrincipalByAppPrincipalId
         $command="RemoveServicePrincipalByAppPrincipalId"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1252,7 +1252,7 @@ function Get-ServicePrincipalCredentials
         $command="ListServicePrincipalCredentials"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1305,7 +1305,7 @@ function Get-AccidentalDeletionInformation
         $command="GetAccidentalDeletionInformation"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1345,7 +1345,7 @@ function Verify-Domain
         $command="VerifyDomain"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1383,7 +1383,7 @@ function Get-RolesForUser
         $command="ListRolesForUser"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1421,7 +1421,7 @@ function Navigate-DirSyncProvisioningErrors
         $command="NavigateDirSyncProvisioningErrors"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1460,7 +1460,7 @@ function Get-DomainVerificationDns
         $command="GetDomainVerificationDns"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1505,7 +1505,7 @@ function Set-CompanyAllowedDataLocation
         $command="SetCompanyAllowedDataLocation"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1545,7 +1545,7 @@ function Has-ObjectsWithDirSyncProvisioningErrors
         $command="HasObjectsWithDirSyncProvisioningErrors"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1601,7 +1601,7 @@ function Set-CompanyDirSyncFeature
         $command="SetCompanyDirSyncFeature"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1638,7 +1638,7 @@ function Get-PartnerInformation
         $command="GetPartnerInformation"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1673,7 +1673,7 @@ function Get-DomainFederationSettings
         $command="GetDomainFederationSettings"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1725,7 +1725,7 @@ function Get-DirSyncProvisioningErrors
         $command="ListDirSyncProvisioningErrors"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1769,7 +1769,7 @@ function Remove-ServicePrincipalBySpn
         $command="RemoveServicePrincipalBySpn"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1807,7 +1807,7 @@ function Navigate-ServicePrincipalResults
         $command="NavigateServicePrincipalResults"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1846,7 +1846,7 @@ function Add-AdministrativeUnitMembers
         $command="AddAdministrativeUnitMembers"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1885,7 +1885,7 @@ function Remove-RoleMembersByRoleName
         $command="RemoveRoleMembersByRoleName"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1924,7 +1924,7 @@ function Navigate-UserResults
         $command="NavigateUserResults"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1963,7 +1963,7 @@ function Navigate-RoleMemberResults
         $command="NavigateRoleMemberResults"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -1998,7 +1998,7 @@ function Get-ServicePrincipalCredentialsBySpn
         $command="ListServicePrincipalCredentialsBySpn"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2033,7 +2033,7 @@ function Get-CompanyAllowedDataLocation
         $command="GetCompanyAllowedDataLocation"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2075,7 +2075,7 @@ function Reset-UserPasswordByUpn
         $command="ResetUserPasswordByUpn"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2126,7 +2126,7 @@ function Get-Contacts
         $command="ListContacts"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2170,7 +2170,7 @@ function Navigate-RoleScopedMemberResults
         $command="NavigateRoleScopedMemberResults"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2207,7 +2207,7 @@ function Has-ObjectsWithDirSyncProvisioningErrors2
         $command="HasObjectsWithDirSyncProvisioningErrors2"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2247,7 +2247,7 @@ function Add-RoleScopedMembers
         $command="AddRoleScopedMembers"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2291,7 +2291,7 @@ function Set-UserLicensesByUpn
         $command="SetUserLicensesByUpn"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2330,7 +2330,7 @@ function Get-RoleByName
         $command="GetRoleByName"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2370,7 +2370,7 @@ function Add-RoleMembers
         $command="AddRoleMembers"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2530,7 +2530,7 @@ function Set-User
         $command="SetUser"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2628,7 +2628,7 @@ function Navigate-AdministrativeUnitMemberResults
         $command="NavigateAdministrativeUnitMemberResults"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2683,7 +2683,7 @@ function Set-CompanySettings
         $command="SetCompanySettings"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2730,7 +2730,7 @@ function Get-Roles
         $command="ListRoles"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2778,7 +2778,7 @@ function Add-ServicePrincipal
         $command="AddServicePrincipal"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2834,7 +2834,7 @@ function Set-ServicePrincipal
         $command="SetServicePrincipal"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2877,7 +2877,7 @@ function Get-CompanyDirSyncFeatures
         $command="GetCompanyDirSyncFeatures"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -2955,7 +2955,7 @@ function Get-Users
         $command="ListUsers"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3015,7 +3015,7 @@ function Convert-FederatedUserToManaged
         $command="ConvertFederatedUserToManaged"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3052,7 +3052,7 @@ function Get-Role
         $command="GetRole"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3122,7 +3122,7 @@ function Set-DomainFederationSettings
         $command="SetDomainFederationSettings"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3213,7 +3213,7 @@ function Set-Group
         $command="SetGroup"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3269,7 +3269,7 @@ function Verify-Domain2
         $command="VerifyDomain2"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3323,7 +3323,7 @@ function Set-Domain
         $command="SetDomain"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3367,7 +3367,7 @@ function Retry-UserProvisioning
         $command="RetryUserProvisioning"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3407,7 +3407,7 @@ function Remove-ServicePrincipalCredentials
         $command="RemoveServicePrincipalCredentials"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3464,7 +3464,7 @@ function Set-ADSyncEnabled
         $command="SetCompanyDirSyncEnabled"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3505,7 +3505,7 @@ function Change-UserPrincipalName
         $command="ChangeUserPrincipalName"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3557,6 +3557,9 @@ function Get-GlobalAdmins
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
         # Return role members using well-known Global Admins role object id.
         return Get-RoleMembers -AccessToken $AccessToken -RoleObjectId "62e90394-69f5-4237-9190-012177145e10" | select @{N='DisplayName'; E={$_.DisplayName}},@{N='UserPrincipalName'; E={$_.EmailAddress}}
     }
@@ -3590,7 +3593,7 @@ function Get-RoleMembers
         $command="ListRoleMembers"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3639,7 +3642,7 @@ function Get-AdministrativeUnits
         $command="ListAdministrativeUnits"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3684,7 +3687,7 @@ function Reset-UserPassword
         $command="ResetUserPassword"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3725,7 +3728,7 @@ function Navigate-PartnerContracts
         $command="NavigatePartnerContracts"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3764,7 +3767,7 @@ function Remove-UserByObjectId
         $command="RemoveUser"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3801,7 +3804,7 @@ function Remove-Contact
         $command="RemoveContact"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3839,7 +3842,7 @@ function Add-GroupMembers
         $command="AddGroupMembers"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3876,7 +3879,7 @@ function Get-ServicePrincipalByAppPrincipalId
         $command="GetServicePrincipalByAppPrincipalId"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3912,7 +3915,7 @@ function Get-Domains
         $command="ListDomains"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3950,7 +3953,7 @@ function Get-UserByUpn
         $command="GetUserByUpn"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -3989,7 +3992,7 @@ function Set-CompanySecurityComplianceContactInformation
         $command="SetCompanySecurityComplianceContactInformation"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4028,7 +4031,7 @@ function Get-UserByObjectId
         $command="GetUser"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4132,7 +4135,7 @@ function Get-ServicePrincipals
         $command="ListServicePrincipals"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4176,7 +4179,7 @@ function Add-ForeignGroupToRole
         $command="AddForeignGroupToRole"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4218,7 +4221,7 @@ function Restore-User
         $command="RestoreUser"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4256,7 +4259,7 @@ function Set-CompanyPasswordSyncEnabled
         $command="SetCompanyPasswordSyncEnabled"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4296,7 +4299,7 @@ function Restore-UserByUpn
         $command="RestoreUserByUpn"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4334,7 +4337,7 @@ function Msol-Connect
         $command="MsolConnect"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4384,7 +4387,7 @@ function Get-GroupMembers
         $command="ListGroupMembers"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4431,7 +4434,7 @@ function Remove-ServicePrincipalCredentialsByAppPrincipalId
         $command="RemoveServicePrincipalCredentialsByAppPrincipalId"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4513,7 +4516,7 @@ function Set-DomainAuthentication
         $command="SetDomainAuthentication"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4582,7 +4585,7 @@ function Remove-RoleScopedMembers
         $command="RemoveRoleScopedMembers"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4617,6 +4620,60 @@ function Get-CompanyInformation
 
     .Parameter AccessToken
     Access Token
+
+    .EXAMPLE
+    Get-AADIntCompanyInformation
+
+    AllowAdHocSubscriptions                  : true
+    AllowEmailVerifiedUsers                  : true
+    AuthorizedServiceInstances               : AuthorizedServiceInstances
+    AuthorizedServices                       : 
+    City                                     : 
+    CompanyDeletionStartTime                 : 
+    CompanyTags                              : CompanyTags
+    CompanyType                              : CompanyTenant
+    CompassEnabled                           : 
+    Country                                  : 
+    CountryLetterCode                        : US
+    DapEnabled                               : 
+    DefaultUsageLocation                     : 
+    DirSyncAnchorAttribute                   : mS-DS-ConsistencyGuid
+    DirSyncApplicationType                   : 1651564e-7ce4-4d99-88be-0a65050d8dc3
+    DirSyncClientMachineName                 : SERVER
+    DirSyncClientVersion                     : 1.4.38.0
+    DirSyncServiceAccount                    : Sync_SERVER1_xxxxxxxxxxx@company.onmicrosoft.com
+    DirectorySynchronizationEnabled          : true
+    DirectorySynchronizationStatus           : Enabled
+    DisplayName                              : Company Ltd
+    InitialDomain                            : company.onmicrosoft.com
+    LastDirSyncTime                          : 2020-08-03T15:29:34Z
+    LastPasswordSyncTime                     : 2020-08-03T15:09:07Z
+    MarketingNotificationEmails              : 
+    MultipleDataLocationsForServicesEnabled  : 
+    ObjectId                                 : 527e940d-2526-483b-82a9-d5b6bf6cc165
+    PasswordSynchronizationEnabled           : true
+    PortalSettings                           : PortalSettings
+    PostalCode                               : 
+    PreferredLanguage                        : en
+    ReleaseTrack                             : FirstRelease
+    ReplicationScope                         : NA
+    RmsViralSignUpEnabled                    : true
+    SecurityComplianceNotificationEmails     : 
+    SecurityComplianceNotificationPhones     : 
+    SelfServePasswordResetEnabled            : true
+    ServiceInformation                       : ServiceInformation
+    ServiceInstanceInformation               : ServiceInstanceInformation
+    State                                    : 
+    Street                                   : 
+    SubscriptionProvisioningLimited          : false
+    TechnicalNotificationEmails              : TechnicalNotificationEmails
+    TelephoneNumber                          : 1324567890
+    UIExtensibilityUris                      : 
+    UsersPermissionToCreateGroupsEnabled     : true
+    UsersPermissionToCreateLOBAppsEnabled    : true
+    UsersPermissionToReadOtherUsersEnabled   : true
+    UsersPermissionToUserConsentToAppEnabled : true
+    WhenCreated                              : 2019-07-14T07:03:20Z
 #>
     [cmdletbinding()]
     Param(
@@ -4630,7 +4687,7 @@ function Get-CompanyInformation
         $command="GetCompanyInformation"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4643,7 +4700,7 @@ function Get-CompanyInformation
 
         # Get the results
         $results = Parse-SOAPResponse($Response)
-
+        
         # Return
         $results
     }
@@ -4670,7 +4727,7 @@ function Add-ServicePrincipalCredentialsBySpn
         $command="AddServicePrincipalCredentialsBySpn"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4710,7 +4767,7 @@ function Delete-ApplicationPassword
         $command="DeleteApplicationPassword"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4747,7 +4804,7 @@ function Retry-GroupProvisioning
         $command="RetryGroupProvisioning"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4787,7 +4844,7 @@ function Remove-ServicePrincipalCredentialsBySpn
         $command="RemoveServicePrincipalCredentialsBySpn"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4825,7 +4882,7 @@ function Get-RolesForUserByUpn
         $command="ListRolesForUserByUpn"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -4861,7 +4918,7 @@ function Update-DirSyncProvisioningError
         $command="UpdateDirSyncProvisioningError"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5033,7 +5090,7 @@ function New-User
         $command="AddUser"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5140,7 +5197,7 @@ function Change-UserPrincipalNameByUpn
         $command="ChangeUserPrincipalNameByUpn"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5181,7 +5238,7 @@ function Set-CompanyContactInformation
         $command="SetCompanyContactInformation"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5224,7 +5281,7 @@ function Set-AdministrativeUnit
         $command="SetAdministrativeUnit"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5265,7 +5322,7 @@ function Add-RoleMembersByRoleName
         $command="AddRoleMembersByRoleName"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5302,7 +5359,7 @@ function Get-UserByLiveId
         $command="GetUserByLiveId"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5350,7 +5407,7 @@ function Get-AdministrativeUnitMembers
         $command="ListAdministrativeUnitMembers"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5394,7 +5451,7 @@ function Remove-AdministrativeUnitMembers
         $command="RemoveAdministrativeUnitMembers"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5431,7 +5488,7 @@ function Retry-ContactProvisioning
         $command="RetryContactProvisioning"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5467,7 +5524,7 @@ function Set-AccidentalDeletionThreshold
         $command="SetAccidentalDeletionThreshold"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5507,7 +5564,7 @@ function Remove-ForeignGroupFromRole
         $command="RemoveForeignGroupFromRole"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5551,7 +5608,7 @@ function Set-UserLicenses
         $command="SetUserLicenses"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5604,7 +5661,7 @@ function Get-RoleScopedMembers
         $command="ListRoleScopedMembers"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5647,7 +5704,7 @@ function Remove-Group
         $command="RemoveGroup"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5683,7 +5740,7 @@ function Add-WellKnownGroup
         $command="AddWellKnownGroup"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5763,7 +5820,7 @@ function Get-UsersByStrongAuthentication
         $command="ListUsersByStrongAuthentication"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5853,7 +5910,7 @@ function Add-Group
         $command="AddGroup"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5909,7 +5966,7 @@ function Add-ServicePrincipalCredentials
         $command="AddServicePrincipalCredentials"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5949,7 +6006,7 @@ function Navigate-GroupResults
         $command="NavigateGroupResults"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -5988,7 +6045,7 @@ function Navigate-GroupMemberResults
         $command="NavigateGroupMemberResults"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -6025,7 +6082,7 @@ function Reset-StrongAuthenticationMethodByUpn
         $command="ResetStrongAuthenticationMethodByUpn"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -6065,7 +6122,7 @@ function Add-ServicePrincipalCredentialsByAppPrincipalId
         $command="AddServicePrincipalCredentialsByAppPrincipalId"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -6103,7 +6160,7 @@ function Get-Group
         $command="GetGroup"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -6139,7 +6196,7 @@ function Get-PasswordPolicy
         $command="GetPasswordPolicy"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -6194,7 +6251,7 @@ function New-Domain
         $command="AddDomain"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -6259,7 +6316,7 @@ function Get-HeaderInfo
         $command="GetHeaderInfo"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -6305,7 +6362,7 @@ function Verify-EmailVerifiedDomain
         $command="VerifyEmailVerifiedDomain"
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body for getting users
         $request_elements=@"
@@ -6380,10 +6437,10 @@ function Get-SPOServiceInformation
     Process
     {
          # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Set variables
-        $attributes=@{}
+        $attributes=[ordered]@{}
 
         # Get service information and parse SPO data
         $ServiceInformation = Get-CompanyInformation -AccessToken $AccessToken
@@ -6463,7 +6520,7 @@ function Get-ServiceLocations
     Process
     {
          # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Get service information
         $ServiceInformation = Get-CompanyInformation -AccessToken $AccessToken
@@ -6518,7 +6575,7 @@ function Get-CompanyTags
     Process
     {
          # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Get service information
         $ServiceInformation = Get-CompanyInformation -AccessToken $AccessToken
@@ -6566,7 +6623,7 @@ function Get-ServicePlans
     Process
     {
          # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Get service information
         $TenantInformation = Get-TenantDetails -AccessToken $AccessToken

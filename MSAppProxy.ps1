@@ -26,7 +26,7 @@ function Register-ProxyAgent
     #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$MachineName,
@@ -55,6 +55,9 @@ function Register-ProxyAgent
     }
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8"
+
         # Set some variables
         $tenantId = Get-TenantID -AccessToken $AccessToken
         $OSLanguage="1033"
@@ -215,7 +218,7 @@ function Get-ProxyAgents
     #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken
     )
     Begin
@@ -233,6 +236,8 @@ function Get-ProxyAgents
     }
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8"
 
         # Get the tenant id and instance id from the certificate
         $TenantId = Get-TenantID -AccessToken $AccessToken
@@ -302,6 +307,8 @@ function Get-ProxyAgentGroups
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8"
 
         # Get the tenant id and instance id from the certificate
         $TenantId = Get-TenantID -AccessToken $AccessToken
@@ -361,7 +368,7 @@ function New-ProxyAgentGroup
     #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$DisplayName,
@@ -372,6 +379,8 @@ function New-ProxyAgentGroup
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8"
 
         # Get the tenant id and instance id from the certificate
         $TenantId = Get-TenantID -AccessToken $AccessToken
@@ -414,7 +423,7 @@ function Add-ProxyAgentToGroup
 
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [guid]$Agent,
@@ -424,6 +433,9 @@ function Add-ProxyAgentToGroup
     
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8"
+
         # Get the tenant id and instance id from the certificate
         $TenantId = Get-TenantID -AccessToken $AccessToken
        

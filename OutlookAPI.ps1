@@ -17,7 +17,7 @@
 function Send-OutlookMessage
 {
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$Recipient,
@@ -31,6 +31,8 @@ function Send-OutlookMessage
 
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
     
         $Request=@"
         {
@@ -67,11 +69,14 @@ function Send-OutlookMessage
 function Get-OutlookActivities
 {
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
         $Cmd="me/Activities"
         Call-OutlookAPI -AccessToken $AccessToken -Command $Cmd -Method Get -Api v1.0
     }

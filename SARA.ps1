@@ -69,7 +69,7 @@ function Call-AnalysisAPI
 			                "ComplianceClassification": "Identifiable"
 		                }, {
 			                "Name": "SmtpAddress",
-			                "Value": "nestori.syynimaa@gerenios.com",
+			                "Value": "$userName",
 			                "ComplianceClassification": "Identifiable"
 		                }, {
 			                "Name": "UserAgent",

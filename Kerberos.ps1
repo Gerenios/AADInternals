@@ -19,8 +19,10 @@ Function New-PAC
         [String]$DomainDNSName,
         [Parameter(Mandatory=$True)]
         [Byte[]]$Sid,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$Password,
+        [Parameter(Mandatory=$False)]
+        [String]$Hash,
         [Parameter(Mandatory=$True)]
         [DateTime]$AuthTime
 
@@ -266,7 +268,14 @@ Function New-PAC
         $PAC += Get-AlignBytes -Size $PRIVILEGE_SERVER_CHECKSUM.Length -Mask 8
         
         # Convert the password to MD4 hash
-        $checksum_key = Get-MD4 -String $Password -AsByteArray
+        if([string]::IsNullOrEmpty($Hash))
+        {
+            $checksum_key = Get-MD4 -String $Password -AsByteArray
+        }
+        else
+        {
+            $checksum_key = Convert-HexToByteArray -HexString $Hash
+        }
         # Get the server checksum
         $serverChecksum = Get-ServerSignature -Key $checksum_key -Data $PAC
 
@@ -315,8 +324,16 @@ Function New-KerberosTicket
     .Parameter Password
     Password of the AZUREADSSOACC computer account
 
+    .Parameter Hash
+    MD4 hash of the AZUREADSSOACC computer account
+
     .Example
     PS C:\>Get-AADIntKerberosTicket -Password "MyPassword" -Sid $sid
+
+    YIIHIAYGKwYBBQUCoIIHFDCCBxC..(truncated)..qJ9OYopBjdCAzi8gY8dIFy8+g==
+
+    .Example
+    PS C:\>Get-AADIntKerberosTicket -Hash @(0,4,234) -Sid $sid
 
     YIIHIAYGKwYBBQUCoIIHFDCCBxC..(truncated)..qJ9OYopBjdCAzi8gY8dIFy8+g==
 
@@ -351,25 +368,19 @@ Function New-KerberosTicket
         [String]$AADUserPrincipalName,
         [Parameter(ParameterSetName='AADupn',Mandatory=$True)]
         [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
-        [String]$Password<#,
-        [Parameter(Mandatory=$True)]
-        [String]$UserName,
-        [Parameter(Mandatory=$True)]
-        [String]$UserDisplayName,
-        [Parameter(Mandatory=$True)]
-        [String]$UserPrincipalName,
-        [Parameter(Mandatory=$True)]
-        [String]$ServerName,
-        [Parameter(Mandatory=$True)]
-        [String]$DomainName,
-        [Parameter(Mandatory=$True)]
-        [String]$Realm,
         [Parameter(Mandatory=$False)]
-        [byte[]]$SessionKey=(New-Guid).ToByteArray()#>
+        [String]$Password,
+        [Parameter(Mandatory=$False)]
+        [String]$Hash
     )
     Process
     {
+        # Hash or password must be given!
+        if([string]::IsNullOrEmpty($Password) -and $Hash -eq $null)
+        {
+            Throw "Password of hash must be given!"
+        }
+
         # Got ADUserPrincipalName so we need to try to find SID from AD
         if(![String]::IsNullOrEmpty($ADUserPrincipalName))
         {
@@ -509,7 +520,7 @@ Function New-KerberosTicket
                                     
                                         Add-DERTag -Tag 0x04 -Data @(
                                             # Generate PAC
-                                            [byte[]](New-Pac -UserName $UserName -UserDisplayName $UserDisplayName -UserPrincipalName $UserPrincipalName -ServerName $ServerName -DomainName $DomainName -DomainDNSName $Realm -Sid $Sid -Password $Password -AuthTime $authTime )) 
+                                            [byte[]](New-Pac -UserName $UserName -UserDisplayName $UserDisplayName -UserPrincipalName $UserPrincipalName -ServerName $ServerName -DomainName $DomainName -DomainDNSName $Realm -Sid $Sid -Password $Password -Hash $Hash -AuthTime $authTime )) 
                                     )
                                 )
                             )
@@ -569,7 +580,7 @@ Function New-KerberosTicket
         )
         )
 
-        $encryptedTicket = Encrypt-Kerberos -Data $ticket -Password $Password 
+        $encryptedTicket = Encrypt-Kerberos -Data $ticket -Password $Password -Hash $Hash
         
     
         $authenticator=Add-DERTag -Tag 0x62 -Data @(

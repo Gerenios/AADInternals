@@ -75,7 +75,7 @@ function Get-SyncConfiguration
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # First get configuration from Provisioning API (no admin rights needed)
         $config = Get-CompanyInformation -AccessToken $AccessToken
@@ -185,7 +185,7 @@ function Get-SyncConfiguration2
         }
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body block
         $body=@"
@@ -282,7 +282,7 @@ function Set-PasswordHashSyncEnabled
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Get the current configuration
         $CompanyConfig = Get-CompanyInformation -AccessToken $AccessToken
@@ -339,7 +339,7 @@ function Set-SyncFeatures
         }
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body block
         $body=@"
@@ -493,7 +493,7 @@ function Set-AzureADObject
             throw "Too many recursions"
         }
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body block
         $body=@"
@@ -598,7 +598,7 @@ function Remove-AzureADObject
             throw "Too many recursions"
         }
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body block
         $body=@"
@@ -663,7 +663,7 @@ function Finalize-Export
         }
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body block
         
@@ -794,7 +794,7 @@ function Get-SyncObjects
         }
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body block
         $body=@"
@@ -908,8 +908,10 @@ function Set-UserPassword
         [String]$SourceAnchor,
         [Parameter(ParameterSetName='UPN', Mandatory=$True)]
         [String]$UserPrincipalName,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$Password,
+        [Parameter(Mandatory=$False)]
+        [String]$Hash,
         [Parameter(Mandatory=$False)]
         [DateTime]$ChangeDate=(Get-Date),
         [Parameter(Mandatory=$False)]
@@ -919,6 +921,11 @@ function Set-UserPassword
     )
     Process
     {
+        # Password or Hash must be given
+        if([string]::IsNullOrEmpty($Password) -and [string]::IsNullOrEmpty($Hash))
+        {
+            throw "Password or Hash must be given!"
+        }
         # Accept only three loops
         if($Recursion -gt 3)
         {
@@ -932,7 +939,7 @@ function Set-UserPassword
         }
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # If the UserPrincipalName is given, get the user's cloudAnchor
         if($UserPrincipalName)
@@ -942,7 +949,7 @@ function Set-UserPassword
         }
 
         # Create AAD hash
-        $CredentialData = Create-AADHash -Password $Password -Iterations $Iterations
+        $CredentialData = Create-AADHash -Password $Password -Hash $Hash -Iterations $Iterations
 
         # Create the body block
         $body=@"
@@ -1033,7 +1040,7 @@ function Reset-ServiceAccount
         }
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
        # Create the body block
         $body=@"
@@ -1107,15 +1114,17 @@ function Set-PassThroughAuthenticationEnabled
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [bool]$Enable
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "cb1056e2-e479-49de-ae31-7812af012ed8" -Resource "https://proxy.cloudwebappproxy.net/registerapp"
 
-       # Create the body block
+        # Create the body block
         $body=@"
 	    <PassthroughAuthenticationEnablementRequest xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.RegistrationCommons.Registration" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
 	        <AuthenticationToken xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Security.AadSecurity">$AccessToken</AuthenticationToken>
@@ -1165,11 +1174,14 @@ function Get-DesktopSSO
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "cb1056e2-e479-49de-ae31-7812af012ed8" -Resource "https://proxy.cloudwebappproxy.net/registerapp"
+
         $tenantId = (Read-Accesstoken $AccessToken).tid
         $url="https://$tenantId.registration.msappproxy.net/register/GetDesktopSsoStatus"
 
@@ -1216,7 +1228,7 @@ function Set-DesktopSSO
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
         [String]$ComputerName="AZUREADSSOACC",
@@ -1229,6 +1241,9 @@ function Set-DesktopSSO
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "cb1056e2-e479-49de-ae31-7812af012ed8" -Resource "https://proxy.cloudwebappproxy.net/registerapp"
+
         $tenantId = (Read-Accesstoken $AccessToken).tid
         $url="https://$tenantId.registration.msappproxy.net/register/EnableDesktopSso"
 
@@ -1302,13 +1317,16 @@ function Set-DesktopSSOEnabled
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
         [Bool]$Enable=$True
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "cb1056e2-e479-49de-ae31-7812af012ed8" -Resource "https://proxy.cloudwebappproxy.net/registerapp"
+
         $tenantId = (Read-Accesstoken $AccessToken).tid
         $url="https://$tenantId.registration.msappproxy.net/register/EnableDesktopSsoFlag"
 
@@ -1368,7 +1386,7 @@ function Get-KerberosDomainSyncConfig
         }
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body block
         $body=@"
@@ -1445,7 +1463,7 @@ function Get-KerberosDomain
         }
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body block
         $body=@"
@@ -1509,7 +1527,7 @@ function Get-MonitoringTenantCertificate
         }
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body block
         $body=@"
@@ -1582,7 +1600,7 @@ function Get-WindowsCredentialsSyncConfig
         }
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body block
         $body=@"
@@ -1663,7 +1681,7 @@ function Get-SyncDeviceConfiguration
         }
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body block
         $body=@"
@@ -1747,7 +1765,7 @@ function Get-SyncCapabilities
         }
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body block
         $body=@"
