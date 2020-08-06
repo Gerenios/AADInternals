@@ -76,7 +76,7 @@ function Create-PSRPShell
 
 # Gets other domains of the given tenant
 # Apr 24th 2019
-function Get-TenantDomains
+function Get-TenantDomains2
 {
 <#
     .SYNOPSIS
@@ -115,9 +115,9 @@ function Get-TenantDomains
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='AccessToken',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$Domain
@@ -138,11 +138,14 @@ function Get-TenantDomains
         # Counter for Object IDs
         $ObjectId=10
 
-
         $Oauth=$false
-        # If Access Token is given, create the credentials object manually
-        if(![string]::IsNullOrEmpty($AccessToken))
+
+        # If Credentials is null, create the credentials object from AccessToken manually
+        if($Credentials -eq $null)
         {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+            
             $upn = (Read-Accesstoken $AccessToken).upn
             $password = ConvertTo-SecureString -String "Bearer $AccessToken" -AsPlainText -Force
             $Credentials = [System.Management.Automation.PSCredential]::new($upn,$password)
@@ -310,9 +313,9 @@ function Get-MobileDevices
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Credentials',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='AccessToken',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken
     )
     Process
@@ -324,9 +327,13 @@ function Get-MobileDevices
         $ObjectId=10
 
         $Oauth=$false
-        # If Access Token is given, create the credentials object manually
-        if(![string]::IsNullOrEmpty($AccessToken))
+
+        # If Credentials is null, create the credentials object from AccessToken manually
+        if($Credentials -eq $null)
         {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+            
             $upn = (Read-Accesstoken $AccessToken).upn
             $password = ConvertTo-SecureString -String "Bearer $AccessToken" -AsPlainText -Force
             $Credentials = [System.Management.Automation.PSCredential]::new($upn,$password)

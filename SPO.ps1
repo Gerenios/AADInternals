@@ -25,8 +25,10 @@ function Get-SPOSiteGroups
     Param(
         [Parameter(Mandatory=$True)]
         [String]$Site,
-        [Parameter(Mandatory=$True)]
-        [String]$AuthHeader
+        [Parameter(Mandatory=$False)]
+        [String]$AuthHeader,
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
     )
     Process
     {
@@ -38,11 +40,22 @@ function Get-SPOSiteGroups
 
         $siteDomain=$Site.Split("/")[2]
 
-        # Create a WebSession object
-        $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
+        if(![string]::IsNullOrEmpty($AuthHeader))
+        {
+            # Create a WebSession object
+            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
+        }
+        else
+        {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource $site -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
+            $headers=@{
+                "Authorization" = "Bearer $AccessToken"
+            }
+        }
 
         # Invoke the request
-        $response=Invoke-WebRequest -Uri "$Site/_api/web/sitegroups" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue 
+        $response=Invoke-WebRequest -Uri "$Site/_api/web/sitegroups" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
 
         if($response.StatusCode -eq 200)
         {
@@ -101,8 +114,10 @@ function Get-SPOSiteUsers
     Param(
         [Parameter(Mandatory=$True)]
         [String]$Site,
-        [Parameter(Mandatory=$True)]
-        [String]$AuthHeader
+        [Parameter(Mandatory=$False)]
+        [String]$AuthHeader,
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
     )
     Process
     {
@@ -114,11 +129,22 @@ function Get-SPOSiteUsers
 
         $siteDomain=$Site.Split("/")[2]
 
-        # Create a WebSession object
-        $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
+        if(![string]::IsNullOrEmpty($AuthHeader))
+        {
+            # Create a WebSession object
+            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
+        }
+        else
+        {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
+            $headers=@{
+                "Authorization" = "Bearer $AccessToken"
+            }
+        }
 
         # Invoke the request
-        $response=Invoke-WebRequest -Uri "$Site/_api/web/siteusers" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue 
+        $response=Invoke-WebRequest -Uri "$Site/_api/web/siteusers" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue
 
         if($response.StatusCode -eq 200)
         {
@@ -251,3 +277,206 @@ function Get-SPOUserProperties
         }
     }
 }
+
+# Jun 10th 2020
+function Get-SPOSiteUserProperties
+{
+<#
+    .SYNOPSIS
+    Gets the SPO user properties
+
+    .DESCRIPTION
+    Gets the SPO user properties
+
+    .Parameter Site
+    Url of the SharePoint site
+
+    .Parameter AuthHeader
+    SharePoint Online authentication header
+
+    .Parameter AccessToken
+    SharePoint Online Access Token
+    
+    .Example
+    PS C:\>$auth=Get-AADIntSPOAuthenticationHeader -Site https://company.sharepoint.com
+    PS C:\>Get-AADIntSPOSiteGroups -Site https://company.sharepoint.com/sales -AuthHeader $auth
+
+    .Example
+    PS C:\>$at=Get-AADIntAccessTokenForSPO
+    PS C:\>Get-AADIntSPOSiteGroups -Site https://company.sharepoint.com/sales -AccessToken $at
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Site,
+        [Parameter(Mandatory=$True)]
+        [String]$UserName,
+        [Parameter(Mandatory=$False)]
+        [String]$AuthHeader,
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Check the site url
+        if($Site.EndsWith("/"))
+        {
+            $Site=$Site.Substring(0,$Site.Length-1)
+        }
+
+        $siteDomain=$Site.Split("/")[2]
+
+        # Check the username format
+        if(!$UserName.StartsWith("i"))
+        {
+            $UserName="i:0%23.f|membership|$UserName"
+        }
+
+        if(![string]::IsNullOrEmpty($AuthHeader))
+        {
+            # Create a WebSession object
+            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
+        }
+        else
+        {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
+            $headers=@{
+                "Authorization" = "Bearer $AccessToken"
+            }
+        }
+
+        # Invoke the request
+        $response=Invoke-WebRequest -Uri "$Site/_api/SP.UserProfiles.PeopleManager/GetPropertiesFor(accountName=@v)?@v='$UserName'" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
+
+        if($response.StatusCode -eq 200)
+        {
+            # Get the response
+            [xml]$response=$response.Content
+
+            # Create the attributes varialbe
+            $attributes=@{}
+
+            # Loop through the elements
+            foreach($element in $response.entry.content.properties.UserProfileProperties.element)
+            {
+                $key=$element.Key
+                $value=$element.Value
+
+                $attributes[$key] = $value
+            }
+
+            # Sort by the key
+            $attributes_sorted=[ordered]@{}
+            $entries = $attributes.GetEnumerator() | sort Key
+            foreach($entry in $entries)
+            {
+                $attributes_sorted[$entry.Name]=$entry.Value
+            }
+
+            # Return
+            return New-Object psobject -Property $attributes_sorted
+        }
+    }
+}
+
+# Jun 10th 2020
+function Set-SPOSiteUserProperty
+{
+<#
+    .SYNOPSIS
+    Sets the SPO user property
+
+    .DESCRIPTION
+    Sets the SPO user property
+
+    .Parameter Site
+    Url of the SharePoint site
+
+    .Parameter AuthHeader
+    SharePoint Online authentication header
+
+    .Parameter AccessToken
+    SharePoint Online Access Token
+
+    .Parameter Property
+    Property name
+    
+    .Parameter Value
+    Property value
+
+    .Example
+    PS C:\>$auth=Get-AADIntSPOAuthenticationHeader -Site https://company.sharepoint.com
+    PS C:\>Set-AADIntSPOUserProperty -Site https://company.sharepoint.com/sales -AuthHeader $auth -UserName user@company.com -Property "AboutMe" -Value "I'm a happy SPO user!"
+
+    .Example
+    PS C:\>$at=Get-AADIntAccessTokenForSPO
+    PS C:\>Set-AADIntSPOUserProperty -Site https://company.sharepoint.com/sales -AccessToken $at -UserName user@company.com -Property "AboutMe" -Value "I'm a happy SPO user!"
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Site,
+        [Parameter(Mandatory=$True)]
+        [String]$UserName,
+        [Parameter(Mandatory=$False)]
+        [String]$AuthHeader,
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$Property,
+        [Parameter(Mandatory=$False)]
+        [String]$Value
+    )
+    Process
+    {
+        # Get the digest
+        #$digest = Get-SPODigest -AccessToken $AccessToken -Cookie $Cookie -Site $Site
+        # Set the headers
+        $headers=@{
+        #    "X-RequestDigest" = $digest
+        }
+
+        # Check the site url
+        if($Site.EndsWith("/"))
+        {
+            $Site=$Site.Substring(0,$Site.Length-1)
+        }
+
+        $siteDomain=$Site.Split("/")[2]
+
+        # Check the username format
+        if(!$UserName.StartsWith("i"))
+        {
+            $UserName="i:0#.f|membership|$UserName"
+        }
+
+        if(![string]::IsNullOrEmpty($AuthHeader))
+        {
+            # Create a WebSession object
+            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
+        }
+        else
+        {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
+            $headers["Authorization"] = "Bearer $AccessToken"
+        }
+
+        # Create the body
+        $body=@{
+            "accountName" =   "$UserName"
+            "propertyName" =  $Property
+            "propertyValue" = $Value
+        }
+
+        # Invoke the request
+        $response=Invoke-WebRequest -Uri "$Site/_api/SP.UserProfiles.PeopleManager/SetSingleValueProfileProperty" -Method Post -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers -ContentType "application/json" -Body ($body | ConvertTo-Json)
+
+        if($response.StatusCode -eq 200)
+        {
+            # All good, nothing to return :)
+        }
+    }
+}
+

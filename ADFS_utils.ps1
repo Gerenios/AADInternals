@@ -354,7 +354,7 @@ function Update-ADFSFederationSettings
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Get the current settings from cloud
         $FederationSettings = Get-DomainFederationSettings -DomainName $DomainName -AccessToken $AccessToken

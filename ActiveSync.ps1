@@ -78,15 +78,14 @@ function Get-EASAutoDiscover
 function Get-EASAutoDiscoverV1
 {
     Param(
-            
-            [Parameter(ParameterSetName="Credentials",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [System.Management.Automation.PSCredential]$Credentials,
-            [Parameter(ParameterSetName="AccessToken",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [String]$AccessToken
         )
     Process
     {
-        $auth = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken
+        $auth = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
         $headers = @{
             "Authorization" = $auth
             "Content-Type" = "text/xml"
@@ -114,6 +113,31 @@ function Get-EASAutoDiscoverV1
     }
 }
 
+
+function Get-EASOptions
+{
+    Param(
+            [Parameter(Mandatory=$False)]
+            [System.Management.Automation.PSCredential]$Credentials,
+            [Parameter(Mandatory=$False)]
+            [String]$AccessToken
+        )
+    Process
+    {
+
+        $headers = @{
+            "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        }
+        
+        $response=Invoke-WebRequest -Uri "https://outlook.office365.com/Microsoft-Server-ActiveSync" -Method Options -Headers $headers -TimeoutSec 5
+        $response.headers
+    }
+}
+
+
+# Get folders to sync
+function Get-EASFolderSync
+{
 <#
     .SYNOPSIS
     Gets user's ActiveSync options
@@ -148,35 +172,10 @@ function Get-EASAutoDiscoverV1
     X-AspNet-Version      4.0.30319                                                                                                          
     X-Powered-By          ASP.NET 
 #>
-function Get-EASOptions
-{
     Param(
-            
-            [Parameter(ParameterSetName="Credentials",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [System.Management.Automation.PSCredential]$Credentials,
-            [Parameter(ParameterSetName="AccessToken",Mandatory=$True)]
-            [String]$AccessToken
-        )
-    Process
-    {
-
-        $headers = @{
-            "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken
-        }
-        
-        $response=Invoke-WebRequest -Uri "https://outlook.office365.com/Microsoft-Server-ActiveSync" -Method Options -Headers $headers -TimeoutSec 5
-        $response.headers
-    }
-}
-
-
-# Get folders to sync
-function Get-EASFolderSync
-{
-    Param(
-            [Parameter(ParameterSetName="Credentials",Mandatory=$True)]
-            [System.Management.Automation.PSCredential]$Credentials,
-            [Parameter(ParameterSetName="AccessToken",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [String]$AccessToken,
             [Parameter(Mandatory=$True)]
             [String]$DeviceId,
@@ -191,12 +190,15 @@ function Get-EASFolderSync
         </FolderSync>
 "@
 
-        $response = Call-EAS -Request $request -Command FolderSync -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken) -DeviceId $DeviceId -DeviceType $DeviceType
+        $response = Call-EAS -Request $request -Command FolderSync -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c") -DeviceId $DeviceId -DeviceType $DeviceType
 
         return $response
     }
 }
 
+
+function Send-EASMessage
+{
 <#
     .SYNOPSIS
     Sends mail message using ActiveSync
@@ -215,12 +217,10 @@ function Get-EASFolderSync
     PS C:\>Send-AADIntEASMessage -AccessToken $At -DeviceId androidc481040056 -DeviceType Android -Recipient someone@company.com -Subject "An email" -Message "This is a message!"
    
 #>
-function Send-EASMessage
-{
     Param(
-            [Parameter(ParameterSetName="Credentials",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [System.Management.Automation.PSCredential]$Credentials,
-            [Parameter(ParameterSetName="AccessToken",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [String]$AccessToken,
             [Parameter(Mandatory=$True)]
             [String]$Recipient,
@@ -255,7 +255,7 @@ $(Get-MessageAsBase64 -Message $Message)
 ]]></MIME></SendMail>
 "@
 
-        $response = Call-EAS -Request $request -Command SendMail -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken) -DeviceId $DeviceId -DeviceType $DeviceType -DeviceOS $DeviceOS
+        $response = Call-EAS -Request $request -Command SendMail -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c") -DeviceId $DeviceId -DeviceType $DeviceType -DeviceOS $DeviceOS
 
         return $response
     }
@@ -276,9 +276,9 @@ $(Get-MessageAsBase64 -Message $Message)
 function Set-EASSettings
 {
     Param(
-            [Parameter(ParameterSetName="Credentials",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [System.Management.Automation.PSCredential]$Credentials,
-            [Parameter(ParameterSetName="AccessToken",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [String]$AccessToken,
             [Parameter(Mandatory=$True)]
             [String]$DeviceId,
@@ -320,7 +320,7 @@ function Set-EASSettings
  </Settings>
 "@
 
-        $response = Call-EAS -Request $request -Command Settings -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken) -DeviceId $DeviceId -DeviceType $DeviceType -UserAgent $UserAgent
+        $response = Call-EAS -Request $request -Command Settings -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c") -DeviceId $DeviceId -DeviceType $DeviceType -UserAgent $UserAgent
 
         return $response.OuterXml
     }
@@ -343,9 +343,9 @@ function Set-EASSettings
 function Add-EASDevice
 {
     Param(
-            [Parameter(ParameterSetName="Credentials",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [System.Management.Automation.PSCredential]$Credentials,
-            [Parameter(ParameterSetName="AccessToken",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [String]$AccessToken,
             [Parameter(Mandatory=$True)]
             [String]$DeviceId,
@@ -394,8 +394,8 @@ function Add-EASDevice
 "@
 
         # The first request (must be done twice for some reason)
-        $response = Call-EAS -Request $request -Command Provision -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken) -DeviceId $DeviceId -DeviceType $DeviceType -UserAgent $UserAgent -PolicyKey 0 
-        $response = Call-EAS -Request $request -Command Provision -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken) -DeviceId $DeviceId -DeviceType $DeviceType -UserAgent $UserAgent -PolicyKey 0 
+        $response = Call-EAS -Request $request -Command Provision -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c") -DeviceId $DeviceId -DeviceType $DeviceType -UserAgent $UserAgent -PolicyKey 0 
+        $response = Call-EAS -Request $request -Command Provision -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c") -DeviceId $DeviceId -DeviceType $DeviceType -UserAgent $UserAgent -PolicyKey 0 
 
         # Save the temporary policy key
         $policyKey = $response.Provision.Policies.Policy.PolicyKey
@@ -414,7 +414,7 @@ function Add-EASDevice
 "@
 
         # The second request
-        $response = Call-EAS -Request $request -Command Provision -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken) -DeviceId $DeviceId -DeviceType $DeviceType -UserAgent $UserAgent -PolicyKey $policyKey
+        $response = Call-EAS -Request $request -Command Provision -Authorization (Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c") -DeviceId $DeviceId -DeviceType $DeviceType -UserAgent $UserAgent -PolicyKey $policyKey
 
         # Save the final policy key
         $policyKey = $response.Provision.Policies.Policy.PolicyKey
@@ -428,17 +428,16 @@ function Add-EASDevice
 function Get-MobileOutlookSettings
 {
     Param(
-            
-            [Parameter(ParameterSetName="Credentials",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [System.Management.Automation.PSCredential]$Credentials,
-            [Parameter(ParameterSetName="AccessToken",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [String]$AccessToken
         )
     Process
     {
 
         $headers = @{
-            "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken
+            "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
             "Accept"="application/json"
         }
 
@@ -453,7 +452,6 @@ function Get-MobileOutlookSettings
 function Get-EASSettings
 {
     Param(
-            
             [Parameter(Mandatory=$False)]
             [System.Management.Automation.PSCredential]$Credentials,
             [Parameter(Mandatory=$False)]
@@ -463,7 +461,7 @@ function Get-EASSettings
     {
 
         $headers = @{
-            "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken
+            "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
             "Accept"="application/json"
         }
 
@@ -491,7 +489,7 @@ function Get-EASSyncStatus
     {
 
         $headers = @{
-            "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken
+            "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
             "Accept"="application/http.wbxml"
             "X-AnchorMailbox" = $AnchorMailBox
             "Content-Type" = "application/http.wbxml"
@@ -516,10 +514,9 @@ function Get-EASSyncStatus
 function Get-EASMails
 {
     Param(
-            
-            [Parameter(ParameterSetName="Credentials",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [System.Management.Automation.PSCredential]$Credentials,
-            [Parameter(ParameterSetName="AccessToken",Mandatory=$True)]
+            [Parameter(Mandatory=$False)]
             [String]$AccessToken,
             [Parameter(Mandatory=$True)]
             [guid]$DeviceId,

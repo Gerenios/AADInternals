@@ -13,7 +13,7 @@ function Call-GraphAPI
         [Parameter(Mandatory=$True)]
         [String]$Command,
         [Parameter(Mandatory=$False)]
-        [String]$ApiVersion="1.6",
+        [String]$ApiVersion="1.61-internal",
         [Parameter(Mandatory=$False)]
         [String]$Method="GET",
         [Parameter(Mandatory=$False)]
@@ -35,10 +35,17 @@ function Call-GraphAPI
         $Headers["Authorization"] = "Bearer $AccessToken"
 
         # Call the API
-        $response = Invoke-RestMethod -Uri "https://graph.windows.net/$TenantId/$Command`?api-version=$ApiVersion$(if(![String]::IsNullOrEmpty($QueryString)){"&$QueryString"})" -ContentType "application/json" -Method $Method -Body $Body -Headers $Headers
+        $response = Invoke-RestMethod -Uri "https://graph.windows.net/$TenantId/$Command`?api-version=$ApiVersion$(if(![String]::IsNullOrEmpty($QueryString)){"&$QueryString"})" -ContentType "application/json" -Method $Method -Body $Body -Headers $Headers -ErrorAction SilentlyContinue
 
         # Return
-        return $response.value 
+        if($response.value)
+        {
+            return $response.value 
+        }
+        else
+        {
+            return $response
+        }
 
     }
 }

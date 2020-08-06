@@ -190,11 +190,11 @@ function Create-SyncEnvelope
         # Set the client ID
         if($Version -eq 2)
         {
-            $applicationClient= $client_ids["aadconnectv2"]
+            $applicationClient= "6eb59a73-39b2-4c23-a70f-e2e3ce8965b1"
         }
         else
         {
-            $applicationClient = $client_ids["synccli"]
+            $applicationClient = "1651564e-7ce4-4d99-88be-0a65050d8dc3"
         }
 
         # Create the envelope
@@ -391,15 +391,32 @@ Function Create-AADHash {
     [cmdletbinding()]
 
     param(
-        [parameter(Mandatory=$true)]
+        [parameter(Mandatory=$false)]
         [String]$Password,
+        [parameter(Mandatory=$false)]
+        [String]$Hash,
         [parameter(Mandatory=$false)]
         [int]$Iterations=1000
     )
-    process{
-        # Calculate MD4 from the password (Unicode)
-        $md4 = (Get-MD4 -bArray ([System.Text.UnicodeEncoding]::Unicode.GetBytes($password))).ToUpper()
+    Process
+    {
+        if([string]::IsNullOrEmpty($Hash))
+        {
+            # Calculate MD4 from the password (Unicode)
+            $md4 = (Get-MD4 -bArray ([System.Text.UnicodeEncoding]::Unicode.GetBytes($password))).ToUpper()
+            
+        }
+        elseif($Hash.Length -ne 32)
+        {
+            Throw "Invalid hash length!"
+        }
+        else
+        {
+            $md4=$Hash
+        }
+
         $md4bytes = ([System.Text.UnicodeEncoding]::Unicode.GetBytes($md4))
+        
 
         # Generate random 10-byte salt
         $salt = Get-Random 0,1,2,3,4,5,6,7,8,9,0xA,0xB,0xC,0xD,0xE,0xF -count 10

@@ -682,7 +682,11 @@ function ConvertTo-Backdoor
     If set, tries to create the domain
     
     .Example
-    PS C:\>ConvertTo-AADIntBackdoor -DomainName backdoor.myo365.site
+    PS C:\>ConvertTo-AADIntBackdoor -DomainName company.myo365.site
+
+    IssuerUri               Domain              
+    ---------               ------              
+    http://any.sts/B231A11F company.myo365.site
 
 #>
     [cmdletbinding()]
@@ -700,7 +704,7 @@ function ConvertTo-Backdoor
         $UniqueID = '{0:X}' -f (Get-Date).GetHashCode()
 
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Set some variables
         $tenant_id = Get-TenantId -AccessToken $AccessToken
@@ -778,7 +782,7 @@ function New-Backdoor
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         ConvertTo-Backdoor -AccessToken $AccessToken -DomainName $DomainName -Create
 

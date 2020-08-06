@@ -339,7 +339,8 @@ function XML2WBXML
             )
             $retVal = @()
             $retVal += 0xC3
-            $UTFBytes = [convert]::FromBase64String($CData.Data)
+            $UTFBytes = [text.encoding]::UTF8.GetBytes($CData.Data)
+            #$UTFBytes = [convert]::FromBase64String($CData.Data)
             #$UTFBytes = LF2CRLF -bytes $UTFBytes
             $retVal += EncodeMultiByteInteger -Value $UTFBytes.Count
             $retVal += $UTFBytes
@@ -700,7 +701,7 @@ function Call-EAS
         $url="https://outlook.office365.com/Microsoft-Server-ActiveSync?Cmd=$Command&User=$(Get-UserNameFromAuthHeader($Authorization))&DeviceId=$DeviceId&DeviceType=$DeviceType&DeviceOS=$DeviceOS"    
 
         $headers = @{
-            "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken
+            "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
             "User-Agent" = $UserAgent
             "Content-Type" = "application/vnd.ms-sync.WBXML"
             "MS-ASProtocolVersion" = $Version
@@ -1116,44 +1117,6 @@ function Shift-ByteArrayRight
     }
 }
 
-Function Convert-ByteArrayToHex {
-
-    [cmdletbinding()]
-
-    param(
-        [parameter(Mandatory=$true)]
-        [Byte[]]
-        $Bytes
-    )
-
-    $HexString = [System.Text.StringBuilder]::new($Bytes.Length * 2)
-
-    ForEach($byte in $Bytes){
-        $HexString.AppendFormat("{0:x2}", $byte) | Out-Null
-    }
-
-    $HexString.ToString().ToUpper()
-}
-
-
-Function Convert-HexToByteArray {
-
-    [cmdletbinding()]
-
-    param(
-        [parameter(Mandatory=$true)]
-        [String]
-        $HexString
-    )
-
-    $Bytes = [byte[]]::new($HexString.Length / 2)
-
-    For($i=0; $i -lt $HexString.Length; $i+=2){
-        $Bytes[$i/2] = [convert]::ToByte($HexString.Substring($i, 2), 16)
-    }
-
-    $Bytes
-}
 
 # ActiveSync error codes
 # https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-ascmd/95cb9d7c-d33d-4b94-9366-d59911c7a060

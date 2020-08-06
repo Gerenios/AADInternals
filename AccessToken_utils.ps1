@@ -7,43 +7,48 @@
 $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millisecond 0
 
 # Well known client ids
-$client_ids=@{
+<#
     "graph_api"=            "1b730954-1685-4b74-9bfd-dac224a7b894" # MS Graph API
-    "aadrm"=                "90f610bf-206d-4950-b61d-37fa6fd1b224" 
+    "aadrm"=                "90f610bf-206d-4950-b61d-37fa6fd1b224" # AADRM
     "exo"=                  "a0c73c16-a7e3-4564-9a95-2bdf47383716" # EXO Remote PowerShell
-    "skype"=                "d924a533-3729-4708-b3e8-1d2445af35e3" 
-    "www"=                  "00000006-0000-0ff1-ce00-000000000000"
+    "skype"=                "d924a533-3729-4708-b3e8-1d2445af35e3" # Skype
+    "www"=                  "00000006-0000-0ff1-ce00-000000000000" # Office portal
     "o365spo"=              "00000003-0000-0ff1-ce00-000000000000" # SharePoint Online
     "o365exo"=              "00000002-0000-0ff1-ce00-000000000000" # Exchange Online
     "dynamicscrm"=          "00000007-0000-0000-c000-000000000000" # Dynamics CRM
     "o365suiteux"=          "4345a7b9-9a63-4910-a426-35363201d503" # O365 Suite UX
     "aadsync"=              "cb1056e2-e479-49de-ae31-7812af012ed8" # Azure AD Sync
     "aadconnectv2"=         "6eb59a73-39b2-4c23-a70f-e2e3ce8965b1" # AAD Connect v2
-    "synccli"=              "1651564e-7ce4-4d99-88be-0a65050d8dc3"
+    "synccli"=              "1651564e-7ce4-4d99-88be-0a65050d8dc3" # Sync client
     "azureadmin" =          "c44b4083-3bb0-49c1-b47d-974e53cbdf3c" # Azure Admin web ui
     "pta" =                 "cb1056e2-e479-49de-ae31-7812af012ed8" # Pass-through authentication
     "patnerdashboard" =     "4990cffe-04e8-4e8b-808a-1175604b879"  # Partner dashboard (missing on letter?)
-    "webshellsuite" =       "89bee1f7-5e6e-4d8a-9f3d-ecd601259da7" 
+    "webshellsuite" =       "89bee1f7-5e6e-4d8a-9f3d-ecd601259da7" # WebShell suite
     "teams" =               "1fec8e78-bce4-4aaf-ab1b-5451cc387264" # Teams
     "office" =              "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Office, ref. https://docs.microsoft.com/en-us/office/dev/add-ins/develop/register-sso-add-in-aad-v2
     "office_online2" =      "57fb890c-0dab-4253-a5e0-7188c88b2bb4" # Office Online
     "office_online" =       "bc59ab01-8403-45c6-8796-ac3ef710b3e3" # Office Online
-    "powerbi_contentpack" = "2a0c3efa-ba54-4e55-bdc0-770f9e39e9ee" 
+    "powerbi_contentpack" = "2a0c3efa-ba54-4e55-bdc0-770f9e39e9ee" # PowerBI content pack
     "aad_account" =         "0000000c-0000-0000-c000-000000000000" # https://account.activedirectory.windowsazure.com
     "sara" =                "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Microsoft Support and Recovery Assistant (SARA)
     "office_mgmt" =         "389b1b32-b5d5-43b2-bddc-84ce938d6737" # Office Management API Editor https://manage.office.com 
     "onedrive" =            "ab9b8c07-8f02-4f72-87fa-80105867a763" # OneDrive Sync Engine
     "adibizaux" =           "74658136-14ec-4630-ad9b-26e160ff0fc6" # Azure portal UI "ADIbizaUX"
     "msmamservice" =        "27922004-5251-4030-b22d-91ecd9a37ea4" # MS MAM Service API
-    "teamswebclient" =      "5e3ce6c0-2b1f-4285-8d4b-75ee78787346"
+    "teamswebclient" =      "5e3ce6c0-2b1f-4285-8d4b-75ee78787346" # Teams web client
     "azuregraphclientint" = "7492bca1-9461-4d94-8eb8-c17896c61205" # Microsoft Azure Graph Client Library 2.1.9 Internal
     "azure_mgmt" =          "84070985-06ea-473d-82fe-eb82b4011c9d" # Windows Azure Service Management API
     "az" =                  "1950a258-227b-4e31-a9cf-717495945fc2" # AZ PowerShell Module
-    # 7f59a773-2eaf-429c-a059-50fc5bb28b44 https://docs.microsoft.com/en-us/rest/api/authorization/globaladministrator/elevateaccess#code-try-0
+                            "f8d98a96-0999-43f5-8af3-69971c7bb423" # Apple Internet Accounts
+                            "7f59a773-2eaf-429c-a059-50fc5bb28b44" # https://docs.microsoft.com/en-us/rest/api/authorization/globaladministrator/elevateaccess#code-try-0
+                            "9bc3ab49-b65d-410a-85ad-de819febfddc" # SPO Management Shell
+                            "06c6433f-4fb8-4670-b2cd-408938296b8e" # AAD Pin redemption client
+                            "19db86c3-b2b9-44cc-b339-36da233a3be2" # https://mysignins.microsoft.com
+#>
 
-}
 
 # AccessToken resource strings
+<#
 $resources=@{
     "aad_graph_api"=         "https://graph.windows.net"
     "ms_graph_api"=          "https://graph.microsoft.com"
@@ -58,11 +63,11 @@ $resources=@{
     "msmamservice" =         "https://msmamservice.api.application"
     "spacesapi" =            "https://api.spaces.skype.com"
 }
+#>
 
 # Stored tokens (access & refresh)
 $tokens=@{}
-$aad_graph_tokens=$null
-$ms_graph_tokens=$null
+$refresh_tokens=@{}
 
 ## UTILITY FUNCTIONS FOR API COMMUNICATIONS
 
@@ -617,14 +622,14 @@ function Is-AccessTokenValid
 
         # Get the signing key
         $KeyId=$headerObj.kid
-        Write-Verbose "PARSED TOKEN HEADER: $($headerObj | Format-List | Out-String)"
+        Write-Debug "PARSED TOKEN HEADER: $($headerObj | Format-List | Out-String)"
 
         # The algorithm should be RSA with SHA-256, i.e. RS256
         if($headerObj.alg -eq "RS256")
         {
             # Get the public certificate
             $publicCert = Get-APIKeys -KeyId $KeyId
-            Write-Verbose "TOKEN SIGNING CERT: $publicCert"
+            Write-Debug "TOKEN SIGNING CERT: $publicCert"
             $certBin=[convert]::FromBase64String($publicCert)
 
             # Construct the JWT data to be verified
@@ -677,13 +682,13 @@ function Is-AccessTokenValid
                     {
                         $byteCount = $certBin[$a++]
                         $exponent =  $certBin[$a..$($a+$byteCount-1)]
-                        Write-Verbose "MODULUS:  $(Convert-ByteArrayToHex -Bytes $modulus)"
-                        Write-Verbose "EXPONENT: $(Convert-ByteArrayToHex -Bytes $exponent)"
+                        Write-Debug "MODULUS:  $(Convert-ByteArrayToHex -Bytes $modulus)"
+                        Write-Debug "EXPONENT: $(Convert-ByteArrayToHex -Bytes $exponent)"
                         break
                     }
                     else
                     {
-                        Write-Verbose "Error getting modulus and exponent"
+                        Write-Debug "Error getting modulus and exponent"
                     }
                 }
             }
@@ -726,33 +731,40 @@ function Get-OAuthInfoUsingSAML
         [String]$SAMLToken,
         [Parameter(Mandatory=$True)]
         [String]$Resource,
-        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo','office_mgmt','onedrive')]
-        [String]$ClientId="graph_api"
+        [Parameter(Mandatory=$False)]
+        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894"
     )
+    Begin
+    {
+        # Create the headers. We like to be seen as Outlook.
+        $headers = @{
+            "User-Agent" = "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 10.0; WOW64; Trident/7.0; .NET4.0C; .NET4.0E; Tablet PC 2.0; Microsoft Outlook 16.0.4266)"
+        }
+    }
     Process
     {
         $encodedSamlToken= [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($SAMLToken))
-        # Verbose
-        Write-Verbose "SAML TOKEN: $samlToken"
-        Write-Verbose "ENCODED SAML TOKEN: $encodedSamlToken"
+        # Debug
+        Write-Debug "SAML TOKEN: $samlToken"
+        Write-Debug "ENCODED SAML TOKEN: $encodedSamlToken"
 
         # Create a body for API request
         $body = @{
             "resource"=$Resource
-            "client_id"=$client_ids[$ClientId]
+            "client_id"=$ClientId
             "grant_type"="urn:ietf:params:oauth:grant-type:saml1_1-bearer"
             "assertion"=$encodedSamlToken
             "scope"="openid"
         }
 
-        # Verbose
-        Write-Verbose "FED AUTHENTICATION BODY: $($body | Out-String)"
+        # Debug
+        Write-Debug "FED AUTHENTICATION BODY: $($body | Out-String)"
 
         # Set the content type and call the Microsoft Online authentication API
         $contentType="application/x-www-form-urlencoded"
         try
         {
-            $jsonResponse=Invoke-RestMethod -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body
+            $jsonResponse=Invoke-RestMethod -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
         }
         catch
         {
@@ -772,9 +784,16 @@ function Get-OAuthInfo
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(Mandatory=$True)]
         [String]$Resource,
-        [ValidateSet('graph_api','aadsync','azureadmin','pta','teams','office','exo','office_mgmt','onedrive')]
-        [String]$ClientId="graph_api"
+        [Parameter(Mandatory=$False)]
+        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894"
     )
+    Begin
+    {
+        # Create the headers. We like to be seen as Outlook.
+        $headers = @{
+            "User-Agent" = "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 10.0; WOW64; Trident/7.0; .NET4.0C; .NET4.0E; Tablet PC 2.0; Microsoft Outlook 16.0.4266)"
+        }
+    }
     Process
     {
         # Get the user realm
@@ -794,21 +813,21 @@ function Get-OAuthInfo
             # Create a body for REST API request
             $body = @{
                 "resource"=$Resource
-                "client_id"=$client_ids[$ClientId]
+                "client_id"=$ClientId
                 "grant_type"="password"
                 "username"=$Credentials.UserName
                 "password"=$Credentials.GetNetworkCredential().Password
                 "scope"="openid"
             }
 
-            # Verbose
-            Write-Verbose "AUTHENTICATION BODY: $($body | Out-String)"
+            # Debug
+            Write-Debug "AUTHENTICATION BODY: $($body | Out-String)"
 
             # Set the content type and call the Microsoft Online authentication API
             $contentType="application/x-www-form-urlencoded"
             try
             {
-                $jsonResponse=Invoke-RestMethod -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body
+                $jsonResponse=Invoke-RestMethod -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
             }
             catch
             {
@@ -849,8 +868,8 @@ function Get-OAuthInfo
                 "client-request-id"=(New-Guid).toString()
             }
 
-            # Verbose
-            Write-Verbose "FED AUTHENTICATION HEADERS: $($headers | Out-String)"
+            # Debug
+            Write-Debug "FED AUTHENTICATION HEADERS: $($headers | Out-String)"
             
             # Create the SOAP envelope
             $envelope=@"
@@ -886,8 +905,8 @@ function Get-OAuthInfo
 	                </s:Body>
                 </s:Envelope>
 "@
-            # Verbose
-            Write-Verbose "FED AUTHENTICATION: $envelope"
+            # Debug
+            Write-Debug "FED AUTHENTICATION: $envelope"
 
             # Set the content type and call the authentication service            
             $contentType="application/soap+xml"
@@ -900,8 +919,8 @@ function Get-OAuthInfo
             $jsonResponse = Get-OAuthInfoUsingSAML -SAMLToken $samlToken -Resource $Resource -ClientId $ClientId
         }
         
-        # Verbose
-        Write-Verbose "AUTHENTICATION JSON: $($jsonResponse | Out-String)"
+        # Debug
+        Write-Debug "AUTHENTICATION JSON: $($jsonResponse | Out-String)"
 
         # Return
         $jsonResponse 
@@ -1048,8 +1067,8 @@ function Read-Accesstoken
 
         }
 
-        # Verbose
-        Write-Verbose "PARSED ACCESS TOKEN: $($payloadObj | Out-String)"
+        # Debug
+        Write-Debug "PARSED ACCESS TOKEN: $($payloadObj | Out-String)"
         
         # Return
         $payloadObj
@@ -1065,7 +1084,7 @@ function Prompt-Credentials
     Param(
         [Parameter(Mandatory=$True)]
         [String]$Resource,
-        [String]$ClientId="graph_api",
+        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894" <# graph_api #>,
         [Parameter(Mandatory=$False)]
         [String]$Tenant
     )
@@ -1078,17 +1097,34 @@ function Prompt-Credentials
         }
 
         # Set variables
-        $auth_redirect="urn:ietf:wg:oauth:2.0:oob"
-        $client_id=$client_ids[$ClientId] # Usually should be graph_api
-        
-        if($Resource -eq "teams")
+        $auth_redirect= "urn:ietf:wg:oauth:2.0:oob"
+        $client_id=     $ClientId # Usually should be graph_api
+
+        # Some services need to use different auth_redirect
+        if($ClientId -eq "1fec8e78-bce4-4aaf-ab1b-5451cc387264")     # Teams
         {
-            # We are logging in as Teams, so need to use different auth_redirect
             $auth_redirect="https://teams.office.com"
         }
+        elseif($ClientId -eq "9bc3ab49-b65d-410a-85ad-de819febfddc") # SPO
+        {
+            $auth_redirect="https://oauth.spops.microsoft.com/"
+        }
+        elseif($ClientId -eq "c44b4083-3bb0-49c1-b47d-974e53cbdf3c") # Azure admin interface
+        {
+            $auth_redirect="https://portal.azure.com/signin/index/?feature.prefetchtokens=true&feature.showservicehealthalerts=true&feature.usemsallogin=true"
+        }
+        elseif($ClientId -eq "0000000c-0000-0000-c000-000000000000") # Azure AD Account
+        {
+            $auth_redirect="https://account.activedirectory.windowsazure.com/"
+        }
+        elseif($ClientId -eq "19db86c3-b2b9-44cc-b339-36da233a3be2") # My sign-ins
+        {
+            $auth_redirect="https://mysignins.microsoft.com"
+        }
         
+
+        # Create the url
         $request_id=(New-Guid).ToString()
-        
         $url="https://login.microsoftonline.com/$Tenant/oauth2/authorize?resource=$Resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=openid profile"
 
         # Create the form
@@ -1113,12 +1149,12 @@ function Prompt-Credentials
             code=$response["code"]
             redirect_uri=$auth_redirect
         }
-
+        
         # Dispose the control
         $form.Controls[0].Dispose()
 
-        # Verbose
-        Write-Verbose "AUTHENTICATION BODY: $($body | Out-String)"
+        # Debug
+        Write-Debug "AUTHENTICATION BODY: $($body | Out-String)"
 
         # Set the content type and call the Microsoft Online authentication API
         $contentType="application/x-www-form-urlencoded"
@@ -1130,42 +1166,57 @@ function Prompt-Credentials
 }
 
 # Tries to get access token from cache unless provided as parameter
+# Refactored Jun 8th 2020
 function Get-AccessTokenFromCache
 {
     [cmdletbinding()]
     Param(
-        [Parameter()]
-        [String]$AccessToken,
         [Parameter(Mandatory=$False)]
-        [ValidateSet('aad_graph_api','ms_graph_api','windows_net_mgmt_api','cloudwebappproxy','officeapps','outlook','azureportal','office_mgmt')]
-        [String]$Resource=$resources["aad_graph_api"]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$ClientID,
+        [Parameter(Mandatory=$True)]
+        [String]$Resource,
+        [switch]$IncludeRefreshToken
     )
     Process
     {
         # Check if we got the AccessToken as parameter
         if([string]::IsNullOrEmpty($AccessToken))
         {
-            # Check if cache is empty
-            if([string]::IsNullOrEmpty($Script:tokens[$Resource]))
+            # Check if cache entry is empty
+            if([string]::IsNullOrEmpty($Script:tokens["$ClientId-$Resource"]))
             {
                 # Empty, so throw the exception
-                Throw "No saved tokens. Please call Get-AADIntAccessTokenFor<service>"
+                Throw "No saved tokens found. Please call Get-AADIntAccessTokenFor<service> -SaveToCache"
             }
             else
             {
-                $retVal=$Script:tokens[$Resource].access_token
+                $retVal=$Script:tokens["$ClientId-$Resource"]
             }
         }
         else
         {
-            # Just return the passed access token
-            $retVal=$AccessToken
+            # Check that the audience of the access token is correct
+            $audience=(Read-Accesstoken -AccessToken $AccessToken).aud
+            if($audience -ne $Resource)
+            {
+                # Wrong audience
+                Write-Verbose "ACCESS TOKEN HAS WRONG AUDIENCE: $audience. Exptected: $resource."
+                Throw "The audience of the access token ($audience) is wrong. Should be $resource!"
+            }
+            else
+            {
+                # Just return the passed access token
+                $retVal=$AccessToken
+            }
         }
 
         # Check the expiration
         if(Is-AccessTokenExpired($retVal))
         {
-            throw "AccessToken has expired"
+            Write-Verbose "ACCESS TOKEN HAS EXPRIRED. Trying to get a new one with RefreshToken."
+            $retVal = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientID -RefreshToken $script:refresh_tokens["$ClientId-$Resource"] -TenantId (Read-Accesstoken -AccessToken $retVal).tid -SaveToCache $true -IncludeRefreshToken $IncludeRefreshToken
         }
 
         # Return
@@ -1214,11 +1265,12 @@ function Get-AccessTokenForAADGraph
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
         [Parameter(Mandatory=$False)]
-        [String]$Tenant
+        [String]$Tenant,
+        [switch]$SaveToCache
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource $resources["aad_graph_api"] -ClientId "graph_api" -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain
+        Get-AccessToken -Credentials $Credentials -Resource "https://graph.windows.net" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache
     }
 }
 
@@ -1261,11 +1313,13 @@ function Get-AccessTokenForMSGraph
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
-        [String]$Domain
+        [String]$Domain,
+        [switch]$SaveToCache
+
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource $resources["ms_graph_api"] -ClientId "graph_api" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
+        Get-AccessToken -Credentials $Credentials -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache
     }
 }
 
@@ -1307,11 +1361,12 @@ function Get-AccessTokenForPTA
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
-        [String]$Domain
+        [String]$Domain,
+        [switch]$SaveToCache
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource $resources["cloudwebappproxy"] -ClientId "pta" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
+        Get-AccessToken -Credentials $Credentials -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache
     }
 }
 
@@ -1353,11 +1408,12 @@ function Get-AccessTokenForOfficeApps
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
-        [String]$Domain
+        [String]$Domain,
+        [switch]$SaveToCache
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource $resources["officeapps"] -ClientId "graph_api" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
+        Get-AccessToken -Credentials $Credentials -Resource "https://officeapps.live.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache
     }
 }
 
@@ -1399,12 +1455,13 @@ function Get-AccessTokenForEXO
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
-        [String]$Domain
+        [String]$Domain,
+        [switch]$SaveToCache
     )
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Credentials $Credentials -Resource $resources["outlook"] -ClientId "office" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain
+        Get-AccessToken -Credentials $Credentials -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache
     }
 }
 
@@ -1449,12 +1506,13 @@ function Get-AccessTokenForEXOPS
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
-        [String]$Domain
+        [String]$Domain,
+        [switch]$SaveToCache
     )
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Credentials $Credentials -Resource $resources["outlook"] -ClientId "exo" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -UserPrincipalName $UserPrincipalName
+        Get-AccessToken -Credentials $Credentials -Resource "https://outlook.office365.com" -ClientId "a0c73c16-a7e3-4564-9a95-2bdf47383716" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -UserPrincipalName $UserPrincipalName -SaveToCache $SaveToCache
     }
 }
 
@@ -1487,12 +1545,13 @@ function Get-AccessTokenForSARA
         [Parameter(Mandatory=$False)]
         [String]$KerberosTicket,
         [Parameter(Mandatory=$False)]
-        [String]$Domain
+        [String]$Domain,
+        [switch]$SaveToCache
     )
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Resource $resources["sara"] -ClientId "sara" -KerberosTicket $KerberosTicket -Domain $Domain
+        Get-AccessToken -Resource "https://api.diagnostics.office.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache
     }
 }
 
@@ -1527,11 +1586,11 @@ function Get-AccessTokenForOneDrive
     
     .Example
     PS C:\>$cred=Get-Credential
-    PS C:\>Get-AADIntAccessTokenForOneDrive -Credentials $cred
+    PS C:\>Get-AADIntAccessTokenForOneDrive -Tenant "company" -Credentials $cred
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+    [Parameter(Mandatory=$True)]
         [String]$Tenant,
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
@@ -1540,11 +1599,12 @@ function Get-AccessTokenForOneDrive
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
-        [String]$Domain
+        [String]$Domain,
+        [switch]$SaveToCache
     )
     Process
     {
-        Get-AccessToken -Resource "https://$Tenant-my.sharepoint.com/" -ClientId "onedrive" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials
+        Get-AccessToken -Resource "https://$Tenant-my.sharepoint.com/" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials  -SaveToCache $SaveToCache
     }
 }
 
@@ -1590,11 +1650,12 @@ function Get-AccessTokenForOfficeApps
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
-        [String]$Domain
+        [String]$Domain,
+        [switch]$SaveToCache
     )
     Process
     {
-        Get-AccessToken -Resource "https://officeapps.live.com" -ClientId "onedrive" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials
+        Get-AccessToken -Resource "https://officeapps.live.com" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache
     }
 }
 
@@ -1640,15 +1701,140 @@ function Get-AccessTokenForAzureCoreManagement
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
-        [String]$Domain
+        [String]$Domain,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant
     )
     Process
     {
-        Get-AccessToken -Resource "https://management.core.windows.net" -ClientId "graph_api" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials
+        Get-AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant
+    }
+}
+
+# Gets an access token for SPO
+# Jun 10th 2020
+function Get-AccessTokenForSPO
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for SharePoint Online
+
+    .DESCRIPTION
+    Gets OAuth Access Token for SharePoint Online Management Shell, which can be used with any SPO requests.
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter Tenant
+    The tenant name of the organization, ie. company.onmicrosoft.com -> "company"
+    
+    .Example
+    Get-AADIntAccessTokenForSPO
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForSPO -Credentials $cred -Tenant "company"
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(Mandatory=$True)]
+        [String]$Tenant,
+        [switch]$SaveToCache
+    )
+    Process
+    {
+        Get-AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache
+    }
+}
+
+# Gets the access token for AAD Graph API
+# Jul 1st 2020
+function Get-AccessTokenForMySignins
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for My Signins
+
+    .DESCRIPTION
+    Gets OAuth Access Token for My Signins, which is used for example when registering MFA.
+   
+    .Example
+    PS C:\>Get-AADIntAccessTokenForMySignins
+#>
+    [cmdletbinding()]
+    Param(
+        [switch]$SaveToCache
+    )
+    Process
+
+    {
+        # Create the url
+        $request_id=    (New-Guid).ToString()
+        $state =        (New-Guid).ToString()
+        $nonce =        (New-Guid).ToString()
+        $resource=      "0000000c-0000-0000-c000-000000000000"
+        $clientId =     "19db86c3-b2b9-44cc-b339-36da233a3be2"
+        $redirect_uri = "https://mysignins.microsoft.com"
+        
+        $url="https://login.microsoftonline.com/common/oauth2/authorize?resource=$Resource&response_type=token&client_id=$clientId&redirect_uri=$redirect_uri&state=$state&login_hint=$UserPrincipalName&client-request-id=$request_id&x-client-SKU=Js&x-client-Ver=1.0.17&nonce=$nonce&amr_values=mfa"
+
+        # Create the form
+        $auth_redirect="https://mysignins.microsoft.com/#access_token"
+        $form = Create-LoginForm -Url $url -auth_redirect $auth_redirect
+
+        # Show the form and wait for the return value
+        if($form.ShowDialog() -ne "OK") {
+            # Dispose the control
+        $form.Controls[0].Dispose()
+            Write-Verbose "Login cancelled"
+            return $null
+        }
+
+        # Parse the token
+        $AccessToken = $form.Controls[0].url.AbsoluteUri.Split("/")[3].Split("&")[0].Split("=")[1]
+
+        if($SaveToCache -and $AccessToken -ne $null)
+        {
+            $script:tokens["$ClientId-$Resource"] = $AccessToken
+
+            $pat = Read-Accesstoken -AccessToken $AccessToken
+            $attributes=[ordered]@{
+                "Tenant" =   $pat.tid
+                "User" =     $pat.unique_name
+                "Resource" = $Resource
+                "Client" =   $ClientID
+            }
+            Write-Host "AccessToken saved to cache."
+            return New-Object psobject -Property $attributes
+        }
+
+        return $AccessToken
     }
 }
 
 # Gets the access token for provisioning API and stores to cache
+# Refactored Jun 8th 2020
 function Get-AccessToken
 {
     [cmdletbinding()]
@@ -1657,51 +1843,43 @@ function Get-AccessToken
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(Mandatory=$False)]
         [String]$SAMLToken,
-        [Parameter()]
-        [switch]$UseAdalCache=$false,
         [Parameter(Mandatory=$True)]
         [String]$Resource,
-        [ValidateSet('graph_api','aadsync','pta','teams','office','exo','sara','office_mgmt','onedrive')]
-        [String]$ClientId="graph_api",
+        [Parameter(Mandatory=$True)]
+        [String]$ClientId,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
         [String]$KerberosTicket,
         [Parameter(Mandatory=$False)]
-        [String]$Domain
+        [String]$Domain,
+        [Parameter(Mandatory=$False)]
+        [bool]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [bool]$IncludeRefreshToken=$false
     )
+    Begin
+    {
+        # List of clients requiring the same client id
+        $requireClientId=@(
+            "cb1056e2-e479-49de-ae31-7812af012ed8" # Pass-through authentication
+            "c44b4083-3bb0-49c1-b47d-974e53cbdf3c" # Azure Admin web ui
+            "1fec8e78-bce4-4aaf-ab1b-5451cc387264" # Teams
+            "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Office, ref. https://docs.microsoft.com/en-us/office/dev/add-ins/develop/register-sso-add-in-aad-v2
+            "a0c73c16-a7e3-4564-9a95-2bdf47383716" # EXO Remote PowerShell
+            "389b1b32-b5d5-43b2-bddc-84ce938d6737" # Office Management API Editor https://manage.office.com
+            "ab9b8c07-8f02-4f72-87fa-80105867a763" # OneDrive Sync Engine
+            "9bc3ab49-b65d-410a-85ad-de819febfddc" # SPO
+        )
+    }
     Process
     {
         # Check if we got the kerberos token
         if(![String]::IsNullOrEmpty($KerberosTicket))
         {
             # Get token using the kerberos token
-            $access_token = Get-AccessTokenWithKerberosTicket -KerberosTicket $KerberosTicket -Domain $Domain -Resource $Resource -ClientId $ClientId
-        }
-        # Check if we want to get AccessToken from ADAL cache
-        elseif($UseAdalCache)
-        {
-            # Items from cache for the given resource
-            $cache = [Microsoft.IdentityModel.Clients.ActiveDirectory.TokenCache]::DefaultShared
-            $adalItems = $cache.ReadItems() | where Resource -eq $Resource
-            
-            # Get the first item
-            $adalItem=$adalItems[0]
-
-            $token= @{}
-            $token.access_token=$adalItem.AccessToken
-            $token.id_token=$adalItem.IdToken
-            $token.expires_on=(New-TimeSpan –Start $Script:epoch –End $adalItem.ExpiresOn.Date).TotalSeconds
-            $token.resource=$Resource
-
-            $upn=$adalItem.DisplayableId
-            Write-Verbose "ADAL CACHE: Using cached access token of $upn"
-
-            # Save the tokens to cache
-            $Script:tokens[$Resource]=$token
-
-            # Set the access token
-            $access_token=$token.access_token
+            $OAuthInfo = Get-AccessTokenWithKerberosTicket -KerberosTicket $KerberosTicket -Domain $Domain -Resource $Resource -ClientId $ClientId
+            $access_token = $OAuthInfo.access_token
         }
         else
         {
@@ -1710,13 +1888,13 @@ function Get-AccessToken
             if([string]::IsNullOrEmpty($Credentials) -and [string]::IsNullOrEmpty($SAMLToken))
             {
                 # No credentials given, so prompt for credentials
-                if($ClientId -eq "office" -or $ClientId -eq "exo")
+                if($ClientId -eq "d3590ed6-52b3-4102-aeff-aad2292ab01c" <# Office #> -or $ClientId -eq "a0c73c16-a7e3-4564-9a95-2bdf47383716" <# EXO #> )
                 {
-                    $OAuthInfo = Prompt-Credentials -Resource $script:resources["outlook"] -ClientId $ClientId
+                    $OAuthInfo = Prompt-Credentials -Resource $Resource -ClientId $ClientId -Tenant $Tenant
                 }
                 else
                 {
-                    $OAuthInfo = Prompt-Credentials -Resource $script:resources["aad_graph_api"] -ClientId $ClientId -Tenant $Tenant
+                    $OAuthInfo = Prompt-Credentials -Resource "https://graph.windows.net" -ClientId $ClientId -Tenant $Tenant
                 }
                 
             }
@@ -1725,19 +1903,19 @@ function Get-AccessToken
                 # Get OAuth info for user
                 if(![string]::IsNullOrEmpty($SAMLToken))
                 {
-                    $OAuthInfo = Get-OAuthInfoUsingSAML -SAMLToken $SAMLToken -ClientId $ClientId -Resource $script:resources["aad_graph_api"]
+                    $OAuthInfo = Get-OAuthInfoUsingSAML -SAMLToken $SAMLToken -ClientId $ClientId -Resource "https://graph.windows.net"
                 }
                 else
                 {
-                    if($ClientId -eq "pta" -or $ClientId -eq "azureadmin" -or $ClientId -eq "teams" -or $ClientId -eq "office" -or $ClientId -eq "exo" -or $ClientId -eq "office_mgmt" -or $ClientId -eq "onedrive")
+                    if($requireClientId -contains $ClientId)
                     {
                         # Requires same clientId
-                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId -Resource $script:resources["aad_graph_api"]
+                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId -Resource "https://graph.windows.net"
                     }
                     else
                     {
                         # "Normal" flow
-                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -Resource $script:resources["aad_graph_api"]
+                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -Resource "https://graph.windows.net"
                     }
                 }
             }
@@ -1746,56 +1924,24 @@ function Get-AccessToken
             {
                 throw "Could not get OAuthInfo!"
             }
+            
+            # We need to get access token using the refresh token
 
-            if($ClientId -eq "aadsync")
-            {
-                # Authentication here is simplier, just use the access token from the previous call
-                $access_token=$OAuthInfo.access_token
-            }
-            else
-            {
-                # We need to get access token using the refresh token from the previous call
+            # Save the refresh token and other variables
+            $RefreshToken= $OAuthInfo.refresh_token
+            $ParsedToken=  Read-Accesstoken($OAuthInfo.access_token)
+            #$tenant_id =  $ParsedToken.unique_name.Split("@")[1] # Not used in this script, we can use both name or id
+            $tenant_id =   $ParsedToken.tid
 
-                # Save the refresh token and other variables
-                $RefreshToken=$OAuthInfo.refresh_token
-                $ParsedToken=Read-Accesstoken($OAuthInfo.access_token)
-                $tenant_name = $ParsedToken.unique_name.Split("@")[1] # Not used in this script, we can use both name or id in url below
-                $tenant_id = $ParsedToken.tid
+            # Get the access token from response
+            $access_token = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientId -TenantId $tenant_id -RefreshToken $RefreshToken -SaveToCache $SaveToCache
+            
+        }
 
-                # Set the body for API call
-                $body = @{
-                    "resource"=$Resource
-                    "client_id"=$client_ids[$ClientId]
-                    "grant_type"="refresh_token"
-                    "refresh_token"=$RefreshToken
-                    "scope"="openid"
-                }
-
-                if($ClientId -eq "onedrive")
-                {
-                    $url = "https://login.windows.net/common/oauth2/token"
-                }
-                else
-                {
-                    $url = "https://login.microsoftonline.com/$tenant_id/oauth2/token"
-                }
-
-                # Verbose
-                Write-Verbose "ACCESS TOKEN BODY: $($body | Out-String)"
-        
-                # Set the content type and call the API
-                $contentType="application/x-www-form-urlencoded"
-                $response=Invoke-RestMethod -Uri $url -ContentType $contentType -Method POST -Body $body
-
-                # Verbose
-                Write-Verbose "ACCESS TOKEN RESPONSE: $response"
-
-                # Save the tokens to cache
-                $Script:tokens[$Resource]=$response
-
-                # Get the access token from response
-                $access_token=$response.access_token
-            }
+        if($SaveToCache -and $OAuthInfo -ne $null -and $access_token -ne $null)
+        {
+            $script:tokens["$ClientId-$Resource"] =          $access_token
+            $script:refresh_tokens["$ClientId-$Resource"] =  $OAuthInfo.refresh_token
         }
 
         # Return
@@ -1803,53 +1949,92 @@ function Get-AccessToken
         {
             Throw "Could not get Access Token!"
         }
-        $access_token
+
+        # Don't print out token if saved to cache!
+        if($SaveToCache)
+        {
+            $pat = Read-Accesstoken -AccessToken $access_token
+            $attributes=[ordered]@{
+                "Tenant" =   $pat.tid
+                "User" =     $pat.unique_name
+                "Resource" = $Resource
+                "Client" =   $ClientID
+            }
+            Write-Host "AccessToken saved to cache."
+            return New-Object psobject -Property $attributes
+        }
+        else
+        {
+            if($IncludeRefreshToken) # Include refreshtoken
+            {
+                return @($access_token,$OAuthInfo.refresh_token)
+            }
+            else
+            {
+                return $access_token
+            }
+        }
     }
 }
 
-# Gets the tenant details 
-function Get-TenantDetails
+# Gets the access token using a refresh token
+# Jun 8th 2020
+function Get-AccessTokenWithRefreshToken
 {
-<#
-    .SYNOPSIS
-    Extract tenant details using the given Access Token
-
-    .DESCRIPTION
-    Extract tenant details using the given Access Token
-
-    .Parameter AccessToken
-    The Access Token. If not given, tries to use cached Access Token.
-    
-    .Example
-    PS C:\>$token=Get-AADIntAccessTokenForAADGraph
-    PS C:\>Get-AADIntTenantDetails -AccessToken $token
-
-#>
     [cmdletbinding()]
     Param(
+        [String]$Resource,
+        [Parameter(Mandatory=$True)]
+        [String]$ClientId,
+        [Parameter(Mandatory=$True)]
+        [String]$TenantId,
+        [Parameter(Mandatory=$True)]
+        [String]$RefreshToken,
         [Parameter(Mandatory=$False)]
-        [String]$AccessToken
-
+        [bool]$SaveToCache = $false,
+        [Parameter(Mandatory=$False)]
+        [bool]$IncludeRefreshToken = $false
     )
     Process
     {
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
-        
-        # Get tenant id
-        $tenant_id=Get-TenantId -AccessToken $AccessToken
-
-        $headers = @{
-            "Authorization"="Bearer $AccessToken"
+        # Set the body for API call
+        $body = @{
+            "resource"=      $Resource
+            "client_id"=     $ClientId
+            "grant_type"=    "refresh_token"
+            "refresh_token"= $RefreshToken
+            "scope"=         "openid"
         }
 
-        # Call the API
-        $response=Invoke-RestMethod -Uri "$($Script:resources["aad_graph_api"])/$tenant_id/tenantDetails?api-version=1.6" -Headers $headers
+        if($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive Sync Engine
+        {
+            $url = "https://login.windows.net/common/oauth2/token"
+        }
+        else
+        {
+            $url = "https://login.microsoftonline.com/$TenantId/oauth2/token"
+        }
 
-        # Verbose
-        Write-Verbose "TENANT INFORMATION: $($response.value | Out-String)"
+        # Debug
+        Write-Debug "ACCESS TOKEN BODY: $($body | Out-String)"
+        
+        # Set the content type and call the API
+        $contentType="application/x-www-form-urlencoded"
+        $response=Invoke-RestMethod -Uri $url -ContentType $contentType -Method POST -Body $body
+
+        # Debug
+        Write-Debug "ACCESS TOKEN RESPONSE: $response"
+
+        # Save the tokens to cache
+        if($SaveToCache)
+        {
+            Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
+            $Script:tokens["$ClientId-$Resource"] =         $response.access_token
+            $Script:refresh_tokens["$ClientId-$Resource"] = $response.refresh_token
+        }
 
         # Return
-        $response.value
+        return $response.access_token    
     }
 }
 
@@ -2004,7 +2189,7 @@ function Create-LoginForm
         $web.add_Navigated({
             # If the url matches the redirect url, close with OK.
             $curl=$_.Url.ToString()
-            Write-Verbose "NAVIGATED TO: $($curl)"
+            Write-Debug "NAVIGATED TO: $($curl)"
             if($curl.StartsWith($auth_redirect)) {
 
                 # Hack for Azure Portal Login. Jul 11th 2019 
@@ -2019,11 +2204,11 @@ function Create-LoginForm
                         $at=$oAuthToken.authHeader.Split(" ")[1]
                         $rt=$oAuthToken.refreshToken
                         $script:AccessToken = @{"access_token"=$at; "refresh_token"=$rt}
-                        Write-Verbose "ACCESSTOKEN $script:accessToken"
+                        Write-Debug "ACCESSTOKEN $script:accessToken"
                     }
                     elseif($curl.StartsWith("https://portal.azure.com"))
                     {
-                        Write-Verbose "WAITING FOR THE TOKEN!"
+                        Write-Debug "WAITING FOR THE TOKEN!"
                         # Do nothing, wait for it..
                         return
                     }
@@ -2033,7 +2218,7 @@ function Create-LoginForm
 
                 $form.DialogResult = "OK"
                 $form.Close()
-                Write-Verbose "PROMPT CREDENTIALS URL: $url"
+                Write-Debug "PROMPT CREDENTIALS URL: $url"
             } # Automatically logs in -> need to logout first
             elseif($curl.StartsWith($url)) {
                 # All others
@@ -2045,7 +2230,7 @@ function Create-LoginForm
         # Add an event listener to track down where the browser is going
         $web.add_Navigating({
             $curl=$_.Url.ToString()
-            Write-Verbose "NAVIGATING TO: $curl"
+            Write-Debug "NAVIGATING TO: $curl"
             # SharePoint login
             if($curl.EndsWith("/_forms/default.aspx"))
             {
@@ -2096,7 +2281,7 @@ function Clear-WebBrowser
         $optionPointer = [System.Runtime.InteropServices.Marshal]::AllocCoTaskMem($s)
         [System.Runtime.InteropServices.Marshal]::WriteInt32($optionPointer, ([ref]$INTERNET_OPTION_END_BROWSER_SESSION).Value)
         $status = $WebBrowser::InternetSetOption([IntPtr]::Zero, $INTERNET_OPTION_END_BROWSER_SESSION, [IntPtr]::Zero, 0)
-        Write-Verbose "Clearing Web browser cache. Status:$status"
+        Write-Debug "Clearing Web browser cache. Status:$status"
 
         [System.Runtime.InteropServices.Marshal]::Release($optionPointer)|out-null
     }
@@ -2114,17 +2299,17 @@ function Get-WebBrowserCookies
         $dataSize = 1024
         $cookieData = [System.Text.StringBuilder]::new($dataSize)
         $status = $WebBrowser::InternetGetCookieEx($Url,$null,$cookieData, [ref]$dataSize, $INTERNET_COOKIE_HTTPONLY, [IntPtr]::Zero)
-        Write-Verbose "GETCOOKIEEX Status: $status, length: $($cookieData.Length)"
+        Write-Debug "GETCOOKIEEX Status: $status, length: $($cookieData.Length)"
         if(!$status)
         {
             $LastError = [ComponentModel.Win32Exception][Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            Write-Verbose "GETCOOKIEEX ERROR: $LastError"
+            Write-Debug "GETCOOKIEEX ERROR: $LastError"
         }
 
         if($cookieData.Length -gt 0)
         {
             $cookies = $cookieData.ToString()
-            Write-Verbose "Cookies for $url`: $cookies"
+            Write-Debug "Cookies for $url`: $cookies"
             Return $cookies
         }
         else
@@ -2274,13 +2459,17 @@ function Create-AuthorizationHeader
         [Parameter()]
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter()]
-        [String]$AccessToken
+        [String]$AccessToken,
+        [Parameter()]
+        [String]$Resource,
+        [Parameter()]
+        [String]$ClientId
     )
 
     Process
-        {
+    {
     
-        if([String]::IsNullOrEmpty($AccessToken))
+        if($Credentials -ne $null)
         {
             $userName = $Credentials.UserName
             $password = $Credentials.GetNetworkCredential().Password
@@ -2288,6 +2477,8 @@ function Create-AuthorizationHeader
         }
         else
         {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource $Resource -ClientId $ClientId
             $auth = "Bearer $AccessToken"
         }
 
@@ -2318,5 +2509,177 @@ function Get-APIKeys
             $keys.keys
         }
         
+    }
+}
+
+# Gets the AADInt credentials cache
+# Jun 14th 2020
+function Get-Cache
+{
+<#
+    .SYNOPSIS
+    Dumps AADInternals credentials cache
+
+    .DESCRIPTION
+    Dumps AADInternals credentials cache
+    
+    .EXAMPLE
+    Get-AADIntCache | Format-Table
+
+    Name              ClientId                             Audience                            Tenant                               IsExpired HasRefreshToken
+    ----              --------                             --------                            ------                               --------- ---------------
+    admin@company.com 1b730954-1685-4b74-9bfd-dac224a7b894 https://graph.windows.net           82205ae4-4c4e-4db5-890c-cb5e5a98d7a3     False            True
+    admin@company.com 1b730954-1685-4b74-9bfd-dac224a7b894 https://management.core.windows.net 82205ae4-4c4e-4db5-890c-cb5e5a98d7a3     False            True
+#>
+    [cmdletbinding()]
+    Param()
+    Process
+    {
+        $cacheKeys = $script:tokens.keys
+
+        # Loop through the cache elements
+        foreach($key in $cacheKeys)
+        {
+            $accessToken=$script:tokens[$key]
+
+            $parsedToken = Read-Accesstoken -AccessToken $accessToken
+
+            $attributes = [ordered]@{
+                "Name" =            $parsedToken.unique_name
+                "ClientId" =        $parsedToken.appid
+                "Audience" =        $parsedToken.aud
+                "Tenant" =          $parsedToken.tid
+                "IsExpired" =       Is-AccessTokenExpired -AccessToken $accessToken
+                "HasRefreshToken" = $script:refresh_tokens.Contains($key)
+            }
+
+            New-Object psobject -Property $attributes
+        }
+        
+    }
+}
+
+# Clears the AADInt credentials cache
+# Jun 14th 2020
+function Clear-Cache
+{
+<#
+    .SYNOPSIS
+    Clears AADInternals credentials cache
+
+    .DESCRIPTION
+    Clears AADInternals credentials cache
+    
+    .EXAMPLE
+    Clear-AADIntCache
+#>
+    [cmdletbinding()]
+    Param()
+    Process
+    {
+        $script:tokens =         @{}
+        $script:refresh_tokens = @{}
+    }
+}
+
+# Gets other domains of the given tenant
+# Jun 15th 2020
+function Get-TenantDomains
+{
+<#
+    .SYNOPSIS
+    Gets other domains from the tenant of the given domain
+
+    .DESCRIPTION
+    Uses Exchange Online autodiscover service to retrive other 
+    domains from the tenant of the given domain. 
+
+    The given domain SHOULD be Managed, federated domains are not always found for some reason. 
+    If nothing is found, try to use <domain>.onmicrosoft.com
+
+    .Example
+    Get-AADIntTenantDomains -Domain company.com
+
+    company.com
+    company.fi
+    company.co.uk
+    company.onmicrosoft.com
+    company.mail.onmicrosoft.com
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Domain
+    )
+    Process
+    {
+        # Create the body
+        $body=@"
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:exm="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:ext="http://schemas.microsoft.com/exchange/services/2006/types" xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<soap:Header>
+		<a:Action soap:mustUnderstand="1">http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation</a:Action>
+		<a:To soap:mustUnderstand="1">https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc</a:To>
+		<a:ReplyTo>
+			<a:Address>http://www.w3.org/2005/08/addressing/anonymous</a:Address>
+		</a:ReplyTo>
+	</soap:Header>
+	<soap:Body>
+		<GetFederationInformationRequestMessage xmlns="http://schemas.microsoft.com/exchange/2010/Autodiscover">
+			<Request>
+				<Domain>$Domain</Domain>
+			</Request>
+		</GetFederationInformationRequestMessage>
+	</soap:Body>
+</soap:Envelope>
+"@
+        # Create the headers
+        $headers=@{
+            "Content-Type" = "text/xml; charset=utf-8"
+            "SOAPAction" =   '"http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation"'
+            "User-Agent" =   "AutodiscoverClient"
+        }
+        # Invoke
+        $response = Invoke-RestMethod -Method Post -uri "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc" -Body $body -Headers $headers
+
+        # Return
+        $response.Envelope.body.GetFederationInformationResponseMessage.response.Domains.Domain | Sort-Object
+    }
+}
+
+# Tries to generate access token using cached AADGraph token
+# Jun 15th 2020
+function Get-AccessTokenUsingAADGraph
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Resource,
+        [Parameter(Mandatory=$True)]
+        [String]$ClientId,
+        [switch]$SaveToCache
+    )
+    Process
+    {
+        # Try to get AAD Graph access token from the cache
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $null -Resource "https://graph.windows.net" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        # Get the tenant id
+        $tenant = (Read-Accesstoken -AccessToken $AccessToken).tid
+                
+        # Get the refreshtoken
+        $refresh_token=$script:refresh_tokens["1b730954-1685-4b74-9bfd-dac224a7b894-https://graph.windows.net"]
+
+        if([string]::IsNullOrEmpty($refresh_token))
+        {
+            Throw "No refreshtoken found! Use Get-AADIntAccessTokenForAADGraph with -SaveToCache switch."
+        }
+
+        # Create a new AccessToken for Azure AD management portal API
+        $AccessToken = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientId -TenantId $tenant -RefreshToken $refresh_token -SaveToCache $SaveToCache
+
+        # Return
+        $AccessToken
     }
 }

@@ -53,12 +53,21 @@ $functions=@(
     "Get-AccessTokenForOneDrive"
     "Get-AccessTokenForOfficeApps"
     "Get-AccessTokenForAzureCoreManagement"
-    "Get-TenantDetails"
+    "Get-AccessTokenForSPO"
+    "Get-AccessTokenForMySignins"
     "Read-AccessToken"
     "Get-EndpointInstances"
     "Get-EndpointIps"
     "Get-OpenIDConfiguration"
     "Get-TenantId"
+    "Get-TenantDomains"
+    "Get-Cache"
+    "Clear-Cache"
+
+    # GraphAPI.ps1
+    "Get-TenantDetails"
+    "Get-Devices"
+    "Get-UserDetails"
 
     # ProvisioningAPI.ps1
     "Set-DomainAuthentication"
@@ -108,7 +117,7 @@ $functions=@(
 
     # AzureManagementAPI.ps1
     "New-GuestInvitation"
-    "Get-UserTenants"
+    "Get-AzureInformation"
 
     # ActiveSync.ps1
     "Get-EASAutoDiscover"
@@ -122,7 +131,6 @@ $functions=@(
     "Send-OutlookMessage"
 
     # PSRP.ps1
-    "Get-TenantDomains"
     "Get-MobileDevices"
 
     # AADSyncSettings.ps1
@@ -172,6 +180,11 @@ $functions=@(
     # MFA.ps1
     "Get-UserMFA"
     "Set-UserMFA"
+    "New-OTP"
+    "New-OTPSecret"
+    "Get-UserMFAApps"
+    "Set-UserMFAApps"
+    "Register-MFAApp"
 
     # SyncAgent.ps1
     "Register-SyncAgent"
@@ -197,6 +210,22 @@ $functions=@(
     "Get-AzureVMs"
     "Invoke-AzureVMScript"
     "Get-AzureVMRdpSettings"
+    "Get-AzureTenants"
+
+    # MSGraphAPI.ps1
+    "Get-AzureSignInLog"
+    "Get-AzureAuditLog"
+
+    # KillChain.ps1
+    "Invoke-UserEnumerationAsOutsider"
+    "Invoke-ReconAsOutsider"
+    "Invoke-ReconAsGuest"
+    "Invoke-UserEnumerationAsGuest"
+    "Invoke-ReconAsInsider"
+    "Invoke-UserEnumerationAsInsider"
+
+    # WPAWeponiser.ps1
+    "New-InvitationVBA"
 )
 foreach($function in $functions)
 {

@@ -272,8 +272,10 @@ function Decrypt-Kerberos
 function Encrypt-Kerberos
 {
     Param(
-        [Parameter(ParameterSetName='Password',Mandatory=$True)]
+        [Parameter(ParameterSetName='Password',Mandatory=$False)]
         [String]$Password,
+        [Parameter(ParameterSetName='Password',Mandatory=$False)]
+        [String]$Hash,
         [Parameter(ParameterSetName='Key',Mandatory=$True)]
         [byte[]]$Key,
         [Parameter(Mandatory=$True)]
@@ -290,7 +292,14 @@ function Encrypt-Kerberos
         }
         else
         {
-            $k1=Get-MD4 -String $Password -AsByteArray
+            if([string]::IsNullOrEmpty($Password))
+            {
+                $k1=Convert-HexToByteArray -HexString $Hash
+            }
+            else
+            {
+                $k1=Get-MD4 -String $Password -AsByteArray
+            }
             [byte[]]$Salt=@(0x02, 0x00, 0x00, 0x00)
         }
 
@@ -489,8 +498,8 @@ function Get-AccessTokenWithKerberosTicket
         [String]$Domain,
         [Parameter(Mandatory=$False)]
         [String]$Resource="https://graph.windows.net",
-        [ValidateSet('graph_api','aadsync','pta','teams','office','exo','sara','office_mgmt','onedrive')]
-        [String]$ClientId="graph_api"
+        [Parameter(Mandatory=$False)]
+        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894"
     )
     Process
     {
@@ -544,7 +553,7 @@ function Get-AccessTokenWithKerberosTicket
         $body=@{
             "grant_type" = "urn:ietf:params:oauth:grant-type:saml1_1-bearer"
             "assertion" = $B64samlAssertion
-            "client_id" = $client_ids[$ClientId]
+            "client_id" = $ClientId
             "resource" = $Resource
             "tbidv2" = "" # Optional, see https://tools.ietf.org/html/draft-ietf-tokbind-protocol-19
             "scope" = "openid"
@@ -575,14 +584,8 @@ function Get-AccessTokenWithKerberosTicket
 
         $token = $response.content | ConvertFrom-Json
 
-        # Save the tokens to cache
-        $Script:tokens[$Resource]=$response
-
         # Return
-        $accessToken = $token.access_token
-        $refreshToken = $token.refresh_token
-
-        return $accessToken
+        return $token
     } 
 }
 

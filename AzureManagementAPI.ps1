@@ -327,3 +327,251 @@ function Get-UserTenants
         return $response.tenants
     }
 }
+
+# Gets Azure Tenant information as a guest user
+# Jun 11th 2020
+function Get-AzureInformation
+{
+<#
+    .SYNOPSIS
+    Gets some Azure Tenant information. 
+
+    .DESCRIPTION
+    Gets some Azure Tenant information, including certain tenant settings and ALL domains. The access token MUST be
+    stored to cache! Works also for guest users.
+
+    The Tenant is not required for Access Token but is recommended as some tenants may have MFA.
+
+    .Example
+    Get-AADIntAccessTokenForAzureCoreManagement -Tenant 6e3846ee-e8ca-4609-a3ab-f405cfbd02cd -SaveToCache
+
+    Tenant                               User Resource                            Client                              
+    ------                               ---- --------                            ------                              
+    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd      https://management.core.windows.net d3590ed6-52b3-4102-aeff-aad2292ab01c
+
+    PS C:\>Get-AADIntAzureTenants
+
+    Id                                   Country Name                      Domains                                                                                                  
+    --                                   ------- ----                      -------                                                                                                  
+    221769d7-0747-467c-a5c1-e387a232c58c FI      Firma Oy                  {firma.mail.onmicrosoft.com, firma.onmicrosoft.com, firma.fi}              
+    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd US      Company Ltd               {company.onmicrosoft.com, company.mail.onmicrosoft.com,company.com}
+
+    PS C:\>Get-AADIntAzureInformation -Tenant
+
+    objectId                                  : 6e3846ee-e8ca-4609-a3ab-f405cfbd02cd
+    displayName                               : Company Ltd
+    usersCanRegisterApps                      : True
+    isAnyAccessPanelPreviewFeaturesAvailable  : False
+    showMyGroupsFeature                       : False
+    myGroupsFeatureValue                      : 
+    myGroupsGroupId                           : 
+    myGroupsGroupName                         : 
+    showMyAppsFeature                         : False
+    myAppsFeatureValue                        : 
+    myAppsGroupId                             : 
+    myAppsGroupName                           : 
+    showUserActivityReportsFeature            : False
+    userActivityReportsFeatureValue           : 
+    userActivityReportsGroupId                : 
+    userActivityReportsGroupName              : 
+    showRegisteredAuthMethodFeature           : False
+    registeredAuthMethodFeatureValue          : 
+    registeredAuthMethodGroupId               : 
+    registeredAuthMethodGroupName             : 
+    usersCanAddExternalUsers                  : False
+    limitedAccessCanAddExternalUsers          : False
+    restrictDirectoryAccess                   : False
+    groupsInAccessPanelEnabled                : False
+    selfServiceGroupManagementEnabled         : True
+    securityGroupsEnabled                     : False
+    usersCanManageSecurityGroups              : 
+    office365GroupsEnabled                    : False
+    usersCanManageOfficeGroups                : 
+    allUsersGroupEnabled                      : False
+    scopingGroupIdForManagingSecurityGroups   : 
+    scopingGroupIdForManagingOfficeGroups     : 
+    scopingGroupNameForManagingSecurityGroups : 
+    scopingGroupNameForManagingOfficeGroups   : 
+    objectIdForAllUserGroup                   : 
+    allowInvitations                          : False
+    isB2CTenant                               : False
+    restrictNonAdminUsers                     : False
+    enableLinkedInAppFamily                   : 0
+    toEnableLinkedInUsers                     : {}
+    toDisableLinkedInUsers                    : {}
+    linkedInSelectedGroupObjectId             : 
+    linkedInSelectedGroupDisplayName          : 
+    allowedActions                            : @{application=System.Object[]; domain=System.Object[]; group=System.Object[]; serviceprincipal=System.Object[]; 
+                                                tenantdetail=System.Object[]; user=System.Object[]; serviceaction=System.Object[]}
+    skuInfo                                   : @{aadPremiumBasic=False; aadPremium=False; aadPremiumP2=False; aadBasic=False; aadBasicEdu=False; aadSmb=False; 
+                                                enterprisePackE3=False; enterprisePremiumE5=False}
+    domains                                   : {@{authenticationType=Managed; availabilityStatus=; isAdminManaged=True; isDefault=False; isDefaultForCloudRedirections=False; 
+                                                isInitial=False; isRoot=True; isVerified=True; name=company.com; supportedServices=System.Object[]; forceDeleteState=; state=; 
+                                                passwordValidityPeriodInDays=; passwordNotificationWindowInDays=}, @{authenticationType=Managed; availabilityStatus=; 
+                                                isAdminManaged=True; isDefault=False; isDefaultForCloudRedirections=False; isInitial=True; isRoot=True; isVerified=True; 
+                                                name=company.onmicrosoft.com;}...}
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant
+    )
+    Process
+    {
+        # Get from cache 
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+                
+        # Get the refreshtoken
+        $refresh_token=$script:refresh_tokens["d3590ed6-52b3-4102-aeff-aad2292ab01c-https://management.core.windows.net"]
+
+        if([string]::IsNullOrEmpty($refresh_token))
+        {
+            Throw "No refreshtoken found! Use Get-AADIntAccessTokenForAzureCoreManagement with -SaveToCache switch."
+        }
+
+        # Get the tenants
+        if([string]::IsNullOrEmpty($Tenant))
+        {
+            $tenants = Get-AzureTenants $AccessToken
+        }
+        else
+        {
+            $tenants = @(New-Object psobject -Property @{"Id" = $Tenant})
+        }
+        
+        # Loop through the tenants
+        foreach($tenant_info in $tenants)
+        {
+            # Create a new AccessToken for Azure AD management portal API
+            $access_token = Get-AccessTokenWithRefreshToken -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
+
+            # Directory information included in properties
+            #$directory =   Call-AzureAADIAMAPI -AccessToken $access_token -Command "Directory"
+            $properties =  Call-AzureAADIAMAPI -AccessToken $access_token -Command "Directories/Properties"
+            if($properties.restrictNonAdminUsers -ne "True") # If restricted, don't bother trying
+            {
+                $permissions = Call-AzureAADIAMAPI -AccessToken $access_token -Command "Permissions?forceRefresh=false"
+            }
+            $skuinfo =     Call-AzureAADIAMAPI -AccessToken $access_token -Command "TenantSkuInfo"
+
+            # Create a new AccessToken for graph.windows.net
+            $access_token2 = Get-AccessTokenWithRefreshToken -Resource "https://graph.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
+
+            # Get the domain details
+            #$response = Invoke-RestMethod -Method Get -Uri "https://graph.windows.net/myorganization/domains?api-version=1.61-internal" -Headers @{"Authorization"="Bearer $access_token2"}
+            #$domains = $response.Value
+
+            # Create a new AccessToken for graph.microsoft.com
+            $access_token3 = Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
+
+            # Get the directory quota
+            $response2 = Invoke-RestMethod -Uri "https://main.iam.ad.ext.azure.com/api/MsGraph/v1.0/organization/?`$select=directorySizeQuota" -Headers @{"Authorization" = "Bearer $access_token3"}
+
+            # Get the domain details
+            $domains = Get-MSGraphDomains -AccessToken $access_token3
+            
+            # Construct the return value
+            $properties | Add-Member -NotePropertyName "allowedActions"     -NotePropertyValue $permissions.allowedActions
+            $properties | Add-Member -NotePropertyName "skuInfo"            -NotePropertyValue $skuInfo
+            $properties | Add-Member -NotePropertyName "domains"            -NotePropertyValue $domains
+            $properties | Add-Member -NotePropertyName "directorySizeQuota" -NotePropertyValue $response2.value[0].directorySizeQuota
+
+            # Return
+            $properties
+        }
+        
+        
+    }
+}
+
+# Gets Azure Tenant authentication methods
+# Jun 30th 2020
+function Get-TenantAuthenticationMethods
+{
+<#
+    .SYNOPSIS
+    Gets Azure tenant authentication methods. 
+
+    .DESCRIPTION
+    Gets Azure tenant authentication methods. 
+
+    
+    .Example
+    Get-AADIntAccessTokenForAzureADDGraph
+
+    Tenant                               User Resource                            Client                              
+    ------                               ---- --------                            ------                              
+    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd      https://management.core.windows.net d3590ed6-52b3-4102-aeff-aad2292ab01c
+
+    PS C:\>Get-AADIntTenantAuthenticationMethods
+
+    id                : 297c50d5-e789-40f7-8931-b3694713cb4d
+    type              : 6
+    state             : 0
+    includeConditions : {@{type=group; id=9202b94b-5381-4270-a3cb-7fcf0d40fef1; isRequired=False; useForSignIn=True}}
+    voiceSettings     : 
+    fidoSettings      : @{allowSelfServiceSetup=False; enforceAttestation=False; keyRestrictions=}
+    enabled           : True
+    method            : FIDO2 Security Key
+
+    id                : 3d2c4b8f-f362-4ce4-8f4b-cc8726b80106
+    type              : 8
+    state             : 1
+    includeConditions : {@{type=group; id=all_users; isRequired=False; useForSignIn=True}}
+    voiceSettings     : 
+    fidoSettings      : 
+    enabled           : False
+    method            : Microsoft Authenticator passwordless sign-in
+
+    id                : d7716fe0-7c2e-4b52-a5cd-394f8999176b
+    type              : 5
+    state             : 1
+    includeConditions : {@{type=group; id=all_users; isRequired=False; useForSignIn=True}}
+    voiceSettings     : 
+    fidoSettings      : 
+    enabled           : False
+    method            : Text message
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        try
+        {
+            # Get from cache 
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        }
+        catch
+        {
+            # Access token not found, try to create one
+            $AccessToken = Get-AccessTokenUsingAADGraph -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -SaveToCache
+        }
+        
+
+        # Get the authentication methods
+        $response =  Call-AzureAADIAMAPI -AccessToken $AccessToken -Command "AuthenticationMethods/AuthenticationMethodsPolicy"
+
+        $methods = $response.authenticationMethods
+        foreach($method in $methods)
+        {
+            $strType="unknown"
+            switch($method.type)
+            {
+                6 {$strType = "FIDO2 Security Key"}
+                8 {$strType = "Microsoft Authenticator passwordless sign-in"}
+                5 {$strType = "Text message"}
+            }
+
+            $method | Add-Member -NotePropertyName "enabled" -NotePropertyValue ($method.state -eq 0)
+            $method | Add-Member -NotePropertyName "method"  -NotePropertyValue $strType
+
+        }
+
+        return $methods
+        
+    }
+}

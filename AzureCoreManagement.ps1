@@ -33,7 +33,7 @@ function Get-AzureClassicAdministrators
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$Subscription
@@ -41,7 +41,7 @@ function Get-AzureClassicAdministrators
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache($AccessToken)
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -79,11 +79,13 @@ function Grant-AzureUserAccessAdminRole
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -118,11 +120,13 @@ function Get-AzureSubscriptions
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -178,13 +182,15 @@ function Get-AzureResourceGroups
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$SubscriptionId
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -250,13 +256,15 @@ function Get-AzureVMs
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$SubscriptionId
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -381,7 +389,7 @@ function Invoke-AzureVMScript
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$SubscriptionId,
@@ -397,6 +405,8 @@ function Invoke-AzureVMScript
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -505,7 +515,7 @@ function Get-AzureVMRdpSettings
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$SubscriptionId,
@@ -516,6 +526,8 @@ function Get-AzureVMRdpSettings
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -592,7 +604,7 @@ function Get-AzureRoleAssignmentId
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$SubscriptionId,
@@ -601,6 +613,9 @@ function Get-AzureRoleAssignmentId
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
         # Set the headers
         $headers=@{
             "Authorization" = "Bearer $AccessToken"
@@ -641,7 +656,7 @@ function Set-AzureRoleAssignment
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$SubscriptionId,
@@ -652,6 +667,8 @@ function Set-AzureRoleAssignment
     )
     Process
     {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -690,5 +707,93 @@ function Set-AzureRoleAssignment
 
         # Return the results
         $response.properties
+    }
+}
+
+
+# Lists azure tenants of the logged in user
+# Jun 10th 2020
+function Get-AzureTenants
+{
+<#
+    .SYNOPSIS
+    Lists all Azure AD tenants the user has access to.
+
+    .DESCRIPTION
+    Lists all Azure AD tenants the user has access to.
+
+    .Example
+    $at=Get-AADIntAccessTokenForAzureCoreManagement
+    PS C:\>Get-AADIntAzureTenants -AccessToken $at
+
+    Id                                   Country Name        Domains                                                                                                  
+    --                                   ------- ----        -------                                                                                                  
+    221769d7-0747-467c-a5c1-e387a232c58c FI      Firma Oy    {firma.mail.onmicrosoft.com, firma.onmicrosoft.com, firma.fi}              
+    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd US      Company Ltd {company.onmicrosoft.com, company.mail.onmicrosoft.com,company.com}
+
+    .Example
+    Get-AADIntAccessTokenForAzureCoreManagement -SaveToCache
+
+    Tenant                               User Resource                            Client                              
+    ------                               ---- --------                            ------                              
+    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd      https://management.core.windows.net d3590ed6-52b3-4102-aeff-aad2292ab01c
+
+    PS C:\>Get-AADIntAzureTenants
+
+    Id                                   Country Name        Domains                                                                                                  
+    --                                   ------- ----        -------                                                                                                  
+    221769d7-0747-467c-a5c1-e387a232c58c FI      Firma Oy    {firma.mail.onmicrosoft.com, firma.onmicrosoft.com, firma.fi}              
+    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd US      Company Ltd {company.onmicrosoft.com, company.mail.onmicrosoft.com,company.com}
+   
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
+        # Set the headers
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+            "Content-type" = "application/json"
+        }
+
+        $body=@"
+        {
+            "requests":
+            [
+                {
+                    "httpMethod":"GET",
+                    "name":"$((New-Guid).ToString())",
+                    "requestHeaderDetails":
+                    {
+                        "commandName":"fx.Services.Tenants.getTenants"
+                    },
+                    "url":"/tenants?api-version=2019-03-01&`$includeAllTenantCategories=true"
+                }
+            ]
+        }'
+"@
+
+        # Invoke the command.
+        $response = Invoke-RestMethod  -Method Post -Uri "https://management.azure.com/batch?api-version=2015-11-01" -Headers $headers -Body $body
+
+        # Return
+        foreach($value in $response.responses[0].content.value)
+        {
+            $attributes=[ordered]@{
+                "Id" =      $value.tenantId
+                #"Type" =    $value.tenantCategory # All are "Home"
+                "Country" = $value.countryCode
+                "Name" =    $value.displayName
+                "Domains" = $value.domains
+            }
+            New-Object psobject -Property $attributes
+        }
+        
     }
 }
