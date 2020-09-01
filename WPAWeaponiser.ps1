@@ -93,7 +93,12 @@ Sub $funcName()`n
         # Split the Base64 encoded code to shorter chunks
         While(($p*500) -lt $code.Length)
         {
-            $VBA += "    i$p = ""$($code.Substring(($p-1)*500,500))""`n"
+            $codeStr =   $($code.Substring(($p-1)*500,500))
+            #$codeStrArr= $codeStr.ToCharArray()
+            #[array]::Reverse($codeStrArr)
+            #$codeStr = -join($codeStrArr)
+
+            $VBA += "    i$p = ""$codeStr""`n"
             $p++
         }
         $VBA += "    i$p = ""$($code.Substring(($p-1)*500,$code.Length-($p-1)*500))""`n"
@@ -118,5 +123,30 @@ Sub $funcName()`n
         
         # Return
         $VBA
+    }
+}
+
+function Scramble-Text
+{
+
+[cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Text,
+        [Parameter(Mandatory=$True)]
+        [String]$Secret
+    )
+    Process
+    {
+        $secretArray=$Secret.ToCharArray()
+        $num=0
+        foreach($char in $secretArray)
+        {
+            $num+=$char
+        }
+        $num = $num % 256
+
+        $textArray = $Text.ToCharArray()
+
     }
 }

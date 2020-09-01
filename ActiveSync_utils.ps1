@@ -87,7 +87,9 @@ function Get-CodePage
         [Parameter(ParameterSetName='Code',Mandatory=$True)]
         [Int]$Code,
         [Parameter(Mandatory=$True)]
-        [boolean]$O365
+        [boolean]$O365,
+        [Parameter(Mandatory=$True)]
+        [boolean]$SyncML
     )
     
     Process
@@ -95,6 +97,10 @@ function Get-CodePage
         if($O365)
         {
             $cps=$O365CodePages
+        }
+        elseif($SyncML)
+        {
+            $cps=$SyncMLCodePage
         }
         else
         {
@@ -129,7 +135,9 @@ function Get-Token
         [Int]$Code,
 
         [Parameter(Mandatory=$True)]
-        [boolean]$O365
+        [boolean]$O365,
+        [Parameter(Mandatory=$True)]
+        [boolean]$SyncML
     )
 
     Process
@@ -139,11 +147,11 @@ function Get-Token
 
         if([String]::IsNullOrEmpty($NameSpace))
         {
-            $CP = Get-CodePage -Code $CodePage -O365 $O365
+            $CP = Get-CodePage -Code $CodePage -O365 $O365 -SyncML $SyncML
         }
         else
         {
-            $CP = Get-CodePage -Name $NameSpace -O365 $O365
+            $CP = Get-CodePage -Name $NameSpace -O365 $O365 -SyncML $SyncML
         }
 
         if([String]::IsNullOrEmpty($Tag))
@@ -188,20 +196,30 @@ function XML2WBXML
     Param(
         [Parameter(Mandatory=$True)]
         [xml]$Xml,
-        [switch]$O365
+        [switch]$O365,
+        [switch]$SyncML
     )
-
+    Begin
+    {
+        # Some fixed variables
+        $Header = @(
+                0x03, # WBXML version 1.3
+                0x01, # Unknown public identifier
+                0x6A, # Charset = UTF8
+                0x00  # String table length
+            )
+        $StringTable =      0x04
+        $StringStart =      0x03
+        $StringEnd =        0x00
+        $TagClose =         0x01
+        $TokenWithContent = 0x40
+        $CodePageChange =   0x00
+        $EXT_1 =            0xC1
+        $EXT_2 =            0xC2
+    }
     Process
         {
-        # Some fixed variables
-        $Header = @(0x03, 0x01, 0x6A, 0x00)
-        $StringStart = 0x03
-        $StringEnd = 0x00
-        $TagClose = 0x01
-        $TokenWithContent = 0x40
-        $CodePageChange = 0x00
-        $EXT_1 = 0xC1
-        $EXT_2 = 0xC2
+        
         $Script:CurrentCodePage = 0
     
 
@@ -213,7 +231,7 @@ function XML2WBXML
             )
             $retVal = @()
             $retVal += $Header
-            $retVal += Get-Element $Element -O365 $O365
+            $retVal += Get-Element $Element -O365 $O365 -SyncML $SyncML
 
             return $retVal
         
@@ -225,7 +243,9 @@ function XML2WBXML
                 [Parameter(Mandatory=$True)]
                 [System.Xml.XmlElement]$Element,
                 [Parameter(Mandatory=$True)]
-                [boolean]$O365
+                [boolean]$O365,
+                [Parameter(Mandatory=$True)]
+                [boolean]$SyncML
                 
             )
             $retVal = @()
@@ -235,10 +255,10 @@ function XML2WBXML
             }
             else
             {
-                $retVal += Get-CodePageBytes (Get-CodePage -Name $Element.NamespaceURI -O365 $O365).Code 
+                $retVal += Get-CodePageBytes (Get-CodePage -Name $Element.NamespaceURI -O365 $O365 -SyncML $SyncML).Code 
             }
             
-            $retVal += Get-Content $Element -O365 $O365
+            $retVal += Get-Content $Element -O365 $O365 -SyncML $SyncML
             #$retVal += $TagClose
 
             return $retVal
@@ -249,7 +269,9 @@ function XML2WBXML
                 [Parameter(Mandatory=$True)]
                 [System.Xml.XmlElement]$Element,
                 [Parameter(Mandatory=$True)]
-                [boolean]$O365
+                [boolean]$O365,
+                [Parameter(Mandatory=$True)]
+                [boolean]$SyncML
             )
             $retVal = @()
 
@@ -280,7 +302,7 @@ function XML2WBXML
                 }
                 else
                 {
-                    $byte=((Get-Token -CodePage $CurrentCodePage -Tag $Element.LocalName -O365 $O365) + $TokenWithContent)
+                    $byte=((Get-Token -CodePage $CurrentCodePage -Tag $Element.LocalName -O365 $O365 -SyncML $SyncML) + $TokenWithContent)
                 }
 
                 $retVal += $byte
@@ -297,7 +319,7 @@ function XML2WBXML
                     }
                     else
                     {
-                        $retVal += Get-Element $child -O365 $O365
+                        $retVal += Get-Element $child -O365 $O365 -SyncML $SyncML
                     }
                 }
 
@@ -311,7 +333,7 @@ function XML2WBXML
                 }
                 else
                 {
-                    $retVal += Get-Token -CodePage $CurrentCodePage -Tag $Element.LocalName -O365 $O365
+                    $retVal += Get-Token -CodePage $CurrentCodePage -Tag $Element.LocalName -O365 $O365 -SyncML $SyncML
                 }
             }
 
@@ -404,7 +426,8 @@ function WBXML2XML
         [byte[]]$wbxml,
         [Parameter(Mandatory=$False)]
         [int]$Skip=4, # Skip the header by default
-        [switch]$O365
+        [switch]$O365,
+        [switch]$SyncML
     )
 
     Process
@@ -432,7 +455,9 @@ function WBXML2XML
                 [Parameter(Mandatory=$True)]
                 [byte]$next,
                 [Parameter(Mandatory=$True)]
-                [boolean]$O365
+                [boolean]$O365,
+                [Parameter(Mandatory=$True)]
+                [boolean]$SyncML
             )
 
             $codePageChanged=$false
@@ -506,8 +531,8 @@ function WBXML2XML
                 }
                 else
                 {
-                    $codePage = Get-CodePage -Code $Script:WBXML_currentPage -O365 $O365 | Select -ExpandProperty NameSpace
-                    $tag = Get-Token -CodePage $Script:WBXML_currentPage -Code $currentToken -O365 $O365
+                    $codePage = Get-CodePage -Code $Script:WBXML_currentPage -O365 $O365 -SyncML $SyncML | Select -ExpandProperty NameSpace
+                    $tag = Get-Token -CodePage $Script:WBXML_currentPage -Code $currentToken -O365 $O365 -SyncML $SyncML
                 }
         
                 if($codePageChanged)
@@ -528,13 +553,19 @@ function WBXML2XML
                         {
                             $retVal += Get-String -wbxml $wbxml
                         }
+                        elseif($next -eq 0x04) # Start of string table string
+                        {
+                            # The next byte is the index number of the text from string table
+                            $index = Get-CurrentToken -wbxml $wbxml
+                            # TODO: Implement string table handling
+                        }
                         elseif($next -eq 0xC3) # Start of blob
                         {
                             $retVal += Get-CData -wbxml $wbxml
                         }
                         else
                         {
-                            $retVal += Parse-Element -wbxml $wbxml -next $next -O365 $O365
+                            $retVal += Parse-Element -wbxml $wbxml -next $next -O365 $O365 -SyncML $SyncML
                         }
                     }
                 }
@@ -609,7 +640,7 @@ function WBXML2XML
             return $length
         }
 
-        $retVal = Parse-Element -wbxml $wbxml -next (Get-CurrentToken -wbxml $wbxml) -O365 $O365
+        $retVal = Parse-Element -wbxml $wbxml -next (Get-CurrentToken -wbxml $wbxml) -O365 $O365 -SyncML $SyncML
 
         return ([xml]$retVal).InnerXml
     }
@@ -2085,4 +2116,86 @@ $O365CodePages = @(
         (Token 0x34 "Y52_34"),
         (Token 0x35 "Y53_35"))
 	)
+)
+
+# SyncML WBXML CodePages and tokens
+$SyncMLCodePage = @(
+        (CodePage 0 "SYNCML:SYNCML1.2" @(
+			(Token 0x05 "Add"),
+			(Token 0x06 "Alert"),
+			(Token 0x07 "Archive"),
+			(Token 0x08 "Atomic"),
+			(Token 0x09 "Chal"),
+			(Token 0x0A "Cmd"),
+			(Token 0x0B "CmdID"),
+			(Token 0x0C "CmdRef"),
+			(Token 0x0D "Copy"),
+			(Token 0x0E "Cred"),
+			(Token 0x0F "Data"),
+			(Token 0x10 "Delete"),
+            (Token 0x11 "Exec"),
+			(Token 0x12 "Final"),
+			(Token 0x13 "Get"),
+			(Token 0x14 "Item"),
+			(Token 0x15 "Lang"),
+			(Token 0x16 "LocName"),
+			(Token 0x17 "LocURI"),
+			(Token 0x18 "Map"),
+            (Token 0x19 "MapItem"),
+            (Token 0x1A "Meta"),
+			(Token 0x1B "MsgID"),
+			(Token 0x1C "MsgRef"),
+			(Token 0x1D "NoResp"),
+			(Token 0x1E "NoResults"),
+            (Token 0x1F "Put"),
+			(Token 0x20 "Replace"),
+			(Token 0x21 "RespURI"),
+			(Token 0x22 "Results"),
+			(Token 0x23 "Search"),
+			(Token 0x24 "Sequence"),
+			(Token 0x25 "SessionID"),
+			(Token 0x26 "SftDel"),
+			(Token 0x27 "Source"),
+			(Token 0x28 "SourceRef"),
+			(Token 0x29 "Status"),
+            (Token 0x2A "Sync"),
+			(Token 0x2B "SyncBody"),
+			(Token 0x2C "SyncHdr"),
+			(Token 0x2D "SyncML"),
+			(Token 0x2E "Target"),
+			(Token 0x2F "TargetRef"),
+            (Token 0x30 "RESERVED"), # Reserved for future use.
+			(Token 0x31 "VerDTD"),
+			(Token 0x32 "VerProto"),
+			(Token 0x33 "NumberOfChanges"),
+			(Token 0x34 "MoreData"),
+			(Token 0x35 "Field"),
+			(Token 0x36 "Filter"),
+			(Token 0x37 "Record"),
+			(Token 0x38 "FilterType"),
+			(Token 0x39 "SourceParent"),
+            (Token 0x3A "TargetParent"),
+			(Token 0x3B "Move"),
+			(Token 0x3C "Correlator"))
+        ),
+    
+        (CodePage 1 "syncml:metinf" @(
+			(Token 0x05 "Anchor"),
+			(Token 0x06 "EMI"),
+			(Token 0x07 "Format"),
+			(Token 0x08 "FreeID"),
+			(Token 0x09 "FreeMem"),
+			(Token 0x0A "Last"),
+			(Token 0x0B "Mark"),
+			(Token 0x0C "MaxMsgSize"),
+			(Token 0x0D "Mem"),
+			(Token 0x0E "MetInf"),
+			(Token 0x0F "Next"),
+			(Token 0x10 "NextNonce"),
+            (Token 0x11 "SharedMem"),
+			(Token 0x12 "Size"),
+			(Token 0x13 "Type"),
+			(Token 0x14 "Version"),
+			(Token 0x15 "MaxObjSize"))
+	    )
 )

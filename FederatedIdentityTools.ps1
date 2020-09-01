@@ -81,11 +81,11 @@ function New-SAMLToken
         # Do we use built-in certificate (any.sts)
         if($UseBuiltInCertificate)
         {
-            $Certificate = Get-Certificate -FileName "$PSScriptRoot\any_sts.pfx" -Password ""
+            $Certificate = Load-Certificate -FileName "$PSScriptRoot\any_sts.pfx" -Password ""
         }
         elseif($Certificate -eq $null) # Load the ceftificate
         {
-            $Certificate = Get-Certificate -FileName $PfxFileName -Password $PfxPassword
+            $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword
         }
 
         # Import the assemblies
@@ -229,11 +229,11 @@ function New-SAML2Token
         # Do we use built-in certificate (any.sts)
         if($UseBuiltInCertificate)
         {
-            $Certificate = Get-Certificate -FileName "$PSScriptRoot\any_sts.pfx" -Password ""
+            $Certificate = Load-Certificate -FileName "$PSScriptRoot\any_sts.pfx" -Password ""
         }
         elseif($Certificate -eq $null) # Load the ceftificate
         {
-            $Certificate = Get-Certificate -FileName $PfxFileName -Password $PfxPassword
+            $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword
         }
 
         if([String]::IsNullOrEmpty($InResponseTo))
@@ -410,42 +410,6 @@ function New-SAMLPResponse
     }
 }
 
-# Load .pfx certificate
-function Get-Certificate
-{
-<#
-    .SYNOPSIS
-    Loads X509 certificate from the given .pfx file
-
-    .DESCRIPTION
-    Loads X509 certificate from the given .pfx file
-
-    .Parameter FileName
-    The full path to .pfx file from where to load the certificate
-
-    .Parameter Password
-    The password of the .pfx file
-    
-    .Example
-    PS C:\>Get-AADIntCertificate -FileName "MyCert.pfx" -Password -Password "mypassword"
-
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [String]$FileName,
-        [Parameter(Mandatory=$False)]
-        [String]$Password=""
-    )
-    Process
-    {
-
-        $Certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($FileName, $Password, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet)
-        return $Certificate
-    }
-}
-
-
 # Opens a web browser and logins as the given user
 function Open-Office365Portal
 {
@@ -541,13 +505,13 @@ function Open-Office365Portal
         # Do we use built-in certificate (any.sts)
         if($UseBuiltInCertificate)
         {
-            $Certificate = Get-Certificate -FileName "$PSScriptRoot\any_sts.pfx" -Password ""
+            $Certificate = Load-Certificate -FileName "$PSScriptRoot\any_sts.pfx" -Password ""
         }
         elseif($Certificate -eq $null) # Load the ceftificate
         {
             try
             {
-                $Certificate = Get-Certificate -FileName $PfxFileName -Password $PfxPassword
+                $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword
             }
             catch
             {

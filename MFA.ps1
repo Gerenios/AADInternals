@@ -297,6 +297,14 @@ function Set-UserMFAApps
         # Get user's current configuration and get the app details
         $MFAApps = Get-UserMFAApps -UserPrincipalName $UserPrincipalName -AccessToken $AccessToken
 
+        # If only one element, add it to array
+        if(!$MFAApps.Count -gt 0)
+        {
+            $MFAApp = $MFAApps
+            Remove-Variable MFAApps
+            $MFAApps = @($MFAApp)
+        }
+
         $found = $false
         $pos=0
         foreach($app in $MFAApps)
@@ -383,9 +391,9 @@ function Set-UserMFAApps
         $body=$body.Substring(0,$body.Length-1)
         $body += "]}}";
 
-        # Set the user
+        # Set the user agent
         $headers=@{
-            "User-Agent" =   ""
+            "User-Agent" = ""
         }
         
         try

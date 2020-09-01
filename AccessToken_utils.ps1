@@ -44,6 +44,10 @@ $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millis
                             "9bc3ab49-b65d-410a-85ad-de819febfddc" # SPO Management Shell
                             "06c6433f-4fb8-4670-b2cd-408938296b8e" # AAD Pin redemption client
                             "19db86c3-b2b9-44cc-b339-36da233a3be2" # https://mysignins.microsoft.com
+                            "00b41c95-dab0-4487-9791-b9d2c32c80f2" # Office 365 Management (mobile app)
+                            "29d9ed98-a469-4536-ade2-f981bc1d605e" # Microsoft Authentication Broker (Azure MDM client)
+                            "6f7e0f60-9401-4f5b-98e2-cf15bd5fd5e3" # Microsoft.AAD.BrokerPlugin resource:https://cs.dds.microsoft.com
+                            "38aa3b87-a06d-4817-b275–7a316988d93b" # Microsoft AAD Cloud AP
 #>
 
 
@@ -1008,7 +1012,7 @@ function Read-Accesstoken
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$True,ValueFromPipeline)]
         [String]$AccessToken,
         [Parameter()]
         [Switch]$ShowDate,
@@ -1070,6 +1074,8 @@ function Read-Accesstoken
         # Debug
         Write-Debug "PARSED ACCESS TOKEN: $($payloadObj | Out-String)"
         
+        Write-Verbose "Header: $(Convert-B64ToText -B64 $header)"
+
         # Return
         $payloadObj
     }
@@ -1086,7 +1092,9 @@ function Prompt-Credentials
         [String]$Resource,
         [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894" <# graph_api #>,
         [Parameter(Mandatory=$False)]
-        [String]$Tenant
+        [String]$Tenant,
+        [Parameter(Mandatory=$False)]
+        [bool]$ForceMFA=$false
     )
     Process
     {
@@ -1121,11 +1129,28 @@ function Prompt-Credentials
         {
             $auth_redirect="https://mysignins.microsoft.com"
         }
+        elseif($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -ne "https://enrollment.manage.microsoft.com/") # Azure AD Join
+        {
+            
+            $auth_redirect="ms-aadj-redir://auth/drs"
+            
+        }
         
 
         # Create the url
         $request_id=(New-Guid).ToString()
         $url="https://login.microsoftonline.com/$Tenant/oauth2/authorize?resource=$Resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=openid profile"
+
+        if($ForceMFA)
+        {
+            $url+="&amr_values=mfa"
+        }
+
+        # Azure AD Join
+        if($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -ne "https://enrollment.manage.microsoft.com/") 
+        {
+                $auth_redirect="ms-aadj-redir://auth/drs"
+        }
 
         # Create the form
         $form = Create-LoginForm -Url $url -auth_redirect $auth_redirect
@@ -1238,6 +1263,9 @@ function Get-AccessTokenForAADGraph
     .Parameter Credentials
     Credentials of the user. If not given, credentials are prompted.
 
+    .Parameter PRT
+    PRT token of the user.
+
     .Parameter SAML
     SAML token of the user. 
 
@@ -1245,7 +1273,7 @@ function Get-AccessTokenForAADGraph
     UserPrincipalName of the user of Kerberos ticket
 
     .Parameter KerberosTicket
-    Kerberos token of the user. 
+    Kerberos token of the user..
     
     .Example
     Get-AADIntAccessTokenForAADGraph
@@ -1258,6 +1286,8 @@ function Get-AccessTokenForAADGraph
     Param(
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
         [String]$SAMLToken,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
@@ -1270,7 +1300,7 @@ function Get-AccessTokenForAADGraph
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "https://graph.windows.net" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache
+        Get-AccessToken -Credentials $Credentials -Resource "https://graph.windows.net" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken
     }
 }
 
@@ -1288,6 +1318,9 @@ function Get-AccessTokenForMSGraph
     .Parameter Credentials
     Credentials of the user. If not given, credentials are prompted.
 
+    .Parameter PRT
+    PRT token of the user.
+
     .Parameter SAML
     SAML token of the user. 
 
@@ -1295,8 +1328,8 @@ function Get-AccessTokenForMSGraph
     UserPrincipalName of the user of Kerberos token
 
     .Parameter KerberosTicket
-    Kerberos token of the user. 
-    
+    Kerberos token of the user.
+
     .Example
     Get-AADIntAccessTokenForMSGraph
     
@@ -1308,6 +1341,8 @@ function Get-AccessTokenForMSGraph
     Param(
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
         [String]$SAMLToken,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
@@ -1315,11 +1350,10 @@ function Get-AccessTokenForMSGraph
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
         [switch]$SaveToCache
-
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache
+        Get-AccessToken -Credentials $Credentials -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken 
     }
 }
 
@@ -1336,6 +1370,9 @@ function Get-AccessTokenForPTA
     .Parameter Credentials
     Credentials of the user.
 
+    .Parameter PRT
+    PRT token of the user.
+
     .Parameter SAML
     SAML token of the user. 
 
@@ -1344,7 +1381,7 @@ function Get-AccessTokenForPTA
 
     .Parameter KerberosTicket
     Kerberos token of the user. 
-    
+
     .Example
     Get-AADIntAccessTokenForPTA
     
@@ -1356,6 +1393,8 @@ function Get-AccessTokenForPTA
     Param(
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
         [String]$SAMLToken,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
@@ -1366,7 +1405,7 @@ function Get-AccessTokenForPTA
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache
+        Get-AccessToken -Credentials $Credentials -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken 
     }
 }
 
@@ -1382,6 +1421,9 @@ function Get-AccessTokenForOfficeApps
 
     .Parameter Credentials
     Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
 
     .Parameter SAML
     SAML token of the user. 
@@ -1403,6 +1445,8 @@ function Get-AccessTokenForOfficeApps
     Param(
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
         [String]$SAMLToken,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
@@ -1413,7 +1457,7 @@ function Get-AccessTokenForOfficeApps
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "https://officeapps.live.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache
+        Get-AccessToken -Credentials $Credentials -Resource "https://officeapps.live.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken 
     }
 }
 
@@ -1429,6 +1473,9 @@ function Get-AccessTokenForEXO
 
     .Parameter Credentials
     Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
 
     .Parameter SAML
     SAML token of the user. 
@@ -1450,6 +1497,8 @@ function Get-AccessTokenForEXO
     Param(
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
         [String]$SAMLToken,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
@@ -1461,7 +1510,7 @@ function Get-AccessTokenForEXO
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Credentials $Credentials -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache
+        Get-AccessToken -Credentials $Credentials -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken 
     }
 }
 
@@ -1478,6 +1527,9 @@ function Get-AccessTokenForEXOPS
     .Parameter Credentials
     Credentials of the user.
 
+    .Parameter PRT
+    PRT token of the user.
+
     .Parameter SAML
     SAML token of the user. 
 
@@ -1487,8 +1539,8 @@ function Get-AccessTokenForEXOPS
     .Parameter KerberosTicket
     Kerberos token of the user. 
 
-    .Parameter UserPrincipalName
-    UserPrincipalName of the user of Kerberos token
+    .Parameter Certificate
+    x509 device certificate.
     
     .Example
     Get-AADIntAccessTokenForEXOPS
@@ -1501,18 +1553,27 @@ function Get-AccessTokenForEXOPS
     Param(
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
         [String]$SAMLToken,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
-        [switch]$SaveToCache
+        [switch]$SaveToCache,
+
+        [Parameter(Mandatory=$False)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [Parameter(Mandatory=$False)]
+        [string]$PfxFileName,
+        [Parameter(Mandatory=$False)]
+        [string]$PfxPassword
     )
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Credentials $Credentials -Resource "https://outlook.office365.com" -ClientId "a0c73c16-a7e3-4564-9a95-2bdf47383716" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -UserPrincipalName $UserPrincipalName -SaveToCache $SaveToCache
+        Get-AccessToken -Credentials $Credentials -Resource "https://outlook.office365.com" -ClientId "a0c73c16-a7e3-4564-9a95-2bdf47383716" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -UserPrincipalName $UserPrincipalName -SaveToCache $SaveToCache -PRTToken $PRTToken 
     }
 }
 
@@ -1551,7 +1612,7 @@ function Get-AccessTokenForSARA
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Resource "https://api.diagnostics.office.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache
+        Get-AccessToken -Resource "https://api.diagnostics.office.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken 
     }
 }
 
@@ -1569,6 +1630,9 @@ function Get-AccessTokenForOneDrive
     .Parameter Credentials
     Credentials of the user.
 
+    .Parameter PRT
+    PRT token of the user.
+
     .Parameter SAML
     SAML token of the user. 
 
@@ -1577,9 +1641,6 @@ function Get-AccessTokenForOneDrive
 
     .Parameter KerberosTicket
     Kerberos token of the user. 
-
-    .Parameter UserPrincipalName
-    UserPrincipalName of the user of Kerberos token
     
     .Example
     Get-AADIntAccessTokenForOneDrive
@@ -1594,6 +1655,8 @@ function Get-AccessTokenForOneDrive
         [String]$Tenant,
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
         [String]$SAMLToken,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
@@ -1604,7 +1667,7 @@ function Get-AccessTokenForOneDrive
     )
     Process
     {
-        Get-AccessToken -Resource "https://$Tenant-my.sharepoint.com/" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials  -SaveToCache $SaveToCache
+        Get-AccessToken -Resource "https://$Tenant-my.sharepoint.com/" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials  -SaveToCache $SaveToCache -PRTToken $PRTToken 
     }
 }
 
@@ -1621,6 +1684,9 @@ function Get-AccessTokenForOfficeApps
 
     .Parameter Credentials
     Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
 
     .Parameter SAML
     SAML token of the user. 
@@ -1645,6 +1711,8 @@ function Get-AccessTokenForOfficeApps
     Param(
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
         [String]$SAMLToken,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
@@ -1655,7 +1723,7 @@ function Get-AccessTokenForOfficeApps
     )
     Process
     {
-        Get-AccessToken -Resource "https://officeapps.live.com" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache
+        Get-AccessToken -Resource "https://officeapps.live.com" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken 
     }
 }
 
@@ -1672,6 +1740,9 @@ function Get-AccessTokenForAzureCoreManagement
 
     .Parameter Credentials
     Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
 
     .Parameter SAML
     SAML token of the user. 
@@ -1696,6 +1767,8 @@ function Get-AccessTokenForAzureCoreManagement
     Param(
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
         [String]$SAMLToken,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
@@ -1708,7 +1781,7 @@ function Get-AccessTokenForAzureCoreManagement
     )
     Process
     {
-        Get-AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant
+        Get-AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken 
     }
 }
 
@@ -1725,6 +1798,9 @@ function Get-AccessTokenForSPO
 
     .Parameter Credentials
     Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
 
     .Parameter SAML
     SAML token of the user. 
@@ -1752,6 +1828,8 @@ function Get-AccessTokenForSPO
     Param(
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
         [String]$SAMLToken,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
@@ -1764,7 +1842,7 @@ function Get-AccessTokenForSPO
     )
     Process
     {
-        Get-AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache
+        Get-AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken 
     }
 }
 
@@ -1833,6 +1911,147 @@ function Get-AccessTokenForMySignins
     }
 }
 
+# Gets an access token for Azure AD Join
+# Aug 26th 2020
+function Get-AccessTokenForAADJoin
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Azure AD Join
+
+    .DESCRIPTION
+    Gets OAuth Access Token for Azure AD Join, allowing users' to register devices to Azure AD.
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter Tenant
+    The tenant name of the organization, ie. company.onmicrosoft.com -> "company"
+    
+    .Example
+    Get-AADIntAccessTokenForAADJoin
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForAADJoin -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant,
+        [switch]$SaveToCache
+    )
+    Process
+    {
+        Get-AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -ForceMFA $true
+    }
+}
+
+# Gets an access token for Intune MDM
+# Aug 26th 2020
+function Get-AccessTokenForIntuneMDM
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Intune MDM
+
+    .DESCRIPTION
+    Gets OAuth Access Token for Intune MDM, allowing users' to enroll their devices to Intune.
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter Tenant
+    The tenant name of the organization, ie. company.onmicrosoft.com -> "company"
+
+    .Parameter Certificate
+    x509 device certificate.
+
+    .Parameter PfxFileName
+    File name of the .pfx device certificate.
+
+    .Parameter PfxPassword
+    The password of the .pfx device certificate.
+
+    .Parameter Resource
+    The resource to get access token to, defaults to "https://enrollment.manage.microsoft.com/". To get access to AAD Graph API, use "https://graph.windows.net"
+    
+    .Example
+    Get-AADIntAccessTokenForIntuneMDM
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForIntuneMDM -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [switch]$SaveToCache,
+
+        [Parameter(Mandatory=$False)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [Parameter(Mandatory=$False)]
+        [string]$PfxFileName,
+        [Parameter(Mandatory=$False)]
+        [string]$PfxPassword,
+        [Parameter(Mandatory=$False)]
+        [string]$Resource="https://enrollment.manage.microsoft.com/"
+    )
+    Process
+    {
+        Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -Resource $Resource -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword
+    }
+}
+
 # Gets the access token for provisioning API and stores to cache
 # Refactored Jun 8th 2020
 function Get-AccessToken
@@ -1841,6 +2060,8 @@ function Get-AccessToken
     Param(
         [Parameter(Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$False)]
+        [String]$PRTToken,
         [Parameter(Mandatory=$False)]
         [String]$SAMLToken,
         [Parameter(Mandatory=$True)]
@@ -1856,7 +2077,15 @@ function Get-AccessToken
         [Parameter(Mandatory=$False)]
         [bool]$SaveToCache,
         [Parameter(Mandatory=$False)]
-        [bool]$IncludeRefreshToken=$false
+        [bool]$IncludeRefreshToken=$false,
+        [Parameter(Mandatory=$False)]
+        [bool]$ForceMFA=$false,
+        [Parameter(Mandatory=$False)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [Parameter(Mandatory=$False)]
+        [string]$PfxFileName,
+        [Parameter(Mandatory=$False)]
+        [string]$PfxPassword
     )
     Begin
     {
@@ -1870,15 +2099,22 @@ function Get-AccessToken
             "389b1b32-b5d5-43b2-bddc-84ce938d6737" # Office Management API Editor https://manage.office.com
             "ab9b8c07-8f02-4f72-87fa-80105867a763" # OneDrive Sync Engine
             "9bc3ab49-b65d-410a-85ad-de819febfddc" # SPO
+            "29d9ed98-a469-4536-ade2-f981bc1d605e" # MDM
         )
     }
     Process
     {
-        # Check if we got the kerberos token
-        if(![String]::IsNullOrEmpty($KerberosTicket))
+        
+        if(![String]::IsNullOrEmpty($KerberosTicket)) # Check if we got the kerberos token
         {
             # Get token using the kerberos token
             $OAuthInfo = Get-AccessTokenWithKerberosTicket -KerberosTicket $KerberosTicket -Domain $Domain -Resource $Resource -ClientId $ClientId
+            $access_token = $OAuthInfo.access_token
+        }
+        elseif(![String]::IsNullOrEmpty($PRTToken)) # Check if we got a PRT token
+        {
+            # Get token using the kerberos token
+            $OAuthInfo = Get-AccessTokenWithPRT -Cookie $PRTToken -Resource $Resource -ClientId $ClientId
             $access_token = $OAuthInfo.access_token
         }
         else
@@ -1888,13 +2124,17 @@ function Get-AccessToken
             if([string]::IsNullOrEmpty($Credentials) -and [string]::IsNullOrEmpty($SAMLToken))
             {
                 # No credentials given, so prompt for credentials
-                if($ClientId -eq "d3590ed6-52b3-4102-aeff-aad2292ab01c" <# Office #> -or $ClientId -eq "a0c73c16-a7e3-4564-9a95-2bdf47383716" <# EXO #> )
+                if(  $ClientId -eq "d3590ed6-52b3-4102-aeff-aad2292ab01c" <# Office #> -or 
+                     $ClientId -eq "a0c73c16-a7e3-4564-9a95-2bdf47383716" <# EXO #>    -or 
+                    ($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -eq "https://enrollment.manage.microsoft.com/") <# MDM #>
+                )  
                 {
-                    $OAuthInfo = Prompt-Credentials -Resource $Resource -ClientId $ClientId -Tenant $Tenant
+                    $OAuthInfo = Prompt-Credentials -Resource $Resource -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA
+                    
                 }
                 else
                 {
-                    $OAuthInfo = Prompt-Credentials -Resource "https://graph.windows.net" -ClientId $ClientId -Tenant $Tenant
+                    $OAuthInfo = Prompt-Credentials -Resource "https://graph.windows.net" -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA
                 }
                 
             }
@@ -1930,7 +2170,6 @@ function Get-AccessToken
             # Save the refresh token and other variables
             $RefreshToken= $OAuthInfo.refresh_token
             $ParsedToken=  Read-Accesstoken($OAuthInfo.access_token)
-            #$tenant_id =  $ParsedToken.unique_name.Split("@")[1] # Not used in this script, we can use both name or id
             $tenant_id =   $ParsedToken.tid
 
             # Get the access token from response
@@ -1938,10 +2177,35 @@ function Get-AccessToken
             
         }
 
+        $refresh_token = $OAuthInfo.refresh_token
+
+        # Check whether we want to get the deviceid and (possibly) mfa in mra claim
+        if(($Certificate -ne $null -and [string]::IsNullOrEmpty($PfxFileName)) -or ($Certificate -eq $null -and [string]::IsNullOrEmpty($PfxFileName) -eq $false))
+        {
+            try
+            {
+                Write-Verbose "Trying to get new tokens with deviceid claim."
+                $deviceTokens = Set-AccessTokenDeviceAuth -AccessToken $access_token -RefreshToken $refresh_token -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword
+            }
+            catch
+            {
+                Write-Warning "Could not get tokens with deviceid claim: $($_.Exception.Message)"
+            }
+
+            if($deviceTokens.access_token)
+            {
+                $access_token =  $deviceTokens.access_token
+                $refresh_token = $deviceTokens.refresh_token
+
+                $claims = Read-Accesstoken $access_token
+                Write-Verbose "Tokens updated with deviceid: ""$($claims.deviceid)"" and amr: ""$($claims.amr)"""
+            }
+        }
+
         if($SaveToCache -and $OAuthInfo -ne $null -and $access_token -ne $null)
         {
             $script:tokens["$ClientId-$Resource"] =          $access_token
-            $script:refresh_tokens["$ClientId-$Resource"] =  $OAuthInfo.refresh_token
+            $script:refresh_tokens["$ClientId-$Resource"] =  $refresh_token
         }
 
         # Return
@@ -2551,6 +2815,8 @@ function Get-Cache
                 "Tenant" =          $parsedToken.tid
                 "IsExpired" =       Is-AccessTokenExpired -AccessToken $accessToken
                 "HasRefreshToken" = $script:refresh_tokens.Contains($key)
+                "AuthMethods" =     $parsedToken.amr
+                "Device" =          $parsedToken.deviceid
             }
 
             New-Object psobject -Property $attributes

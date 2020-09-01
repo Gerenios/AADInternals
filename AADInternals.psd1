@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.4.0'
+	ModuleVersion = '0.4.1'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -92,7 +92,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
 		PSData = @{
 
 			# Tags applied to this module. These help with module discovery in online galleries.
-			Tags = @('Office 365','Microsoft 365','Azure','AAD','Security')
+			Tags = @('Office365','Microsoft365','Azure','AAD','Security')
 
 			# A URL to the license for this module.
 			# LicenseUri = ''
