@@ -1,12 +1,74 @@
 ﻿# This script contains common utility functions used in different functions
 
-Function Convert-ByteArrayToHex
+Function Convert-ByteArrayToB64
+{
+
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [Byte[]]$Bytes,
+        [Switch]$UrlEncode,
+        [Switch]$NoPadding
+    )
+
+    $b64 = [convert]::ToBase64String($Bytes);
+
+    if($UrlEncode)
+    {
+        $b64 = $b64.Replace("/","_").Replace("+","-")
+    }
+
+    if($NoPadding)
+    {
+        $b64 = $b64.Replace("=","")
+    }
+
+    return $b64
+}
+
+Function Convert-B64ToByteArray
+{
+
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [String]
+        $B64
+    )
+    $B64 = $B64.Replace("_","/").Replace("-","+")
+
+    # Fill the header with padding for Base 64 decoding
+    while ($B64.Length % 4)
+    {
+        $B64 += "="
+    }
+
+    return [convert]::FromBase64String($B64)
+}
+
+Function Convert-B64ToText
 {
 
     [cmdletbinding()]
 
     param(
         [parameter(Mandatory=$true)]
+        [String]
+        $B64
+    )
+
+    return [text.encoding]::UTF8.GetString(([byte[]](Convert-B64ToByteArray -B64 $B64)))
+}
+
+Function Convert-ByteArrayToHex
+{
+
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
         [Byte[]]
         $Bytes
     )
@@ -17,7 +79,7 @@ Function Convert-ByteArrayToHex
         $HexString.AppendFormat("{0:x2}", $byte) | Out-Null
     }
 
-    $HexString.ToString().ToUpper()
+    $HexString.ToString()
 }
 
 
@@ -27,7 +89,7 @@ Function Convert-HexToByteArray
     [cmdletbinding()]
 
     param(
-        [parameter(Mandatory=$true)]
+        [parameter(Mandatory=$true,ValueFromPipeline)]
         [String]
         $HexString
     )
@@ -48,7 +110,7 @@ function Convert-OidToBytes
 
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$True,ValueFromPipeline)]
         [String]$Oid
     )
     Process
@@ -94,7 +156,7 @@ function Convert-BytesToOid
 
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$True,ValueFromPipeline)]
         [byte[]]$Bytes
     )
     Process
@@ -137,5 +199,141 @@ function Convert-BytesToOid
 
         # Return
         $oid
+    }
+}
+
+# Load .pfx certificate
+function Load-Certificate
+{
+<#
+    .SYNOPSIS
+    Loads X509 certificate from the given .pfx file
+
+    .DESCRIPTION
+    Loads X509 certificate from the given .pfx file
+
+    .Parameter FileName
+    The full path to .pfx file from where to load the certificate
+
+    .Parameter Password
+    The password of the .pfx file
+    
+    .Example
+    PS C:\>Get-AADIntCertificate -FileName "MyCert.pfx" -Password -Password "mypassword"
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True,ValueFromPipeline)]
+        [String]$FileName,
+        [Parameter(Mandatory=$False)]
+        [String]$Password="",
+        [Switch]$Exportable
+    )
+    Process
+    {
+        if(!(Test-Path $PfxFileName))
+        {
+            throw "Certificate file $PfxFileName not found!"
+        }
+        
+        # Load the certificate
+        try
+        {
+            if($Exportable)
+            {
+                $Certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2((Get-Item $FileName).FullName, $Password, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable) -ErrorAction SilentlyContinue
+            }
+            else
+            {
+                $Certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2((Get-Item $FileName).FullName, $Password, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet) -ErrorAction SilentlyContinue
+            }
+            
+        }
+        catch
+        {
+            throw "Error opening certificate: $($_.Exception.InnerException.Message)"""
+        }
+        
+        return $Certificate
+    }
+}
+
+
+# Loads the private key from the given Certificate
+function Load-PrivateKey
+{
+<#
+    .SYNOPSIS
+    Loads the private key from the given x509 certificate
+
+    .DESCRIPTION
+    Loads the private key from the given x509 certificate
+        
+    .Example
+    $Certificate = Load-Certificate -Filename "mycert.pfx" -Password "myverysecretpassword"
+    PS C:\>$PrivateKey = Load-AADIntPrivateKey -Certificate $Certificate 
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True,ValueFromPipeline)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
+    )
+    Process
+    {
+        # Store the private key to so that it can be exported
+        $cspParameters = [System.Security.Cryptography.CspParameters]::new()
+        $cspParameters.ProviderName = "Microsoft Enhanced RSA and AES Cryptographic Provider"
+        $cspParameters.ProviderType = 24
+        $cspParameters.KeyContainerName ="AADInternals"
+            
+        # Get the private key from the certificate
+        $privateKey = [System.Security.Cryptography.RSACryptoServiceProvider]::new(2048,$cspParameters)
+        $privateKey.ImportParameters([System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate).ExportParameters($true))
+        
+        Write-Verbose "Private Key from $($Certificate.Subject) loaded to the certificate store."
+        Write-Debug   "PK: $( Convert-ByteArrayToB64 -Bytes (([System.Security.Cryptography.RSA]::Create($privateKey.ExportParameters($true))).key.Export([System.Security.Cryptography.CngKeyBlobFormat]::GenericPublicBlob)) )"
+
+        return $privateKey
+    }
+}
+
+# Unloads the private key from the store
+function Unload-PrivateKey
+{
+<#
+    .SYNOPSIS
+    Unloads the private key from the store
+
+    .DESCRIPTION
+    Unloads the private key from the store
+        
+    .Example
+    $Certificate = Load-Certificate -Filename "mycert.pfx" -Password "myverysecretpassword"
+    PS C:\>$privateKey = Load-AADIntPrivateKey -Certificate $Certificate 
+    PS C:\>Unload-AADIntPrivateKey -PrivateKey $privateKey
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True,ValueFromPipeline)]
+        [System.Security.Cryptography.RSA]$PrivateKey
+    )
+    Process
+    {
+        try
+        {
+            # Remove the private key from the store
+            $privateKey.PersistKeyInCsp=$false
+            $privateKey.Clear()
+
+            Write-Verbose "Private Key unloaded from the certificate store."
+        }
+        catch
+        {
+            Write-Verbose "Could not unload Private Key from the certificate store. That's probably just okay: ""$($_.Exception.InnerException.Message)"""
+        }
+        
     }
 }

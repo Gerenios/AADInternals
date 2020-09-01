@@ -55,6 +55,8 @@ $functions=@(
     "Get-AccessTokenForAzureCoreManagement"
     "Get-AccessTokenForSPO"
     "Get-AccessTokenForMySignins"
+    "Get-AccessTokenForAADJoin"
+    "Get-AccessTokenForIntuneMDM"
     "Read-AccessToken"
     "Get-EndpointInstances"
     "Get-EndpointIps"
@@ -224,8 +226,19 @@ $functions=@(
     "Invoke-ReconAsInsider"
     "Invoke-UserEnumerationAsInsider"
 
-    # WPAWeponiser.ps1
+    # WPAWeaponiser.ps1
     "New-InvitationVBA"
+
+    # PRT.ps1
+    "Get-UserPRTToken"
+    "Get-UserPRTKeys"
+    "New-UserPRTToken"
+    "Join-DeviceToAzureAD"
+    "New-P2PDeviceCertificate"
+
+    # MDM.ps1
+    "Join-DeviceToIntune"
+
 )
 foreach($function in $functions)
 {

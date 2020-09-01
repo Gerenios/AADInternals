@@ -469,7 +469,10 @@ function Get-LSASecrets
             $dnameBytes = Get-ItemPropertyValue "HKLM:\SECURITY\Policy\PolPrDmN" -Name "(default)"
             $DomainName = [text.encoding]::Unicode.GetString($dnameBytes[8..$($dnameBytes.Length)])
             $dsidBytes = Get-ItemPropertyValue "HKLM:\SECURITY\Policy\PolPrDmS" -Name "(default)"
-            $DomainSid=(New-Object System.Security.Principal.SecurityIdentifier($dsidBytes,0)).Value
+            if($dsidBytes)
+            {
+                $DomainSid=(New-Object System.Security.Principal.SecurityIdentifier($dsidBytes,0)).Value
+            }
 
             # Get the domain FQDN
             $fqdnBytes = Get-ItemPropertyValue "HKLM:\SECURITY\Policy\PolDnDDN" -Name "(default)"

@@ -28,19 +28,19 @@ function Invoke-ReconAsOutsider
     If the switch is used, doesn't get other domains of the tenant.
 
     .Example
-    Invoke-AADIntReconAsOutsider | Format-Table
+    Invoke-AADIntReconAsOutsider -Domain company.com | Format-Table
 
     Tenant brand:       Company Ltd
     Tenant name:        company
     Tenant id:          05aea22e-32f3-4c35-831b-52735704feb3
     DesktopSSO enabled: False
 
-    Name                          MX    SPF   Type      STS
-    ----                          --    ---   ----      ---
-    company.com                   True  True  Federated sts.company.com   
-    company.mail.onmicrosoft.com  True  True  Managed    
-    company.onmicrosoft.com       True  True  Managed    
-    int.company.com               False False Managed 
+    Name                           DNS   MX    SPF  Type      STS
+    ----                           ---   --    ---  ----      ---
+    company.com                   True  True  True  Federated sts.company.com
+    company.mail.onmicrosoft.com  True  True  True  Managed
+    company.onmicrosoft.com       True  True  True  Managed
+    int.company.com              False False False  Managed 
 #>
     [cmdletbinding()]
     Param(
@@ -216,7 +216,7 @@ function Invoke-ReconAsGuest
     .Example
     Get-AADIntAccessTokenForAzureCoreManagement -SaveToCache
 
-    $results = Invoke-AADIntReconAsGuest
+    PS C:\>$results = Invoke-AADIntReconAsGuest
 
     PS C:\>$results.allowedActions
 
@@ -672,19 +672,29 @@ function Invoke-ReconAsInsider
     Starts tenant recon of Azure AD tenant.
     
     .Example
-    Get-AADIntAccessTokenForAADGraph
+    Get-AADIntAccessTokenForAzureCoreManagement
 
-    $results = Invoke-AADIntReconAsInsider
+    PS C:\>$results = Invoke-AADIntReconAsInsider
 
-    PS C:\>$results.allowedActions
+    Tenant brand:                Company Ltd
+    Tenant name:                 company.onmicrosoft.com
+    Tenant id:                   6e3846ee-e8ca-4609-a3ab-f405cfbd02cd
+    Azure AD objects:            520/500000
+    Domains:                     6 (4 verified)
+    Non-admin users restricted?  True
+    Users can register apps?     True
+    Directory access restricted? False
+    Directory sync enabled?      true
+    Global admins                3
 
-    application      : {read}
-    domain           : {read}
-    group            : {read}
-    serviceprincipal : {read}
-    tenantdetail     : {read}
-    user             : {read, update}
-    serviceaction    : {consent}
+    PS C:\>$results.roleInformation | Where Members -ne $null | select Name,Members
+
+    Name                               Members                                                                                       
+    ----                               -------                                                                                       
+    Company Administrator              {@{DisplayName=MOD Administrator; UserPrincipalName=admin@company.onmicrosoft.com}, @{D...
+    User Account Administrator         @{DisplayName=User Admin; UserPrincipalName=useradmin@company.com}                   
+    Directory Readers                  {@{DisplayName=Microsoft.Azure.SyncFabric; UserPrincipalName=}, @{DisplayName=MicrosoftAzur...
+    Directory Synchronization Accounts {@{DisplayName=On-Premises Directory Synchronization Service Account; UserPrincipalName=Syn...
 #>
     [cmdletbinding()]
     Param()
@@ -768,21 +778,33 @@ function Invoke-UserEnumerationAsInsider
     Dumps user names and groups of the tenant.
     By default, the first 1000 users and groups are returned. 
 
-    Groups:       Include user's groups
-    GroupMembers: Include members of user's groups (not recommended)
+    Groups:       Include groups
+    GroupMembers: Include members of the groups (not recommended)
         
-    GroupId:      Id of the group. If this is given, only the members of the group are included. 
+    GroupId:      Id of the group. If this is given, only one group and members are included. 
 
     .Example
-    $results = Invoke-AADIntUserEnumerationAsInsider -UserName user@company.com
+    C:\PS>$results = Invoke-AADIntUserEnumerationAsInsider
 
-    Tenant brand: Company Ltd
-    Tenant name:  company.onmicrosoft.com
-    Tenant id:    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd
-    Logged in as: live.com#user@outlook.com
-    Users:        5
-    Groups:       2
-    Roles:        0
+    Users:        5542
+    Groups:        212
+
+    C:\PS>$results.Users[0]
+
+    id                              : 7ab0eb51-b7cb-4ff0-84ec-893a413d7b4a
+    displayName                     : User Demo
+    userPrincipalName               : User@company.com
+    onPremisesImmutableId           : UQ989+t6fEq9/0ogYtt1pA==
+    onPremisesLastSyncDateTime      : 2020-07-14T08:18:47Z
+    onPremisesSamAccountName        : UserD
+    onPremisesSecurityIdentifier    : S-1-5-21-854168551-3279074086-2022502410-1104
+    refreshTokensValidFromDateTime  : 2019-07-14T08:21:35Z
+    signInSessionsValidFromDateTime : 2019-07-14T08:21:35Z
+    proxyAddresses                  : {smtp:User@company.onmicrosoft.com, SMTP:User@company.com}
+    businessPhones                  : {+1234567890}
+    identities                      : {@{signInType=userPrincipalName; issuer=company.onmicrosoft.com; issuerAssignedId=User@company.com}} 
+
+
 
 #>
     [cmdletbinding()]
