@@ -226,7 +226,7 @@ $functions=@(
     "Invoke-ReconAsInsider"
     "Invoke-UserEnumerationAsInsider"
 
-    # WPAWeaponiser.ps1
+    # WBAWeaponiser.ps1
     "New-InvitationVBA"
 
     # PRT.ps1
@@ -235,9 +235,11 @@ $functions=@(
     "New-UserPRTToken"
     "Join-DeviceToAzureAD"
     "New-P2PDeviceCertificate"
+    "Remove-DeviceFromAzureAD"
 
     # MDM.ps1
     "Join-DeviceToIntune"
+    "Start-DeviceIntuneCallback"
 
 )
 foreach($function in $functions)

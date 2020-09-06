@@ -740,3 +740,91 @@ function Get-UserPRTKeys
         $response
     }
 }
+
+# Removes the device from Azure AD
+# Sep 2nd 2020
+function Remove-DeviceFromAzureAD
+{
+<#
+    .SYNOPSIS
+    Removes the device from Azure AD.
+
+    .DESCRIPTION
+    Removes the device from Azure AD using the given device certificate.
+
+    .Parameter Certificate
+    x509 certificate used to sign the certificate request.
+
+    .Parameter PfxFileName
+    File name of the .pfx certificate used to sign the certificate request.
+
+    .Parameter PfxPassword
+    The password of the .pfx certificate used to sign the certificate request.
+
+    .Parameter Force
+    Does not ask for "Are your sure?" questions.
+
+    .EXAMPLE
+    Remove-AADIntDeviceFromAzureAD -pfxFileName .\85c3252a-3b33-41cf-bd4f-c53b7a94c548.pfx
+
+    The device 85c3252a-3b33-41cf-bd4f-c53b7a94c548 succesfully removed from Azure AD. Attestation result KeyId: 0372f9ab-6103-4a0f-9095-9b49cd399479
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Certificate',Mandatory=$True)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$True)]
+        [string]$PfxFileName,
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$False)]
+        [string]$PfxPassword,
+        [switch]$Force
+    )
+    Process
+    {
+        
+        if(!$Certificate)
+        {
+            $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword -Exportable
+        }
+
+        $deviceID = $Certificate.Subject.Split("=")[1]
+
+        if(!$Force)
+        {
+            $promptValue = Read-Host "Are you sure you wan't to remove the device $deviceID? from Azure AD? Type YES to continue or CTRL+C to abort"
+            if($promptValue -ne "yes")
+            {
+                Write-Warning "Device removal of device $deviceID cancelled."
+                return
+            }
+        }
+
+        Write-Verbose "Unenrolling device $deviceID"
+
+        $requestId = (New-Guid).ToString()
+
+        $headers=@{
+            "User-Agent" =               "Dsreg/10.0 (Windows 10.0.18363.0)"
+            "ocp-adrs-client-name" =     "Dsreg"
+            "ocp-adrs-client-version" =  "10.0.18362.0"
+            "client-Request-Id" =        $requestId
+            "return-client-request-id" = "true"
+        }
+
+        try
+        {
+            $response = Invoke-WebRequest -Certificate $Certificate -Method Delete -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/$($deviceID)?api-version=1.0" -Headers $headers -ErrorAction SilentlyContinue
+        }
+        catch
+        {
+            Write-Error ($_.ErrorDetails.Message | ConvertFrom-Json ).Message
+            return
+        }
+
+        $keyId = ($response.Content | ConvertFrom-Json).AttestationResult.KeyId
+
+        Write-Host "The device $deviceID succesfully removed from Azure AD. Attestation result KeyId: $keyId"
+    }
+}
