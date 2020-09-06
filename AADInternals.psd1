@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.4.1'
+	ModuleVersion = '0.4.2'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -13,7 +13,7 @@
 	GUID = 'eebccc08-baea-4ac4-9e05-67d16d43e8b1'
 
 	# Author of this module
-	Author = 'Nestori Syynimaa'
+	Author = 'Dr Nestori Syynimaa'
 
 	# Company or vendor of this module
 	CompanyName = 'Gerenios Ltd'

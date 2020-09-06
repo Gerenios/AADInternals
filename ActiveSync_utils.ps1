@@ -208,6 +208,13 @@ function XML2WBXML
                 0x6A, # Charset = UTF8
                 0x00  # String table length
             )
+        $SyncMlHeader = @(
+                0x02, # ??
+                0xA4, # ??
+                0x01, # Unknown public identifier
+                0x6A, # Charset = UTF8
+                0x00  # String table length
+            )
         $StringTable =      0x04
         $StringStart =      0x03
         $StringEnd =        0x00
@@ -218,7 +225,7 @@ function XML2WBXML
         $EXT_2 =            0xC2
     }
     Process
-        {
+    {
         
         $Script:CurrentCodePage = 0
     
@@ -230,7 +237,14 @@ function XML2WBXML
                 [System.Xml.XmlElement]$Element
             )
             $retVal = @()
-            $retVal += $Header
+            if($SyncML)
+            {
+                $retVal += $SyncMlHeader
+            }
+            else
+            {
+                $retVal += $Header
+            }
             $retVal += Get-Element $Element -O365 $O365 -SyncML $SyncML
 
             return $retVal
@@ -541,8 +555,8 @@ function WBXML2XML
                 }
                 else
                 {
-                    #$retval = "<$tag>"
-                    $retval = "<$tag xmlns=`"$codePage`">"
+                    $retval = "<$tag>"
+                    #$retval = "<$tag xmlns=`"$codePage`">"
                 }
 
                 if($hasContent) 
@@ -642,7 +656,8 @@ function WBXML2XML
 
         $retVal = Parse-Element -wbxml $wbxml -next (Get-CurrentToken -wbxml $wbxml) -O365 $O365 -SyncML $SyncML
 
-        return ([xml]$retVal).InnerXml
+        #return ([xml]$retVal).InnerXml
+        return $retVal
     }
 }
 

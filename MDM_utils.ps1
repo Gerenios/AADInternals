@@ -211,3 +211,404 @@ function Enroll-DeviceToMDM
 }
 
 
+# Sep 3rd 2020
+# Automatically responses to the given command array
+function New-SyncMLAutoresponse
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [string]$DeviceName,
+        [Parameter(Mandatory=$True)]
+        [Object[]]$Commands,
+        [Parameter(Mandatory=$True)]
+        [int]$MsgID,
+        [Parameter(Mandatory=$True)]
+        [Hashtable]$Settings
+    )
+    Process
+    {
+        $resCommands = @()
+        $CmdID = 1
+
+        foreach($command in $commands)
+        {
+            
+            if($command.type -ne "Status")
+            {
+                # Just answer 400 to (almost) all requests
+                $errorCode = 400
+
+                # Status must be 200 for predefined answers
+                if($command.type -eq "Get" -and [string]::IsNullOrEmpty($Settings[$command.LocURI]) -eq $false)
+                {
+                    $errorCode = 200
+                }
+
+                # Okay, let's be nice for asked changes :)
+                if($command.Type -eq "Add" -or $command.Type -eq "Replace")
+                {
+                    $errorCode = 200
+                }
+
+                # Create the status message
+                $attr = [ordered]@{
+                    Type="Status"
+                    CmdID =  $CmdID++
+                    MsgRef = $MsgID-1 # Status is always referring to the previous message
+                    CmdRef = $command.CmdID
+                    Cmd =    $command.Type
+                    Data =   $errorCode
+                }
+
+                $resCommands += New-Object psobject -Property $attr
+
+                # Create the results message
+                if($command.type -eq "Get" -and [string]::IsNullOrEmpty($Settings[$command.LocURI]) -eq $false)
+                {
+                    $attr = [ordered]@{
+                        Type="Results"
+                        CmdID =  $CmdID++
+                        MsgRef = $MsgID-1 # Status is always referring to the previous message
+                        CmdRef = $command.CmdID
+                        Cmd =    $command.Type
+                        LocURI = $command.LocURI
+                        Data =   $Settings[$command.LocURI]
+                    }
+
+                    $resCommands += New-Object psobject -Property $attr
+                }
+
+            }
+            else
+            {
+                $resCommands += $command
+                $CmdID++
+            }
+        }
+
+        return $resCommands
+    }
+}
+
+# Sep 2nd 2020
+# Create a new SyncML request
+function New-SyncMLRequest
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [string]$DeviceName,
+        [Parameter(Mandatory=$True)]
+        [int]$SessionID,
+        [Parameter(Mandatory=$True)]
+        [int]$MsgID,
+        [Parameter(Mandatory=$False)]
+        [string]$VerDTD="1.2",
+        [Parameter(Mandatory=$False)]
+        [string]$VerProto="DM/1.2",
+        [Parameter(Mandatory=$False)]
+        [Object[]]$commands
+    )
+    Process
+    {
+        $CmdId = 1
+        $syncBody=""
+
+
+        foreach($command in $commands)
+        {
+            Write-Verbose " > $command"
+            switch($command.Type)
+            {
+                "Alert"
+                {
+                    $syncBody += @"
+        <Alert>
+			<CmdID>$($command.CmdId)</CmdID>
+			<Data>$($command.Data)</Data>
+		</Alert>
+"@
+                    break
+                }
+                "Replace"
+                {
+                    
+                        $syncBody += @"
+        <Replace>
+            <CmdID>$($command.CmdId)</CmdID>
+"@
+                    foreach($key in $command.Items.Keys)
+                    {
+                        $syncBody += @"
+            
+			<Item>
+				<Source>
+					<LocURI>$key</LocURI>
+				</Source>
+				<Data>$($command.Items[$key])</Data>
+			</Item>
+"@
+                    }
+                    $syncBody += "`n        </Replace>"
+        
+
+                    break
+                }
+                "Delete"
+                {
+
+                    break
+                }
+                "Atomic"
+                {
+
+                    break
+                }
+                "Final"
+                {
+                    break
+                }
+                "Status"
+                {
+                    $syncBody += "`n"
+                    $syncBody += @"
+        <Status>
+			<CmdID>$($command.CmdId)</CmdID>
+			<MsgRef>$($command.MsgRef)</MsgRef>
+			<CmdRef>$($command.CmdRef)</CmdRef>
+			<Cmd>$($command.Cmd)</Cmd>
+			<Data>$($command.Data)</Data>
+        </Status>
+"@
+                    break
+                }
+                "Results"
+                {
+                    $syncBody += "`n"
+                    $syncBody += @"
+        <Results>
+			<CmdID>$($command.CmdId)</CmdID>
+			<MsgRef>$($command.MsgRef)</MsgRef>
+			<CmdRef>$($command.CmdRef)</CmdRef>
+			<Item>
+				<Source>
+					<LocURI>$($command.LocURI)</LocURI>
+				</Source>
+				<Data>$($command.Data)</Data>
+			</Item>
+        </Results>
+"@
+                    break
+                }
+            }
+        }
+
+
+
+        # Construct the body
+
+        $syncML = @"
+<SyncML>
+	<SyncHdr>
+		<VerDTD>$VerDTD</VerDTD>
+		<VerProto>$VerProto</VerProto>
+		<SessionID>$SessionID</SessionID>
+		<MsgID>$MsgID</MsgID>
+		<Target>
+			<LocURI>https://r.manage.microsoft.com/devicegatewayproxy/cimhandler.ashx</LocURI>
+		</Target>
+		<Source>
+			<LocURI>$DeviceName</LocURI>
+		</Source>
+	</SyncHdr>
+	<SyncBody>
+$syncBody
+		<Final/>
+	</SyncBody>
+</SyncML>
+"@
+
+        return $syncML
+    }
+}
+
+# Sep 2nd 2020
+# Parses the SyncML response and returns an array containing all the returned commands
+function Parse-SyncMLResponse
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [System.Xml.XmlDocument]$SyncML
+    )
+    Process
+    {
+        $commands = @()
+        $CmdId = 1
+        
+        function parseNode
+        {
+            Param(
+                [Parameter(Mandatory=$True)]
+                $node,
+                [Parameter(Mandatory=$True)]
+                [ref]$commands
+            )
+            Process
+            {
+                switch($node.Name)
+                {
+                    "Status"
+                    {
+                        $attr = [ordered]@{
+                            Type="Status"
+                            CmdID =  $node.CmdID
+                            MsgRef = $node.MsgRef
+                            CmdRef = 0
+                            Cmd =    $node.Cmd
+                            Data =   $node.Data
+                        }
+                        $commands.value += New-Object psobject -Property $attr
+                        break
+                    }
+                    "Get"
+                    {
+                        $attr = [ordered]@{
+                            Type="Get"
+                            CmdID =  $node.CmdID
+                            LocURI = $node.Item.Target.LocURI
+                        }
+                        $commands.value += New-Object psobject -Property $attr
+                        break
+                    }
+                    "Add"
+                    {
+                        $attr = [ordered]@{
+                            Type="Add"
+                            CmdID =  $node.CmdID
+                            LocURI = $node.Item.Target.LocURI
+                        }
+                        $commands.value += New-Object psobject -Property $attr
+                        break
+                    }
+                    "Replace"
+                    {
+                        $attr = [ordered]@{
+                            Type="Replace"
+                            CmdID =   $node.CmdID
+                            LocURI =  $node.Item.Target.LocURI
+                            MFormat = $node.Item.Meta.Format.'#text'
+                            MType =   $node.Item.Meta.Type.'#text'
+                            Data =    $node.Item.Data
+                        }
+                        $commands.value += New-Object psobject -Property $attr
+                        break
+                    }
+                    "Delete"
+                    {
+                        $attr = [ordered]@{
+                            Type="Delete"
+                            CmdID =  $node.CmdID
+                            LocURI = $node.Item.Target.LocURI
+                        }
+                        $commands.value += New-Object psobject -Property $attr
+                        break
+                    }
+                    "Atomic"
+                    {
+                        # Parse nodes inside this one
+                        foreach($inode in $node.ChildNodes)
+                        {
+                            parseNode -node $inode -commands $commands
+                        }
+
+                        $attr = [ordered]@{
+                            Type="Get"
+                            CmdID =  $node.CmdID
+                            LocURI = ""
+                        }
+                        $commands.value += New-Object psobject -Property $attr
+                        break
+                    }
+                    "Sequence"
+                    {
+                        # Parse nodes inside this one
+                        foreach($inode in $node.ChildNodes)
+                        {
+                            parseNode -node $inode -commands $commands
+                        }
+
+                        $attr = [ordered]@{
+                            Type="Get"
+                            CmdID =  $node.CmdID
+                            LocURI = ""
+                        }
+                        $commands.value += New-Object psobject -Property $attr
+                        break
+                    }
+                    "Final"
+                    {
+                        #$commands.value += New-Object psobject -Property @{Type="Final"}
+                        break
+                    }
+                }
+            }
+        }
+        
+        foreach($node in $SyncML.SyncML.SyncBody.ChildNodes)
+        {
+            parseNode -node $node -commands ([ref]$commands)
+        }
+
+        if($VerbosePreference)
+        {
+            foreach($command in $commands)
+            {
+                Write-Verbose " < $command"
+            }
+        }
+
+        return $commands
+    }
+}
+
+
+
+# Sep 2nd 2020
+# Sends the given SyncML to Intune and returns the response as an xml document
+function Invoke-SyncMLRequest
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [string]$SyncML,
+        [Parameter(ParameterSetName='Certificate',Mandatory=$True)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
+    )
+    Process
+    {
+        $headers=@{
+            "Content-Type" =   "application/vnd.syncml.dm+xml"
+            "Accept"       =   "application/vnd.syncml.dm+xml, application/octet-stream"
+            "Accept-Charset" = "UTF-8"
+            "User-Agent" =     "MSFT OMA DM Client/1.2.0.1"
+        }
+
+        Write-Debug "Request: $SyncML"
+
+        try
+        {
+            $response = Invoke-WebRequest -Certificate $Certificate -Method Post -Uri "https://r.manage.microsoft.com/devicegatewayproxy/cimhandler.ashx?mode=Maintenance&Platform=WoA" -Headers $headers -Body $SyncML -ErrorAction SilentlyContinue
+            $xml = [xml]$response.content
+        }
+        catch
+        {
+            throw "SyncML request failed"
+        }
+
+        Write-Debug "Response: $($xml.OuterXml)"
+
+        return $xml
+    }
+}
