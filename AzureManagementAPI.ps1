@@ -462,7 +462,7 @@ function Get-AzureInformation
             #$domains = $response.Value
 
             # Create a new AccessToken for graph.microsoft.com
-            $access_token3 = Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
+            $access_token3 = Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
 
             # Get the directory quota
             $response2 = Invoke-RestMethod -Uri "https://main.iam.ad.ext.azure.com/api/MsGraph/v1.0/organization/?`$select=directorySizeQuota" -Headers @{"Authorization" = "Bearer $access_token3"}
@@ -470,11 +470,19 @@ function Get-AzureInformation
             # Get the domain details
             $domains = Get-MSGraphDomains -AccessToken $access_token3
             
+            # Get the tenant authorization policy
+            try
+            {
+                $authPolicy = Get-TenantAuthPolicy -AccessToken $access_token3
+            }
+            catch{}
+            
             # Construct the return value
-            $properties | Add-Member -NotePropertyName "allowedActions"     -NotePropertyValue $permissions.allowedActions
-            $properties | Add-Member -NotePropertyName "skuInfo"            -NotePropertyValue $skuInfo
-            $properties | Add-Member -NotePropertyName "domains"            -NotePropertyValue $domains
-            $properties | Add-Member -NotePropertyName "directorySizeQuota" -NotePropertyValue $response2.value[0].directorySizeQuota
+            $properties | Add-Member -NotePropertyName "allowedActions"      -NotePropertyValue $permissions.allowedActions
+            $properties | Add-Member -NotePropertyName "skuInfo"             -NotePropertyValue $skuInfo
+            $properties | Add-Member -NotePropertyName "domains"             -NotePropertyValue $domains
+            $properties | Add-Member -NotePropertyName "directorySizeQuota"  -NotePropertyValue $response2.value[0].directorySizeQuota
+            $properties | Add-Member -NotePropertyName "authorizationPolicy" -NotePropertyValue $authPolicy
 
             # Return
             $properties

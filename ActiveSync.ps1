@@ -129,7 +129,7 @@ function Get-EASOptions
             "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
         }
         
-        $response=Invoke-WebRequest -Uri "https://outlook.office365.com/Microsoft-Server-ActiveSync" -Method Options -Headers $headers -TimeoutSec 5
+        $response=Invoke-WebRequest -UseBasicParsing -Uri "https://outlook.office365.com/Microsoft-Server-ActiveSync" -Method Options -Headers $headers -TimeoutSec 5
         $response.headers
     }
 }
@@ -499,7 +499,7 @@ function Get-EASSyncStatus
             "connect" = "GET"
         }
 
-        $response=Invoke-WebRequest "https://outlook.office365.com/outlookservice/servicechannel.hxs" -Headers $headers -Body $OutlookFrame -Method Post -TimeOutSec 300
+        $response=Invoke-WebRequest -UseBasicParsing "https://outlook.office365.com/outlookservice/servicechannel.hxs" -Headers $headers -Body $OutlookFrame -Method Post -TimeOutSec 300
 
         $responseBytes = [byte[]]$response.Content
 

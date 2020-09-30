@@ -1,4 +1,6 @@
-﻿# Get the PRT token from the current user
+﻿# This file contains functions for Persistent Refresh Token and related device operations
+
+# Get the PRT token from the current user
 # Aug 19th 2020
 function Get-UserPRTToken
 {
@@ -151,6 +153,8 @@ function New-UserPRTToken
         [String]$SessionKey,
         [Parameter(Mandatory=$False)]
         [String]$Context,
+        [Parameter(Mandatory=$False)]
+        [String]$Nonce,
         [Parameter(ParameterSetName='Settings',Mandatory=$True)]
         $Settings
     )
@@ -194,6 +198,12 @@ function New-UserPRTToken
             "refresh_token" = $RefreshToken
             "is_primary" =    "true"
             "iat" =           $iat
+        }
+
+        # If nonce is given, use it!
+        if($Nonce)
+        {
+            $pld["request_nonce"] = $Nonce
         }
 
         # Create the JWT
@@ -655,13 +665,24 @@ function Get-UserPRTKeys
         [string]$PfxFileName,
         [Parameter(ParameterSetName='FileAndPassword',Mandatory=$False)]
         [string]$PfxPassword,
-        [Parameter(Mandatory=$True)]
+
+        [Parameter(Mandatory=$False)]
+        [String]$SAMLToken,
+        [Parameter(Mandatory=$False)]
+        [String]$TenantId,
+
+        [Parameter(Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(Mandatory=$False)]
         [String]$OSVersion="10.0.18363.0"
     )
     Process
     {
+        if(!$SAMLToken -and !$Credentials)
+        {
+            throw "Credentials or SAMLToken must be provided!"
+        }
+
         if(!$Certificate)
         {
             $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword -Exportable
@@ -674,7 +695,10 @@ function Get-UserPRTKeys
         $x5c = [convert]::ToBase64String(($certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)))
 
         # TenantId
-        $tenantId = Get-TenantID -Domain $Credentials.UserName.Split("@")[1]
+        if(!$TenantId)
+        {
+            $tenantId = Get-TenantID -Domain $Credentials.UserName.Split("@")[1]
+        }
 
         $body = "grant_type=srv_challenge" 
         
@@ -687,7 +711,24 @@ function Get-UserPRTKeys
         $header = Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.GetBytes("{""alg"":""RS256"", ""typ"":""JWT"", ""x5c"":""$($x5c.Replace("/","\/"))""}")) -NoPadding
 
         # Construct the payload
-        $payload = Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.GetBytes("{""client_id"":""38aa3b87-a06d-4817-b275-7a316988d93b"", ""request_nonce"":""$nonce"", ""scope"":""openid aza ugs"", ""win_ver"":""$OSVersion"", ""grant_type"":""password"", ""username"":""$($Credentials.UserName)"", ""password"":""$($Credentials.GetNetworkCredential().Password)""}")) -NoPadding
+        $payloadObj=@{
+            "client_id" = "38aa3b87-a06d-4817-b275-7a316988d93b"
+            "request_nonce" = "$nonce"
+            "scope"="openid aza ugs"
+            "win_ver" = "$OSVersion"
+        }
+        if($SAMLToken)
+        {
+            $payloadObj["grant_type"] = "urn:ietf:params:oauth:grant-type:saml1_1-bearer"
+            $payloadObj["assertion"] =  Convert-TextToB64 -Text  $SAMLToken
+        }
+        else
+        {
+            $payloadObj["grant_type"] = "password"
+            $payloadObj["username"] =   $Credentials.UserName
+            $payloadObj["password"] =   $Credentials.GetNetworkCredential().Password
+        }
+        $payload = Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.GetBytes( ($payloadObj | ConvertTo-Json -Compress ) )) -NoPadding
 
         # Construct the JWT data to be signed
         $dataBin = [text.encoding]::UTF8.GetBytes(("{0}.{1}" -f $header,$payload))
@@ -710,7 +751,7 @@ function Get-UserPRTKeys
         }
 
         # Make the request
-        $response = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$tenantId/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body -ErrorAction SilentlyContinue
+        $response = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body -ErrorAction SilentlyContinue
 
         if(!$response.token_type)
         {
@@ -730,7 +771,7 @@ function Get-UserPRTKeys
 
         # Write to file
         $outFileName = "$($Certificate.Subject.Split("=")[1]).json"
-        $response | Set-Content $outFileName
+        $response | ConvertTo-Json |Set-Content $outFileName -Encoding UTF8
         Write-Host "Keys saved to $outFileName"
 
         # Unload the private key
@@ -815,7 +856,7 @@ function Remove-DeviceFromAzureAD
 
         try
         {
-            $response = Invoke-WebRequest -Certificate $Certificate -Method Delete -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/$($deviceID)?api-version=1.0" -Headers $headers -ErrorAction SilentlyContinue
+            $response = Invoke-WebRequest -UseBasicParsing -Certificate $Certificate -Method Delete -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/$($deviceID)?api-version=1.0" -Headers $headers -ErrorAction SilentlyContinue
         }
         catch
         {
@@ -826,5 +867,423 @@ function Remove-DeviceFromAzureAD
         $keyId = ($response.Content | ConvertFrom-Json).AttestationResult.KeyId
 
         Write-Host "The device $deviceID succesfully removed from Azure AD. Attestation result KeyId: $keyId"
+    }
+}
+
+
+# Get device compliance
+# Sep 11th 2020
+function Get-DeviceRegAuthMethods
+{
+<#
+    .SYNOPSIS
+    Get's the authentication methods used while registering the device.
+
+    .DESCRIPTION
+    Get's the authentication methods used while registering the device.
+
+    .Parameter AccessToken
+    The access token used to get the methos.
+
+    .Parameter DeviceId
+    Azure AD device id of the device.
+
+    .Parameter ObjectId
+    Azure AD object id of the device.
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+
+    PS C\:>Get-AADIntDeviceRegAuthMethods -DeviceId "d03994c9-24f8-41ba-a156-1805998d6dc7"
+
+    pwd
+    mfa
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(ParameterSetName='DeviceID',Mandatory=$True)]
+        [String]$DeviceId,
+        [Parameter(ParameterSetName='ObjectID',Mandatory=$True)]
+        [String]$ObjectId
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        $parsedToken = Read-Accesstoken -AccessToken $AccessToken
+
+        $tenantId = $parsedToken.tid
+
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+            "Accept" =        "application/json;odata=nometadata"
+        }
+
+        # Get the object Id if not given
+        if([string]::IsNullOrEmpty($ObjectId))
+        {
+            $ObjectId = Get-DeviceObjectId -DeviceId $DeviceId -TenantId $tenantId -AccessToken $AccessToken
+        }
+
+        # Get the methods
+        $response = Invoke-RestMethod -Method Get -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?`$select=deviceSystemMetadata&api-version=1.61-internal" -Headers $headers
+
+        $methods = $response.deviceSystemMetadata | Where-Object key -eq RegistrationAuthMethods | Select-Object -ExpandProperty value | ConvertFrom-Json
+
+        return $methods
+    }
+}
+
+
+# Set device compliance
+# Sep 11th 2020
+function Set-DeviceRegAuthMethods
+{
+<#
+    .SYNOPSIS
+    Set's the authentication methods.
+
+    .DESCRIPTION
+    Set's the authentication methods. Affects what authentication claims the access tokens generated with device certificate or PRT.
+
+    .Parameter AccessToken
+    The access token used to set the methods.
+
+    .Parameter DeviceId
+    Azure AD device id of the device.
+
+    .Parameter ObjectId
+    Azure AD object id of the device.
+
+    .Parameter Methods
+    The list of methods. Can be any of "pwd","rsa","otp","fed","wia","mfa","mngcmfa","wiaormfa","none" but only pwd and mfa matters.
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+
+    PS C\:>Set-AADIntDeviceRegAuthMethods -DeviceId "d03994c9-24f8-41ba-a156-1805998d6dc7" -Methods mfa,pwd
+
+    pwd
+    mfa
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(ParameterSetName='DeviceID',Mandatory=$True)]
+        [String]$DeviceId,
+        [Parameter(ParameterSetName='ObjectID',Mandatory=$True)]
+        [String]$ObjectId,
+        [Validateset("pwd","rsa","otp","fed","wia","mfa","mngcmfa","wiaormfa","none")]
+        [Parameter(Mandatory=$False)]
+        [String[]]$Methods="none"
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        $parsedToken = Read-Accesstoken -AccessToken $AccessToken
+
+        $tenantId = $parsedToken.tid
+
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+            "Accept" =        "application/json;odata=nometadata"
+        }
+
+        # Get the object Id if not given
+        if([string]::IsNullOrEmpty($ObjectId))
+        {
+            $ObjectId = Get-DeviceObjectId -DeviceId $DeviceId -TenantId $tenantId -AccessToken $AccessToken
+        }
+
+        # Get the current methods
+        $response = Invoke-RestMethod -Method Get -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?`$select=deviceSystemMetadata&api-version=1.61-internal" -Headers $headers
+
+        # Change the methods and convert to JSON
+        $newMethods =           $Methods | ConvertTo-Json -Compress
+        $currentMethods =       $response.deviceSystemMetadata | Where-Object key -eq RegistrationAuthMethods
+        $currentMethods.value = $newMethods
+
+        # Post the changes to Azure AD
+        Invoke-RestMethod -Method Patch -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?api-version=1.61-internal" -Headers $headers -Body ($response|ConvertTo-Json) -ContentType "application/json"
+
+        Get-DeviceRegAuthMethods -AccessToken $AccessToken -ObjectId $ObjectId
+    }
+}
+
+
+# Get device transport key public key
+# Sep 13th 2020
+function Get-DeviceTransportKey
+{
+<#
+    .SYNOPSIS
+    Get's the public key of transport key of the device.
+
+    .DESCRIPTION
+    Get's the public key of transport key of the device.
+
+    .Parameter AccessToken
+    The access token used to get the certificate.
+
+    .Parameter DeviceId
+    Azure AD device id of the device.
+
+    .Parameter ObjectId
+    Azure AD object id of the device.
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+
+    PS C\:>Get-AADIntDeviceTransportKey -DeviceId "d03994c9-24f8-41ba-a156-1805998d6dc7"
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(ParameterSetName='DeviceID',Mandatory=$True)]
+        [String]$DeviceId,
+        [Parameter(ParameterSetName='ObjectID',Mandatory=$True)]
+        [String]$ObjectId
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        $parsedToken = Read-Accesstoken -AccessToken $AccessToken
+
+        $tenantId = $parsedToken.tid
+
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+            "Accept" =        "application/json;odata=nometadata"
+        }
+
+        # Get the object Id if not given
+        if([string]::IsNullOrEmpty($ObjectId))
+        {
+            $ObjectId = Get-DeviceObjectId -DeviceId $DeviceId -TenantId $tenantId -AccessToken $AccessToken
+        }
+
+        # Get the key information
+        $response = Invoke-RestMethod -Method Get -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?`$select=deviceId,deviceKey,alternativeSecurityIds,objectId&api-version=1.61-internal" -Headers $headers
+        
+        $DeviceId = $response.deviceId
+
+        if($response.alternativeSecurityIds -and $response.alternativeSecurityIds.key -and $response.deviceKey)
+        {
+            Write-Verbose "Current key material: $(Convert-B64ToText -B64 $response.deviceKey[0].keyMaterial)"
+
+            # Get the certificate thumbprint and SHA1
+            $keyInfo =    ([text.encoding]::Unicode.GetString( [byte[]](Convert-B64ToByteArray -B64 $response.alternativeSecurityIds.key)) ).split(">")[1]
+            $thumbPrint = $keyInfo.Substring(0,40)
+            $SHA256 =     $keyInfo.Substring(41) # Should be SHA1 (https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dvre/1f2ebba7-7783-42c4-982a-ce9ca76af949)
+
+            $rawKeyMaterial = Convert-B64ToByteArray -B64 $response.deviceKey[0].keyMaterial 
+
+            # Check whether this the raw RSABLOB
+            if( (Compare-Object -ReferenceObject ([text.encoding]::ASCII.GetBytes("RSA1")) -DifferenceObject $rawKeyMaterial[0..3]) -eq $null)
+            {
+                $parsedKey = Parse-KeyBLOB -Key $rawKeyMaterial
+                $keyMaterial = @{
+                    "kid" = ""
+                    "alg" = "RS256"
+                    "kty" = "RSA"
+                    "e"   = Convert-ByteArrayToB64 -Bytes $parsedKey.Exponent
+                    "n"   = Convert-ByteArrayToB64 -Bytes $parsedKey.Modulus
+                }
+
+            }
+            else
+            {
+                $keyMaterial = [text.encoding]::UTF8.getString($rawKeyMaterial) | ConvertFrom-Json
+            }
+
+            # Export the TKPUB
+            $export = @{
+                "keyMaterial" = $keyMaterial
+                "thumpPrint"  = $thumbPrint
+                "hash" =        $SHA256
+            }
+
+            $export | ConvertTo-Json | Set-Content "$DeviceId-TKPUB.json" -Encoding UTF8
+
+
+            # Print out information
+            Write-Host "Device TKPUB key successfully exported:"
+            Write-Host "  Device ID:             $deviceId"
+            Write-Host "  Cert thumbprint:       $($thumbPrint.toLower())"
+            Write-Host "  Cert SHA256:           $SHA256"
+            Write-host "  Public key file name : ""$DeviceId-TKPUB.json"""
+        }
+        else
+        {
+            Write-Error "Could not get TKPUB for device $DeviceId"
+        }
+    }
+}
+
+
+# Set device transport key public key
+# Sep 24th 2020
+function Set-DeviceTransportKey
+{
+<#
+    .SYNOPSIS
+    Set's the public key of transport key of the device.
+
+    .DESCRIPTION
+    Set's the public key of transport key of the device.
+
+    .Parameter AccessToken
+    The access token used to get the certificate.
+
+    .Parameter DeviceId
+    Azure AD device id of the device.
+
+    .Parameter ObjectId
+    Azure AD object id of the device.
+
+    .Parameter Certificate
+    A X509 certificate to be used to set the TKPUB.
+
+    .Parameter PfxFileName
+    The full path to .pfx file from where to load the certificate
+
+    .Parameter PfxPassword
+    The password of the .pfx file
+
+    .Parameter JsonFile
+    The full path to .json file containing TKPUB information exported using Get-AADIntDeviceTransportKey
+
+    .Parameter UseBuiltInCertificate
+    Uses the internal any.sts certificate
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+
+    PS C\:>Set-AADIntDeviceTransportKey -DeviceId "d03994c9-24f8-41ba-a156-1805998d6dc7" -UseBuiltInCertificate
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [String]$DeviceId,
+        [Parameter(Mandatory=$False)]
+        [String]$ObjectId,
+
+        [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
+        [switch]$UseBuiltInCertificate,
+
+        [Parameter(ParameterSetName='Certificate',Mandatory=$True)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$True)]
+        [string]$PfxFileName,
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$False)]
+        [string]$PfxPassword,
+
+        [Parameter(ParameterSetName='JSON',Mandatory=$True)]
+        [string]$JsonFileName
+    )
+    Process
+    {
+        
+
+        if([string]::IsNullOrEmpty($ObjectId) -and [string]::IsNullOrEmpty($DeviceId))
+        {
+            Write-Error "ObjectId or DeviceId required!"
+            return
+        }
+        
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        if($JsonFileName) # JSON file
+        {
+            $json =        Get-Content $JsonFileName -Encoding UTF8 | ConvertFrom-Json
+            $hash =    $json.hash
+            $thumpPrint =  $json.thumpPrint
+            $keyMaterial = $json.keyMaterial
+        }
+        else
+        {
+            if($UseBuiltInCertificate) # Do we use built-in certificate (any.sts)
+            {
+                [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate = Load-Certificate -FileName "$PSScriptRoot\any_sts.pfx" -Password ""
+            }
+            elseif($Certificate -eq $null) # Load the certificate
+            {
+                [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword
+            }
+
+            # Create a SHA256 object and calculate hash
+            $sha256 =   [System.Security.Cryptography.SHA256]::Create()
+            $certHash = $sha256.ComputeHash($Certificate.GetPublicKey())
+            $hash =     $(Convert-ByteArrayToB64 -Bytes $certHash)
+
+            # Get the parameters from the certificate and create key material
+            $parameters = $Certificate.PublicKey.Key.ExportParameters($false)
+            $keyMaterial = @{
+                "kty" = "RSA"
+                "n" =   Convert-ByteArrayToB64 -Bytes $parameters.Modulus
+                "e" =   Convert-ByteArrayToB64 -Bytes $parameters.Exponent
+                "alg" = "RS256"
+                "kid" = (New-Guid).ToString()
+            }
+
+            $thumpPrint = $Certificate.Thumbprint
+        }
+        Write-Verbose "New key material $(($keyMaterial | ConvertTo-Json -Compress))"
+        $kMat = Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.getBytes( ($keyMaterial | ConvertTo-Json -Compress) ))
+
+        $parsedToken = Read-Accesstoken -AccessToken $AccessToken
+
+        $tenantId = $parsedToken.tid
+
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+            "Accept" =        "application/json;odata=nometadata"
+        }
+
+        # Get the object Id if not given
+        if([string]::IsNullOrEmpty($ObjectId))
+        {
+            $ObjectId = Get-DeviceObjectId -DeviceId $DeviceId -TenantId $tenantId -AccessToken $AccessToken
+        }
+
+        # Get the current key information
+        $response = Invoke-RestMethod -Method Get -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?`$select=deviceKey,alternativeSecurityIds&api-version=1.61-internal" -Headers $headers
+
+        Write-Verbose "Current key material: $(Convert-B64ToText -B64 $response.deviceKey[0].keyMaterial)"
+
+        if([String]::IsNullOrEmpty($response))
+        {
+            Write-Error "The device $DeviceId has no deviceKey, unable to change."
+            return
+        }
+        
+        # Set the new key
+        $response.deviceKey[0].keyMaterial = $kMat
+
+        # Set also the alternative security id to match the key. 
+        # The documentation states that the hash should be SHA1 https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dvre/1f2ebba7-7783-42c4-982a-ce9ca76af949
+        # but the length equals SHA256 so we are using that instead.
+        $key = "X509:<SHA1-TP-PUBKEY>$thumpPrint$hash"
+        $key = Convert-ByteArrayToB64 -Bytes ([text.encoding]::Unicode.GetBytes($key))
+        $response.alternativeSecurityIds[0].key = $key
+
+
+        Invoke-RestMethod -Method Patch -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?api-version=1.61-internal" -Headers $headers -Body ($response | ConvertTo-Json) -ContentType "application/json"
+
     }
 }

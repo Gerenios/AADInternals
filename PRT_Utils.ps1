@@ -11,7 +11,9 @@ function Register-DeviceToAzureAD
         [Parameter(Mandatory=$False)]
         [String]$DeviceType="Windows",
         [Parameter(Mandatory=$False)]
-        [String]$OSVersion="10.0.18363.0"
+        [String]$OSVersion="10.0.18363.0",
+        [Parameter(Mandatory=$False)]
+        [Bool]$SharedDevice=$False
     )
     Process
     {
@@ -48,9 +50,10 @@ function Register-DeviceToAzureAD
 	        "OSVersion":         "$OSVersion",
 	        "DeviceDisplayName": "$DeviceName",
 	        "JoinType":           0,
-	        "attributes": {
+	        "Attributes": {
 		        "ReuseDevice":     "true",
-		        "ReturnClientSid": "true"
+		        "ReturnClientSid": "true",
+                "SharedDevice":    "$($SharedDevice.ToString().ToLower())"
 	        }
         }
 
@@ -140,7 +143,7 @@ function Decrypt-PRTSessionKey
         $encKey =  Convert-B64ToByteArray -B64 $parts[1]
         # The following could be used to decode the encData (and verify the encryption key) but can't do A256GCM with C#
         #$IV =      Convert-B64ToByteArray -B64 $parts[2]
-        #$encData = Convert-B64ToByteArray -B64 $parts[3] # Convert-B64ToByteArray -B64 $parts[3]
+        #$encData = Convert-B64ToByteArray -B64 $parts[3] 
         #$tag =     Convert-B64ToByteArray -B64 $parts[4]
 
         Write-Verbose "JWE: enc=$($header.enc), alg=$($header.alg)"
@@ -226,19 +229,28 @@ function Get-AccessTokenWithPRT
     )
     Process
     {
-        # Create parameters
-        $sso_nonce = (New-Guid).ToString()
-        $mscrid =    (New-Guid).ToString()
-        $requestId = (New-Guid).ToString()
+        $parsedCookie = Read-Accesstoken $Cookie
 
+        # Create parameters
+        $mscrid =    (New-Guid).ToString()
+        $requestId = $mscrid
+
+        
         # Create url and headers
-        $url = "https://login.microsoftonline.com/Common/oauth2/authorize?resource=$Resource&client_id=$ClientId&response_type=code&redirect_uri=$RedirectUri&client-request-id=$requestId&sso_nonce=$sso_nonce&mscrid=$mscrid"
+        $url = "https://login.microsoftonline.com/Common/oauth2/authorize?resource=$Resource&client_id=$ClientId&response_type=code&redirect_uri=$RedirectUri&client-request-id=$requestId&mscrid=$mscrid"
+
+        # Add sso_nonce if exist
+        if($parsedCookie.request_nonce)
+        {
+            $url += "&sso_nonce=$sso_nonce"
+        }
+
         $headers = @{
             "User-Agent" = ""
             "x-ms-RefreshTokenCredential" = $Cookie
             }
 
-        # Make the first request the get the authorisation code (tries to redirect so throws an error)
+        # First, make the request to get the authorisation code (tries to redirect so throws an error)
         $response = Invoke-RestMethod -Uri $url -Headers $headers -MaximumRedirection 0 -ErrorAction SilentlyContinue
 
         Write-Debug "RESPONSE: $($response.OuterXml)"
@@ -262,6 +274,22 @@ function Get-AccessTokenWithPRT
 
         if(!$code)
         {
+            if($response.html.body.h2.a.href -ne $null)
+            {
+                $values = $response.html.body.h2.a.href.Split("&")
+                foreach($value in $values)
+                {
+                    $row=$value.Split("=")
+                    if($row[0] -eq "sso_nonce")
+                    {
+                        $sso_nonce = $row[1]
+                        Write-Warning "Nonce needed. Try New-UserPRTToken with -Nonce $sso_nonce"
+                        break
+                    }
+                }
+                
+            }
+            
             throw "Code not received!"
         }
 

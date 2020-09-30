@@ -57,6 +57,7 @@ $functions=@(
     "Get-AccessTokenForMySignins"
     "Get-AccessTokenForAADJoin"
     "Get-AccessTokenForIntuneMDM"
+    "Get-AccessTokenForCloudShell"
     "Read-AccessToken"
     "Get-EndpointInstances"
     "Get-EndpointIps"
@@ -217,6 +218,11 @@ $functions=@(
     # MSGraphAPI.ps1
     "Get-AzureSignInLog"
     "Get-AzureAuditLog"
+    "Get-TenantAuthPolicy"
+    "Get-TenantGuestAccess"
+    "Set-TenantGuestAccess"
+    "Enable-TenantMsolAccess"
+    "Disable-TenantMsolAccess"
 
     # KillChain.ps1
     "Invoke-UserEnumerationAsOutsider"
@@ -236,10 +242,19 @@ $functions=@(
     "Join-DeviceToAzureAD"
     "New-P2PDeviceCertificate"
     "Remove-DeviceFromAzureAD"
+    "Get-DeviceRegAuthMethods"
+    "Set-DeviceRegAuthMethods"
+    "Get-DeviceTransportKey"
+    "Set-DeviceTransportKey"
 
     # MDM.ps1
     "Join-DeviceToIntune"
     "Start-DeviceIntuneCallback"
+    "Set-DeviceCompliant"
+    "Get-DeviceCompliance"
+
+    # CloudShell.ps1
+    "Start-CloudShell"
 
 )
 foreach($function in $functions)
