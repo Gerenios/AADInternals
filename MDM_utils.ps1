@@ -108,7 +108,7 @@ function Enroll-DeviceToMDM
 <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:u="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:wst="http://docs.oasis-open.org/ws-sx/ws-trust/200512" xmlns:ac="http://schemas.xmlsoap.org/ws/2006/12/authorization">
 	<s:Header>
 		<a:Action s:mustUnderstand="1">http://schemas.microsoft.com/windows/pki/2009/01/enrollment/RST/wstep</a:Action>
-		<a:MessageID>urn:uuid:0d5a1441-5891-453b-becf-a2e5f6ea3749</a:MessageID>
+		<a:MessageID>urn:uuid:$((New-Guid).ToString())</a:MessageID>
 		<a:ReplyTo>
 			<a:Address>http://www.w3.org/2005/08/addressing/anonymous</a:Address>
 		</a:ReplyTo>
@@ -171,7 +171,15 @@ function Enroll-DeviceToMDM
         # Clean the url
         $url=$enrollmentUrl.Replace(":443","")
 
-        $response = Invoke-RestMethod -Method Post -Uri $url -Body $csrBody -ContentType "application/soap+xml; charset=utf-8" -Headers $headers
+        # The user might not have the lisence
+        try
+        {
+            $response = Invoke-RestMethod -Method Post -Uri $url -Body $csrBody -ContentType "application/soap+xml; charset=utf-8" -Headers $headers
+        }
+        catch
+        {
+            throw $_
+        }
 
         # Get the data
         $binSecurityToken = $response.Envelope.Body.RequestSecurityTokenResponseCollection.RequestSecurityTokenResponse.RequestedSecurityToken.BinarySecurityToken.'#text'
@@ -210,7 +218,6 @@ function Enroll-DeviceToMDM
     }
 }
 
-
 # Sep 3rd 2020
 # Automatically responses to the given command array
 function New-SyncMLAutoresponse
@@ -226,6 +233,16 @@ function New-SyncMLAutoresponse
         [Parameter(Mandatory=$True)]
         [Hashtable]$Settings
     )
+    Begin
+    {
+        $response200 = @(
+            "Add"
+            "Replace"
+            "Atomic"
+            "Delete"
+            "Sequence"
+            )
+    }
     Process
     {
         $resCommands = @()
@@ -239,14 +256,20 @@ function New-SyncMLAutoresponse
                 # Just answer 400 to (almost) all requests
                 $errorCode = 400
 
+                # For NodeCache requests
+                if($command.Type -eq "Get" -and $command.LocURI.StartsWith("./Vendor/MSFT/NodeCache/"))
+                {
+                    $errorCode = 404
+                }
+
                 # Status must be 200 for predefined answers
-                if($command.type -eq "Get" -and [string]::IsNullOrEmpty($Settings[$command.LocURI]) -eq $false)
+                if($command.type -eq "Get" -and $Settings[$command.LocURI] -ne $null)
                 {
                     $errorCode = 200
                 }
 
-                # Okay, let's be nice for asked changes :)
-                if($command.Type -eq "Add" -or $command.Type -eq "Replace")
+                # Okay, let's be nice for some commands :)
+                if($response200 -contains $command.Type)
                 {
                     $errorCode = 200
                 }
@@ -264,7 +287,7 @@ function New-SyncMLAutoresponse
                 $resCommands += New-Object psobject -Property $attr
 
                 # Create the results message
-                if($command.type -eq "Get" -and [string]::IsNullOrEmpty($Settings[$command.LocURI]) -eq $false)
+                if($command.type -eq "Get" -and $Settings[$command.LocURI] -ne $null)
                 {
                     $attr = [ordered]@{
                         Type="Results"
@@ -277,6 +300,14 @@ function New-SyncMLAutoresponse
                     }
 
                     $resCommands += New-Object psobject -Property $attr
+                }
+
+                if($command.type -eq "Get" -and $errorCode -ne 200)
+                {
+                    #if($VerbosePreference)
+                    #{
+                        Write-Warning " < No data ($MsgID): $command"
+                    #}
                 }
 
             }
@@ -323,12 +354,40 @@ function New-SyncMLRequest
             {
                 "Alert"
                 {
-                    $syncBody += @"
+                    if($command.ItemData)
+                    {
+
+                        if($command.MetaType)
+                        {
+                            $meta = @"
+				<Meta>
+					<Type xmlns="syncml:metinf">$($command.MetaType)</Type> 
+				</Meta>
+"@
+                        }
+
+                        $syncBody += @"
+        <Alert>
+			<CmdID>$($command.CmdId)</CmdID>
+			<Data>$($command.Data)</Data>
+            <Item>
+$meta
+				<Data>$($command.ItemData)</Data> 
+			</Item>
+		</Alert>
+"@
+                    }
+                    else
+                    {
+                        $syncBody += @"
         <Alert>
 			<CmdID>$($command.CmdId)</CmdID>
 			<Data>$($command.Data)</Data>
 		</Alert>
 "@
+                    }
+                                        
+
                     break
                 }
                 "Replace"
@@ -362,7 +421,30 @@ function New-SyncMLRequest
                 }
                 "Atomic"
                 {
-
+                    $syncBody += "`n"
+                    $syncBody += @"
+        <Status>
+			<CmdID>$($command.CmdId)</CmdID>
+			<MsgRef>$($command.MsgRef)</MsgRef>
+			<CmdRef>$($command.CmdRef)</CmdRef>
+			<Cmd>$($command.Cmd)</Cmd>
+			<Data>200</Data>
+        </Status>
+"@
+                    break
+                }
+                "Sequence"
+                {
+                    $syncBody += "`n"
+                    $syncBody += @"
+        <Status>
+			<CmdID>$($command.CmdId)</CmdID>
+			<MsgRef>$($command.MsgRef)</MsgRef>
+			<CmdRef>$($command.CmdRef)</CmdRef>
+			<Cmd>$($command.Cmd)</Cmd>
+			<Data>200</Data>
+        </Status>
+"@
                     break
                 }
                 "Final"
@@ -409,6 +491,7 @@ function New-SyncMLRequest
         # Construct the body
 
         $syncML = @"
+<?xml version = "1.0" encoding = "UTF-8" ?>
 <SyncML>
 	<SyncHdr>
 		<VerDTD>$VerDTD</VerDTD>
@@ -524,9 +607,8 @@ function Parse-SyncMLResponse
                         }
 
                         $attr = [ordered]@{
-                            Type="Get"
+                            Type="Atomic"
                             CmdID =  $node.CmdID
-                            LocURI = ""
                         }
                         $commands.value += New-Object psobject -Property $attr
                         break
@@ -540,7 +622,7 @@ function Parse-SyncMLResponse
                         }
 
                         $attr = [ordered]@{
-                            Type="Get"
+                            Type="Sequence"
                             CmdID =  $node.CmdID
                             LocURI = ""
                         }
@@ -573,8 +655,6 @@ function Parse-SyncMLResponse
     }
 }
 
-
-
 # Sep 2nd 2020
 # Sends the given SyncML to Intune and returns the response as an xml document
 function Invoke-SyncMLRequest
@@ -589,7 +669,7 @@ function Invoke-SyncMLRequest
     Process
     {
         $headers=@{
-            "Content-Type" =   "application/vnd.syncml.dm+xml"
+            "Content-Type" =   "application/vnd.syncml.dm+xml; charset=utf-8"
             "Accept"       =   "application/vnd.syncml.dm+xml, application/octet-stream"
             "Accept-Charset" = "UTF-8"
             "User-Agent" =     "MSFT OMA DM Client/1.2.0.1"
@@ -599,7 +679,7 @@ function Invoke-SyncMLRequest
 
         try
         {
-            $response = Invoke-WebRequest -Certificate $Certificate -Method Post -Uri "https://r.manage.microsoft.com/devicegatewayproxy/cimhandler.ashx?mode=Maintenance&Platform=WoA" -Headers $headers -Body $SyncML -ErrorAction SilentlyContinue
+            $response = Invoke-WebRequest -UseBasicParsing -Certificate $Certificate -Method Post -Uri "https://r.manage.microsoft.com/devicegatewayproxy/cimhandler.ashx?mode=Maintenance&Platform=WoA" -Headers $headers -Body $SyncML -ErrorAction SilentlyContinue -ContentType "application/vnd.syncml.dm+xml; charset=utf-8"
             $xml = [xml]$response.content
         }
         catch
@@ -610,5 +690,48 @@ function Invoke-SyncMLRequest
         Write-Debug "Response: $($xml.OuterXml)"
 
         return $xml
+    }
+}
+
+
+# Gets the object id of the device using device id
+# Sep 11th 2020
+
+function Get-DeviceObjectId
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$DeviceId,
+        [Parameter(Mandatory=$True)]
+        [String]$TenantId,
+        [Parameter(Mandatory=$True)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+            "Accept" =        "application/json;odata=nometadata"
+        }
+
+        Write-Verbose "Getting objectId for device $DeviceId"
+        $devices = Invoke-RestMethod -Method Get -Uri "https://graph.windows.net/$tenantId/devices?`$filter=deviceId eq guid'$DeviceId'&`$select=objectId,displayName,deviceId&api-version=1.61-internal" -Headers $headers
+
+        foreach($device in $devices.value)
+        {
+            if($device.deviceId -eq $DeviceId)
+            {
+                $ObjectId = $device.objectId
+                break
+            }
+        }
+
+        if([string]::IsNullOrEmpty($ObjectId))
+        {
+            throw "Device $DeviceId not found!"
+        }
+
+        return $ObjectId
     }
 }

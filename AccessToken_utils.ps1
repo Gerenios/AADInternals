@@ -48,6 +48,9 @@ $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millis
                             "29d9ed98-a469-4536-ade2-f981bc1d605e" # Microsoft Authentication Broker (Azure MDM client)
                             "6f7e0f60-9401-4f5b-98e2-cf15bd5fd5e3" # Microsoft.AAD.BrokerPlugin resource:https://cs.dds.microsoft.com
                             "38aa3b87-a06d-4817-b275–7a316988d93b" # Microsoft AAD Cloud AP
+                            "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa" # Azure Android App
+                            "6c7e8096-f593-4d72-807f-a5f86dcc9c77" # Intune MAM client resource:https://intunemam.microsoftonline.com
+                            "4813382a-8fa7-425e-ab75-3b753aab3abb" # Authenticator App resource:ff9ebd75-fe62-434a-a6ce-b3f0a8592eaf
 #>
 
 
@@ -1074,8 +1077,6 @@ function Read-Accesstoken
         # Debug
         Write-Debug "PARSED ACCESS TOKEN: $($payloadObj | Out-String)"
         
-        Write-Verbose "Header: $(Convert-B64ToText -B64 $header)"
-
         # Return
         $payloadObj
     }
@@ -1131,9 +1132,11 @@ function Prompt-Credentials
         }
         elseif($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -ne "https://enrollment.manage.microsoft.com/") # Azure AD Join
         {
-            
             $auth_redirect="ms-aadj-redir://auth/drs"
-            
+        }
+        elseif($ClientId -eq "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa") # Azure Android App
+        {
+            $auth_redirect="https://azureapp"
         }
         
 
@@ -1846,7 +1849,7 @@ function Get-AccessTokenForSPO
     }
 }
 
-# Gets the access token for AAD Graph API
+# Gets the access token for My Signins
 # Jul 1st 2020
 function Get-AccessTokenForMySignins
 {
@@ -2052,6 +2055,64 @@ function Get-AccessTokenForIntuneMDM
     }
 }
 
+# Gets an access token for Azure Cloud Shell
+# Sep 9th 2020
+function Get-AccessTokenForCloudShell
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Azure Cloud Shell
+
+    .DESCRIPTION
+    Gets OAuth Access Token for Azure Cloud Shell
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+    
+    .Example
+    Get-AADIntAccessTokenForOneOfficeApps
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForCloudShell -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant
+    )
+    Process
+    {
+        Get-AccessToken -Resource "https://management.core.windows.net/" -ClientId "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken 
+    }
+}
+
 # Gets the access token for provisioning API and stores to cache
 # Refactored Jun 8th 2020
 function Get-AccessToken
@@ -2100,6 +2161,10 @@ function Get-AccessToken
             "ab9b8c07-8f02-4f72-87fa-80105867a763" # OneDrive Sync Engine
             "9bc3ab49-b65d-410a-85ad-de819febfddc" # SPO
             "29d9ed98-a469-4536-ade2-f981bc1d605e" # MDM
+            "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa" # Azure Android App
+            "6c7e8096-f593-4d72-807f-a5f86dcc9c77" # MAM
+            "4813382a-8fa7-425e-ab75-3b753aab3abb" # Microsoft authenticator
+            ""
         )
     }
     Process
@@ -2171,6 +2236,14 @@ function Get-AccessToken
             $RefreshToken= $OAuthInfo.refresh_token
             $ParsedToken=  Read-Accesstoken($OAuthInfo.access_token)
             $tenant_id =   $ParsedToken.tid
+
+            # Save the tokens to cache
+            if($SaveToCache)
+            {
+                Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
+                $Script:tokens["$ClientId-https://graph.windows.net"] =         $OAuthInfo.access_token
+                $Script:refresh_tokens["$ClientId-https://graph.windows.net"] = $OAuthInfo.refresh_token
+            }
 
             # Get the access token from response
             $access_token = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientId -TenantId $tenant_id -RefreshToken $RefreshToken -SaveToCache $SaveToCache

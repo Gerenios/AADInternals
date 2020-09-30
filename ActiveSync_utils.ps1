@@ -760,7 +760,7 @@ function Call-EAS
         # MUST be convert to bytes
         [byte[]]$body=XML2WBXML $Request
     
-        $response=Invoke-WebRequest -Uri $Url -Method Post -Headers $headers -Body $body -TimeoutSec 30
+        $response=Invoke-WebRequest -UseBasicParsing -Uri $Url -Method Post -Headers $headers -Body $body -TimeoutSec 30
     
         $wbxml = $response.Content
         if(![String]::IsNullOrEmpty($wbxml))

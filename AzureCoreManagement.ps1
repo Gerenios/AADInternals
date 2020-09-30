@@ -427,7 +427,7 @@ function Invoke-AzureVMScript
         }
 
         # Invoke the command
-        $response = Invoke-WebRequest -Method Post -Uri "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Compute/virtualMachines/$Server/runCommand?api-version=2018-04-01" -Headers $headers -Body ($body | ConvertTo-Json) -ContentType "application/json; charset=utf-8"
+        $response = Invoke-WebRequest -UseBasicParsing -Method Post -Uri "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Compute/virtualMachines/$Server/runCommand?api-version=2018-04-01" -Headers $headers -Body ($body | ConvertTo-Json) -ContentType "application/json; charset=utf-8"
 
         # Get the async operation url
         $async = $response.Headers["Azure-AsyncOperation"]
@@ -540,7 +540,7 @@ function Get-AzureVMRdpSettings
         $body="{""commandId"":""RDPSettings""}"
 
         # Invoke the command
-        $response = Invoke-WebRequest -Method Post -Uri "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Compute/virtualMachines/$Server/runCommand?api-version=2018-04-01" -Headers $headers -Body $body
+        $response = Invoke-WebRequest -UseBasicParsing -Method Post -Uri "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Compute/virtualMachines/$Server/runCommand?api-version=2018-04-01" -Headers $headers -Body $body
 
         # Get the async operation url
         $async = $response.Headers["Azure-AsyncOperation"]

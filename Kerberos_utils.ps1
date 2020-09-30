@@ -534,7 +534,7 @@ function Get-AccessTokenWithKerberosTicket
         }
         try
         {
-            $response = Invoke-WebRequest -Uri $url -Method Post -Headers $headers -Body $body
+            $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Post -Headers $headers -Body $body
         }
         catch
         {
@@ -565,7 +565,7 @@ function Get-AccessTokenWithKerberosTicket
 
         try
         {
-            $response = Invoke-WebRequest -Uri "https://login.microsoftonline.com/common/oauth2/token" -Method Post -Body $body
+            $response = Invoke-WebRequest -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -Method Post -Body $body
         }
         catch
         {

@@ -43,11 +43,11 @@ function Get-SPOAuthenticationHeader
         }
 
         # Step 1: Go to the requested site
-        $response = Invoke-WebRequest -uri $Site -MaximumRedirection 0 -ErrorAction SilentlyContinue
+        $response = Invoke-WebRequest -UseBasicParsing -uri $Site -MaximumRedirection 0 -ErrorAction SilentlyContinue
         
         # Step 2: Go to "/_layouts/15/Authenticate.aspx?Source=%2F"
         $url = $response.Headers.'Location'
-        $response = Invoke-WebRequest -uri $url -MaximumRedirection 0 -ErrorAction SilentlyContinue
+        $response = Invoke-WebRequest -UseBasicParsing -uri $url -MaximumRedirection 0 -ErrorAction SilentlyContinue
         $siteWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain $siteDomain
 
         # Step 3: Go to "/_forms/default.aspx?ReturnUrl=%2f_layouts%2f15%2fAuthenticate.aspx%3fSource%3d%252F&Source=cookie"
@@ -56,7 +56,7 @@ function Get-SPOAuthenticationHeader
         $e=$html.IndexOf('"',$s)
         $url=$html.Substring($s,$e-$s)
         $url="https://$siteDomain/$url"
-        $response = Invoke-WebRequest -uri $url -MaximumRedirection 0 -ErrorAction SilentlyContinue -WebSession $siteWebSession
+        $response = Invoke-WebRequest -UseBasicParsing -uri $url -MaximumRedirection 0 -ErrorAction SilentlyContinue -WebSession $siteWebSession
 
         # Create the cookie header for the login form
         $cookieHeaderValue=""
@@ -116,7 +116,7 @@ function Get-SPOAuthenticationHeader
             "id_token" = $id_token
             "correlation_id" = $correlation_id
         }
-        $response = Invoke-WebRequest -Uri $url -Method Post -Body $body -MaximumRedirection 0 -ErrorAction SilentlyContinue -WebSession $siteWebSession
+        $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Post -Body $body -MaximumRedirection 0 -ErrorAction SilentlyContinue -WebSession $siteWebSession
 
        
 
@@ -343,7 +343,7 @@ function Get-IDCRLCookie
         }
         
         # Invoke the API
-        $response=Invoke-WebRequest -Method Get "https://$Tenant-admin.sharepoint.com/_vti_bin/idcrl.svc/" -Headers $headers
+        $response=Invoke-WebRequest -UseBasicParsing -Method Get "https://$Tenant-admin.sharepoint.com/_vti_bin/idcrl.svc/" -Headers $headers
 
         # Extract the IDCRL cookie
         $cookie=$response.Headers.'Set-Cookie'
@@ -409,7 +409,7 @@ function Get-SPODigest
         }
 
         # Invoke the API
-        $response=Invoke-WebRequest -Method Post "https://$tenant.sharepoint.com/_vti_bin/sites.asmx" -Headers $headers -Body $Body -WebSession $session
+        $response=Invoke-WebRequest -UseBasicParsing -Method Post "https://$tenant.sharepoint.com/_vti_bin/sites.asmx" -Headers $headers -Body $Body -WebSession $session
 
         # Extract the Digest
         [xml]$xmlContent=$response.Content
@@ -489,7 +489,7 @@ function Get-SPOTenantSettings
         }
 
         # Invoke the API
-        $response=Invoke-WebRequest -Method Post "https://$tenant.sharepoint.com/_vti_bin/client.svc/ProcessQuery" -Headers $headers -Body $Body -WebSession $session
+        $response=Invoke-WebRequest -UseBasicParsing -Method Post "https://$tenant.sharepoint.com/_vti_bin/client.svc/ProcessQuery" -Headers $headers -Body $Body -WebSession $session
 
         $content = ($response.content | ConvertFrom-Json)
         

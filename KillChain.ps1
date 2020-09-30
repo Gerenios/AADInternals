@@ -35,12 +35,12 @@ function Invoke-ReconAsOutsider
     Tenant id:          05aea22e-32f3-4c35-831b-52735704feb3
     DesktopSSO enabled: False
 
-    Name                           DNS   MX    SPF  Type      STS
-    ----                           ---   --    ---  ----      ---
-    company.com                   True  True  True  Federated sts.company.com
-    company.mail.onmicrosoft.com  True  True  True  Managed
-    company.onmicrosoft.com       True  True  True  Managed
-    int.company.com              False False False  Managed 
+    Name                           DNS   MX    SPF  DMARC  Type      STS
+    ----                           ---   --    ---  -----  ----      ---
+    company.com                   True  True  True   True  Federated sts.company.com
+    company.mail.onmicrosoft.com  True  True  True   True  Managed
+    company.onmicrosoft.com       True  True  True  False  Managed
+    int.company.com              False False False  False  Managed 
 #>
     [cmdletbinding()]
     Param(
@@ -108,6 +108,9 @@ function Invoke-ReconAsOutsider
 
                 # Check the SPF record
                 $hasCloudSPF = HasCloudSPF -Domain $domain
+
+                # Check the DMARC record
+                $hasDMARC = HasDMARC -Domain $domain
             }
 
             # Check if the tenant has the Desktop SSO (aka Seamless SSO) enabled
@@ -131,12 +134,13 @@ function Invoke-ReconAsOutsider
 
             # Set the return object properties
             $attributes=[ordered]@{
-                "Name" = $domain
-                "DNS" =  $exists
-                "MX" =   $hasCloudMX
-                "SPF" =  $hasCloudSPF
-                "Type" = $realmInfo.NameSpaceType
-                "STS" =  $authUrl                    
+                "Name" =  $domain
+                "DNS" =   $exists
+                "MX" =    $hasCloudMX
+                "SPF" =   $hasCloudSPF
+                "DMARC" = $hasDMARC
+                "Type" =  $realmInfo.NameSpaceType
+                "STS" =   $authUrl                    
             }
             $domainInformation += New-Object psobject -Property $attributes
         }

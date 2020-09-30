@@ -83,7 +83,7 @@ function New-SAMLToken
         {
             $Certificate = Load-Certificate -FileName "$PSScriptRoot\any_sts.pfx" -Password ""
         }
-        elseif($Certificate -eq $null) # Load the ceftificate
+        elseif($Certificate -eq $null) # Load the certificate
         {
             $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword
         }

@@ -459,7 +459,7 @@ function Call-PSRP
         $url += "PSVersion=5.1.17134.590"
 
 
-        $response = Invoke-WebRequest -Method Post -Uri $url -Headers $headers -Body $Envelope -TimeoutSec 190 
+        $response = Invoke-WebRequest -UseBasicParsing -Method Post -Uri $url -Headers $headers -Body $Envelope -TimeoutSec 190 
                 
         
         Write-Verbose "RESPONSE: $response.Content"

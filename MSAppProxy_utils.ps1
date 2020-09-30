@@ -67,7 +67,7 @@ function Get-BootstrapConfiguration
 
         $url="https://$TenantId.bootstrap.msappproxy.net/ConnectorBootstrap"
         
-        $response = Invoke-WebRequest -Uri $url -Method Post -Certificate $Certificate -Body $body -ContentType "application/xml; charset=utf-8"
+        $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Post -Certificate $Certificate -Body $body -ContentType "application/xml; charset=utf-8"
         
         [xml]$xmlResponse = $response.Content
 
@@ -949,7 +949,7 @@ function Connect-ToAuthRelay
                                 try
                                 {
                                     Invoke-RestMethod -Uri $url -Method Post -Certificate $cert -Headers $headers -ContentType "" -ErrorAction SilentlyContinue
-                                    #$response = Invoke-WebRequest -Uri $url -Method Post -Certificate $cert -Headers $headers -ContentType "" -ErrorAction SilentlyContinue
+                                    #$response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Post -Certificate $cert -Headers $headers -ContentType "" -ErrorAction SilentlyContinue
                                 }
                                 catch
                                 {

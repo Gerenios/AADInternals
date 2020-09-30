@@ -179,7 +179,7 @@ function Get-AccessTokenForAzureMgmtAPI
                 "Referer"="https://portal.azure.com"
 
             }
-            $response = Invoke-WebRequest -uri "https://portal.azure.com/signin/idpRedirect.js/?feature.settingsportalinstance=&feature.refreshtokenbinding=true&feature.usemsallogin=true&feature.snivalidation=true&feature.setsamesitecookieattribute=true&feature.argsubscriptions=&feature.showservicehealthalerts=&idpRedirectCount=0" -Headers $headers
+            $response = Invoke-WebRequest -UseBasicParsing -uri "https://portal.azure.com/signin/idpRedirect.js/?feature.settingsportalinstance=&feature.refreshtokenbinding=true&feature.usemsallogin=true&feature.snivalidation=true&feature.setsamesitecookieattribute=true&feature.argsubscriptions=&feature.showservicehealthalerts=&idpRedirectCount=0" -Headers $headers
             $html=$response.Content
             $s=$html.IndexOf('https://login.microsoftonline.com')
             $e=$html.IndexOf('"',$s)
@@ -187,7 +187,7 @@ function Get-AccessTokenForAzureMgmtAPI
             $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "portal.azure.com"
 
             # Step 2: Go to login.microsoftonline.com to get configuration and cookies
-            $response = Invoke-WebRequest -uri $url -Headers @{Cookie="x-ms-gateway-slice=004; stsservicecookie=ests; AADSSO=NANoExtension; SSOCOOKIEPULLED=1"}
+            $response = Invoke-WebRequest -UseBasicParsing -uri $url -Headers @{Cookie="x-ms-gateway-slice=004; stsservicecookie=ests; AADSSO=NANoExtension; SSOCOOKIEPULLED=1"}
             $html = $response.Content
 
             $s=$html.IndexOf('$Config=')
@@ -202,7 +202,7 @@ function Get-AccessTokenForAzureMgmtAPI
             if($userInfo.EstsProperties.DomainType -eq 2) # =live account
             {
                 # Step L1: Go to login.live.com to get configuration and cookies
-                $response = Invoke-WebRequest -uri $config.urlGoToAADError
+                $response = Invoke-WebRequest -UseBasicParsing -uri $config.urlGoToAADError
                 $html = $response.Content
 
                 $s=$html.IndexOf('ServerData =')
@@ -246,7 +246,7 @@ function Get-AccessTokenForAzureMgmtAPI
 
                 }
 
-                $response = Invoke-WebRequest -Uri $config.urlPost -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $liveWebSession
+                $response = Invoke-WebRequest -UseBasicParsing -Uri $config.urlPost -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $liveWebSession
                 $html = $response.Content
 
                 # No well formed xml, so need to do some tricks.. First, find the form start and end tags
@@ -270,7 +270,7 @@ function Get-AccessTokenForAzureMgmtAPI
                     "code" = $code
                     "state" = $state
                 }
-                $response = Invoke-WebRequest -Uri $fmHF -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
+                $response = Invoke-WebRequest -UseBasicParsing -Uri $fmHF -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
                 $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
                 $html = $response.Content
                 $s=$html.IndexOf('$Config=')
@@ -286,7 +286,7 @@ function Get-AccessTokenForAzureMgmtAPI
                     "ctx"=$config.sCtx
                     "hpgrequestid"=(New-Guid).ToString()
                 }
-                $response = Invoke-WebRequest -Uri "https://login.microsoftonline.com/kmsi" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
+                $response = Invoke-WebRequest -UseBasicParsing -Uri "https://login.microsoftonline.com/kmsi" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
                 $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
                 $html = [xml]$response.Content
                 $code = $html.SelectSingleNode("//input[@name='code']").value
@@ -301,7 +301,7 @@ function Get-AccessTokenForAzureMgmtAPI
                     "state" = $state
                     "session_state" = $session_state
                 }
-                $response = Invoke-WebRequest -Uri "https://portal.azure.com/signin/index/" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
+                $response = Invoke-WebRequest -UseBasicParsing -Uri "https://portal.azure.com/signin/index/" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
                 $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "portal.azure.com"
                 $html=$response.Content
                 $s=$html.IndexOf('MsPortalImpl.redirectToUri("')
@@ -309,7 +309,7 @@ function Get-AccessTokenForAzureMgmtAPI
                 $url=$html.Substring($s+28,$e-$s-28) 
 
                 # Step L6: Go to portal.azure.com to get another redirect URL
-                $response = Invoke-WebRequest -Uri $url -Method Get -Headers $headers -WebSession $azureWebSession
+                $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Get -Headers $headers -WebSession $azureWebSession
                 $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "portal.azure.com"
                 $html=$response.Content
                 $s=$html.IndexOf('https://login.microsoftonline.com')
@@ -317,7 +317,7 @@ function Get-AccessTokenForAzureMgmtAPI
                 $url=$html.Substring($s,$e-$s)# |ConvertFrom-Json
 
                 # Step L7: Login to login.microsoftonline.com (again) using the received url to get code etc.
-                $response = Invoke-WebRequest -Uri $url -Method Get -ContentType "application/x-www-form-urlencoded" -Headers $headers -WebSession $MSOnlineComwebSession
+                $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Get -ContentType "application/x-www-form-urlencoded" -Headers $headers -WebSession $MSOnlineComwebSession
                 $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
                 $html = [xml]$response.Content
                 $code = $html.SelectSingleNode("//input[@name='code']").value
@@ -333,7 +333,7 @@ function Get-AccessTokenForAzureMgmtAPI
                     "state" = $state
                     "session_state" = $session_state
                 }
-                $response = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
+                $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
                 $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "portal.azure.com"
             
             }
@@ -364,7 +364,7 @@ function Get-AccessTokenForAzureMgmtAPI
                     "Upgrade-Insecure-Requests" = "1"
 
                 }
-                $response = Invoke-WebRequest -Uri "https://login.microsoftonline.com/common/login" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
+                $response = Invoke-WebRequest -UseBasicParsing -Uri "https://login.microsoftonline.com/common/login" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
                 $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
                 $html = $response.Content
                 $s=$html.IndexOf('$Config=')
@@ -380,7 +380,7 @@ function Get-AccessTokenForAzureMgmtAPI
                     "ctx"=$config.sCtx
                     "hpgrequestid"=(New-Guid).ToString()
                 }
-                $response = Invoke-WebRequest -Uri "https://login.microsoftonline.com/kmsi" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
+                $response = Invoke-WebRequest -UseBasicParsing -Uri "https://login.microsoftonline.com/kmsi" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
                 $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
                 $html = [xml]$response.Content
                 $code = $html.SelectSingleNode("//input[@name='code']").value
@@ -395,7 +395,7 @@ function Get-AccessTokenForAzureMgmtAPI
                     "state" = $state
                     "session_state" = $session_state
                 }
-                $response = Invoke-WebRequest -Uri "https://portal.azure.com/signin/index/" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
+                $response = Invoke-WebRequest -UseBasicParsing -Uri "https://portal.azure.com/signin/index/" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
             }
 
             # Get the OAuth token

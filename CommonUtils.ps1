@@ -62,6 +62,20 @@ Function Convert-B64ToText
     return [text.encoding]::UTF8.GetString(([byte[]](Convert-B64ToByteArray -B64 $B64)))
 }
 
+Function Convert-TextToB64
+{
+
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true)]
+        [String]
+        $Text
+    )
+
+    return Convert-ByteArrayToB64 -Bytes  ([text.encoding]::UTF8.GetBytes($text))
+}
+
 Function Convert-ByteArrayToHex
 {
 
@@ -232,9 +246,9 @@ function Load-Certificate
     )
     Process
     {
-        if(!(Test-Path $PfxFileName))
+        if(!(Test-Path $FileName))
         {
-            throw "Certificate file $PfxFileName not found!"
+            throw "Certificate file $FileName not found!"
         }
         
         # Load the certificate
@@ -335,5 +349,173 @@ function Unload-PrivateKey
             Write-Verbose "Could not unload Private Key from the certificate store. That's probably just okay: ""$($_.Exception.InnerException.Message)"""
         }
         
+    }
+}
+
+
+function Get-CompressedByteArray {
+
+	[CmdletBinding()]
+    Param (
+	[Parameter(Mandatory,ValueFromPipeline,ValueFromPipelineByPropertyName)]
+        [byte[]] $byteArray = $(Throw("-byteArray is required"))
+    )
+	Process {
+        Write-Verbose "Get-CompressedByteArray"
+       	[System.IO.MemoryStream] $output = New-Object System.IO.MemoryStream
+        $gzipStream = New-Object System.IO.Compression.GzipStream $output, ([IO.Compression.CompressionMode]::Compress)
+      	$gzipStream.Write( $byteArray, 0, $byteArray.Length )
+        $gzipStream.Close()
+        $output.Close()
+        $tmp = $output.ToArray()
+        Write-Output $tmp
+    }
+}
+
+
+function Get-DecompressedByteArray {
+
+	[CmdletBinding()]
+    Param (
+		[Parameter(Mandatory,ValueFromPipeline,ValueFromPipelineByPropertyName)]
+        [byte[]] $byteArray = $(Throw("-byteArray is required"))
+    )
+	Process {
+	    Write-Verbose "Get-DecompressedByteArray"
+        $input = New-Object System.IO.MemoryStream( , $byteArray )
+	    $output = New-Object System.IO.MemoryStream
+        $gzipStream = New-Object System.IO.Compression.GzipStream $input, ([IO.Compression.CompressionMode]::Decompress)
+	    $gzipStream.CopyTo( $output )
+        $gzipStream.Close()
+		$input.Close()
+		[byte[]] $byteOutArray = $output.ToArray()
+        Write-Output $byteOutArray
+    }
+}
+
+# Parses the given RSA Key BLOB and returns RSAParameters
+Function Parse-KeyBLOB
+{
+
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [Byte[]]$Key
+    )
+    process
+    {
+        # https://docs.microsoft.com/en-us/windows/win32/api/bcrypt/ns-bcrypt-bcrypt_rsakey_blob
+        # https://docs.microsoft.com/en-us/windows/win32/seccrypto/base-provider-key-blobs
+
+        # RSAPUBKEY
+        # DWORD magic   ("RSA1" = public, or "RSA2" = private)
+        # DWORD bitlen
+        # ORD pubex
+        $magic  = [text.encoding]::ASCII.GetString($Key[0..3])
+        $bitlen = [bitconverter]::ToUInt16($Key,4)
+        $publen = [bitconverter]::ToUInt16($Key,8)
+        $modlen = [bitconverter]::ToUInt16($Key,12)
+        $pri1len = [bitconverter]::ToUInt16($Key,16)
+        $pri2len = [bitconverter]::ToUInt16($Key,20)
+
+        $pubex  = $Key[24..(24+$publen-1)]
+
+        $p=24+$publen
+
+        $modulus = $key[($p)..($bitlen/8 + $p)]
+        $p += $modlen
+
+        # Private key
+        if($magic -eq "RSA2") 
+        {
+            # RSAPUBKEY rsapubkey;
+
+            # BYTE modulus[rsapubkey.bitlen/8];
+            # BYTE prime1[rsapubkey.bitlen/16];
+            # BYTE prime2[rsapubkey.bitlen/16];
+            # BYTE exponent1[rsapubkey.bitlen/16];
+            # BYTE exponent2[rsapubkey.bitlen/16];
+            # BYTE coefficient[rsapubkey.bitlen/16];
+            # BYTE privateExponent[rsapubkey.bitlen/8];
+
+            $prime1 =           $key[($p)..($p + $bitlen/16)] ; $p += $bitlen/16
+            $prime2 =           $key[($p)..($p + $bitlen/16)] ; $p += $bitlen/16
+            $exponent1 =        $key[($p)..($p + $bitlen/16)] ; $p += $bitlen/16
+            $exponent2 =        $key[($p)..($p + $bitlen/16)] ; $p += $bitlen/16
+            $coefficient =      $key[($p)..($p + $bitlen/16)] ; $p += $bitlen/16
+            $privateExponent =  $key[($p)..($p + $bitlen/8)] 
+            
+        }
+        
+        $attributes=@{
+            "D" =        $privateExponent
+            "DP" =       $exponent1
+            "DQ" =       $exponent2
+            "Exponent" = $pubex
+            "InverseQ" = $coefficient
+            "Modulus" =  $modulus
+            "P" =        $prime1
+            "Q"=         $prime2
+        }
+
+        [System.Security.Cryptography.RSAParameters]$RSAp = New-Object psobject -Property $attributes
+
+        return $RSAp
+
+    }
+}
+
+# Converts the given RSAParameters to DER
+Function Convert-RSAToDER
+{
+
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [System.Security.Cryptography.RSAParameters]$RSAParameters,
+        [Switch]$PEM
+    )
+    process
+    {
+        # Reverse bytes
+
+        $modulus =  $RSAParameters.Modulus[($RSAParameters.Modulus.Length)..0]
+        $exponent = $RSAParameters.Exponent[($RSAParameters.Exponent.Length)..0]
+
+        $der = Add-DERSequence -Data @(
+                    Add-DERSequence -Data @(
+                        # OID
+                        Add-DERTag -Tag 0x06 -Data @( 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01 )
+                    
+                        0x05 # Null
+                        0x00
+                    ) # Sequence
+                    Add-DERTag -Tag 0x03 -Data @(
+                        0x00 # Number of unused bits
+
+                        Add-DERSequence -Data @(
+                            Add-DERInteger -Data $modulus
+                            Add-DERInteger -Data $exponent
+                        
+                        ) # Sequence
+                    ) # Tag 0x03
+                    
+                ) # Sequence
+
+        if($PEM)
+        {
+            return @"
+-----BEGIN PUBLIC KEY-----
+$(Convert-ByteArrayToB64 -Bytes $der)
+-----END PUBLIC KEY-----
+"@
+        }                
+        else
+        {
+            return $der
+        }
+
     }
 }

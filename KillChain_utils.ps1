@@ -26,9 +26,26 @@ function HasCloudSPF
     )
     Process
     {
-        $results=Resolve-DnsName -Name $Domain -Type txt -DnsOnly -NoHostsFile -NoIdn | select strings | select -ExpandProperty strings
+        $results=Resolve-DnsName -Name $Domain -Type txt -DnsOnly -NoHostsFile -NoIdn | select strings | select -ExpandProperty strings -ErrorAction SilentlyContinue
 
         return ($results -like "*include:spf.protection.outlook.com*").Count -gt 0
+    }
+}
+
+# Checks whether the domain has SPF records allowing sending from cloud
+# Sep 23rd 2020
+function HasDMARC
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Domain
+    )
+    Process
+    {
+        $results=Resolve-DnsName -Name "_dmarc.$Domain" -Type txt -DnsOnly -NoHostsFile -NoIdn | select strings | select -ExpandProperty strings -ErrorAction SilentlyContinue
+
+        return ($results -like "v=DMARC1*").Count -gt 0
     }
 }
 

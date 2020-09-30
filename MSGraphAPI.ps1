@@ -494,3 +494,256 @@ function Get-MSGraphTeamsApps
         return $results
     }
 }
+
+# Gets the authorizationPolicy
+# Sep 18th 2020
+function Get-TenantAuthPolicy
+{
+<#
+    .SYNOPSIS
+    Gets tenant's authorization policy.
+
+    .DESCRIPTION
+    Gets tenant's authorization policy, including user and guest settings.
+
+    .PARAMETER AccessToken
+    Access token used to retrieve the authorization policy.
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph
+    PS C:\>Get-AADIntTenantAuthPolicy
+
+    id                                                : authorizationPolicy
+    allowInvitesFrom                                  : everyone
+    allowedToSignUpEmailBasedSubscriptions            : True
+    allowedToUseSSPR                                  : True
+    allowEmailVerifiedUsersToJoinOrganization         : False
+    blockMsolPowerShell                               : False
+    displayName                                       : Authorization Policy
+    description                                       : Used to manage authorization related settings across the company.
+    enabledPreviewFeatures                            : {}
+    guestUserRoleId                                   : 10dae51f-b6af-4016-8d66-8c2a99b929b3
+    permissionGrantPolicyIdsAssignedToDefaultUserRole : {microsoft-user-default-legacy}
+    defaultUserRolePermissions                        : @{allowedToCreateApps=True; allowedToCreateSecurityGroups=True; allowedToReadOtherUsers=True}
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        $results = Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy" 
+
+
+        return $results
+    }
+}
+
+# Gets the guest account restrictions
+# Sep 18th 2020
+function Get-TenantGuestAccess
+{
+<#
+    .SYNOPSIS
+    Gets the guest access level of the user's tenant.
+
+    .DESCRIPTION
+    Gets the guest access level of the user's tenant.
+
+    Inclusive:  Guest users have the same access as members
+    Normal:     Guest users have limited access to properties and memberships of directory objects
+    Restricted: Guest user access is restricted to properties and memberships of their own directory objects (most restrictive)
+
+    .PARAMETER AccessToken
+    Access token used to retrieve the access level.
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph -SaveToCache
+    PS C:\>Get-AADIntTenantGuestAccess
+
+    Access Description                                                                        RoleId                              
+    ------ -----------                                                                        ------                              
+    Normal Guest users have limited access to properties and memberships of directory objects 10dae51f-b6af-4016-8d66-8c2a99b929b3
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        $policy = Get-TenantAuthPolicy -AccessToken $AccessToken
+
+        $roleId = $policy.guestUserRoleId
+
+        
+        switch($roleId)
+        {
+            "a0b1b346-4d3e-4e8b-98f8-753987be4970" {
+                $attributes=[ordered]@{
+                    "Access" =      "Full"
+                    "Description" = "Guest users have the same access as members"
+                }
+                break
+            }
+            "10dae51f-b6af-4016-8d66-8c2a99b929b3" {
+                $attributes=[ordered]@{
+                    "Access" =      "Normal"
+                    "Description" = "Guest users have limited access to properties and memberships of directory objects"
+                }
+                break
+            }
+            "2af84b1e-32c8-42b7-82bc-daa82404023b" {
+                $attributes=[ordered]@{
+                    "Access" =      "Restricted"
+                    "Description" = "Guest user access is restricted to properties and memberships of their own directory objects (most restrictive)"
+                }
+                break
+            }
+        }
+
+        $attributes["RoleId"] = $roleId
+
+        return New-Object psobject -Property $attributes
+
+
+    }
+}
+
+# Sets the guest account restrictions
+# Sep 18th 2020
+function Set-TenantGuestAccess
+{
+<#
+    .SYNOPSIS
+    Sets the guest access level for the user's tenant.
+
+    .DESCRIPTION
+    Sets the guest access level for the user's tenant.
+
+    Inclusive:  Guest users have the same access as members
+    Normal:     Guest users have limited access to properties and memberships of directory objects
+    Restricted: Guest user access is restricted to properties and memberships of their own directory objects (most restrictive)
+
+    .PARAMETER AccessToken
+    Access token used to retrieve the access level.
+
+    .PARAMETER Level
+    Guest access level. One of Inclusive, Normal, or Restricted.
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph
+    PS C:\>Set-AADIntTenantGuestAccess -Level Normal
+
+    Access Description                                                                        RoleId                              
+    ------ -----------                                                                        ------                              
+    Normal Guest users have limited access to properties and memberships of directory objects 10dae51f-b6af-4016-8d66-8c2a99b929b3
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        
+        [Parameter(Mandatory=$True)]
+        [ValidateSet('Full','Normal','Restricted')]
+        [String]$Level
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+        
+        switch($Level)
+        {
+            "Full"       {$roleId = "a0b1b346-4d3e-4e8b-98f8-753987be4970"; break}
+            "Normal"     {$roleId = "10dae51f-b6af-4016-8d66-8c2a99b929b3"; break}
+            "Restricted" {$roleId = "2af84b1e-32c8-42b7-82bc-daa82404023b"; break}
+        }
+        $body = "{""guestUserRoleId"":""$roleId""}"
+
+
+        Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy/authorizationPolicy" -Method "PATCH" -Body $body
+
+        Get-TenantGuestAccess -AccessToken $AccessToken
+
+    }
+}
+
+
+# Enables Msol PowerShell access
+# Sep 18th 2020
+function Enable-TenantMsolAccess
+{
+<#
+    .SYNOPSIS
+    Enables Msol PowerShell module access for the user's tenant.
+
+    .DESCRIPTION
+    Enables Msol PowerShell module access for the user's tenant.
+
+    .PARAMETER AccessToken
+    Access token used to enable the Msol PowerShell access.
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph
+    PS C:\>Enable-AADIntTenantMsolAccess
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        $body = '{"blockMsolPowerShell":"false"}'
+
+        Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy/authorizationPolicy" -Method "PATCH" -Body $body
+    }
+}
+
+# Disables Msol PowerShell access
+# Sep 18th 2020
+function Disable-TenantMsolAccess
+{
+<#
+    .SYNOPSIS
+    Disables Msol PowerShell module access for the user's tenant.
+
+    .DESCRIPTION
+    Disables Msol PowerShell module access for the user's tenant.
+
+    .PARAMETER AccessToken
+    Access token used to disable the Msol PowerShell access.
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph
+    PS C:\>Disable-AADIntTenantMsolAccess
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        $body = '{"blockMsolPowerShell":"true"}'
+
+        Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy/authorizationPolicy" -Method "PATCH" -Body $body
+    }
+}

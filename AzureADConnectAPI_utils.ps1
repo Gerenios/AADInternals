@@ -281,7 +281,7 @@ function Call-ADSyncAPI
         try
         {
             # Sometimes no error at all..?
-            $response=Invoke-WebRequest -Uri "https://$Server/provisioningservice.svc" -ContentType "application/soap+msbin1" -Method POST -Body $envelope -Headers $headers
+            $response=Invoke-WebRequest -UseBasicParsing -Uri "https://$Server/provisioningservice.svc" -ContentType "application/soap+msbin1" -Method POST -Body $envelope -Headers $headers
             $stream=$response.RawContentStream
         }
         catch
