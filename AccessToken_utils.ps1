@@ -23,11 +23,11 @@ $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millis
     "azureadmin" =          "c44b4083-3bb0-49c1-b47d-974e53cbdf3c" # Azure Admin web ui
     "pta" =                 "cb1056e2-e479-49de-ae31-7812af012ed8" # Pass-through authentication
     "patnerdashboard" =     "4990cffe-04e8-4e8b-808a-1175604b879"  # Partner dashboard (missing on letter?)
-    "webshellsuite" =       "89bee1f7-5e6e-4d8a-9f3d-ecd601259da7" # WebShell suite
+    "webshellsuite" =       "89bee1f7-5e6e-4d8a-9f3d-ecd601259da7" # Office365 Shell WCSS-Client
     "teams" =               "1fec8e78-bce4-4aaf-ab1b-5451cc387264" # Teams
     "office" =              "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Office, ref. https://docs.microsoft.com/en-us/office/dev/add-ins/develop/register-sso-add-in-aad-v2
-    "office_online2" =      "57fb890c-0dab-4253-a5e0-7188c88b2bb4" # Office Online
-    "office_online" =       "bc59ab01-8403-45c6-8796-ac3ef710b3e3" # Office Online
+    "office_online2" =      "57fb890c-0dab-4253-a5e0-7188c88b2bb4" # SharePoint Online Client
+    "office_online" =       "bc59ab01-8403-45c6-8796-ac3ef710b3e3" # Outlook Online Add-in App
     "powerbi_contentpack" = "2a0c3efa-ba54-4e55-bdc0-770f9e39e9ee" # PowerBI content pack
     "aad_account" =         "0000000c-0000-0000-c000-000000000000" # https://account.activedirectory.windowsazure.com
     "sara" =                "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Microsoft Support and Recovery Assistant (SARA)
@@ -51,6 +51,7 @@ $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millis
                             "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa" # Azure Android App
                             "6c7e8096-f593-4d72-807f-a5f86dcc9c77" # Intune MAM client resource:https://intunemam.microsoftonline.com
                             "4813382a-8fa7-425e-ab75-3b753aab3abb" # Authenticator App resource:ff9ebd75-fe62-434a-a6ce-b3f0a8592eaf
+                            "1fec8e78-bce4-4aaf-ab1b-5451cc387264" # Teams client
 #>
 
 
@@ -1112,7 +1113,7 @@ function Prompt-Credentials
         # Some services need to use different auth_redirect
         if($ClientId -eq "1fec8e78-bce4-4aaf-ab1b-5451cc387264")     # Teams
         {
-            $auth_redirect="https://teams.office.com"
+            $auth_redirect="https://login.microsoftonline.com/common/oauth2/nativeclient"
         }
         elseif($ClientId -eq "9bc3ab49-b65d-410a-85ad-de819febfddc") # SPO
         {
@@ -1138,8 +1139,11 @@ function Prompt-Credentials
         {
             $auth_redirect="https://azureapp"
         }
+        elseif($ClientId -eq "33be1cef-03fb-444b-8fd3-08ca1b4d803f") # OneDrive Web
+        {
+            $auth_redirect="https://admin.onedrive.com/"
+        }
         
-
         # Create the url
         $request_id=(New-Guid).ToString()
         $url="https://login.microsoftonline.com/$Tenant/oauth2/authorize?resource=$Resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=openid profile"
@@ -1276,7 +1280,10 @@ function Get-AccessTokenForAADGraph
     UserPrincipalName of the user of Kerberos ticket
 
     .Parameter KerberosTicket
-    Kerberos token of the user..
+    Kerberos token of the user.
+
+    .Parameter UseDeviceCode
+    Use device code flow.
     
     .Example
     Get-AADIntAccessTokenForAADGraph
@@ -1297,13 +1304,15 @@ function Get-AccessTokenForAADGraph
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [switch]$SaveToCache
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "https://graph.windows.net" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken
+        Get-AccessToken -Credentials $Credentials -Resource "https://graph.windows.net" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
 
@@ -1352,11 +1361,13 @@ function Get-AccessTokenForMSGraph
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
         [switch]$SaveToCache
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken 
+        Get-AccessToken -Credentials $Credentials -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
 
@@ -1384,7 +1395,10 @@ function Get-AccessTokenForPTA
 
     .Parameter KerberosTicket
     Kerberos token of the user. 
-
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
     .Example
     Get-AADIntAccessTokenForPTA
     
@@ -1404,11 +1418,13 @@ function Get-AccessTokenForPTA
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
         [switch]$SaveToCache
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken 
+        Get-AccessToken -Credentials $Credentials -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
 
@@ -1437,6 +1453,9 @@ function Get-AccessTokenForOfficeApps
     .Parameter KerberosTicket
     Kerberos token of the user. 
     
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
     .Example
     Get-AADIntAccessTokenForOfficeApps
     
@@ -1456,11 +1475,13 @@ function Get-AccessTokenForOfficeApps
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
         [switch]$SaveToCache
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "https://officeapps.live.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken 
+        Get-AccessToken -Credentials $Credentials -Resource "https://officeapps.live.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
 
@@ -1489,6 +1510,9 @@ function Get-AccessTokenForEXO
     .Parameter KerberosTicket
     Kerberos token of the user. 
     
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
     .Example
     Get-AADIntAccessTokenForEXO
     
@@ -1508,12 +1532,17 @@ function Get-AccessTokenForEXO
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
-        [switch]$SaveToCache
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("https://graph.microsoft.com","https://outlook.office365.com")]
+        [String]$Resource="https://outlook.office365.com"
     )
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Credentials $Credentials -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken 
+        Get-AccessToken -Credentials $Credentials -Resource $Resource -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
 
@@ -1541,7 +1570,10 @@ function Get-AccessTokenForEXOPS
 
     .Parameter KerberosTicket
     Kerberos token of the user. 
-
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
     .Parameter Certificate
     x509 device certificate.
     
@@ -1564,6 +1596,8 @@ function Get-AccessTokenForEXOPS
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
         [switch]$SaveToCache,
 
         [Parameter(Mandatory=$False)]
@@ -1576,7 +1610,7 @@ function Get-AccessTokenForEXOPS
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Credentials $Credentials -Resource "https://outlook.office365.com" -ClientId "a0c73c16-a7e3-4564-9a95-2bdf47383716" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -UserPrincipalName $UserPrincipalName -SaveToCache $SaveToCache -PRTToken $PRTToken 
+        Get-AccessToken -Credentials $Credentials -Resource "https://outlook.office365.com" -ClientId "a0c73c16-a7e3-4564-9a95-2bdf47383716" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -UserPrincipalName $UserPrincipalName -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
 
@@ -1615,7 +1649,7 @@ function Get-AccessTokenForSARA
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Resource "https://api.diagnostics.office.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken 
+        Get-AccessToken -Resource "https://api.diagnostics.office.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
 
@@ -1645,6 +1679,9 @@ function Get-AccessTokenForOneDrive
     .Parameter KerberosTicket
     Kerberos token of the user. 
     
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
     .Example
     Get-AADIntAccessTokenForOneDrive
     
@@ -1666,11 +1703,13 @@ function Get-AccessTokenForOneDrive
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
         [switch]$SaveToCache
     )
     Process
     {
-        Get-AccessToken -Resource "https://$Tenant-my.sharepoint.com/" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials  -SaveToCache $SaveToCache -PRTToken $PRTToken 
+        Get-AccessToken -Resource "https://$Tenant-my.sharepoint.com/" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials  -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
 
@@ -1699,7 +1738,10 @@ function Get-AccessTokenForOfficeApps
 
     .Parameter KerberosTicket
     Kerberos token of the user. 
-
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
     .Parameter UserPrincipalName
     UserPrincipalName of the user of Kerberos token
     
@@ -1722,11 +1764,13 @@ function Get-AccessTokenForOfficeApps
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
         [switch]$SaveToCache
     )
     Process
     {
-        Get-AccessToken -Resource "https://officeapps.live.com" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken 
+        Get-AccessToken -Resource "https://officeapps.live.com" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
 
@@ -1755,7 +1799,10 @@ function Get-AccessTokenForAzureCoreManagement
 
     .Parameter KerberosTicket
     Kerberos token of the user. 
-
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
     .Parameter UserPrincipalName
     UserPrincipalName of the user of Kerberos token
     
@@ -1778,13 +1825,15 @@ function Get-AccessTokenForAzureCoreManagement
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [String]$Tenant
     )
     Process
     {
-        Get-AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken 
+        Get-AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
 
@@ -1813,12 +1862,18 @@ function Get-AccessTokenForSPO
 
     .Parameter KerberosTicket
     Kerberos token of the user. 
-
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
     .Parameter UserPrincipalName
     UserPrincipalName of the user of Kerberos token
 
     .Parameter Tenant
     The tenant name of the organization, ie. company.onmicrosoft.com -> "company"
+
+    .Parameter Admin
+    Get the token for admin portal
     
     .Example
     Get-AADIntAccessTokenForSPO
@@ -1839,13 +1894,20 @@ function Get-AccessTokenForSPO
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
         [Parameter(Mandatory=$True)]
         [String]$Tenant,
-        [switch]$SaveToCache
+        [switch]$SaveToCache,
+        [switch]$Admin
     )
     Process
     {
-        Get-AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken 
+        if($Admin)
+        {
+            $prefix = "-admin"
+        }
+        Get-AccessToken -Resource "https://$Tenant$prefix.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
 
@@ -1939,7 +2001,10 @@ function Get-AccessTokenForAADJoin
 
     .Parameter KerberosTicket
     Kerberos token of the user. 
-
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
     .Parameter UserPrincipalName
     UserPrincipalName of the user of Kerberos token
 
@@ -1965,13 +2030,15 @@ function Get-AccessTokenForAADJoin
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [switch]$SaveToCache
     )
     Process
     {
-        Get-AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -ForceMFA $true
+        Get-AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -ForceMFA $true
     }
 }
 
@@ -2000,7 +2067,10 @@ function Get-AccessTokenForIntuneMDM
 
     .Parameter KerberosTicket
     Kerberos token of the user. 
-
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
     .Parameter UserPrincipalName
     UserPrincipalName of the user of Kerberos token
 
@@ -2038,6 +2108,8 @@ function Get-AccessTokenForIntuneMDM
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
         [switch]$SaveToCache,
 
         [Parameter(Mandatory=$False)]
@@ -2051,7 +2123,7 @@ function Get-AccessTokenForIntuneMDM
     )
     Process
     {
-        Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -Resource $Resource -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword
+        Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -Resource $Resource -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword
     }
 }
 
@@ -2080,7 +2152,10 @@ function Get-AccessTokenForCloudShell
 
     .Parameter KerberosTicket
     Kerberos token of the user. 
-
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
     .Parameter UserPrincipalName
     UserPrincipalName of the user of Kerberos token
     
@@ -2103,13 +2178,80 @@ function Get-AccessTokenForCloudShell
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [String]$Tenant
     )
     Process
     {
-        Get-AccessToken -Resource "https://management.core.windows.net/" -ClientId "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken 
+        Get-AccessToken -Resource "https://management.core.windows.net/" -ClientId "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+    }
+}
+
+# Gets an access token for Teams
+# Oct 3rd 2020
+function Get-AccessTokenForTeams
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Teams
+
+    .DESCRIPTION
+    Gets OAuth Access Token for Teams
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+    
+    .Example
+    Get-AADIntAccessTokenForTeams
+    
+    .Example
+    PS C:\>Get-AADIntAccessTokenForTeams -SaveToCache
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("https://api.spaces.skype.com", "https://outlook.com", "https://*.microsoftstream.com")]
+        [String]$Resource="https://api.spaces.skype.com"
+    )
+    Process
+    {
+        Get-AccessToken -Resource $Resource -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
 
@@ -2142,6 +2284,8 @@ function Get-AccessToken
         [Parameter(Mandatory=$False)]
         [bool]$ForceMFA=$false,
         [Parameter(Mandatory=$False)]
+        [bool]$UseDeviceCode=$false,
+        [Parameter(Mandatory=$False)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
         [Parameter(Mandatory=$False)]
         [string]$PfxFileName,
@@ -2164,7 +2308,7 @@ function Get-AccessToken
             "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa" # Azure Android App
             "6c7e8096-f593-4d72-807f-a5f86dcc9c77" # MAM
             "4813382a-8fa7-425e-ab75-3b753aab3abb" # Microsoft authenticator
-            ""
+            "8c59ead7-d703-4a27-9e55-c96a0054c8d2"
         )
     }
     Process
@@ -2180,6 +2324,12 @@ function Get-AccessToken
         {
             # Get token using the kerberos token
             $OAuthInfo = Get-AccessTokenWithPRT -Cookie $PRTToken -Resource $Resource -ClientId $ClientId
+            $access_token = $OAuthInfo.access_token
+        }
+        elseif($UseDeviceCode) # Check if we want to use device code flow
+        {
+            # Get token using device code
+            $OAuthInfo = Get-AccessTokenUsingDeviceCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant
             $access_token = $OAuthInfo.access_token
         }
         else
@@ -2372,6 +2522,96 @@ function Get-AccessTokenWithRefreshToken
 
         # Return
         return $response.access_token    
+    }
+}
+
+# Gets access token using device code flow
+# Oct 13th 2020
+function Get-AccessTokenUsingDeviceCode
+{
+    [cmdletbinding()]
+    Param(
+        
+        [Parameter(Mandatory=$True)]
+        [String]$ClientId,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$False)]
+        [String]$Resource="https://graph.windows.net"
+    )
+    Process
+    {
+        # Check the tenant
+        if([string]::IsNullOrEmpty($Tenant))
+        {
+            $Tenant="Common"
+        }
+
+        # Create a body for the first request
+        $body=@{
+            "client_id" = $ClientId
+            "resource" =  $Resource
+        }
+
+        # Invoke the request to get device and user codes
+        $authResponse = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/$tenant/oauth2/devicecode?api-version=1.0" -Body $body
+
+        Write-Host $authResponse.message
+
+        $continue = $true
+        $interval = $authResponse.interval
+        $expires =  $authResponse.expires_in
+
+        # Create body for authentication subsequent requests
+        $body=@{
+            "client_id" =  $ClientId
+            "grant_type" = "urn:ietf:params:oauth:grant-type:device_code"
+            "code" =       $authResponse.device_code
+            "resource" =   $Resource
+        }
+
+
+        # Loop while pending or until timeout exceeded
+        while($continue)
+        {
+            Start-Sleep -Seconds $interval
+            $total += $interval
+
+            if($total -gt $expires)
+            {
+                Write-Error "Timeout occurred"
+                return
+            }
+                        
+            # Try to get the response. Will give 40x while pending so we need to try&catch
+            try
+            {
+                $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token?api-version=1.0 " -Body $body -ErrorAction SilentlyContinue
+            }
+            catch
+            {
+                # This normal flow, always returns 40x unless successful
+                $details=$_.ErrorDetails.Message | ConvertFrom-Json
+                $continue = $details.error -eq "authorization_pending"
+                Write-Verbose $details.error
+                Write-Host "." -NoNewline
+
+                if(!$continue)
+                {
+                    # Not authorization_pending so this is a real error :(
+                    Write-Error $details.error_description
+                    return
+                }
+            }
+
+            # If we got response, all okay!
+            if($response)
+            {
+                Write-Host "" 
+                return $response
+            }
+        }
+
     }
 }
 

@@ -1,9 +1,9 @@
 ﻿# Add some assemblies
-Add-type -AssemblyName System.xml.linq
-Add-Type -AssemblyName System.Runtime.Serialization
-Add-Type -AssemblyName System.Windows.Forms 
-Add-Type -AssemblyName System.Web
-Add-Type -AssemblyName System.Web.Extensions 
+Add-type -AssemblyName System.xml.linq              -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.Runtime.Serialization -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.Windows.Forms         -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.Web                   -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.Web.Extensions        -ErrorAction SilentlyContinue
 
 # Print the welcome message
 $manifest = Import-PowerShellDataFile "$PSScriptRoot\AADInternals.psd1"
@@ -17,7 +17,7 @@ $logo=@"
  / ___ |/ ___ |/ /_/ _/ // / / / /_/  __/ /  / / / / /_/ / (__  ) 
 /_/  |_/_/  |_/_____/___/_/ /_/\__/\___/_/  /_/ /_/\__,_/_/____/  
   
- v$version by @NestoriSyynimaa
+ v$version by @NestoriSyynimaa - Cloud Identity Summit 2020 edition
 "@
 
 Write-Host $logo -ForegroundColor Yellow
@@ -58,6 +58,7 @@ $functions=@(
     "Get-AccessTokenForAADJoin"
     "Get-AccessTokenForIntuneMDM"
     "Get-AccessTokenForCloudShell"
+    "Get-AccessTokenForTeams"
     "Read-AccessToken"
     "Get-EndpointInstances"
     "Get-EndpointIps"
@@ -231,6 +232,7 @@ $functions=@(
     "Invoke-UserEnumerationAsGuest"
     "Invoke-ReconAsInsider"
     "Invoke-UserEnumerationAsInsider"
+    "Invoke-Phishing"
 
     # WBAWeaponiser.ps1
     "New-InvitationVBA"
@@ -255,6 +257,18 @@ $functions=@(
 
     # CloudShell.ps1
     "Start-CloudShell"
+
+    # CommonUtils.ps1
+    "Get-Error"
+
+    # Teams.ps1
+    "Get-SkypeToken"
+    "Set-TeamsAvailability"
+    "Set-TeamsStatusMessage"
+    "Search-TeamsUser"
+    "Send-TeamsMessage"
+    "Get-TeamsMessages"
+    "Remove-TeamsMessages"
 
 )
 foreach($function in $functions)

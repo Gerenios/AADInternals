@@ -225,7 +225,8 @@ function Get-AccessTokenWithPRT
         [Parameter(Mandatory=$True)]
         [String]$ClientId,
         [Parameter(Mandatory=$False)]
-        [String]$RedirectUri="urn:ietf:wg:oauth:2.0:oob"
+        [String]$RedirectUri="urn:ietf:wg:oauth:2.0:oob",
+        [switch]$GetNonce
     )
     Process
     {
@@ -283,8 +284,17 @@ function Get-AccessTokenWithPRT
                     if($row[0] -eq "sso_nonce")
                     {
                         $sso_nonce = $row[1]
-                        Write-Warning "Nonce needed. Try New-UserPRTToken with -Nonce $sso_nonce"
-                        break
+                        if($GetNonce)
+                        {
+                            # Just return the nonce
+                            return $sso_nonce
+                        }
+                        else
+                        {
+                            # Invalid PRT, nonce is reuired
+                            Write-Warning "Nonce needed. Try New-AADIntUserPRTToken with -GetNonce switch or -Nonce $sso_nonce parameter"
+                            break
+                        }
                     }
                 }
                 

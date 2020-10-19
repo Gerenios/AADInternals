@@ -519,3 +519,60 @@ $(Convert-ByteArrayToB64 -Bytes $der)
 
     }
 }
+
+
+# Gets the error description from AzureAD
+# Aug 2nd 2020
+Function Get-Error
+{
+    <#
+    .SYNOPSIS
+    Gets a error description for the given error code.
+
+    .DESCRIPTION
+    Gets a error description for the given error code. 
+
+    .Parameter ErrorCode
+    Azure AD error code
+
+    .Example
+    Get-AADIntError -ErrorCode AADST700019
+
+    700019: Application ID {identifier} cannot be used or is not authorized.
+
+    .Example
+    Get-AADIntError -ErrorCode 700019
+
+    700019: Application ID {identifier} cannot be used or is not authorized.
+#>
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [String]$ErrorCode
+    )
+    Process
+    {
+        # Get the error message
+        $response=Invoke-RestMethod -Method Get -Uri "https://login.microsoftonline.com/error?code=$ErrorCode"
+
+        if($response.IndexOf("<table>") -gt 0)
+        {
+            $s=$response.IndexOf("<td>Error Code</td>")+23
+            $e=$response.IndexOf("</td>",$s)
+            $code=$response.Substring($s,$e-$s)
+
+            $s=$response.IndexOf("<td>Message</td>")+20
+            $e=$response.IndexOf("</td>",$s)
+            $message=$response.Substring($s,$e-$s)
+
+            Write-Host "$code`: $message"
+        }
+        else
+        {
+            Write-Host "Error $ErrorCode not found!"
+        }
+
+    }
+}
+
