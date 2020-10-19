@@ -88,14 +88,18 @@ function Get-ODSyncFiles
         [Parameter(Mandatory=$False)]
         [guid]$DomainGuid,
         [Parameter(Mandatory=$False)]
+        [boolean]$Mac=$false,
+        [Parameter(Mandatory=$False)]
         [guid]$MachineGuid
     )
     Process
     {
         # Set the special headers
-        $headers=@{
-            "X-MachineDomainInfo" = "{$($DomainGuid.toString())}"
-            "X-MachineId" = "$($MachineGuid.toString())"
+        $headers=@{"X-MachineId" = "$($MachineGuid.toString())"}
+
+        if(!$MAC)
+        {
+            $headers["X-MachineDomainInfo"] = "{$($DomainGuid.toString())}"
         }
 
         # Paging..
@@ -117,7 +121,7 @@ function Get-ODSyncFiles
             $responseHeaders = @{}
 
             # Get the response using StreamReader, otherwise the response is not properly decoded (using ISO-8859-1 instead of UTF-8)
-            $response = Invoke-ODCommand -Command $command -OneDriveSettings $OneDriveSettings -Accept "Application/xml" -headers $headers -UseStreamReader -ResponseHeaders ([ref]$responseHeaders)
+            $response = Invoke-ODCommand -Command $command -OneDriveSettings $OneDriveSettings -Accept "Application/xml" -headers $headers -UseStreamReader -ResponseHeaders ([ref]$responseHeaders) -Mac $Mac
 
             if($response -eq $null -or [String]::IsNullOrEmpty($responseHeaders["Value"]["X-HasMoreData"]) -or $responseHeaders["Value"]["X-HasMoreData"] -ne "True")
             {
@@ -159,6 +163,9 @@ function Get-OneDriveFiles
 
         .Parameter FoldersOnly
         Doesn't handle files but only folders
+
+        .Parameter Mac
+        Pretend to be a macOS client
     
         .Example
         $os = New-AADIntOneDriveSettings
@@ -200,14 +207,15 @@ function Get-OneDriveFiles
         [Parameter(Mandatory=$False)]
         [int]$MaxItems=500,
         [Parameter(Mandatory=$False)]
-        [guid]$DomainGuid=(New-Guid),
+        [guid]$DomainGuid = (New-Guid),
+        [switch]$Mac,
         [switch]$PrintOnly,
         [switch]$FoldersOnly
     )
     Process
     {
         # Get the list of sync files
-        $allSyncFiles = Get-ODSyncFiles -OneDriveSettings $OneDriveSettings -MaxItems $MaxItems -DomainGuid $DomainGuid -MachineGuid (New-Guid)
+        $allSyncFiles = Get-ODSyncFiles -OneDriveSettings $OneDriveSettings -MaxItems $MaxItems -DomainGuid $DomainGuid -MachineGuid (New-Guid) -Mac $Mac
         foreach($syncFiles in $allSyncFiles)
         {
             # Dowload the OneDrive root folder
@@ -241,6 +249,9 @@ function Send-OneDriveFile
 
         .Parameter DomainGuid
         Guid of the domain of user's computer.
+
+        .Parameter Mac
+        Pretend to be a macOS client
     
         .Example
         $os = New-AADIntOneDriveSettings
@@ -278,6 +289,8 @@ function Send-OneDriveFile
         [String]$FolderId,
         [Parameter(Mandatory=$False)]
         [guid]$DomainGuid=(New-Guid),
+        [Parameter(Mandatory=$False)]
+        [switch]$Mac,
         [Parameter(Mandatory=$False)]
         [String]$ETag
     )
@@ -350,24 +363,29 @@ Content-ID:<"$fileUUID":Default>
             "X-UpdateGroupId" = "60"
             "X-UpdateRing" = "Prod"
             #"X-SubscriptionIdToNotNotify" = (New-Guid).ToString()
-            "X-MachineDomainInfo" = "{$($DomainGuid.toString())}"
+            #"X-MachineDomainInfo" = "{$($DomainGuid.toString())}"
             #"X-MachineId" = "$((New-Guid).toString())"
             #"X-RequestStats" ="btuc=6;did=$((New-Guid).toString());ftuc=1"
             "X-CustomIdentity" = "SkyDriveSync=$((New-Guid).toString())"
             "X-GeoMoveOptions" = "HttpRedirection"
         }
 
+        if(!$MAC)
+        {
+            $headers["X-MachineDomainInfo"] = "{$($DomainGuid.toString())}"
+        }
+
         $responseHeaders = @{}
 
         # First get the X-RequestDigest
-        Invoke-ODCommand -OneDriveSettings $OneDriveSettings -Command $command -Body ([byte[]]$body) -Scenario "" -UseStreamReader -ResponseHeaders ([ref]$responseHeaders) -headers $headers -Accept "Application/Web3s+xml"
+        Invoke-ODCommand -OneDriveSettings $OneDriveSettings -Command $command -Body ([byte[]]$body) -Scenario "" -UseStreamReader -ResponseHeaders ([ref]$responseHeaders) -headers $headers -Accept "Application/Web3s+xml" -Mac $Mac
         if(![String]::IsNullOrEmpty($responseHeaders["Value"]["X-RequestDigest"]))
         {
             $headers+=@{
                 "X-RequestDigest" = $responseHeaders["Value"]["X-RequestDigest"]
             }
             # The try to send again
-            [xml]$response = Invoke-ODCommand -OneDriveSettings $OneDriveSettings -Command $command -Body ([byte[]]$body) -Scenario "" -UseStreamReader -headers $headers -Accept "Application/Web3s+xml"
+            [xml]$response = Invoke-ODCommand -OneDriveSettings $OneDriveSettings -Command $command -Body ([byte[]]$body) -Scenario "" -UseStreamReader -headers $headers -Accept "Application/Web3s+xml" -Mac $Mac
         }
 
         # Return
@@ -473,7 +491,7 @@ function Get-ODDocument
             $session.Cookies.Add($webCookie)
 
             # Download the file
-            Invoke-WebRequest -UseBasicParsing -Method Get -Uri $DocFile.Url -OutFile ".$($DocFile.Path)" -WebSession $session
+            Invoke-WebRequest -Method Get -Uri $DocFile.Url -OutFile ".$($DocFile.Path)" -WebSession $session
 
             # Set the date attributes
             $FileItem = Get-Item ".$($DocFile.Path)"

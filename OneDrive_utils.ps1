@@ -51,7 +51,7 @@ function Get-ODAuthenticationCookie
         }
 
         # Call the authentication API
-        $response = Invoke-WebRequest -UseBasicParsing -uri $url -MaximumRedirection 0 -ErrorAction SilentlyContinue -Method Post -ContentType "application/x-www-form-urlencoded" -Headers $headers
+        $response = Invoke-WebRequest -uri $url -MaximumRedirection 0 -ErrorAction SilentlyContinue -Method Post -ContentType "application/x-www-form-urlencoded" -Headers $headers
         
         # Return the SPOIDCRL cookie
         ($response.headers["Set-Cookie"].split(";"))[0]
@@ -80,20 +80,28 @@ function Invoke-ODCommand
         [Parameter(Mandatory=$False)]
         [Switch]$UseStreamReader,
         [Parameter(Mandatory=$False)]
-        [PSObject][ref]$ResponseHeaders
+        [PSObject][ref]$ResponseHeaders,
+        [Parameter(Mandatory=$False)]
+        [boolean]$Mac=$False
+
     )
     Process
     {
         # Set the headers
-        $headers+=@{
-                "Accept"= $Accept
-                "User-Agent"="Microsoft SkyDriveSync 19.192.0926.0012 ship; Windows NT 10.0 (17763)"
+        $headers["Accept"] = $Accept
+
+        if($MAC)
+        {
+            $headers["User-Agent"] = "Microsoft SkyDriveSync 20.169.0823.0006 ship; Mac OS X 10.15.7"
         }
+        else
+        {
+            $headers["User-Agent"] = "Microsoft SkyDriveSync 19.192.0926.0012 ship; Windows NT 10.0 (17763)"
+        }
+
         if(![string]::IsNullOrEmpty($Scenario))
         {
-            $headers += @{ 
-                    "X-UserScenario"= $Scenario 
-            }
+            $headers["X-UserScenario"] = $Scenario 
         }
 
         # Create a web session for the authentication cookie
@@ -115,11 +123,11 @@ function Invoke-ODCommand
             {
                 if($Body -ne $null)
                 {
-                    $fullResponse = Invoke-WebRequest -UseBasicParsing -uri $url -Method Post -Headers $headers -WebSession $session -Body $Body
+                    $fullResponse = Invoke-WebRequest -uri $url -Method Post -Headers $headers -WebSession $session -Body $Body
                 }
                 else
                 {
-                    $fullResponse = Invoke-WebRequest -UseBasicParsing -uri $url -Method Get -Headers $headers -WebSession $session
+                    $fullResponse = Invoke-WebRequest -uri $url -Method Get -Headers $headers -WebSession $session
                 }
 
                 $response = [System.IO.StreamReader]::new($fullResponse.RawContentStream, [System.Text.Encoding]::UTF8).ReadToEnd()
@@ -137,7 +145,7 @@ function Invoke-ODCommand
         {
             if($_.Exception -like "*(501)*")
             {
-                Write-Error "Got 501 - try using a proper domain guid"
+                Write-Error "Got 501 - try using a -Mac switch or proper domain guid"
             }
             elseif($Body -ne $null -and $_.Exception -like "*(403)*" -and $ResponseHeaders -ne $null)
             {

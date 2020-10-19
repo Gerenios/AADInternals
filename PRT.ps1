@@ -110,6 +110,12 @@ function New-UserPRTToken
     .Parameter Settings
     PSObject containing refresh_token and session_key attributes.
 
+    .Parameter Nonce
+    Nonce to be added to the token.
+
+    .Parameter GetNonce
+    Get nonce automatically by connecting to Azure AD.
+
     .EXAMPLE
     Get-AADIntAccessTokenForAADJoin -SaveToCache
     PS C:\>Join-AADIntAzureAD -DeviceName "My computer" -DeviceType "Commodore" -OSVersion "C64"
@@ -130,17 +136,17 @@ function New-UserPRTToken
 
     PS C:\>$prtKeys = Get-UserAADIntPRTKeys -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -Credentials $cred
 
-    PS C:\>$prtToken = New-AADIntUserPRTToken -RefreshToken $prtKeys.refresh_token -SessionKey $prtKeys.session_key
+    PS C:\>$prtToken = New-AADIntUserPRTToken -RefreshToken $prtKeys.refresh_token -SessionKey $prtKeys.session_key -GetNonce
 
     PS C:\>$at = Get-AADIntAccessTokenForAADGraph -PRTToken $prtToken
 
     .EXAMPLE
-    PS C:\>New-AADIntUserPRTToken -RefreshToken "AQABAAAAAAAGV_bv21oQQ4ROqh0_1-tAHenMcJD..." -SessionKey "O1g9LD9+jiE5yFulMcIeCPZrttzfEHyIPtF5X17cA5+="
+    PS C:\>New-AADIntUserPRTToken -RefreshToken "AQABAAAAAAAGV_bv21oQQ4ROqh0_1-tAHenMcJD..." -SessionKey "O1g9LD9+jiE5yFulMcIeCPZrttzfEHyIPtF5X17cA5+=" 
 
     eyJhbGciOiJIUzI1NiIsICJjdHgiOiJBQUFBQUFBQUFBQUF...
 
     .EXAMPLE
-    PS C:\>New-AADIntUserPRTToken -Settings $prtKeys
+    PS C:\>New-AADIntUserPRTToken -Settings $prtKeys -GetNonce
 
     eyJhbGciOiJIUzI1NiIsICJjdHgiOiJBQUFBQUFBQUFBQUF...
     
@@ -156,7 +162,8 @@ function New-UserPRTToken
         [Parameter(Mandatory=$False)]
         [String]$Nonce,
         [Parameter(ParameterSetName='Settings',Mandatory=$True)]
-        $Settings
+        $Settings,
+        [switch]$GetNonce
     )
     Process
     {
@@ -200,15 +207,26 @@ function New-UserPRTToken
             "iat" =           $iat
         }
 
-        # If nonce is given, use it!
+        # Fetch the nonce!
+        if($GetNonce) 
+        {
+            # Create a temporary JWT and get the nonce (the Resource & ClientId can be anything)
+            $jwt = New-JWT -Key $key -Header $hdr -Payload $pld
+            $Nonce = Get-AccessTokenWithPRT -GetNonce -Cookie $jwt -Resource "I Love" -ClientId "Microsoft"
+        }
+
+        # If nonce is given (or fetched), use it!
         if($Nonce)
         {
             $pld["request_nonce"] = $Nonce
         }
+        else
+        {
+            Write-Warning "No nonce provided so the token is invalid. Use -GetNonce switch or provide the nonce with -Nonce" 
+        }
 
         # Create the JWT
         $jwt = New-JWT -Key $key -Header $hdr -Payload $pld
-
 
         # Return
         return $jwt
@@ -856,7 +874,7 @@ function Remove-DeviceFromAzureAD
 
         try
         {
-            $response = Invoke-WebRequest -UseBasicParsing -Certificate $Certificate -Method Delete -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/$($deviceID)?api-version=1.0" -Headers $headers -ErrorAction SilentlyContinue
+            $response = Invoke-WebRequest -Certificate $Certificate -Method Delete -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/$($deviceID)?api-version=1.0" -Headers $headers -ErrorAction SilentlyContinue
         }
         catch
         {

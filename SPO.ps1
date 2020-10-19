@@ -55,7 +55,7 @@ function Get-SPOSiteGroups
         }
 
         # Invoke the request
-        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/web/sitegroups" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
+        $response=Invoke-WebRequest -Uri "$Site/_api/web/sitegroups" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
 
         if($response.StatusCode -eq 200)
         {
@@ -144,7 +144,7 @@ function Get-SPOSiteUsers
         }
 
         # Invoke the request
-        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/web/siteusers" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue
+        $response=Invoke-WebRequest -Uri "$Site/_api/web/siteusers" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue
 
         if($response.StatusCode -eq 200)
         {
@@ -236,7 +236,7 @@ function Get-SPOUserProperties
         $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
 
         # Invoke the request
-        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/sp.userprofiles.peoplemanager/getpropertiesfor(@v)?@v='$User'" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue 
+        $response=Invoke-WebRequest -Uri "$Site/_api/sp.userprofiles.peoplemanager/getpropertiesfor(@v)?@v='$User'" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue 
 
         if($response.StatusCode -eq 200)
         {
@@ -347,7 +347,7 @@ function Get-SPOSiteUserProperties
         }
 
         # Invoke the request
-        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/SP.UserProfiles.PeopleManager/GetPropertiesFor(accountName=@v)?@v='$UserName'" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
+        $response=Invoke-WebRequest -Uri "$Site/_api/SP.UserProfiles.PeopleManager/GetPropertiesFor(accountName=@v)?@v='$UserName'" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
 
         if($response.StatusCode -eq 200)
         {
@@ -471,7 +471,7 @@ function Set-SPOSiteUserProperty
         }
 
         # Invoke the request
-        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/SP.UserProfiles.PeopleManager/SetSingleValueProfileProperty" -Method Post -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers -ContentType "application/json" -Body ($body | ConvertTo-Json)
+        $response=Invoke-WebRequest -Uri "$Site/_api/SP.UserProfiles.PeopleManager/SetSingleValueProfileProperty" -Method Post -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers -ContentType "application/json" -Body ($body | ConvertTo-Json)
 
         if($response.StatusCode -eq 200)
         {
@@ -480,3 +480,86 @@ function Set-SPOSiteUserProperty
     }
 }
 
+
+# Sep 6th 2020
+function Get-SPOSettings
+{
+<#
+    .SYNOPSIS
+    Gets SharePoint Online settings
+
+    .DESCRIPTION
+    Gets SharePoint Online settings
+
+    .Parameter AccessToken
+    SharePoint Online Access Token
+
+    .Parameter Tenant
+    The tenant name of the organization, ie. company.onmicrosoft.com -> "company"
+
+    .Example
+    PS C:\>Get-AADIntAccessTokenForSPO -Admin -SaveToCache -Tenant company
+    PS C:\>Get-AADIntSPOSettings -Tenant Company
+
+    _ObjectType_                                          : Microsoft.Online.SharePoint.TenantAdministration.Tenant
+    _ObjectIdentity_                                      : 4b09819f-80c3-b000-9cfe-8c850fbea6d5|908bed80-a04a-4433-b4a0-883d9847d110:908c17b8-5ebe-450c-9073-15e52aa1739b
+                                                            Tenant
+    AIBuilderEnabled                                      : False
+    AIBuilderSiteInfoList                                 : {}
+    AIBuilderSiteList                                     : {}
+    AIBuilderSiteListFileName                             : 
+    AllowCommentsTextOnEmailEnabled                       : True
+    AllowDownloadingNonWebViewableFiles                   : True
+    AllowedDomainListForSyncClient                        : {}
+    AllowEditing                                          : True
+    AllowGuestUserShareToUsersNotInSiteCollection         : False
+    AllowLimitedAccessOnUnmanagedDevices                  : False
+    AllowSelectSGsInODBListInTenant                       : 
+    AnyoneLinkTrackUsers                                  : False
+    ApplyAppEnforcedRestrictionsToAdHocRecipients         : True
+    BccExternalSharingInvitations                         : False
+    ...
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$Tenant
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant-admin.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
+
+        $body=@"
+<Request xmlns="http://schemas.microsoft.com/sharepoint/clientquery/2009" SchemaVersion="15.0.0.0" LibraryVersion="16.0.0.0" ApplicationName="Javascript Library">
+	<Actions>
+		<ObjectPath Id="1" ObjectPathId="0" />
+		<Query Id="2" ObjectPathId="0">
+			<Query SelectAllProperties="true">
+				<Properties />
+			</Query>
+		</Query>
+	</Actions>
+	<ObjectPaths>
+		<Constructor Id="0" TypeId="{268004ae-ef6b-4e9b-8425-127220d84719}" />
+	</ObjectPaths>
+</Request>
+"@
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+        }
+
+        
+        # Invoke the request
+        $response=Invoke-RestMethod -Uri "https://$Tenant-admin.sharepoint.com/_vti_bin/client.svc/ProcessQuery" -Method Post -Body $body -Headers $headers -UseBasicParsing
+
+        if($response.count -gt 4)
+        {
+            $response[4]
+        }
+
+    }
+}
