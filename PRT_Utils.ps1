@@ -4,23 +4,73 @@ function Register-DeviceToAzureAD
 
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$DeviceName,
         [Parameter(Mandatory=$False)]
-        [String]$DeviceType="Windows",
+        [String]$DeviceType,
         [Parameter(Mandatory=$False)]
-        [String]$OSVersion="10.0.18363.0",
+        [String]$OSVersion,
         [Parameter(Mandatory=$False)]
-        [Bool]$SharedDevice=$False
+        [Bool]$SharedDevice=$False,
+
+        [Parameter(Mandatory=$False)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [Parameter(Mandatory=$False)]
+        [String]$DomainName,
+        [Parameter(Mandatory=$False)]
+        [Guid]$TenantId,
+        [Parameter(Mandatory=$False)]
+        [String]$DomainController,
+        [Parameter(Mandatory=$False)]
+        [String]$SID
     )
     Process
     {
-        # Get the domain and tenant id
-        $at_info =  Read-Accesstoken -AccessToken $AccessToken 
-        $domain =   $at_info.upn.Split("@")[1]
-        $tenantId = $at_info.tid
+        # If certificate provided, this is a Hybrid Join
+        if($hybrid = $Certificate -ne $null)
+        {
+            # Load the "user" certificate private key
+            try
+            {
+                $privateKey =  Load-PrivateKey -Certificate $Certificate
+            }
+            catch
+            {
+                Write-Error "Could not extract the private key from the given certificate!"
+                return
+            }
+
+            $deviceId = $certificate.Subject.Split("=")[1]
+            try
+            {
+                $deviceIdGuid = [Guid]$deviceId
+            }
+            catch
+            {
+                Write-Error "The certificate subject is not a valid device id (GUID)!"
+                return
+            }
+
+            # Create the signature blob
+            $clientIdentity =  "$($SID).$((Get-Date).ToUniversalTime().ToString("u"))"
+            $bClientIdentity = [System.Text.Encoding]::ASCII.GetBytes($clientIdentity)
+            $signedBlob =      $privateKey.SignData($bClientIdentity, "SHA256")
+            $b64SignedBlob =   Convert-ByteArrayToB64 -Bytes $signedBlob
+        }
+        else
+        {
+            # Get the domain and tenant id
+            $at_info =  Read-Accesstoken -AccessToken $AccessToken
+            if([string]::IsNullOrEmpty($DomainName))
+            { 
+                $DomainName =   $at_info.upn.Split("@")[1]
+            }
+            $tenantId = [GUID]$at_info.tid
+
+            $headers=@{"Authorization" = "Bearer $AccessToken"}
+        }
 
         # Create a private key
         $rsa = [System.Security.Cryptography.RSA]::Create(2048)
@@ -36,33 +86,68 @@ function Register-DeviceToAzureAD
         $transportKey = Convert-ByteArrayToB64 -Bytes $rsa.Key.Export([System.Security.Cryptography.CngKeyBlobFormat]::GenericPublicBlob)
         
         # Create the request body
-        # JoinType 0 = Azure AD join,       transport key = public key
-        # JoinType 4 = Azure AD registered, transport key = RSA
-        $body=@"
+        # JoinType 0 = Azure AD join,        transport key = public key
+        # JoinType 4 = Azure AD registered,  transport key = RSA
+        # JoinType 6 = Azure AD hybrid join, transport key = public key. Hybrid join this way is not supported, there must be an existing device with user cert.
+
+        $body=@{
+            "CertificateRequest" = @{
+                "Type" = "pkcs10"
+                "Data" = $csr
+                }
+            "Attributes" = @{
+                "ReuseDevice" =     $true
+                "ReturnClientSid" = $true
+                "SharedDevice" =    $SharedDevice
+                }
+        }
+        if($hybrid)
         {
-	        "CertificateRequest": {
-		        "Type": "pkcs10",
-		        "Data": "$csr"
-	        },
-	        "TransportKey":      "$transportKey",
-	        "TargetDomain":      "$Domain",
-	        "DeviceType":        "$DeviceType",
-	        "OSVersion":         "$OSVersion",
-	        "DeviceDisplayName": "$DeviceName",
-	        "JoinType":           0,
-	        "Attributes": {
-		        "ReuseDevice":     "true",
-		        "ReturnClientSid": "true",
-                "SharedDevice":    "$($SharedDevice.ToString().ToLower())"
-	        }
+            $body["JoinType"] = 6 # Hybrid Join
+            $body["ServerAdJoinData"] = @{
+                    "TransportKey" =           $transportKey
+	                "TargetDomain" =           $DomainName
+	                "DeviceType" =             $DeviceType
+	                "OSVersion" =              $OSVersion
+	                "DeviceDisplayName" =      $DeviceName
+                    "SourceDomainController" = $DomainController
+                    "TargetDomainId" =         $tenantId.ToString()
+                    "ClientIdentity" =  @{
+                        "Type" =               "sha256signed"
+                        "Sid" =                $clientIdentity
+                        "SignedBlob" =         $b64SignedBlob
+                    }
+                }
+        }
+        else
+        {
+            $body["JoinType"] = 0 # Join
+            $body["TransportKey"] =      $transportKey
+	        $body["TargetDomain"] =      $DomainName
+	        $body["DeviceType"] =        $DeviceType
+	        $body["OSVersion"] =         $OSVersion
+	        $body["DeviceDisplayName"] = $DeviceName
+                   
         }
 
-"@
-        $headers=@{
-            "Authorization" = "Bearer $AccessToken"
-}
+        
         # Make the enrollment request
-        $response = Invoke-RestMethod -Method Post -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/?api-version=1.0" -Headers $headers -Body $body -ContentType "application/json; charset=utf-8"
+        try
+        {
+            if($hybrid)
+            {
+                $response = Invoke-RestMethod -Method Put -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/$deviceId`?api-version=1.0" -Body $($body | ConvertTo-Json -Depth 5) -ContentType "application/json; charset=utf-8"
+            }
+            else
+            {
+                $response = Invoke-RestMethod -Method Post -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/?api-version=1.0" -Headers $headers -Body $($body | ConvertTo-Json -Depth 5) -ContentType "application/json; charset=utf-8"
+            }
+        }
+        catch
+        {
+            Write-Error $_
+            return
+        }
 
         Write-Debug "RESPONSE: $response"
         
@@ -213,7 +298,7 @@ function Get-PRTDerivedKey
 }
 
 # Get the access token with PRT
-# Aug 20th
+# Aug 20th 2020
 function Get-AccessTokenWithPRT
 {
     [cmdletbinding()]
@@ -323,13 +408,34 @@ function Get-AccessTokenWithPRT
     }
 }
 
-# Get the access token with PRT2
+# Get the access token with BPRT
+# Jan 10th 2021
+function Get-AccessTokenWithBPRT
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$BPRT,
+        [Parameter(Mandatory=$True)]
+        [String]$Resource,
+        [Parameter(Mandatory=$True)]
+        [String]$ClientId
+    )
+    Process
+    {
+        Get-AccessTokenWithRefreshToken -Resource "urn:ms-drs:enterpriseregistration.windows.net" -ClientId "b90d5b8f-5503-4153-b545-b31cecfaece2" -TenantId "Common" -RefreshToken $BPRT
+    }
+}
+
+# Get the token with deviceid claim
 # Aug 28th
 function Set-AccessTokenDeviceAuth
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        [bool]$BPRT,
+        [Parameter(Mandatory=$False)]
         [string]$AccessToken,
         [Parameter(Mandatory=$True)]
         [string]$RefreshToken,
@@ -349,21 +455,36 @@ function Set-AccessTokenDeviceAuth
             $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword -Exportable
         }
 
-        # Get the claims from the access token
-        $claims = Read-Accesstoken -AccessToken $AccessToken
+        if($BPRT)
+        {
+            # Fixed values for BPRT to get access token for Intune MDM
+            $clientId = "b90d5b8f-5503-4153-b545-b31cecfaece2"
+            $resource = "https://enrollment.manage.microsoft.com/" 
+        }
+        else
+        {
+            # This is the only supported client id :(
+            $clientId = "29d9ed98-a469-4536-ade2-f981bc1d605e"
+
+            # Get the claims from the access token to get the resource
+            $claims = Read-Accesstoken -AccessToken $AccessToken
+            $resource = $claims.aud
+        }
         
         # Get the private key
         $privateKey = Load-PrivateKey -Certificate $Certificate 
-
-        # This is the only supported client id :(
-        $clientId="29d9ed98-a469-4536-ade2-f981bc1d605e"
 
         $body=@{
             "grant_type" =          "srv_challenge"
             "windows_api_version" = "2.0"
             "client_id" =           $clientId
             "redirect_uri" =        "ms-appx-web://Microsoft.AAD.BrokerPlugin/DRS"
-            "resource" =            $claims.aud
+            "resource" =            $resource
+        }
+
+        if($BPRT)
+        {
+            $body.Remove("redirect_uri")
         }
                 
         # Get the nonce
@@ -383,7 +504,7 @@ function Set-AccessTokenDeviceAuth
 
         $pld = [ordered]@{
             "win_ver" =       $OSVersion
-            "resource" =      $claims.aud
+            "resource" =      $resource
             "scope" =         "openid aza"
             "request_nonce" = $nonce
             "refresh_token" = $RefreshToken
@@ -391,6 +512,12 @@ function Set-AccessTokenDeviceAuth
             "iss" =           "aad:brokerplugin"
             "grant_type" =    "refresh_token"
             "client_id" =     $clientId
+        }
+
+        if($BPRT)
+        {
+            $pld.Remove("redirect_uri")
+            $pld["scope"] = "openid"
         }
 
         # Create the JWT
@@ -405,6 +532,11 @@ function Set-AccessTokenDeviceAuth
 
         # Make the request to get the new access token
         $response = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body
+        
+        if($BPRT)
+        {
+            $response | Add-Member -NotePropertyName "refresh_token" -NotePropertyValue $RefreshToken
+        }
 
         Write-Debug "ACCESS TOKEN: $($response.access_token)"
         Write-Debug "REFRESH TOKEN: $($response.refresh_token)"
@@ -509,7 +641,6 @@ function Get-PRTKeyInfo
         }
 
         # Create the JWT
-        #$jwt = New-JWT -Key ( Get-PRTDerivedKey -B64Context $context -B64SessionKey $SessionKey ) -Header $hdr -Payload $pld
         $jwt = New-JWT -PrivateKey $privateKey -Header $hdr -Payload $pld
         
         # Construct the body

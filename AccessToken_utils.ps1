@@ -52,6 +52,8 @@ $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millis
                             "6c7e8096-f593-4d72-807f-a5f86dcc9c77" # Intune MAM client resource:https://intunemam.microsoftonline.com
                             "4813382a-8fa7-425e-ab75-3b753aab3abb" # Authenticator App resource:ff9ebd75-fe62-434a-a6ce-b3f0a8592eaf
                             "1fec8e78-bce4-4aaf-ab1b-5451cc387264" # Teams client
+                            "de0853a1-ab20-47bd-990b-71ad5077ac7b" # Windows Configuration Designer (WCD)
+                            "b90d5b8f-5503-4153-b545-b31cecfaece2" # AADJ CSP
 #>
 
 
@@ -61,7 +63,7 @@ $resources=@{
     "aad_graph_api"=         "https://graph.windows.net"
     "ms_graph_api"=          "https://graph.microsoft.com"
     "azure_mgmt_api" =       "https://management.azure.com"
-    "windows_net_mgmt_api" = "https://management.core.windows.net"
+    "windows_net_mgmt_api" = "https://management.core.windows.net/"
     "cloudwebappproxy" =     "https://proxy.cloudwebappproxy.net/registerapp"
     "officeapps" =           "https://officeapps.live.com"
     "outlook" =              "https://outlook.office365.com"
@@ -1209,7 +1211,8 @@ function Get-AccessTokenFromCache
         [String]$ClientID,
         [Parameter(Mandatory=$True)]
         [String]$Resource,
-        [switch]$IncludeRefreshToken
+        [switch]$IncludeRefreshToken,
+        [boolean]$Force=$false
     )
     Process
     {
@@ -1231,7 +1234,7 @@ function Get-AccessTokenFromCache
         {
             # Check that the audience of the access token is correct
             $audience=(Read-Accesstoken -AccessToken $AccessToken).aud
-            if($audience -ne $Resource)
+            if(($audience -ne $Resource) -and ($Force -eq $False))
             {
                 # Wrong audience
                 Write-Verbose "ACCESS TOKEN HAS WRONG AUDIENCE: $audience. Exptected: $resource."
@@ -1284,6 +1287,9 @@ function Get-AccessTokenForAADGraph
 
     .Parameter UseDeviceCode
     Use device code flow.
+
+    .Parameter Resource
+    Resource, defaults to "https://graph.windows.net"
     
     .Example
     Get-AADIntAccessTokenForAADGraph
@@ -1308,11 +1314,13 @@ function Get-AccessTokenForAADGraph
         [switch]$UseDeviceCode,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
-        [switch]$SaveToCache
+        [switch]$SaveToCache,
+        [ValidateSet("https://graph.windows.net", "urn:ms-drs:enterpriseregistration.windows.net","urn:ms-drs:enterpriseregistration.microsoftonline.us")]
+        [String]$Resource="https://graph.windows.net"
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "https://graph.windows.net" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
+        Get-AccessToken -Credentials $Credentials -Resource $Resource -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
 
@@ -1833,7 +1841,7 @@ function Get-AccessTokenForAzureCoreManagement
     )
     Process
     {
-        Get-AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+        Get-AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
 
@@ -1976,6 +1984,7 @@ function Get-AccessTokenForMySignins
     }
 }
 
+
 # Gets an access token for Azure AD Join
 # Aug 26th 2020
 function Get-AccessTokenForAADJoin
@@ -2004,6 +2013,9 @@ function Get-AccessTokenForAADJoin
     
     .Parameter UseDeviceCode
     Use device code flow.
+
+    .Parameter BPRT
+    Bulk PRT token, can be created with New-AADIntBulkPRTToken
     
     .Parameter UserPrincipalName
     UserPrincipalName of the user of Kerberos token
@@ -2032,13 +2044,15 @@ function Get-AccessTokenForAADJoin
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='BPRT',Mandatory=$True)]
+        [string]$BPRT,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [switch]$SaveToCache
     )
     Process
     {
-        Get-AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -ForceMFA $true
+        Get-AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -ForceMFA $true -BPRT $BPRT
     }
 }
 
@@ -2073,6 +2087,9 @@ function Get-AccessTokenForIntuneMDM
     
     .Parameter UserPrincipalName
     UserPrincipalName of the user of Kerberos token
+
+    .Parameter BPRT
+    Bulk PRT token, can be created with New-AADIntBulkPRTToken
 
     .Parameter Tenant
     The tenant name of the organization, ie. company.onmicrosoft.com -> "company"
@@ -2110,6 +2127,9 @@ function Get-AccessTokenForIntuneMDM
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='BPRT',Mandatory=$True)]
+        [string]$BPRT,
+
         [switch]$SaveToCache,
 
         [Parameter(Mandatory=$False)]
@@ -2123,7 +2143,7 @@ function Get-AccessTokenForIntuneMDM
     )
     Process
     {
-        Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -Resource $Resource -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword
+        Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -Resource $Resource -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword -BPRT $BPRT
     }
 }
 
@@ -2255,6 +2275,78 @@ function Get-AccessTokenForTeams
     }
 }
 
+
+# Gets an access token for Azure AD Management API
+# Nov 11th 2020
+function Get-AccessTokenForAADIAMAPI
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Azure AD IAM API
+
+    .DESCRIPTION
+    Gets OAuth Access Token for Azure AD IAM API
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+    
+    .Example
+    Get-AccessTokenForAADIAMAPI
+    
+    .Example
+    PS C:\>Get-AccessTokenForAADIAMAPI -SaveToCache
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant
+    )
+    Process
+    {
+        # First get the access token for AADGraph
+        $AccessTokens = Get-AccessToken -Resource "https://graph.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -IncludeRefreshToken $True
+
+        # Get the actual token
+        $AccessToken = Get-AccessTokenWithRefreshToken -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -SaveToCache $SaveToCache -RefreshToken $AccessTokens[1] -TenantId (Read-AADIntAccesstoken $AccessTokens[0]).tid
+
+        if(!$SaveToCache)
+        {
+            return $AccessToken
+        }
+    }
+}
+
 # Gets the access token for provisioning API and stores to cache
 # Refactored Jun 8th 2020
 function Get-AccessToken
@@ -2285,6 +2377,8 @@ function Get-AccessToken
         [bool]$ForceMFA=$false,
         [Parameter(Mandatory=$False)]
         [bool]$UseDeviceCode=$false,
+        [Parameter(Mandatory=$False)]
+        [string]$BPRT,
         [Parameter(Mandatory=$False)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
         [Parameter(Mandatory=$False)]
@@ -2322,7 +2416,7 @@ function Get-AccessToken
         }
         elseif(![String]::IsNullOrEmpty($PRTToken)) # Check if we got a PRT token
         {
-            # Get token using the kerberos token
+            # Get token using the PRT token
             $OAuthInfo = Get-AccessTokenWithPRT -Cookie $PRTToken -Resource $Resource -ClientId $ClientId
             $access_token = $OAuthInfo.access_token
         }
@@ -2330,6 +2424,15 @@ function Get-AccessToken
         {
             # Get token using device code
             $OAuthInfo = Get-AccessTokenUsingDeviceCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant
+            $access_token = $OAuthInfo.access_token
+        }
+        elseif(![String]::IsNullOrEmpty($BPRT)) # Check if we got a BPRT
+        {
+            # Get token using BPRT
+            $OAuthInfo = @{
+                "refresh_token" = $BPRT
+                "access_token"  = Get-AccessTokenWithRefreshToken -Resource "urn:ms-drs:enterpriseregistration.windows.net" -ClientId "b90d5b8f-5503-4153-b545-b31cecfaece2" -TenantId "Common" -RefreshToken $BPRT
+                }
             $access_token = $OAuthInfo.access_token
         }
         else
@@ -2408,7 +2511,7 @@ function Get-AccessToken
             try
             {
                 Write-Verbose "Trying to get new tokens with deviceid claim."
-                $deviceTokens = Set-AccessTokenDeviceAuth -AccessToken $access_token -RefreshToken $refresh_token -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword
+                $deviceTokens = Set-AccessTokenDeviceAuth -AccessToken $access_token -RefreshToken $refresh_token -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword -BPRT $([string]::IsNullOrEmpty($BPRT) -eq $False)
             }
             catch
             {
@@ -3103,10 +3206,10 @@ function Get-Cache
     .EXAMPLE
     Get-AADIntCache | Format-Table
 
-    Name              ClientId                             Audience                            Tenant                               IsExpired HasRefreshToken
-    ----              --------                             --------                            ------                               --------- ---------------
-    admin@company.com 1b730954-1685-4b74-9bfd-dac224a7b894 https://graph.windows.net           82205ae4-4c4e-4db5-890c-cb5e5a98d7a3     False            True
-    admin@company.com 1b730954-1685-4b74-9bfd-dac224a7b894 https://management.core.windows.net 82205ae4-4c4e-4db5-890c-cb5e5a98d7a3     False            True
+    Name              ClientId                             Audience                             Tenant                               IsExpired HasRefreshToken
+    ----              --------                             --------                             ------                               --------- ---------------
+    admin@company.com 1b730954-1685-4b74-9bfd-dac224a7b894 https://graph.windows.net            82205ae4-4c4e-4db5-890c-cb5e5a98d7a3     False            True
+    admin@company.com 1b730954-1685-4b74-9bfd-dac224a7b894 https://management.core.windows.net/ 82205ae4-4c4e-4db5-890c-cb5e5a98d7a3     False            True
 #>
     [cmdletbinding()]
     Param()

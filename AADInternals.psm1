@@ -5,6 +5,9 @@ Add-Type -AssemblyName System.Windows.Forms         -ErrorAction SilentlyContinu
 Add-Type -AssemblyName System.Web                   -ErrorAction SilentlyContinue
 Add-Type -AssemblyName System.Web.Extensions        -ErrorAction SilentlyContinue
 
+# Set supported TLS methods
+[Net.ServicePointManager]::SecurityProtocol = "Tls, Tls11, Tls12, Ssl3"
+
 # Print the welcome message
 $manifest = Import-PowerShellDataFile "$PSScriptRoot\AADInternals.psd1"
 $version = $manifest.ModuleVersion
@@ -17,7 +20,7 @@ $logo=@"
  / ___ |/ ___ |/ /_/ _/ // / / / /_/  __/ /  / / / / /_/ / (__  ) 
 /_/  |_/_/  |_/_____/___/_/ /_/\__/\___/_/  /_/ /_/\__,_/_/____/  
   
- v$version by @NestoriSyynimaa - Cloud Identity Summit 2020 edition
+ v$version by @NestoriSyynimaa
 "@
 
 Write-Host $logo -ForegroundColor Yellow
@@ -72,6 +75,7 @@ $functions=@(
     "Get-TenantDetails"
     "Get-Devices"
     "Get-UserDetails"
+    "Get-ServicePrincipals"
 
     # ProvisioningAPI.ps1
     "Set-DomainAuthentication"
@@ -114,6 +118,7 @@ $functions=@(
     "Get-KerberosDomainSyncConfig"
     "Get-WindowsCredentialsSyncConfig"
     "Get-SyncDeviceConfiguration"
+    "Join-OnPremDeviceToAzureAD"
 
     # AzureManagementAPI_utils.ps1
     "Get-AccessTokenForAADIAMAPI"
@@ -122,6 +127,7 @@ $functions=@(
     # AzureManagementAPI.ps1
     "New-GuestInvitation"
     "Get-AzureInformation"
+    "Get-AADConnectStatus"
 
     # ActiveSync.ps1
     "Get-EASAutoDiscover"
@@ -136,6 +142,8 @@ $functions=@(
 
     # PSRP.ps1
     "Get-MobileDevices"
+    "Get-UnifiedAuditLogSettings"
+    "Set-UnifiedAuditLogSettings"
 
     # AADSyncSettings.ps1
     "Get-SyncCredentials"
@@ -215,6 +223,10 @@ $functions=@(
     "Invoke-AzureVMScript"
     "Get-AzureVMRdpSettings"
     "Get-AzureTenants"
+    "Get-AzureDiagnosticSettingsDetails"
+    "Set-AzureDiagnosticSettingsDetails"
+    "Get-AzureDiagnosticSettings"
+    "Remove-AzureDiagnosticSettings"
 
     # MSGraphAPI.ps1
     "Get-AzureSignInLog"
@@ -224,6 +236,12 @@ $functions=@(
     "Set-TenantGuestAccess"
     "Enable-TenantMsolAccess"
     "Disable-TenantMsolAccess"
+    "Get-RolloutPolicies"
+    "Get-RolloutPolicyGroups"
+    "Add-RolloutPolicyGroups"
+    "Remove-RolloutPolicyGroups"
+    "Remove-RolloutPolicy"
+    "Set-RolloutPolicy"
 
     # KillChain.ps1
     "Invoke-UserEnumerationAsOutsider"
@@ -248,6 +266,7 @@ $functions=@(
     "Set-DeviceRegAuthMethods"
     "Get-DeviceTransportKey"
     "Set-DeviceTransportKey"
+    "New-BulkPRTToken"
 
     # MDM.ps1
     "Join-DeviceToIntune"
@@ -269,6 +288,7 @@ $functions=@(
     "Send-TeamsMessage"
     "Get-TeamsMessages"
     "Remove-TeamsMessages"
+    "Set-TeamsMessageEmotion"
 
 )
 foreach($function in $functions)

@@ -41,7 +41,7 @@ function Get-AzureClassicAdministrators
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -85,7 +85,7 @@ function Grant-AzureUserAccessAdminRole
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -126,7 +126,7 @@ function Get-AzureSubscriptions
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -190,7 +190,7 @@ function Get-AzureResourceGroups
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -264,7 +264,7 @@ function Get-AzureVMs
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -406,7 +406,7 @@ function Invoke-AzureVMScript
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -527,7 +527,7 @@ function Get-AzureVMRdpSettings
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -614,7 +614,7 @@ function Get-AzureRoleAssignmentId
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -668,7 +668,7 @@ function Set-AzureRoleAssignment
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -734,9 +734,9 @@ function Get-AzureTenants
     .Example
     Get-AADIntAccessTokenForAzureCoreManagement -SaveToCache
 
-    Tenant                               User Resource                            Client                              
-    ------                               ---- --------                            ------                              
-    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd      https://management.core.windows.net d3590ed6-52b3-4102-aeff-aad2292ab01c
+    Tenant                               User Resource                             Client                              
+    ------                               ---- --------                             ------                              
+    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd      https://management.core.windows.net/ d3590ed6-52b3-4102-aeff-aad2292ab01c
 
     PS C:\>Get-AADIntAzureTenants
 
@@ -754,7 +754,7 @@ function Get-AzureTenants
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Set the headers
         $headers=@{
@@ -793,6 +793,461 @@ function Get-AzureTenants
                 "Domains" = $value.domains
             }
             New-Object psobject -Property $attributes
+        }
+        
+    }
+}
+
+
+# Invokes an Azure query
+# Jan 22nd 2021
+function Invoke-AzureQuery
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$Query,
+        [Parameter(Mandatory=$True)]
+        [GUID]$SubscriptionId
+    )
+    Process
+    {
+        # Set the headers
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+            "Content-type" = "application/json"
+        }
+
+        $body=@"
+        {
+            "requests": [{
+                    "content": {
+                        "subscriptions": ["$($SubscriptionId.toString())"],
+                        "query": "$Query"
+                    },
+                    "httpMethod": "POST",
+                    "name": "$((New-Guid).toString())",
+                    "requestHeaderDetails": {
+                        "commandName": "Microsoft_Azure_Security_Insights."
+                    },
+                    "url": "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2019-04-01"
+                }
+            ]
+        }
+"@
+
+        # Invoke the command.
+        $response = Invoke-RestMethod  -Method Post -Uri "https://management.azure.com/batch?api-version=2015-11-01" -Headers $headers -Body $body
+
+        return $response
+        
+    }
+}
+
+
+# Show diagnostic settings
+# Jan 22nd 2021
+function Get-AzureDiagnosticSettingsDetails
+{
+<#
+    .SYNOPSIS
+    Gets log settings of the given Azure workspace.
+
+    .DESCRIPTION
+    Gets log settings of the given Azure workspace.
+
+    .Parameter AccessToken
+    AccessToken of the user. Must be Global Administrator or Security Administrator.
+
+    .Parameter Name
+    Name of the Sentinel workspace.
+
+    .Example
+    Get-AADIntAccessTokenForAzureCoreManagement -SaveToCache
+    PS C:\>Get-AADIntDiagnosticSettingsDetails -Name "Audit and SignIn to Sentinel"
+
+    Log                          Enabled Retention Enabled Retention Days
+    ---                          ------- ----------------- --------------
+    ProvisioningLogs               False             False              0
+    AuditLogs                       True              True            365
+    SignInLogs                      True              True            365
+    NonInteractiveUserSignInLogs   False             False              0
+    ServicePrincipalSignInLogs     False             False              0
+    ManagedIdentitySignInLogs       True              True            365
+
+    .Example
+    $at=Get-AADIntAccessTokenForAzureCoreManagement
+
+    PS C:\>Get-AADIntAzureDiagnosticSettings
+
+    Name                        : Audit and SignIn to Sentinel
+    WorkspaceId                 : /subscriptions/a04293e7-46c8-4bf4-bc6d-1bc1f41afae0/resourcegroups/sentinel/providers/microsoft.operationalinsights/workspaces/MySentinel
+    StorageAccountId            : 
+    EventHubAuthorizationRuleId : 
+    EventHubName                : 
+    ServiceBusRuleId            : 
+
+    Name                        : Service Principal to Sentinel
+    WorkspaceId                 : /subscriptions/a04293e7-46c8-4bf4-bc6d-1bc1f41afae0/resourcegroups/sentinel/providers/microsoft.operationalinsights/workspaces/MySentinel
+    StorageAccountId            : 
+    EventHubAuthorizationRuleId : 
+    EventHubName                : 
+    ServiceBusRuleId            : 
+
+    PS C:\>Get-AADIntDiagnosticSettingsDetails -Name "Audit and SignIn to Sentinel"
+
+    Log                          Enabled Retention Enabled Retention Days
+    ---                          ------- ----------------- --------------
+    ProvisioningLogs               False             False              0
+    AuditLogs                       True              True            365
+    SignInLogs                      True              True            365
+    NonInteractiveUserSignInLogs   False             False              0
+    ServicePrincipalSignInLogs     False             False              0
+    ManagedIdentitySignInLogs       True              True            365
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$Name
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
+        # Set the headers
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+            "Content-type" = "application/json"
+        }
+        
+        # Invoke the command.
+        $response = Invoke-RestMethod  -Method Get -Uri "https://management.azure.com/providers/microsoft.aadiam/diagnosticSettings/$Name`?api-version=2017-04-01" -Headers $headers
+
+        
+        # Return
+        foreach($value in $response.properties.logs)
+        {
+            $attributes=[ordered]@{
+                "Log" =               $value.category
+                "Enabled" =           $value.enabled
+                "Retention Enabled" = $value.retentionPolicy.enabled
+                "Retention Days" =    $value.retentionPolicy.days
+            }
+            New-Object psobject -Property $attributes
+        }
+    }
+}
+
+
+# Set diagnostic settings
+# Jan 22nd 2021
+function Set-AzureDiagnosticSettingsDetails
+{
+<#
+    .SYNOPSIS
+    Sets log settings for the given Sentinel.
+
+    .DESCRIPTION
+    Sets log settings for the given Sentinel.
+
+    .Parameter AccessToken
+    AccessToken of the user. Must be Global Administrator or Security Administrator.
+
+    .Parameter Name
+    Name of the Sentinel workspace.
+
+    .Parameter Logs
+    List of logs to be edited, can be one or more of "SignInLogs","AuditLogs","NonInteractiveUserSignInLogs","ServicePrincipalSignInLogs","ManagedIdentitySignInLogs", or "ProvisioningLogs".
+    
+    .Parameter Enabled
+    Is the log enabled.
+
+    .Parameter RetentionEnabled
+    Is the log retention enabled.
+
+    .Parameter RetentionDays
+    The number of retention days. Must be between 0 and 365 days.
+
+    .Example
+    Get-AADIntAccessTokenForAzureCoreManagement -SaveToCache
+
+    PS C:\>Set-AADIntDiagnosticSettingsDetails -Name "Audit and SignIn to Sentinel" -Log ManagedIdentitySignInLogs,AuditLogs,SignInLogs -Enabled $true -RetentionEnabled $true -RetentionDays 365
+
+    Log                          Enabled Retention Enabled Retention Days
+    ---                          ------- ----------------- --------------
+    ProvisioningLogs               False             False              0
+    AuditLogs                       True              True            365
+    SignInLogs                      True              True            365
+    NonInteractiveUserSignInLogs   False             False              0
+    ServicePrincipalSignInLogs     False             False              0
+    ManagedIdentitySignInLogs       True              True            365
+
+    .Example
+    $at=Get-AADIntAccessTokenForAzureCoreManagement
+
+    PS C:\>Get-AADIntAzureDiagnosticSettings
+
+    Name                        : Audit and SignIn to Sentinel
+    WorkspaceId                 : /subscriptions/a04293e7-46c8-4bf4-bc6d-1bc1f41afae0/resourcegroups/sentinel/providers/microsoft.operationalinsights/workspaces/MySentinel
+    StorageAccountId            : 
+    EventHubAuthorizationRuleId : 
+    EventHubName                : 
+    ServiceBusRuleId            : 
+
+    Name                        : Service Principal to Sentinel
+    WorkspaceId                 : /subscriptions/a04293e7-46c8-4bf4-bc6d-1bc1f41afae0/resourcegroups/sentinel/providers/microsoft.operationalinsights/workspaces/MySentinel
+    StorageAccountId            : 
+    EventHubAuthorizationRuleId : 
+    EventHubName                : 
+    ServiceBusRuleId            : 
+
+    PS C:\>Set-AADIntDiagnosticSettingsDetails -Name "Audit and SignIn to Sentinel" -Log ManagedIdentitySignInLogs,AuditLogs,SignInLogs -Enabled $true -RetentionEnabled $true -RetentionDays 365
+
+    Log                          Enabled Retention Enabled Retention Days
+    ---                          ------- ----------------- --------------
+    ProvisioningLogs               False             False              0
+    AuditLogs                       True              True            365
+    SignInLogs                      True              True            365
+    NonInteractiveUserSignInLogs   False             False              0
+    ServicePrincipalSignInLogs     False             False              0
+    ManagedIdentitySignInLogs       True              True            365
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [ValidateSet("SignInLogs","AuditLogs","NonInteractiveUserSignInLogs","ServicePrincipalSignInLogs","ManagedIdentitySignInLogs","ProvisioningLogs")]
+        [String[]]$Logs,
+        [Parameter(Mandatory=$True)]
+        [String]$Name,
+        [Parameter(Mandatory=$True)]
+        [bool]$Enabled,
+        [Parameter(Mandatory=$True)]
+        [bool]$RetentionEnabled,
+        [Parameter(Mandatory=$True)]
+        [int]$RetentionDays
+
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
+        # Check the retention days value
+        if($RetentionDays -lt 0 -or $RetentionDays -gt 365)
+        {
+            Write-Error "Retention days must be between 0 and 365 days"
+            return
+        }
+
+        # Set the headers
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+            "Content-type" = "application/json"
+        }
+
+        # Get the current settings and workspaceid
+        $response = Invoke-RestMethod  -Method Get -Uri "https://management.azure.com/providers/microsoft.aadiam/diagnosticSettings/$Name`?api-version=2017-04-01" -Headers $headers
+        $workspaceId = $response.properties.workspaceId
+
+        # Create the array for log settings objects
+        $log_array = @()
+        foreach($value in $response.properties.logs)
+        {
+            # Check if this log is to be changed
+            if($logs -contains $value.category)
+            {
+                $log_entry = @{
+                    "category" = $value.category
+                    "enabled" =  $Enabled
+                    "retentionPolicy" = @{
+                        "days" =    $RetentionDays
+                        "enabled" = $RetentionEnabled
+                        }
+                    }
+                
+            }
+            else
+            {
+                $log_entry = @{
+                    "category" = $value.category
+                    "enabled" =  $value.enabled
+                    "retentionPolicy" = @{
+                        "days" =    $value.retentionPolicy.days
+                        "enabled" = $value.retentionPolicy.enabled
+                        }
+                    }
+            }
+            $log_array += $log_entry
+        }
+
+        # Create the body
+        $body = @{
+            "id" =   "/providers/microsoft.aadiam/diagnosticSettings/$Name"
+            "name" = $Name
+            "properties" = @{
+                "logs" =        $log_array
+                "metrics" =     @()
+                "workspaceId" = $WorkspaceId
+                }
+        }
+        
+        # Invoke the command.
+        $response = Invoke-RestMethod  -Method Put -Uri "https://management.azure.com/providers/microsoft.aadiam/diagnosticSettings/$Name`?api-version=2017-04-01" -Headers $headers -Body ($body | ConvertTo-Json -Depth 5)
+
+        
+        # Return
+        foreach($value in $response.properties.logs)
+        {
+            $attributes=[ordered]@{
+                "Log" =               $value.category
+                "Enabled" =           $value.enabled
+                "Retention Enabled" = $value.retentionPolicy.enabled
+                "Retention Days" =    $value.retentionPolicy.days
+            }
+            New-Object psobject -Property $attributes
+        }
+
+
+        
+    }
+}
+
+# List diagnostic settings
+# Jan 22nd 2021
+function Get-AzureDiagnosticSettings
+{
+<#
+    .SYNOPSIS
+    Lists all diagnostic settings.
+
+    .DESCRIPTION
+    Lists all diagnostic settings.
+
+    .Parameter AccessToken
+    AccessToken of the user. Must be Global Administrator or Security Administrator.
+
+    .Example
+    Get-AADIntAccessTokenForAzureCoreManagement -SaveToCache
+    PS C:\>Get-AADIntAzureDiagnosticSettings
+
+    Name                        : Audit and SignIn to Sentinel
+    WorkspaceId                 : /subscriptions/a04293e7-46c8-4bf4-bc6d-1bc1f41afae0/resourcegroups/sentinel/providers/microsoft.operationalinsights/workspaces/MySentinel
+    StorageAccountId            : 
+    EventHubAuthorizationRuleId : 
+    EventHubName                : 
+    ServiceBusRuleId            : 
+
+    Name                        : Service Principal to Sentinel
+    WorkspaceId                 : /subscriptions/a04293e7-46c8-4bf4-bc6d-1bc1f41afae0/resourcegroups/sentinel/providers/microsoft.operationalinsights/workspaces/MySentinel
+    StorageAccountId            : 
+    EventHubAuthorizationRuleId : 
+    EventHubName                : 
+    ServiceBusRuleId            : 
+
+
+   
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
+        # Set the headers
+        $headers=@{
+            "Authorization" =     "Bearer $AccessToken"
+            "Content-type" =      "application/json"
+            "x-ms-command-name" = "Microsoft_Azure_Monitoring"
+            "x-ms-path-query" =   "/providers/microsoft.aadiam/diagnosticSettings?api-version=2017-04-01-preview"
+        }
+
+
+        $response = Invoke-RestMethod  -Method Get -Uri "https://management.azure.com/api/invoke" -Headers $headers
+
+        # Return
+        foreach($value in $response.value)
+        {
+            $attributes=[ordered]@{
+                "Name" =                        $value.name
+                "WorkspaceId" =                 $value.properties.workspaceId
+                "StorageAccountId" =            $value.properties.storageAccountId
+                "EventHubAuthorizationRuleId" = $value.properties.eventHubAuthorizationRuleId
+                "EventHubName" =                $value.properties.eventHubName
+                "ServiceBusRuleId" =            $value.properties.serviceBusRuleId
+            }
+            New-Object psobject -Property $attributes
+        }
+        
+    }
+}
+
+# Remove all diagnostic settings
+# Ja 23rd 2021
+function Remove-AzureDiagnosticSettings
+{
+<#
+    .SYNOPSIS
+    Removes all diagnostic settings.
+
+    .DESCRIPTION
+    Removes all diagnostic settings by disabling all logs.
+
+    .Parameter AccessToken
+    AccessToken of the user. Must be Global Administrator or Security Administrator.
+
+    .Example
+    $at=Get-AADIntAccessTokenForAzureCoreManagement
+    PS C:\>Remove-AADIntDiagnosticSettings
+  
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [Switch]$Force
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
+        # Get the list of diagnostic settings
+        $diagSettings = Get-AzureDiagnosticSettings -AccessToken $AccessToken
+
+        $count = $diagSettings.count
+
+        if(!$count)
+        {
+            $count = 1
+        }
+
+        if(!$Force)
+        {
+            $answer = Read-Host -Prompt "About to delete $count diagnostic settings. Are you sure? (Y/N)"
+            if($answer -ne "Y")
+            {
+                return
+            }
+        }
+
+        foreach($settings in $diagSettings)
+        {
+            Write-Verbose "Removing diagnostic settings ""$($settings.name)"""
+            Set-AzureDiagnosticSettingsDetails -AccessToken $AccessToken -Name $($settings.name) -Logs AuditLogs,SignInLogs,NonInteractiveUserSignInLogs,ServicePrincipalSignInLogs,ManagedIdentitySignInLogs,ProvisioningLogs -Enabled $False -RetentionEnabled $False -RetentionDays 0 | Out-Null
         }
         
     }

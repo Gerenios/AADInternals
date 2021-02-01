@@ -239,12 +239,14 @@ function Join-DeviceToAzureAD
 {
 <#
     .SYNOPSIS
-    Emulates Azure AD Join by registering the given device to Azure AD.
+    Emulates Azure AD Join or Azure AD Hybrid Join by registering the given device to Azure AD.
 
     .DESCRIPTION
-    Emulates Azure AD Join by registering the given device to Azure AD and generates a corresponding certificate.
+    Emulates Azure AD Join or Azure AD Hybrid Join by registering the given device to Azure AD and generates a corresponding certificate.
 
-    You may use any name, type or OS version you like.
+    You may use any name, type or OS version you like. 
+    
+    For Hybrid Join, the SID, tenant ID, and the certificate of the existing synced device must be provided - no access token needed.
 
     The generated certificate can be used to create a Primary Refresh Token and P2P certificates. The certificate has no password.
 
@@ -260,6 +262,27 @@ function Join-DeviceToAzureAD
 
     .Parameter OSVersion
     The operating system version of the device to be registered. Defaults to "10.0.18363.0"
+
+    .Parameter Certificate
+    x509 device's user certificate.
+
+    .Parameter PfxFileName
+    File name of the .pfx device certificate.
+
+    .Parameter PfxPassword
+    The password of the .pfx device certificate.
+
+    .Parameter DomainControllerName
+    The fqdn of the domain controller from where the device information is "fetched". Defaults to "dc.aadinternals.com"
+
+    .Parameter DomainName
+    The domain name of the target Azure AD tenant. Defaults to "dc.aadinternals.com"
+
+    .Parameter TenantId
+    The tenant id of the target Azure AD tenant where the hybrid join device exists.
+
+    .Parameter SID
+    The SID of the device. Must be a valid SID and match the SID of the existing AAD device object.
 
     .EXAMPLE
     Get-AADIntAccessTokenForAADJoin -SaveToCache
@@ -277,28 +300,90 @@ function Join-DeviceToAzureAD
       S-1-12-1-3408697635-1121971140-3092833713-2344201430
       S-1-12-1-2007802275-1256657308-2098244751-2635987013
 
+    .EXAMPLE
+    PS C\:>Join-AADIntDeviceToAzureAD -DeviceName "My computer" -SID "S-1-5-21-685966194-1071688910-211446493-3729" -PfxFileName .\f24f116f-6e80-425d-8236-09803da7dfbe-user.pfx -TenantId 40cb9912-555c-42b8-80e9-3b3ad50dda8a
+
+    Device successfully registered to Azure AD:
+      DisplayName:     "My computer"
+      DeviceId:        f24f116f-6e80-425d-8236-09803da7dfbe
+      Cert thumbprint: A531B73CFBAB2BA26694BA2AD31113211CC2174A
+      Cert file name : "f24f116f-6e80-425d-8236-09803da7dfbe.pfx"
+
 #>
     [cmdletbinding()]
     Param(
+        [Parameter(ParameterSetName="Hybrid",     Mandatory=$True)]
+        [String]$PfxFileName,
+        [Parameter(ParameterSetName="Hybrid",     Mandatory=$False)]
+        [String]$PfxPassword,
+        [Parameter(ParameterSetName="HybridCert", Mandatory=$True)]
+        [Parameter(ParameterSetName="Hybrid",     Mandatory=$True)]
+        [String]$SID,
+        [Parameter(ParameterSetName="HybridCert", Mandatory=$True)]
+        [Parameter(ParameterSetName="Hybrid",     Mandatory=$True)]
+        [GUID]$TenantId,
+        [Parameter(ParameterSetName="HybridCert", Mandatory=$False)]
+        [Parameter(ParameterSetName="Hybrid",     Mandatory=$False)]
+        [Parameter(ParameterSetName="Normal",     Mandatory=$False)]
+        [String]$DomainName="aadinternals.com",
+        [Parameter(ParameterSetName="HybridCert", Mandatory=$False)]
+        [Parameter(ParameterSetName="Hybrid",     Mandatory=$False)]
+        [String]$DomainControllerName="dc.aadinternals.com",
+
+        [Parameter(ParameterSetName="HybridCert", Mandatory=$True)]
         [Parameter(Mandatory=$False)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+
+        [Parameter(ParameterSetName="Normal",     Mandatory=$False)]
         [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
+        [Parameter(ParameterSetName="Normal",     Mandatory=$True)]
+        [Parameter(ParameterSetName="Hybrid",     Mandatory=$True)]
+        [Parameter(ParameterSetName="HybridCert", Mandatory=$True)]
         [String]$DeviceName,
-        [Parameter(Mandatory=$False)]
+        [Parameter(ParameterSetName="Normal",     Mandatory=$False)]
+        [Parameter(ParameterSetName="Hybrid",     Mandatory=$False)]
+        [Parameter(ParameterSetName="HybridCert", Mandatory=$False)]
         [String]$DeviceType="Windows",
-        [Parameter(Mandatory=$False)]
+        [Parameter(ParameterSetName="Normal",     Mandatory=$False)]
+        [Parameter(ParameterSetName="Hybrid",     Mandatory=$False)]
+        [Parameter(ParameterSetName="HybridCert", Mandatory=$False)]
         [String]$OSVersion="10.0.18363.0"
     )
     Process
     {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9"
+        
+        if(!$TenantId)
+        {
+            # Get from cache if not provided
+            try
+            {
+                # Try first with access token retrieved with BPRT
+                $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "b90d5b8f-5503-4153-b545-b31cecfaece2" -Resource "urn:ms-drs:enterpriseregistration.windows.net"
+            }
+            catch
+            {
+                $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9"
+            }
 
-        # Get the domain and tenant id
-        $tenantId = (Read-Accesstoken -AccessToken $AccessToken).tid
+            # Get the domain and tenant id
+            $tenantId = (Read-Accesstoken -AccessToken $AccessToken).tid
+        }
+
+        # Load the Certificate for Hybrid Join if not provided
+        if($PfxFileName)
+        {
+            $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword -Exportable
+        }
 
         # Register the Device
-        $DeviceCertResponse = Register-DeviceToAzureAD -AccessToken $AccessToken -DeviceName $DeviceName -DeviceType $DeviceType -OSVersion $OSVersion
+        $DeviceCertResponse = Register-DeviceToAzureAD -AccessToken $AccessToken -DeviceName $DeviceName -DeviceType $DeviceType -OSVersion $OSVersion -Certificate $Certificate -DomainController $DomainControllerName -SID $SID -TenantId $TenantId -DomainName $DomainName
+
+        if(!$DeviceCertResponse)
+        {
+            # Something went wrong :(
+            return
+        }
+
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$deviceCert = $DeviceCertResponse[0]
         $regResponse = $DeviceCertResponse[1]
 
@@ -1303,5 +1388,100 @@ function Set-DeviceTransportKey
 
         Invoke-RestMethod -Method Patch -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?api-version=1.61-internal" -Headers $headers -Body ($response | ConvertTo-Json) -ContentType "application/json"
 
+    }
+}
+
+
+# Creates a new BPRT
+# Oct 20th 2020
+function New-BulkPRTToken
+{
+<#
+    .SYNOPSIS
+    Creates a new BPRT (Bulk AAD PRT Token)
+
+    .DESCRIPTION
+    Creates a new BPRT (Bulk AAD PRT Token) for registering multiple devices to AAD. 
+    Adds a corresponding user to Azure AD with UPN "package_<guid>@<default domain>". The Display Name of the user can be defined.
+
+    .Parameter AccessToken
+    Access token to create the BPRT
+
+    .Parameter Expires
+    The date when the BPRT expires. Maximum is 180 days.
+
+    .Parameter Name
+    The display name of the user to be created. Defaults to "package_<guid>". The upn will always be "package_<guid>@<default domain>".
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForAADGraph -Resource -Resource urn:ms-drs:enterpriseregistration.windows.net -SaveToCache
+    PS C:\> New-AADIntBulkPRTToken -Name "My BPRT user"
+
+    BPRT saved to package_8eb8b873-2b6a-4d55-bd96-27b0abadec6a-BPRT.json   
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [DateTime]$Expires=(Get-Date).AddMonths(1),
+        [Parameter(Mandatory=$False)]
+        [String]$Name,
+        [switch]$Force
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "urn:ms-drs:enterpriseregistration.windows.net" -Force $Force
+
+        $headers = @{
+            "Authorization" = "Bearer $AccessToken"
+        }
+
+        $guid = (New-Guid).ToString()
+
+        if([string]::IsNullOrEmpty($Name))
+        {
+            $Name = "package_$guid"
+        }
+
+        $body = @{
+            "pid" = $guid
+            "name" = $Name
+            "exp" =  $Expires.ToString("MM/dd/yyyy")
+        }
+
+        # Make the first request to get flowToken
+        $response = Invoke-RestMethod -Method Post -UseBasicParsing -Uri "https://login.microsoftonline.com/webapp/bulkaadjtoken/begin" -Headers $headers -Body ($body | ConvertTo-Json) -ContentType "application/json"
+
+        if($response.state -like "*Error*")
+        {
+            $resultData = $response.resultData | ConvertFrom-Json
+            throw $resultData.error_description
+        }
+
+        # Get the BPRT
+        $response = Invoke-RestMethod -Method Get -UseBasicParsing -Uri "https://login.microsoftonline.com/webapp/bulkaadjtoken/poll?flowToken=$($response.flowToken)" -Headers $headers
+
+        $details = $response.resultData | ConvertFrom-Json
+
+        # Check for the errors
+        if($details.error_description)
+        {
+            throw $details.error_description
+        }
+
+        $parsedIdToken = Read-Accesstoken -AccessToken $details.id_token
+
+        $userName = $parsedIdToken.upn
+
+        Write-Verbose "BPRT successfully created. Id = $guid. User name: $userName"
+
+        # Write to file
+        $outFileName = "$($userName.Split("@")[0])-BPRT.json"
+        $details | ConvertTo-Json |Set-Content $outFileName -Encoding UTF8
+        Write-Host "BPRT saved to $outFileName`n"
+
+        return $details.refresh_token
     }
 }

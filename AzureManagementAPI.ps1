@@ -345,9 +345,9 @@ function Get-AzureInformation
     .Example
     Get-AADIntAccessTokenForAzureCoreManagement -Tenant 6e3846ee-e8ca-4609-a3ab-f405cfbd02cd -SaveToCache
 
-    Tenant                               User Resource                            Client                              
-    ------                               ---- --------                            ------                              
-    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd      https://management.core.windows.net d3590ed6-52b3-4102-aeff-aad2292ab01c
+    Tenant                               User Resource                             Client                              
+    ------                               ---- --------                             ------                              
+    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd      https://management.core.windows.net/ d3590ed6-52b3-4102-aeff-aad2292ab01c
 
     PS C:\>Get-AADIntAzureTenants
 
@@ -416,13 +416,21 @@ function Get-AzureInformation
         [Parameter(Mandatory=$False)]
         [String]$Tenant
     )
+    Begin
+    {
+        $guestAccessPolicies = @{
+            "a0b1b346-4d3e-4e8b-98f8-753987be4970" = "Full"
+            "10dae51f-b6af-4016-8d66-8c2a99b929b3" = "Normal"
+            "2af84b1e-32c8-42b7-82bc-daa82404023b" = "Restricted"
+        }
+    }
     Process
     {
         # Get from cache 
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
                 
         # Get the refreshtoken
-        $refresh_token=$script:refresh_tokens["d3590ed6-52b3-4102-aeff-aad2292ab01c-https://management.core.windows.net"]
+        $refresh_token=$script:refresh_tokens["d3590ed6-52b3-4102-aeff-aad2292ab01c-https://management.core.windows.net/"]
 
         if([string]::IsNullOrEmpty($refresh_token))
         {
@@ -469,11 +477,12 @@ function Get-AzureInformation
 
             # Get the domain details
             $domains = Get-MSGraphDomains -AccessToken $access_token3
-            
+
             # Get the tenant authorization policy
             try
             {
                 $authPolicy = Get-TenantAuthPolicy -AccessToken $access_token3
+                $guestAccess = $guestAccessPolicies[$authPolicy.guestUserRoleId]
             }
             catch{}
             
@@ -483,6 +492,7 @@ function Get-AzureInformation
             $properties | Add-Member -NotePropertyName "domains"             -NotePropertyValue $domains
             $properties | Add-Member -NotePropertyName "directorySizeQuota"  -NotePropertyValue $response2.value[0].directorySizeQuota
             $properties | Add-Member -NotePropertyName "authorizationPolicy" -NotePropertyValue $authPolicy
+            $properties | Add-Member -NotePropertyName "guestAccess"         -NotePropertyValue $guestAccess
 
             # Return
             $properties
@@ -505,11 +515,11 @@ function Get-TenantAuthenticationMethods
 
     
     .Example
-    Get-AADIntAccessTokenForAzureADDGraph
+    Get-AADIntAccessTokenForAADIAMAPI
 
-    Tenant                               User Resource                            Client                              
-    ------                               ---- --------                            ------                              
-    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd      https://management.core.windows.net d3590ed6-52b3-4102-aeff-aad2292ab01c
+    Tenant                               User Resource                             Client                              
+    ------                               ---- --------                             ------                              
+    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd      74658136-14ec-4630-ad9b-26e160ff0fc6 d3590ed6-52b3-4102-aeff-aad2292ab01c
 
     PS C:\>Get-AADIntTenantAuthenticationMethods
 
@@ -548,17 +558,8 @@ function Get-TenantAuthenticationMethods
     )
     Process
     {
-        try
-        {
-            # Get from cache 
-            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
-        }
-        catch
-        {
-            # Access token not found, try to create one
-            $AccessToken = Get-AccessTokenUsingAADGraph -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -SaveToCache
-        }
-        
+        # Get from cache 
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         # Get the authentication methods
         $response =  Call-AzureAADIAMAPI -AccessToken $AccessToken -Command "AuthenticationMethods/AuthenticationMethodsPolicy"
@@ -581,5 +582,116 @@ function Get-TenantAuthenticationMethods
 
         return $methods
         
+    }
+}
+
+
+# Gets Azure Tenant applications
+# Nov 11th 2020
+function Get-TenantApplications
+{
+<#
+    .SYNOPSIS
+    Gets Azure tenant applications.
+
+    .DESCRIPTION
+    Gets Azure tenant applications.
+    
+    .Example
+    Get-AADIntAccessTokenForAADIAMAPI -SaveToCache
+
+    Tenant                               User Resource                             Client                              
+    ------                               ---- --------                             ------                              
+    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd      https://management.core.windows.net/ d3590ed6-52b3-4102-aeff-aad2292ab01c
+
+    PS C:\>Get-AADIntTenantApplications
+
+    
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache 
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
+        $body = @{
+            "accountEnabled" =       $null
+            "isAppVisible" =         $null
+            "appListQuery"=          0
+            "top" =                  999
+            "loadLogo" =             $false
+            "putCachedLogoUrlOnly" = $true
+            "nextLink" =             ""
+            "usedFirstPartyAppIds" = $null
+            "__ko_mapping__" = @{
+                "ignore" = @()
+                "include" = @("_destroy")
+                "copy" = @()
+                "observe" = @()
+                "mappedProperties" = @{
+                    "accountEnabled" =       $true
+                    "isAppVisible" =         $true
+                    "appListQuery" =         $true
+                    "searchText" =           $true
+                    "top" =                  $true
+                    "loadLogo" =             $true
+                    "putCachedLogoUrlOnly" = $true
+                    "nextLink" =             $true
+                    "usedFirstPartyAppIds" = $true
+                }
+                "copiedProperties" = @{}
+            }
+        }
+
+        # Get the applications
+        $response =  Call-AzureAADIAMAPI -AccessToken $AccessToken -Command "ManagedApplications/List" -Body $body -Method Post
+
+        return $response.appList
+       
+    }
+}
+
+# Get the status of AAD Connect
+# Jan 7th 2021
+function Get-AADConnectStatus
+{
+<#
+    .SYNOPSIS
+    Shows the status of Azure AD Connect (AAD Connect).
+
+    .DESCRIPTION
+    Shows the status of Azure AD Connect (AAD Connect).
+
+    .Example
+    Get-AADIntAccessTokenForAADIAMAPI -SaveToCache
+    PS C:\>Get-AADIntAADConnectStatus
+
+    verifiedDomainCount              : 4
+    verifiedCustomDomainCount        : 3
+    federatedDomainCount             : 2
+    numberOfHoursFromLastSync        : 0
+    dirSyncEnabled                   : True
+    dirSyncConfigured                : True
+    passThroughAuthenticationEnabled : True
+    seamlessSingleSignOnEnabled      : True
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        $AccessToken
+    )
+    Process
+    {
+        # Get from cache 
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
+        # Get the applications
+        $response =  Call-AzureAADIAMAPI -AccessToken $AccessToken -Command "Directories/ADConnectStatus" 
+
+        return $response
     }
 }

@@ -478,10 +478,26 @@ function Set-AzureADObject
         [Parameter(Mandatory=$False)]
         [ValidateSet('AF','AX','AL','DZ','AS','AD','AO','AI','AQ','AG','AR','AM','AW','AU','AT','AZ','BS','BH','BD','BB','BY','BE','BZ','BJ','BM','BT','BO','BQ','BA','BW','BV','BR','IO','BN','BG','BF','BI','KH','CM','CA','CV','KY','CF','TD','CL','CN','CX','CC','CO','KM','CG','CD','CK','CR','CI','HR','CU','CW','CY','CZ','DK','DJ','DM','DO','EC','EG','SV','GQ','ER','EE','ET','FK','FO','FJ','FI','FR','GF','PF','TF','GA','GM','GE','DE','GH','GI','GR','GL','GD','GP','GU','GT','GG','GN','GW','GY','HT','HM','VA','HN','HK','HU','IS','IN','ID','IQ','IE','IR','IM','IL','IT','JM','JP','JE','JO','KZ','KE','KI','KP','KR','KW','KG','LA','LV','LB','LS','LR','LY','LI','LT','LU','MO','MK','MG','MW','MY','MV','ML','MT','MH','MQ','MR','MU','YT','MX','FM','MD','MC','MN','ME','MS','MA','MZ','MM','NA','NR','NP','NL','NC','NZ','NI','NE','NG','NU','NF','MP','NO','OM','PK','PW','PS','PA','PG','PY','PE','PH','PN','PL','PT','PR','QA','RE','RO','RU','RW','BL','SH','KN','LC','MF','PM','VC','WS','SM','ST','SA','SN','RS','SC','SL','SG','SX','SK','SI','SB','SO','ZA','GS','SS','ES','LK','SD','SR','SJ','SZ','SE','CH','SY','TW','TJ','TZ','TH','TL','TG','TK','TO','TT','TN','TR','TM','TC','TV','UG','UA','AE','GB','US','UM','UY','UZ','VU','VE','VN','VG','VI','WF','EH','YE','ZM','ZW')][String]$usageLocation,
         [Parameter(Mandatory=$False)]
-        [ValidateSet('User','Group','Contact')]
+        [ValidateSet('User','Group','Contact','Device')]
         [String]$ObjectType="User",
         [Parameter(Mandatory=$False)]
         [String[]]$proxyAddresses,
+		[Parameter(Mandatory=$False)]
+        [String]$thumbnailPhoto,
+        [Parameter(Mandatory=$False)]
+        [String[]]$groupMembers,
+
+        [Parameter(Mandatory=$False)]
+        [String]$deviceId,
+        [Parameter(Mandatory=$False)]
+        [String]$deviceOSType,
+        [Parameter(Mandatory=$False)]
+        [String]$deviceTrustType,
+        [Parameter(Mandatory=$False)]
+        [String[]]$userCertificate,
+        [Parameter(Mandatory=$False)]
+        [ValidateSet('Set','Add')]
+        [String]$Operation="Set",
         [Parameter(Mandatory=$False)]
         [int]$Recursion=1
     )
@@ -503,26 +519,33 @@ function Set-AzureADObject
 					<b:AzureADSyncObject>
 						<b:PropertyValues xmlns:c="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
                             
-                            $(Add-PropertyValue "SourceAnchor" $sourceAnchor)
-                            $(Add-PropertyValue "accountEnabled" $accountEnabled -Type bool)
-                            $(Add-PropertyValue "commonName" $commonName)
-                            $(Add-PropertyValue "countryCode" $countryCode -Type long)
-                            $(Add-PropertyValue "displayName" $displayName)
-                            $(Add-PropertyValue "dnsDomainName" $dnsDomainName)
-                            $(Add-PropertyValue "givenName" $givenName)
+                            $(Add-PropertyValue "SourceAnchor"                $sourceAnchor)
+                            $(Add-PropertyValue "accountEnabled"              $accountEnabled -Type bool)
+                            $(Add-PropertyValue "commonName"                  $commonName)
+                            $(Add-PropertyValue "countryCode"                 $countryCode -Type long)
+                            $(Add-PropertyValue "displayName"                 $displayName)
+                            $(Add-PropertyValue "dnsDomainName"               $dnsDomainName)
+                            $(Add-PropertyValue "givenName"                   $givenName)
                             $(Add-PropertyValue "lastPasswordChangeTimestamp" $lastPasswordChangeTimestamp)
-                            $(Add-PropertyValue "netBiosName" $netBiosName)
+                            $(Add-PropertyValue "netBiosName"                 $netBiosName)
                             $(Add-PropertyValue "onPremiseSecurityIdentifier" $onPremiseSecurityIdentifier -Type base64)
                             $(Add-PropertyValue "onPremisesDistinguishedName" $onPremisesDistinguishedName)
-                            $(Add-PropertyValue "surname" $surname)
-                            $(Add-PropertyValue "userPrincipalName" $userPrincipalName)
-                            $(Add-PropertyValue "cloudMastered" $cloudMastered -Type bool)
-                            $(Add-PropertyValue "usageLocation" $usageLocation)
-                            $(Add-PropertyValue "CloudAnchor" $CloudAnchor)
-                            $(Add-PropertyValue "proxyAddresses" $proxyAddresses -Type ArrayOfstring)
+                            $(Add-PropertyValue "surname"                     $surname)
+                            $(Add-PropertyValue "userPrincipalName"           $userPrincipalName)
+                            $(Add-PropertyValue "cloudMastered"               $cloudMastered -Type bool)
+                            $(Add-PropertyValue "usageLocation"               $usageLocation)
+                            $(Add-PropertyValue "CloudAnchor"                 $CloudAnchor)
+							$(Add-PropertyValue "ThumbnailPhoto"              $thumbnailPhoto)													 
+                            $(Add-PropertyValue "proxyAddresses"              $proxyAddresses -Type ArrayOfstring)
+                            $(Add-PropertyValue "member"                      $groupMembers -Type ArrayOfstring)
+
+                            $(Add-PropertyValue "deviceId"                    $deviceId -Type base64)
+                            $(Add-PropertyValue "deviceTrustType"             $deviceTrustType)
+                            $(Add-PropertyValue "deviceOSType"                $deviceOSType)
+                            $(Add-PropertyValue "userCertificate"             $userCertificate -Type ArrayOfbase64)
                         </b:PropertyValues>
 						<b:SyncObjectType>$ObjectType</b:SyncObjectType>
-						<b:SyncOperation>Set</b:SyncOperation>
+						<b:SyncOperation>$Operation</b:SyncOperation>
 					</b:AzureADSyncObject>
 				</b:SyncObjects>
 			</syncRequest>
@@ -777,7 +800,9 @@ function Get-SyncObjects
         [int]$Recursion=1,
         [Parameter(Mandatory=$False)]
         [ValidateSet(1,2)]
-        [Int]$Version=2
+        [Int]$Version=2,
+        [Parameter(Mandatory=$False)]
+        [bool]$FullSync=$true
     )
     Process
     {
@@ -801,7 +826,7 @@ function Get-SyncObjects
 		<ReadBackAzureADSyncObjects$txtVer xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
             <includeLicenseInformation>true</includeLicenseInformation>
             <inputCookie i:nil="true" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"></inputCookie>
-            <isFullSync>true</isFullSync>
+            <isFullSync>$($FullSync.toString().toLower())</isFullSync>
         </ReadBackAzureADSyncObjects$txtVer>
 "@
         $Message_id=(New-Guid).ToString()
@@ -1809,6 +1834,154 @@ function Get-SyncCapabilities
                 "ADSyncBlackListEnabled" = $cap.BlackList.Enabled
                 }
 
+        }
+    }
+}
+
+# Joins on-prem device to Azure AD
+# Jan 15th 2021
+function Join-OnPremDeviceToAzureAD
+{
+<#
+    .SYNOPSIS
+    Emulates Azure AD Hybrid Join by adding a device to Azure AD via Synchronization API.
+
+    .DESCRIPTION
+    Emulates Azure AD Hybrid Join by adding a device to Azure AD via Synchronization API and generates a corresponding certificate (if not provided).
+
+    You may use any name, SID, device ID, or certificate you like. 
+
+    The generated certificate can be used to complete the Hybrid Join using Join-AADIntDeviceToAzureAD. The certificate has no password.
+        
+    After the synchronisation, the device appears as "Hybrid Azure AD joined" device which registration state is "Pending". The subject of the certificate must be "CN=<DeviceId>" or the Hybrid Join fails.
+
+    .Parameter AccessToken
+    The access token used to synchronise the device. Must have "Global Admin" or "Directory Synchronization Accounts" role!
+    If not given, will be prompted.
+
+    .Parameter DeviceName
+    The name of the device.
+
+    .Parameter SID
+    The SID of the device. Must be a valid SID, like "S-1-5-21-1436731841-1414151352-1310210645-8640". If not given, a random SID will be used.
+
+    .Parameter Certificate
+    A certificate of the device. If not given, a new self-signed certificate will be created and exported to the current folder.
+
+    .Parameter DeviceId
+    The device id of the device. If not given, a random id will be used.
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+
+    PS C\:>Join-AADIntOnPremDeviceToAzureAD -DeviceName "My computer"
+
+    Device successfully created:
+      Device Name:     "My computer"
+      Device ID:       f24f116f-6e80-425d-8236-09803da7dfbe
+      Device SID:      S-1-5-21-685966194-1071688910-211446493-3729
+      Cloud Anchor:    Device_e049c29d-8c8f-4016-b959-98f3fccd668c
+      Source Anchor:   bxFP8oBuXUKCNgmAPaffvg==
+      Cert thumbprint: C59B20BCDE103F8B7911592FD7A8DDDD22696CE0
+      Cert file name:  "f24f116f-6e80-425d-8236-09803da7dfbe-user.pfx"
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+
+    PS C\:>Join-AADIntOnPremDeviceToAzureAD -DeviceName "My computer"
+
+    Device successfully created:
+      Device Name:     "My computer"
+      Device ID:       f24f116f-6e80-425d-8236-09803da7dfbe
+      Device SID:      S-1-5-21-685966194-1071688910-211446493-3729
+      Cloud Anchor:    Device_e049c29d-8c8f-4016-b959-98f3fccd668c
+      Source Anchor:   bxFP8oBuXUKCNgmAPaffvg==
+      Cert thumbprint: C59B20BCDE103F8B7911592FD7A8DDDD22696CE0
+      Cert file name:  "f24f116f-6e80-425d-8236-09803da7dfbe-user.pfx"
+
+    PS C\:>Join-AADIntDeviceToAzureAD -TenantId 4362599e-fd46-44a9-997d-53bc7a3b2947 -DeviceName "My computer" -SID "S-1-5-21-685966194-1071688910-211446493-3729" -PfxFileName .\f24f116f-6e80-425d-8236-09803da7dfbe-user.pfx
+
+    Device successfully registered to Azure AD:
+      DisplayName:     "My computer"
+      DeviceId:        f24f116f-6e80-425d-8236-09803da7dfbe
+      Cert thumbprint: A531B73CFBAB2BA26694BA2AD31113211CC2174A
+      Cert file name : "f24f116f-6e80-425d-8236-09803da7dfbe.pfx"
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$DeviceName,
+        [Parameter(Mandatory=$False)]
+        [String]$SID,
+        [Parameter(Mandatory=$False)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [Parameter(Mandatory=$False)]
+        [GUID]$DeviceId
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        # Create a random machine SID if not provided
+        if([string]::IsNullOrEmpty($SID))
+        {
+            Write-Verbose "No SID given, creating a random"
+            $SID = "S-1-5-21-$(Get-Random -Minimum 1 -Maximum 0x7FFFFFFF)-$(Get-Random -Minimum 1 -Maximum 0x7FFFFFFF)-$(Get-Random -Minimum 1 -Maximum 0x7FFFFFFF)-$(Get-Random -Minimum 1000 -Maximum 9999)"
+        }
+        $sidObject = [System.Security.Principal.SecurityIdentifier]$SID
+        $bSid =      New-Object Byte[] $sidObject.BinaryLength
+        $sidObject.GetBinaryForm($bSid,0)
+        $b64SID =    Convert-ByteArrayToB64 -Bytes $bSid
+
+        # Create a random device ID if not provided
+        if(!$DeviceId)
+        {
+            Write-Verbose "No DeviceId given, creating a random"
+            $DeviceId = New-Guid
+        }
+        $b64DeviceId = Convert-ByteArrayToB64 -Bytes $DeviceId.ToByteArray()
+
+        # Create a self-signed "user" certificate if not provided
+        if(!$Certificate)
+        {
+            Write-Verbose "No Certificate given, creating a new self-signed certificate"
+            $Certificate = New-AADIntSelfSignedCertificate -SubjectName "CN=$($DeviceId.ToString())"
+            $Certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-Content "$($DeviceId.ToString())-user.pfx" -Encoding byte
+            $certExported = $true
+        }
+
+        if($Certificate.Subject -ne "CN=$DeviceId")
+        {
+            Write-Warning "The certificate subject ""$($Certificate.Subject)"" does NOT match Device ID ""CN=$DeviceId"""
+            Write-Warning "You are NOT able to make hybrid join if the certificate doesn't match!"
+        }
+                
+        # Get the public key
+        $publicKey = Convert-ByteArrayToB64 -Bytes  ($Certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+        
+        $response = Set-AzureADObject -AccessToken $AccessToken -accountEnabled $true -SourceAnchor $b64DeviceId -deviceId $b64DeviceId -displayName $DeviceName -onPremiseSecurityIdentifier $b64SID -ObjectType Device -deviceOSType Windows -deviceTrustType ServerAd -userCertificate $publicKey -Operation Add
+
+        if($response.ResultCode -eq "Success")
+        {
+            # Print out information
+            Write-Host "Device successfully created:"
+            Write-Host "  Device Name:     ""$DeviceName"""
+            Write-Host "  Device ID:       $($DeviceId.ToString())"
+            Write-Host "  Device SID:      $SID"
+            Write-Host "  Cloud Anchor:    $($response.CloudAnchor)"
+            Write-Host "  Source Anchor:   $($response.SourceAnchor)"
+            Write-Host "  Cert thumbprint: $($Certificate.Thumbprint)"
+            if($certExported)
+            {
+                Write-host "  Cert file name:  ""$($DeviceId.ToString())-user.pfx"""
+            }
+        }
+        else
+        {
+            $response
         }
     }
 }
