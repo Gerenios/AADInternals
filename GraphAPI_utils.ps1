@@ -15,7 +15,8 @@ function Call-GraphAPI
         [Parameter(Mandatory=$False)]
         [String]$ApiVersion="1.61-internal",
         [Parameter(Mandatory=$False)]
-        [String]$Method="GET",
+        [ValidateSet('Put','Get','Post','Delete','Patch')]
+        [String]$Method="Get",
         [Parameter(Mandatory=$False)]
         $Body,
         [Parameter(Mandatory=$False)]

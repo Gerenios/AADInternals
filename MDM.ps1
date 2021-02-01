@@ -56,10 +56,12 @@ function Join-DeviceToIntune
             throw "No device id included in access token! Use Get-AADIntAccessTokenForIntuneMDM with the device certificate and try again."
         }
 
+        # If the username starts with package_ assume it be a BPRT
+        $BPRT = $claims.upn.StartsWith("package_")
         
         try
         {
-            $joinInfo = Enroll-DeviceToMDM -AccessToken $AccessToken -DeviceName $DeviceName
+            $joinInfo = Enroll-DeviceToMDM -AccessToken $AccessToken -DeviceName $DeviceName -BPRT $BPRT
         }
         catch
         {
@@ -646,11 +648,11 @@ function Get-DeviceCompliance
 
     PS C\:>Get-AADIntDeviceCompliance -My | ft
 
-    displayName   objectId                             deviceId                             isCompliant isManaged deviceOwnership
-    -----------   --------                             --------                             ----------- --------- ---------------
-    SixByFour     2eaa21a1-6362-4d3f-afc4-597592217ef0 d03994c9-24f8-41ba-a156-1805998d6dc7       False      True Company
-    DESKTOP-X4LCS 8ba68233-4d2b-4331-8b8b-27bc53204d8b c9dcde64-5d0f-4b3c-b711-cb6947837dc2       False      True Company
-    SM-1234       c00af9fe-108e-446b-aeee-bf06262973dc 74080692-fb38-4a7b-be25-27d9cbf95705                       Personal
+    displayName   objectId                             deviceId                             isCompliant isManaged deviceOwnership deviceTrustType
+    -----------   --------                             --------                             ----------- --------- --------------- ---------------
+    SixByFour     2eaa21a1-6362-4d3f-afc4-597592217ef0 d03994c9-24f8-41ba-a156-1805998d6dc7       False      True Company         AzureAd
+    DESKTOP-X4LCS 8ba68233-4d2b-4331-8b8b-27bc53204d8b c9dcde64-5d0f-4b3c-b711-cb6947837dc2       False      True Company         ServerAd
+    SM-1234       c00af9fe-108e-446b-aeee-bf06262973dc 74080692-fb38-4a7b-be25-27d9cbf95705                       Personal        AzureAd
 #>
     [cmdletbinding()]
     Param(
@@ -686,7 +688,7 @@ function Get-DeviceCompliance
             $ObjectId = Get-DeviceObjectId -DeviceId $DeviceId -TenantId $tenantId -AccessToken $AccessToken
         }
 
-        $select="`$select=displayName,objectId,deviceId,isCompliant,isManaged,deviceOwnership,deviceManagementAppId"
+        $select="`$select=displayName,objectId,deviceId,isCompliant,isManaged,deviceOwnership,deviceManagementAppId,deviceTrustType"
 
         if($All)
         {
@@ -778,13 +780,6 @@ function Set-DeviceCompliant
         if($Managed)   {$body["isManaged"] =   "true"}
         if($Intune)    {$body["deviceManagementAppId"] = "0000000a-0000-0000-c000-000000000000"}
 
-
-        #$body=@{
-        #    "isManaged" =             "true"
-        #    "isCompliant" =           "true"
-
-            #"deviceManagementAppId" = "0000000a-0000-0000-c000-000000000000"
-        #}
 
         $headers=@{
             "Authorization" = "Bearer $AccessToken"

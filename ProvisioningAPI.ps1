@@ -4113,7 +4113,7 @@ function Remove-User
 }
 
 # Get-ServicePrincipals
-function Get-ServicePrincipals
+function Get-ServicePrincipals2
 {
     [cmdletbinding()]
     Param(

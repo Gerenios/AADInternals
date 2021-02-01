@@ -747,3 +747,391 @@ function Disable-TenantMsolAccess
         Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy/authorizationPolicy" -Method "PATCH" -Body $body
     }
 }
+
+# Get rollout policies 
+# Jan 7th 2021
+function Get-RolloutPolicies
+{
+<#
+    .SYNOPSIS
+    Gets the tenant's rollout policies.
+
+    .DESCRIPTION
+    Gets the tenant's rollout policies.
+
+    .PARAMETER AccessToken
+    Access token used to get tenant's rollout policies.
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph -SaveToCache
+    PS C:\>Get-AADIntRolloutPolicies
+
+    id                      : cdcb37e1-9c4a-4de9-a7f5-65fdf9f6241d
+    displayName             : passthroughAuthentication rollout policy
+    description             : 
+    feature                 : passthroughAuthentication
+    isEnabled               : True
+    isAppliedToOrganization : False
+
+    id                      : 3c89cd34-275c-4cba-8d8e-80338db7df91
+    displayName             : seamlessSso rollout policy
+    description             : 
+    feature                 : seamlessSso
+    isEnabled               : True
+    isAppliedToOrganization : False
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        Call-MSGraphAPI -AccessToken $AccessToken -API "directory/featureRolloutPolicies" -ApiVersion beta
+    }
+}
+
+# Get rollout policy groups 
+# Jan 7th 2021
+function Get-RolloutPolicyGroups
+{
+<#
+    .SYNOPSIS
+    Gets groups of the given rollout policy.
+
+    .DESCRIPTION
+    Gets groups of the given rollout policy.
+
+    .PARAMETER AccessToken
+    Access token used to get rollout policy groups.
+
+    .PARAMETER PolicyId
+    Guid of the rollout policy.
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph -SaveToCache
+    PS C:\>Get-AADIntRolloutPolicyGroups -PolicyId cdcb37e1-9c4a-4de9-a7f5-65fdf9f6241d | Select displayName,id
+
+    displayName       id                                  
+    -----------       --                                  
+    PTA SSO Sales     b9faf3ba-db5f-4ed2-b9c8-0fd5916de1f3
+    PTA SSO Markering f35d712f-dcdb-4040-a93d-ffd04aff3f75
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [GUID]$PolicyId
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        $response=Call-MSGraphAPI -AccessToken $AccessToken -API "directory/featureRolloutPolicies/$($PolicyId.ToString())" -QueryString "`$expand=appliesTo" -ApiVersion beta
+        $response.appliesTo
+    }
+}
+
+# Add groups to rollout policy
+# Jan 7th 2021
+function Add-RolloutPolicyGroups
+{
+<#
+    .SYNOPSIS
+    Adds given groups to the given rollout policy.
+
+    .DESCRIPTION
+    Adds given groups to the given rollout policy. 
+    
+    Status meaning:
+    204 The group successfully added
+    400 Invalid group id
+    404 Invalid policy id
+
+    .PARAMETER AccessToken
+    Access token used to add rollout policy groups.
+
+    .PARAMETER PolicyId
+    Guid of the rollout policy.
+
+    .PARAMETER GroupIds
+    List of group guids.
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph -SaveToCache
+    PS C:\>Add-AADIntRolloutPolicyGroups -PolicyId cdcb37e1-9c4a-4de9-a7f5-65fdf9f6241d -GroupIds b9faf3ba-db5f-4ed2-b9c8-0fd5916de1f3,f35d712f-dcdb-4040-a93d-ffd04aff3f75
+
+    id                                   status
+    --                                   ------
+    b9faf3ba-db5f-4ed2-b9c8-0fd5916de1f3    204
+    f35d712f-dcdb-4040-a93d-ffd04aff3f75    204
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [GUID]$PolicyId,
+        [Parameter(Mandatory=$True)]
+        [GUID[]]$GroupIds
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        # Build the body
+        $requests = @()
+        
+        foreach($GroupId in $GroupIds)
+        {
+            $id = $GroupId.toString()
+            $request = @{
+                "id" =      $id
+                "method" =  "POST"
+                "url" =     "directory/featureRolloutPolicies/$($PolicyId.toString())/appliesTo/`$ref"
+                "body" =    @{ "@odata.id" =    "https://graph.microsoft.com/beta/directoryObjects/$id" }
+                "headers" = @{ "Content-Type" = "application/json" }
+            }
+            $requests += $request
+        }
+
+        $body = @{ "requests" = $requests } | ConvertTo-Json -Depth 5
+
+        $response = Call-MSGraphAPI -AccessToken $AccessToken -API "`$batch" -ApiVersion beta -Method "POST" -Body $body
+
+        if($response.responses[0].body.error.message)
+        {
+            Write-Error $response.responses[0].body.error.message
+        }
+        else
+        {
+            $response.responses | select id,status
+        }
+        
+    }
+}
+
+# Removes groups from the rollout policy
+# Jan 7th 2021
+function Remove-RolloutPolicyGroups
+{
+<#
+    .SYNOPSIS
+    Removes given groups from the given rollout policy.
+
+    .DESCRIPTION
+    Removes given groups from the given rollout policy.
+    
+    Status meaning:
+    204 The group successfully added
+    400 Invalid group id
+    404 Invalid policy id
+
+    .PARAMETER AccessToken
+    Access token used to remove rollout policy groups.
+
+    .PARAMETER PolicyId
+    Guid of the rollout policy.
+
+    .PARAMETER GroupIds
+    List of group guids.
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph -SaveToCache
+    PS C:\>Remove-AADIntRolloutPolicyGroups -PolicyId cdcb37e1-9c4a-4de9-a7f5-65fdf9f6241d -GroupIds b9faf3ba-db5f-4ed2-b9c8-0fd5916de1f3,f35d712f-dcdb-4040-a93d-ffd04aff3f75
+
+    id                                   status
+    --                                   ------
+    b9faf3ba-db5f-4ed2-b9c8-0fd5916de1f3    204
+    f35d712f-dcdb-4040-a93d-ffd04aff3f75    204
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [GUID]$PolicyId,
+        [Parameter(Mandatory=$True)]
+        [GUID[]]$GroupIds
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        # Build the body
+        $requests = @()
+        
+        foreach($GroupId in $GroupIds)
+        {
+            $id = $GroupId.toString()
+            $request = @{
+                "id" =      $id
+                "method" =  "DELETE"
+                "url" =     "directory/featureRolloutPolicies/$($PolicyId.toString())/appliesTo/$id/`$ref"
+            }
+            $requests += $request
+        }
+
+        $body = @{ "requests" = $requests } | ConvertTo-Json -Depth 5
+
+        $response = Call-MSGraphAPI -AccessToken $AccessToken -API "`$batch" -ApiVersion beta -Method "POST" -Body $body
+
+        if($response.responses[0].body.error.message)
+        {
+            Write-Error $response.responses[0].body.error.message
+        }
+        else
+        {
+            $response.responses | select id,status
+        }
+        
+    }
+}
+
+# Set rollout policy
+# Jan 7th 2021
+function Remove-RolloutPolicy
+{
+<#
+    .SYNOPSIS
+    Removes the given rollout policy.
+
+    .DESCRIPTION
+    Removes the given rollout policy. The policy MUST be disabled before it can be removed.
+
+    .PARAMETER AccessToken
+    Access token used to get tenant's rollout policies.
+
+    .PARAMETER PolicyId
+    Guid of the rollout policy.
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph -SaveToCache
+    PS C:\>Remove-AADIntRolloutPolicy -PolicyId 3c89cd34-275c-4cba-8d8e-80338db7df91
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [GUID]$PolicyId
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        Call-MSGraphAPI -AccessToken $AccessToken -API "directory/featureRolloutPolicies/$($PolicyId.ToString())" -ApiVersion beta -Method DELETE
+    }
+}
+
+# Set rollout policy
+# Jan 7th 2021
+function Set-RolloutPolicy
+{
+<#
+    .SYNOPSIS
+    Creates a new rollout policy or edits existing one.
+
+    .DESCRIPTION
+    Creates a new rollout policy by name or edits existing one with policy id. 
+
+    .PARAMETER AccessToken
+    Access token used to get tenant's rollout policies.
+
+    .PARAMETER PolicyId
+    Guid of the rollout policy.
+
+    .PARAMETER Policy
+    Name of the rollout policy. Can be one of: passwordHashSync, passthroughAuthentication, or seamlessSso
+
+    .PARAMETER Enable
+    Boolean value indicating is the feature enabled or not.
+
+    .PARAMETER EnableToOrganization
+    Boolean value indicating is the feature enabled for the whole organization. Currently not supported.
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph -SaveToCache
+    PS C:\>Set-AADIntRolloutPolicy -Policy passthroughAuthentication -Enable $True
+
+    @odata.context          : https://graph.microsoft.com/beta/$metadata#directory/featureRolloutPolicies/$entity
+    id                      : 1eec3ce2-5af1-4460-9cc4-1af7a6c15eb1
+    displayName             : passthroughAuthentication rollout policy
+    description             : 
+    feature                 : passthroughAuthentication
+    isEnabled               : True
+    isAppliedToOrganization : False
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph -SaveToCache
+    PS C:\>Set-AADIntRolloutPolicy -PolicyId 1eec3ce2-5af1-4460-9cc4-1af7a6c15eb1 -Enable $False
+
+    @odata.context          : https://graph.microsoft.com/beta/$metadata#directory/featureRolloutPolicies/$entity
+    id                      : 1eec3ce2-5af1-4460-9cc4-1af7a6c15eb1
+    displayName             : passthroughAuthentication rollout policy
+    description             : 
+    feature                 : passthroughAuthentication
+    isEnabled               : True
+    isAppliedToOrganization : False
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(ParameterSetName='id',Mandatory=$True)]
+        [GUID]$PolicyId,
+        [Parameter(Mandatory=$True)]
+        [bool]$Enable,
+        [Parameter(ParameterSetName='type',Mandatory=$True)]
+        [ValidateSet('passwordHashSync','passthroughAuthentication','seamlessSso')]
+        [String]$Policy,
+        [Parameter(Mandatory=$False)]
+        [bool]$EnableToOrganization = $false
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        try
+        {
+            if($Policy)
+            {
+                $body = @{
+                    "feature" = "$Policy"
+                    "isEnabled" = $Enable 
+                    #"isAppliedToOrganization" = $EnableToOrganization
+                    "displayName" = "$Policy rollout policy"}
+
+                $response = Call-MSGraphAPI -AccessToken $AccessToken -API "directory/featureRolloutPolicies" -ApiVersion beta -Method POST -Body $($body | ConvertTo-Json -Depth 5)
+            }
+            else
+            {
+                $body = @{
+                    "isEnabled" = $Enable
+                    #"isAppliedToOrganization" = $EnableToOrganization 
+                }
+
+                $response = Call-MSGraphAPI -AccessToken $AccessToken -API "directory/featureRolloutPolicies/$($PolicyId.ToString())" -ApiVersion beta -Method PATCH -Body $($body | ConvertTo-Json -Depth 5)
+            }
+        }
+        catch
+        {
+            $error = $_.ErrorDetails.Message | ConvertFrom-Json 
+            Write-Error $error.error.message
+        }
+
+         
+        $response
+    }
+}

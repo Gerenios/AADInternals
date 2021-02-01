@@ -151,7 +151,7 @@ function Get-AccessTokenForAzureMgmtAPI
         [Parameter()]
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter()]
-        [Switch]$ExportTokenObject
+        [Switch]$SaveToCache
     )
     Process
     {
@@ -412,26 +412,24 @@ function Get-AccessTokenForAzureMgmtAPI
         }
 
         # Save the tokens to cache
-        $tokenToCache = New-Object PSObject -Property @{"access_token" = $accessToken; "refresh_token"=$refreshToken}
-        $Script:tokens["azureportal"]=$tokenToCache
-
-        # Return
-        if($ExportTokenObject)
+        if($SaveToCache)
         {
-            return $tokenToCache
+            Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
+            $Script:tokens["$ClientId-https://graph.windows.net"] =         $accessToken
+            $Script:refresh_tokens["$ClientId-https://graph.windows.net"] = $refreshToken
         }
-        else
+        else # Return
         {
-            $accessToken
+            return $accessToken
         }
-    
     }
 }
 
+# Obsolete since Nov 11th 2020
 # Gets the access token for Azure AD IAM API
 # Oct 24th 2018
 # TODO: Add support for form based & SAML authentication
-function Get-AccessTokenForAADIAMAPI
+function Get-AccessTokenForAADIAMAPI2
 {
 <#
     .SYNOPSIS
@@ -523,7 +521,9 @@ function Call-AzureAADIAMAPI
         $Command,
         [Parameter(Mandatory=$False)]
         [ValidateSet('Put','Get','Post','Delete')]
-        [String]$Method="Get"
+        [String]$Method="Get",
+        [Parameter(Mandatory=$False)]
+        [String]$Version = "2.0"
     )
     Process
     {
@@ -539,7 +539,7 @@ function Call-AzureAADIAMAPI
             "x-ms-client-request-id" = (New-Guid).ToString()
         }
         # Call the API
-        $response = Invoke-RestMethod -Uri "https://main.iam.ad.ext.azure.com/api/$command" -ContentType "application/json; charset=utf-8" -Headers $headers -Method $Method -Body ($Body | ConvertTo-Json)
+        $response = Invoke-RestMethod -Uri "https://main.iam.ad.ext.azure.com/api/$command`?api-version=$Version" -ContentType "application/json; charset=utf-8" -Headers $headers -Method $Method -Body ($Body | ConvertTo-Json -Depth 5)
 
         # Return
         if($response.StatusCode -eq $null)

@@ -576,3 +576,40 @@ Function Get-Error
     }
 }
 
+# Create a new self-signed certificate
+function New-AADIntSelfSignedCertificate
+{
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [String]$SubjectName
+    )
+    Process
+    {
+        # Create a private key
+        $rsa = [System.Security.Cryptography.RSA]::Create(2048)
+
+        # Initialize the Certificate Signing Request object
+        $req = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($SubjectName, $rsa, [System.Security.Cryptography.HashAlgorithmName]::SHA256,[System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+        $req.CertificateExtensions.Add([System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($true,$false,0,$true))
+        $req.CertificateExtensions.Add([System.Security.Cryptography.X509Certificates.X509SubjectKeyIdentifierExtension]::new($req.PublicKey,$false))
+
+        # Create a self-signed certificate
+        $selfSigned = $req.CreateSelfSigned((Get-Date).ToUniversalTime().AddMinutes(-5),(Get-Date).ToUniversalTime().AddYears(100))
+        
+
+        # Store the private key to so that it can be exported
+        $cspParameters = [System.Security.Cryptography.CspParameters]::new()
+        $cspParameters.ProviderName =    "Microsoft Enhanced RSA and AES Cryptographic Provider"
+        $cspParameters.ProviderType =    24
+        $cspParameters.KeyContainerName ="AADInternals"
+            
+        # Set the private key
+        $privateKey = [System.Security.Cryptography.RSACryptoServiceProvider]::new(2048,$cspParameters)
+        $privateKey.ImportParameters($rsa.ExportParameters($true))
+        $selfSigned.PrivateKey = $privateKey
+
+        return $selfSigned
+    }
+}

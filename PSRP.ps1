@@ -164,7 +164,7 @@ function Get-TenantDomains2
 
         # Create an arguments message (uses the fixed runspace pool ID)
         $arguments = @"
-<Obj RefId="0"><MS><Obj N="PowerShell" RefId="1"><MS><Obj N="Cmds" RefId="2"><TN RefId="0"><T>System.Collections.Generic.List``1[[System.Management.Automation.PSObject, System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35]]</T><T>System.Object</T></TN><LST><Obj RefId="3"><MS><S N="Cmd">Get-FederationInformation</S><B N="IsScript">false</B><Nil N="UseLocalScope" /><Obj N="MergeMyResult" RefId="4"><TN RefId="1"><T>System.Management.Automation.Runspaces.PipelineResultTypes</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeToResult" RefId="5"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergePreviousResults" RefId="6"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeError" RefId="7"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeWarning" RefId="8"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeVerbose" RefId="9"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeDebug" RefId="10"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeInformation" RefId="11"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="Args" RefId="12"><TNRef RefId="0" /><LST><Obj RefId="13"><MS><S N="N">-DomainName:</S><S N="V">$Domain</S></MS></Obj><Obj RefId="14"><MS><S N="N">-BypassAdditionalDomainValidation:</S><Obj N="V" RefId="15"><TN RefId="2"><T>System.Management.Automation.SwitchParameter</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>True</ToString><Props><B N="IsPresent">true</B></Props></Obj></MS></Obj></LST></Obj></MS></Obj></LST></Obj><B N="IsNested">false</B><Nil N="History" /><B N="RedirectShellErrorOutputPipe">true</B></MS></Obj><B N="NoInput">true</B><Obj N="ApartmentState" RefId="14"><TN RefId="2"><T>System.Threading.ApartmentState</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>Unknown</ToString><I32>2</I32></Obj><Obj N="RemoteStreamOptions" RefId="15"><TN RefId="3"><T>System.Management.Automation.RemoteStreamOptions</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>0</ToString><I32>0</I32></Obj><B N="AddToHistory">true</B><Obj N="HostInfo" RefId="16"><MS><B N="_isHostNull">true</B><B N="_isHostUINull">true</B><B N="_isHostRawUINull">true</B><B N="_useRunspaceHost">true</B></MS></Obj><B N="IsNested">false</B></MS></Obj>
+<Obj RefId="0"><MS><Obj N="PowerShell" RefId="1"><MS><Obj N="Cmds" RefId="2"><TN RefId="0"><T>System.Collections.Generic.List``1[[System.Management.Automation.PSObject, System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35]]</T><T>System.Object</T></TN><LST><Obj RefId="3"><MS><S N="Cmd">Get-FederationInformation</S><B N="IsScript">false</B><Nil N="UseLocalScope" /><Obj N="MergeMyResult" RefId="4"><TN RefId="1"><T>System.Management.Automation.Runspaces.PipelineResultTypes</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeToResult" RefId="5"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergePreviousResults" RefId="6"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeError" RefId="7"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeWarning" RefId="8"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeVerbose" RefId="9"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeDebug" RefId="10"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeInformation" RefId="11"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="Args" RefId="12"><TNRef RefId="0" /><LST><Obj RefId="13"><MS><S N="N">-DomainName:</S><S N="V">$Domain</S></MS></Obj><Obj RefId="14"><MS><S N="N">-BypassAdditionalDomainValidation:</S><Obj N="V" RefId="15"><TN RefId="2"><T>System.Management.Automation.SwitchParameter</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>True</ToString><Props><B N="IsPresent">true</B></Props></Obj></MS></Obj></LST></Obj></MS></Obj></LST></Obj><B N="IsNested">false</B><Nil N="History" /><B N="RedirectShellErrorOutputPipe">true</B></MS></Obj><B N="NoInput">true</B><Obj N="ApartmentState" RefId="16"><TN RefId="3"><T>System.Threading.ApartmentState</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>Unknown</ToString><I32>2</I32></Obj><Obj N="RemoteStreamOptions" RefId="17"><TN RefId="4"><T>System.Management.Automation.RemoteStreamOptions</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>0</ToString><I32>0</I32></Obj><B N="AddToHistory">true</B><Obj N="HostInfo" RefId="18"><MS><B N="_isHostNull">true</B><B N="_isHostUINull">true</B><B N="_isHostRawUINull">true</B><B N="_useRunspaceHost">true</B></MS></Obj><B N="IsNested">false</B></MS></Obj>
 "@
         $message = Create-PSRPMessage -Data $arguments -Type Create_pipeline -ObjectId ($ObjectId++) -MSG_RPID $runspacePoolId
             
@@ -223,8 +223,8 @@ function Get-TenantDomains2
                             if(![string]::IsNullOrEmpty($errorRecord))
                             {
                                 # Something went wrong, probably not an admin user
-                                Write-Error "Got an error! May be not an admin user?"
-                                Write-Verbose "ERROR: $errorRecord"
+                                Write-Error "Received the following error (probably the user has no admin rights):"
+                                Write-Error "$errorRecord"
                             }
                         }
                     }
@@ -364,85 +364,10 @@ function Get-MobileDevices
 			<rsp:Arguments>$message</rsp:Arguments>
 		</rsp:CommandLine>
 "@
-        # Create the envelope for Get-FederationInfo -cmdlet
+        # Create the envelope for Get-MovileDevices -cmdlet
         $Envelope = Create-PSRPEnvelope -Shell_Id $Shell_Id -SessionId $SessionId -Body $Body -Action Command
         
-        $mobileDevices = @()
-        
-        try
-        {
-            # Make the command call
-            $response = Call-PSRP -Envelope $Envelope -Credentials $Credentials -Oauth $Oauth
- 
-            $get_output = $true
-
-            # Get the output
-            while($get_output)
-            {
-                try
-                {
-                    [xml]$response = Receive-PSRP -Credentials $Credentials -SessionId $SessionId -Shell_Id $Shell_Id -CommandId $commandId -Oauth $Oauth
-
-                    # Loop through streams
-                    foreach($message in $response.Envelope.Body.ReceiveResponse.Stream)
-                    {
-                        $parsed_message = Parse-PSRPMessage -Base64Value $message.'#text'
-                        [xml]$xmlData = $parsed_message.Data
-
-                        if($parsed_message.'Message type' -eq "Pipeline output")
-                        {
-                            # Loop thru the attributes
-                            $attributes = [ordered]@{}
-                            foreach($node in $xmlData.Obj.Props.ChildNodes)
-                            {
-                                $name = $node.N
-                                $value = $node.InnerText
-                                if($name -eq "ObjectClass")
-                                {
-                                    # Special attribute..
-                                    $value=$node.LST.s[1]
-                                }
-                                $attributes[$name]=$value
-                            }
-                            $mobileDevices+=(New-Object psobject -Property $attributes)
-                        }
-                        elseif($parsed_message.'Message type' -eq "Pipeline state")
-                        {
-                            $errorRecord = (Select-Xml -Xml $xmlData -XPath "//*[@N='ErrorRecord']").Node.'#text'
-                            if(![string]::IsNullOrEmpty($errorRecord))
-                            {
-                                # Something went wrong, probably not an admin user
-                                Write-Error "Got an error! May be not an admin user?"
-                                Write-Verbose "ERROR: $errorRecord"
-                            }
-                        }
-                    }
-
-                    # Loop thru the CommandStates
-                    foreach($state in $response.Envelope.Body.ReceiveResponse.CommandState)
-                    {
-                        # Okay, we're done!
-                        $exitCode = $state.ExitCode
-                        if(![string]::IsNullOrEmpty($exitCode))
-                        {
-                            Write-Progress -Activity "Retrieving domains" -Completed
-                            $get_output = $false
-                        }
-                    }
-                }
-                catch
-                {
-                    # Something wen't wrong so exit the loop
-                    break
-                }
-            
-            }
-        }
-        catch
-        {
-            # Do nothing
-        }
-
+        $mobileDevices = Receive-PSRPObjects -Credentials $Credentials -SessionId $SessionId -Shell_Id $Shell_Id -CommandId $commandId -Oauth $Oauth -Envelope $Envelope
         
         # Finally remove the shell
         Remove-PSRPShell -Credentials $Credentials -Shell_Id $Shell_Id -SessionId $SessionId -Oauth $Oauth
@@ -453,3 +378,194 @@ function Get-MobileDevices
     }
         
 }
+
+
+# Get Unified audit log status
+# Jan 21st 2020
+function Get-UnifiedAuditLogSettings
+{
+<#
+    .SYNOPSIS
+    Gets Unified Audit Log settings
+
+    .DESCRIPTION
+    Gets Unified Audit Log settings with Get-AdminAuditLogConfig using Remote Exchange Online PowerShell 
+
+    .Example
+    Get-AADIntUnifiedAuditLogSettings -Credentials $Cred 
+    
+    UnifiedAuditLogIngestionEnabled UnifiedAuditLogFirstOptInDate
+    ------------------------------- -----------------------------
+    true                            2021-01-22T09:59:51.0870075Z
+
+    .Example
+    Get-AADIntAccessTokenForEXO -SaveToCache
+    PS C:\>Get-AADIntUnifiedAuditLogSettings | Select Unified*
+
+    UnifiedAuditLogIngestionEnabled UnifiedAuditLogFirstOptInDate
+    ------------------------------- -----------------------------
+    true                            2021-01-22T09:59:51.0870075Z
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # A fixed runspacel pool ID, used in PSRP messages
+        $runspacePoolId = [guid]"e5565a06-78ca-41aa-a6ef-4ab9cb1bd5ca"
+
+        # Counter for Object IDs
+        $ObjectId=10
+
+        $Oauth=$false
+
+        # If Credentials is null, create the credentials object from AccessToken manually
+        if($Credentials -eq $null)
+        {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+            
+            $upn = (Read-Accesstoken $AccessToken).upn
+            $password = ConvertTo-SecureString -String "Bearer $AccessToken" -AsPlainText -Force
+            $Credentials = [System.Management.Automation.PSCredential]::new($upn,$password)
+            $Oauth=$True
+        }
+
+        # Create a shell
+        $SessionId = (New-Guid).ToString().ToUpper()
+        
+        $Shell_Id = Create-PSRPShell -Credentials $Credentials -SessionId $SessionId -Oauth $Oauth
+        if([string]::IsNullOrEmpty($Shell_Id))
+        {
+            # Something went wrong, exit
+            return
+        }
+
+        # Create an arguments message
+        $arguments = '<Obj RefId="0"><MS><Obj N="PowerShell" RefId="1"><MS><Obj N="Cmds" RefId="2"><TN RefId="0"><T>System.Collections.Generic.List`1[[System.Management.Automation.PSObject, System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35]]</T><T>System.Object</T></TN><LST><Obj RefId="3"><MS><S N="Cmd">Get-AdminAuditLogConfig</S><B N="IsScript">false</B><Nil N="UseLocalScope" /><Obj N="MergeMyResult" RefId="4"><TN RefId="1"><T>System.Management.Automation.Runspaces.PipelineResultTypes</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeToResult" RefId="5"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergePreviousResults" RefId="6"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeError" RefId="7"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeWarning" RefId="8"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeVerbose" RefId="9"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeDebug" RefId="10"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeInformation" RefId="11"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="Args" RefId="12"><TNRef RefId="0" /><LST /></Obj></MS></Obj></LST></Obj><B N="IsNested">false</B><Nil N="History" /><B N="RedirectShellErrorOutputPipe">true</B></MS></Obj><B N="NoInput">true</B><Obj N="ApartmentState" RefId="13"><TN RefId="2"><T>System.Threading.ApartmentState</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>Unknown</ToString><I32>2</I32></Obj><Obj N="RemoteStreamOptions" RefId="14"><TN RefId="3"><T>System.Management.Automation.RemoteStreamOptions</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>0</ToString><I32>0</I32></Obj><B N="AddToHistory">true</B><Obj N="HostInfo" RefId="15"><MS><B N="_isHostNull">true</B><B N="_isHostUINull">true</B><B N="_isHostRawUINull">true</B><B N="_useRunspaceHost">true</B></MS></Obj><B N="IsNested">false</B></MS></Obj>'
+        $message = Create-PSRPMessage -Data $arguments -Type Create_pipeline -ObjectId ($ObjectId++) -MSG_RPID $runspacePoolId
+            
+        $commandId = (New-Guid).ToString().ToUpper()
+        
+        $Body = @"
+        <rsp:CommandLine xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell" CommandId="$commandId">
+			<rsp:Command>Get-AdminAuditLogConfig</rsp:Command>
+			<rsp:Arguments>$message</rsp:Arguments>
+		</rsp:CommandLine>
+"@
+        # Create the envelope for Get-AdminAuditLogConfig -cmdlet
+        $Envelope = Create-PSRPEnvelope -Shell_Id $Shell_Id -SessionId $SessionId -Body $Body -Action Command
+        
+        $settings = Receive-PSRPObjects -Credentials $Credentials -SessionId $SessionId -Shell_Id $Shell_Id -CommandId $commandId -Oauth $Oauth -Envelope $Envelope
+
+        
+        # Finally remove the shell
+        Remove-PSRPShell -Credentials $Credentials -Shell_Id $Shell_Id -SessionId $SessionId -Oauth $Oauth
+       
+        
+        return $settings
+
+    }
+        
+}
+
+# Enable or disable Unified Audit Log
+# Jan 22nd 2020
+function Set-UnifiedAuditLogSettings
+{
+<#
+    .SYNOPSIS
+    Enables or disables Unified Audit log
+
+    .DESCRIPTION
+    Enables or disables Unified Audit log Set-AdminAuditLogConfig using Remote Exchange Online PowerShell. 
+    It will take hours for the changes to take effect.
+
+    .Example
+    Get-AADIntUnifiedAuditLogSettings -Credentials $Cred 
+
+    .Example
+    Get-AADIntAccessTokenForEXO -SaveToCache
+    PS C:\>Get-AADIntUnifiedAuditLogSettings | Select Unified*
+
+    UnifiedAuditLogIngestionEnabled UnifiedAuditLogFirstOptInDate
+    ------------------------------- -----------------------------
+    true                            2021-01-22T09:59:51.0870075Z
+
+    PS C:\>Set-AADIntUnifiedAuditLogSettings -Enabled false
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [Bool]$Enable
+    )
+    Process
+    {
+        # A fixed runspacel pool ID, used in PSRP messages
+        $runspacePoolId = [guid]"e5565a06-78ca-41aa-a6ef-4ab9cb1bd5ca"
+
+        # Counter for Object IDs
+        $ObjectId=10
+
+        $Oauth=$false
+
+        # If Credentials is null, create the credentials object from AccessToken manually
+        if($Credentials -eq $null)
+        {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+            
+            $upn = (Read-Accesstoken $AccessToken).upn
+            $password = ConvertTo-SecureString -String "Bearer $AccessToken" -AsPlainText -Force
+            $Credentials = [System.Management.Automation.PSCredential]::new($upn,$password)
+            $Oauth=$True
+        }
+
+        # Create a shell
+        $SessionId = (New-Guid).ToString().ToUpper()
+        
+        $Shell_Id = Create-PSRPShell -Credentials $Credentials -SessionId $SessionId -Oauth $Oauth
+        if([string]::IsNullOrEmpty($Shell_Id))
+        {
+            # Something went wrong, exit
+            return
+        }
+
+        # Create an arguments message
+        $arguments = @"
+<Obj RefId="0"><MS><Obj N="PowerShell" RefId="1"><MS><Obj N="Cmds" RefId="2"><TN RefId="0"><T>System.Collections.Generic.List`1[[System.Management.Automation.PSObject, System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35]]</T><T>System.Object</T></TN><LST><Obj RefId="3"><MS><S N="Cmd">Set-AdminAuditLogConfig</S><B N="IsScript">false</B><Nil N="UseLocalScope" /><Obj N="MergeMyResult" RefId="4"><TN RefId="1"><T>System.Management.Automation.Runspaces.PipelineResultTypes</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeToResult" RefId="5"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergePreviousResults" RefId="6"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeError" RefId="7"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeWarning" RefId="8"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeVerbose" RefId="9"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeDebug" RefId="10"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="MergeInformation" RefId="11"><TNRef RefId="1" /><ToString>None</ToString><I32>0</I32></Obj><Obj N="Args" RefId="12"><TNRef RefId="0" /><LST><Obj RefId="13"><MS><S N="N">-UnifiedAuditLogIngestionEnabled:</S><B N="V">$($Enable.ToString().ToLower())</B></MS></Obj></LST></Obj></MS></Obj></LST></Obj><B N="IsNested">false</B><Nil N="History" /><B N="RedirectShellErrorOutputPipe">true</B></MS></Obj><B N="NoInput">true</B><Obj N="ApartmentState" RefId="14"><TN RefId="2"><T>System.Threading.ApartmentState</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>Unknown</ToString><I32>2</I32></Obj><Obj N="RemoteStreamOptions" RefId="15"><TN RefId="3"><T>System.Management.Automation.RemoteStreamOptions</T><T>System.Enum</T><T>System.ValueType</T><T>System.Object</T></TN><ToString>0</ToString><I32>0</I32></Obj><B N="AddToHistory">true</B><Obj N="HostInfo" RefId="16"><MS><B N="_isHostNull">true</B><B N="_isHostUINull">true</B><B N="_isHostRawUINull">true</B><B N="_useRunspaceHost">true</B></MS></Obj><B N="IsNested">false</B></MS></Obj>
+"@
+        $message = Create-PSRPMessage -Data $arguments -Type Create_pipeline -ObjectId ($ObjectId++) -MSG_RPID $runspacePoolId
+            
+        $commandId = (New-Guid).ToString().ToUpper()
+        
+        $Body = @"
+        <rsp:CommandLine xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell" CommandId="$commandId">
+			<rsp:Command>Set-AdminAuditLogConfig</rsp:Command>
+			<rsp:Arguments>$message</rsp:Arguments>
+		</rsp:CommandLine>
+"@
+        # Create the envelope for Get-AdminAuditLogConfig -cmdlet
+        $Envelope = Create-PSRPEnvelope -Shell_Id $Shell_Id -SessionId $SessionId -Body $Body -Action Command
+        
+        $settings = Receive-PSRPObjects -Credentials $Credentials -SessionId $SessionId -Shell_Id $Shell_Id -CommandId $commandId -Oauth $Oauth -Envelope $Envelope
+
+        
+        # Finally remove the shell
+        Remove-PSRPShell -Credentials $Credentials -Shell_Id $Shell_Id -SessionId $SessionId -Oauth $Oauth
+       
+        
+        return $settings
+
+    }
+        
+}
+

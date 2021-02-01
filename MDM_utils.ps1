@@ -74,7 +74,9 @@ function Enroll-DeviceToMDM
         [Parameter(Mandatory=$True)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
-        [String]$DeviceName
+        [String]$DeviceName,
+        [Parameter(Mandatory=$True)]
+        [bool]$BPRT
     )
     Process
     {
@@ -124,16 +126,19 @@ function Enroll-DeviceToMDM
 			<wsse:BinarySecurityToken ValueType="http://schemas.microsoft.com/windows/pki/2009/01/enrollment#PKCS10" EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd#base64binary">$csr</wsse:BinarySecurityToken>
 			<ac:AdditionalContext xmlns="http://schemas.xmlsoap.org/ws/2006/12/authorization">
 				<ac:ContextItem Name="UXInitiated">
-					<ac:Value>true</ac:Value>
+					<ac:Value>(($BPRT -eq $false).ToString().ToLower())</ac:Value>
 				</ac:ContextItem>
 				<ac:ContextItem Name="HWDevID">
 					<ac:Value>$HWDevID</ac:Value>
+				</ac:ContextItem>
+                <ac:ContextItem Name="BulkAADJ">
+					<ac:Value>$($BPRT.ToString().ToLower())</ac:Value>
 				</ac:ContextItem>
 				<ac:ContextItem Name="Locale">
 					<ac:Value>en-US</ac:Value>
 				</ac:ContextItem>
 				<ac:ContextItem Name="TargetedUserLoggedIn">
-					<ac:Value>true</ac:Value>
+					<ac:Value>$(($BPRT -eq $false).ToString().ToLower())</ac:Value>
 				</ac:ContextItem>
 				<ac:ContextItem Name="EnrollmentData">
 					<ac:Value></ac:Value>

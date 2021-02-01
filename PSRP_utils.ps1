@@ -374,7 +374,7 @@ function Create-PSRPEnvelope
         $SequenceId="1"
 
         #$To = "https://ps.outlook.com:443/powershell?PSVersion=5.1.17134.590"
-        $To = "https://ps.outlook.com:443/PowerShell-LiveID?PSVersion=5.1.17134.590"
+        $To = "https://outlook.office365.com:443/PowerShell-LiveID?BasicAuthToOAuthConversion=true&amp;PSVersion=5.1.17763.1490"
         $Envelope=@"
         <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:w="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd" xmlns:p="http://schemas.microsoft.com/wbem/wsman/1/wsman.xsd">
 	        <s:Header>
@@ -449,7 +449,7 @@ function Call-PSRP
             "User-Agent" = "Microsoft WinRM Client"
         }
 
-        $url="https://ps.outlook.com/PowerShell-LiveID?"
+        $url="https://outlook.office365.com:443/PowerShell-LiveID?"
 
         # EXO Remote PS uses basic authentication header to provide the Oauth token..
         if($Oauth)
@@ -513,3 +513,114 @@ function Receive-PSRP
     }
         
 }
+
+
+# Reads the response(s) and returns an array of objects
+function Receive-PSRPObjects
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter()]
+        [Bool]$Oauth=$false,
+        [Parameter(Mandatory=$True)]
+        [String]$Envelope,
+        [Parameter(Mandatory=$True)]
+        [String]$SessionId,
+        [Parameter(Mandatory=$True)]
+        [String]$Shell_Id,
+        [Parameter(Mandatory=$False)]
+        [String]$CommandId
+    )
+    Process
+    {
+        $return_array = @()
+        try
+        {
+            # Make the command call
+            $response = Call-PSRP -Envelope $Envelope -Credentials $Credentials -Oauth $Oauth
+ 
+            $get_output = $true
+
+            # Get the output
+            while($get_output)
+            {
+                try
+                {
+                    [xml]$response = Receive-PSRP -Credentials $Credentials -SessionId $SessionId -Shell_Id $Shell_Id -CommandId $commandId -Oauth $Oauth
+
+                    # Loop through streams
+                    foreach($message in $response.Envelope.Body.ReceiveResponse.Stream)
+                    {
+                        $parsed_message = Parse-PSRPMessage -Base64Value $message.'#text'
+                        [xml]$xmlData = $parsed_message.Data
+
+                        if($parsed_message.'Message type' -eq "Pipeline output")
+                        {
+                            # Loop thru the attributes
+                            $attributes = [ordered]@{}
+                            foreach($node in $xmlData.Obj.Props.ChildNodes)
+                            {
+                                $name = $node.N
+                                $value = $node.InnerText
+                                if($name -eq "ObjectClass")
+                                {
+                                    # Special attribute..
+                                    $value=$node.LST.s[1]
+                                }
+                                $attributes[$name]=$value
+                            }
+                            $return_array+=(New-Object psobject -Property $attributes)
+                        }
+                        elseif($parsed_message.'Message type' -eq "Pipeline state")
+                        {
+                            $errorRecord = (Select-Xml -Xml $xmlData -XPath "//*[@N='ErrorRecord']").Node.'#text'
+                            if(![string]::IsNullOrEmpty($errorRecord))
+                            {
+                                # Something went wrong, probably not an admin user
+                                Write-Error "Got an error! May be not an admin user?"
+                                Write-Verbose "ERROR: $errorRecord"
+                            }
+                        }
+                        elseif($parsed_message.'Message type' -eq "Warning record")
+                        {
+                            $warningRecord = (Select-Xml -Xml $xmlData -XPath "//*[@N='InformationalRecord_Message']").Node.'#text'
+                            if(![string]::IsNullOrEmpty($warningRecord))
+                            {
+                                Write-Warning $warningRecord
+                            }
+                        }
+                    }
+
+                    # Loop thru the CommandStates
+                    foreach($state in $response.Envelope.Body.ReceiveResponse.CommandState)
+                    {
+                        # Okay, we're done!
+                        $exitCode = $state.ExitCode
+                        if(![string]::IsNullOrEmpty($exitCode))
+                        {
+                            Write-Progress -Activity "Retrieving objects" -Completed
+                            $get_output = $false
+                        }
+                    }
+                }
+                catch
+                {
+                    # Something wen't wrong so exit the loop
+                    break
+                }
+            
+            }
+        }
+        catch
+        {
+            # Do nothing
+        }
+
+        return $return_array
+    }
+        
+}
+
+

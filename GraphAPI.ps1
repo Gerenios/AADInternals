@@ -263,7 +263,7 @@ function Get-OAuthGrants
     }
 }
 
-# Gets tenant's OAuth grants
+# Gets tenant's service principals
 # Jun 24th 2020 
 function Get-ServicePrincipals
 {
@@ -272,60 +272,77 @@ function Get-ServicePrincipals
     Extracts Azure AD service principals
 
     .DESCRIPTION
-    Extracts Azure AD service principals
+    Extracts Azure AD service principals. If client id(s) are provided, show detailed information.
 
     .Parameter AccessToken
     The Access Token. If not given, tries to use cached Access Token.
 
+    .Parameter ClientIds
+    List of client ids to get detailed information.
+
     .Example
-    PS C:\>$token=Get-AADIntAccessTokenForAADGraph
-    PS C:\>Get-AADIntServicePrincipals -AccessToken $token
+    PS C:\>Get-AADIntAccessTokenForAADGraph -SaveToCache
+    PS C:\>Get-AADIntServicePrincipals
 
-    odata.type                          : Microsoft.DirectoryServices.ServicePrincipal
-    objectType                          : ServicePrincipal
-    objectId                            : 3f3d070e-e5ac-4c5b-b23d-3313955df685
-    deletionTimestamp                   : 
-    accountEnabled                      : True
-    addIns                              : {}
-    alternativeNames                    : {}
-    appBranding                         : 
-    appCategory                         : 
-    appData                             : 
-    appDisplayName                      : Microsoft Dynamics 365 Apps Integration
-    appId                               : 44a02aaa-7145-4925-9dcd-79e6e1b94eff
-    applicationTemplateId               : 
-    appMetadata                         : 
-    appOwnerTenantId                    : f8cdef31-a31e-4b4a-93e4-5f571e91255a
-    appRoleAssignmentRequired           : False
-    appRoles                            : {}
-    authenticationPolicy                : 
-    displayName                         : Microsoft Dynamics 365 Apps Integration
-    errorUrl                            : 
-    homepage                            : 
-    informationalUrls                   : @{termsOfService=; support=; privacy=; marketing=}
-    keyCredentials                      : {}
-    logoutUrl                           : https://msteamstabintegration.crm.dynamics.com
-    managedIdentityResourceId           : 
-    microsoftFirstParty                 : True
-    notificationEmailAddresses          : {}
-    oauth2Permissions                   : {@{adminConsentDescription=Allows the application to access Microsoft Dynamics 365 Apps Integration acting as users in the organization; adminConsentDisplayName=Access Dynamics 365 Apps
-                                           Integration as organization user; id=f43389c9-db90-4009-be93-f3251d41f11f; isEnabled=True; lang=; origin=Application; type=User; userConsentDescription=Allows the application to access
+    AccountEnabled        : true
+    Addresses             :
+    AppPrincipalId        : d32c68ad-72d2-4acb-a0c7-46bb2cf93873
+    DisplayName           : Microsoft Activity Feed Service
+    ObjectId              : 321e7bdd-d7b0-4a64-8eb3-38c259c1304a
+    ServicePrincipalNames : ServicePrincipalNames
+    TrustedForDelegation  : false
 
+    AccountEnabled        : true
+    Addresses             : Addresses
+    AppPrincipalId        : 0000000c-0000-0000-c000-000000000000
+    DisplayName           : Microsoft App Access Panel
+    ObjectId              : a9e03f2f-4471-41f2-96c5-589d5d7117bc
+    ServicePrincipalNames : ServicePrincipalNames
+    TrustedForDelegation  : false
 
+    AccountEnabled        : true
+    Addresses             :
+    AppPrincipalId        : dee7ba80-6a55-4f3b-a86c-746a9231ae49
+    DisplayName           : Microsoft AppPlat EMA
+    ObjectId              : ae0b81fc-c521-4bfd-9eaa-04c520b4b5fd
+    ServicePrincipalNames : ServicePrincipalNames
+    TrustedForDelegation  : false
+
+    AccountEnabled        : true
+    Addresses             : Addresses
+    AppPrincipalId        : 65d91a3d-ab74-42e6-8a2f-0add61688c74
+    DisplayName           : Microsoft Approval Management
+    ObjectId              : d8ec5b95-e5f6-416e-8e7c-c6c52ec5a11f
+    ServicePrincipalNames : ServicePrincipalNames
+    TrustedForDelegation  : false
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
-        [String]$AccessToken
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [String[]]$ClientIds
     )
     Process
     {
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
-        # Call the API
-        $response=Call-GraphAPI -AccessToken $AccessToken -Command "servicePrincipals" -QueryString "`$top=999"
-        
-        # Return
-        $response
+        # If client id(s) are provided, get only those (with extra information)
+        if($ClientIds)
+        {
+            $body = @{
+                "appIds" = $ClientIds
+            }
+
+            # Call the API
+            Call-GraphAPI -AccessToken $AccessToken -Command "getServicePrincipalsByAppIds" -Body ($body | ConvertTo-Json) -Method Post -QueryString "`$Select="
+        }
+        else
+        {
+            # Call the Provisioning API
+            Get-ServicePrincipals2 -AccessToken $AccessToken
+        }
+
     }
 }
+

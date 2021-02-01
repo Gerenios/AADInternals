@@ -270,6 +270,7 @@ function Call-ADSyncAPI
             "x-ms-aadmsods-fimbuildnumber"=    $aadsync_client_build
             "x-ms-aadmsods-tenantid"=          $Tenant_id
             "User-Agent"=""
+																					 
             
         }
         # Verbose
@@ -312,7 +313,7 @@ function Add-PropertyValue
         [String]$Key,
         [Parameter(Mandatory=$False)]
         [PSobject]$Value,
-        [ValidateSet('string','bool','base64','long','ArrayOfstring')]
+        [ValidateSet('string','bool','base64','long','ArrayOfstring','ArrayOfbase64')]
         [String]$Type="string"
     )
     Process
@@ -324,13 +325,22 @@ function Add-PropertyValue
             switch($Type)
             {
                 'long' { $PropBlock += "<c:Value i:type=""d:long"" xmlns:d=""http://www.w3.org/2001/XMLSchema"">$Value</c:Value>" }
-                'bool' { $PropBlock += "<c:Value i:type=""d:boolean"" xmlns:d=""http://www.w3.org/2001/XMLSchema"">$(b2s($Value))</c:Value>" }
+                'bool' { $PropBlock += "<c:Value i:type=""d:boolean"" xmlns:d=""http://www.w3.org/2001/XMLSchema"">$($Value.toString().toLower())</c:Value>" }
                 'base64'{ $PropBlock += "<c:Value i:type=""d:base64Binary"" xmlns:d=""http://www.w3.org/2001/XMLSchema"">$Value</c:Value>" }
                 'ArrayOfstring'{ 
                     $PropBlock += "<c:Value i:type=""c:ArrayOfstring"">"
                     foreach($stringValue in $Value)
                     {
                         $PropBlock += "<c:string>$stringValue</c:string>"
+                    }
+
+                    $PropBlock += "</c:Value>" 
+                    }
+                'ArrayOfbase64'{ 
+                    $PropBlock += "<c:Value i:type=""c:ArrayOfbase64Binary"">"
+                    foreach($stringValue in $Value)
+                    {
+                        $PropBlock += "<c:base64Binary>$stringValue</c:base64Binary>"
                     }
 
                     $PropBlock += "</c:Value>" 
@@ -343,46 +353,6 @@ function Add-PropertyValue
             return $PropBlock
         }
     }
-}
-
-# Convert byte array to hex string
-Function Convert-ByteArrayToHex {
-
-    [cmdletbinding()]
-
-    param(
-        [parameter(Mandatory=$true)]
-        [Byte[]]
-        $Bytes
-    )
-
-    $HexString = [System.Text.StringBuilder]::new($Bytes.Length * 2)
-
-    ForEach($byte in $Bytes){
-        $HexString.AppendFormat("{0:x2}", $byte) | Out-Null
-    }
-
-    $HexString.ToString()
-}
-
-# convert hex string to byte array
-Function Convert-HexToByteArray {
-
-    [cmdletbinding()]
-
-    param(
-        [parameter(Mandatory=$true)]
-        [String]
-        $HexString
-    )
-
-    $Bytes = [byte[]]::new($HexString.Length / 2)
-
-    For($i=0; $i -lt $HexString.Length; $i+=2){
-        $Bytes[$i/2] = [convert]::ToByte($HexString.Substring($i, 2), 16)
-    }
-
-    $Bytes
 }
 
 # Creates a AADHash for given password
@@ -419,10 +389,14 @@ Function Create-AADHash {
         
 
         # Generate random 10-byte salt
-        $salt = Get-Random 0,1,2,3,4,5,6,7,8,9,0xA,0xB,0xC,0xD,0xE,0xF -count 10
+        $salt=@()
+        for($count = 0; $count -lt 10 ; $count++)
+        {
+            $salt += Get-Random -Minimum 0 -Maximum 0xFF
+        }
 
         # Calculate hash using 1000 iterations and SHA256
-        $pbkdf2 = New-Object System.Security.Cryptography.Rfc2898DeriveBytes($md4bytes,$salt,$Iterations,"SHA256")
+        $pbkdf2 = New-Object System.Security.Cryptography.Rfc2898DeriveBytes($md4bytes,[byte[]]$salt,$Iterations,"SHA256")
         $bytes = $pbkdf2.GetBytes(32)
 
         # Convert to hex strings

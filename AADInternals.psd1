@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.4.4'
+	ModuleVersion = '0.4.5'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -19,7 +19,7 @@
 	CompanyName = 'Gerenios Ltd'
 
 	# Copyright statement for this module
-	Copyright = '(c) 2018 - 2020 Nestori Syynimaa. Distributed under MIT license.'
+	Copyright = '(c) 2018 - 2021 Nestori Syynimaa. Distributed under MIT license.'
 
 	# Description of the functionality provided by this module
 	Description = 'The AADInternals PowerShell Module utilises several internal features of Azure Active Directory, Office 365, and related admin tools.

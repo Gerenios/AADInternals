@@ -36,14 +36,14 @@ function Get-EASAutoDiscover
             
             [Parameter(Mandatory=$True)]
             [String]$Email,
-            [ValidateSet('All','Rest','ActiveSync','Ews','Substrate','Substratesearchservice','AutodiscoverV1','substratesearchservice','substratenotificationservice','outlookmeetingscheduler','outlookpay')]
+            [ValidateSet('All','Rest','ActiveSync','Ews','Substrate','SubstrateSearchService','AutodiscoverV1','SubstrateNotificationService','OutlookMeetingScheduler','OutlookPay','Actions','Connectors','ConnectorsProcessors','ConnectorsWebhook','NotesClient','OwaPoweredExperience','ToDo','Weve','OutlookLocationsService','OutlookCloudSettingsService','OutlookTailoredExperiences','OwaPoweredExperienceV2')]
             [String]$Protocol="All"
         )
     Process
     {
         if($Protocol -eq "All")
         {
-            $Protocols = @('Rest','ActiveSync','Ews','Substrate','Substratesearchservice','AutodiscoverV1','substratesearchservice','substratenotificationservice','outlookmeetingscheduler','outlookpay')
+            $Protocols = @('Rest','ActiveSync','Ews','Substrate','SubstrateSearchService','AutodiscoverV1','SubstrateNotificationService','OutlookMeetingScheduler','OutlookPay','Actions','Connectors','ConnectorsProcessors','ConnectorsWebhook','NotesClient','OwaPoweredExperience','ToDo','Weve','OutlookLocationsService','OutlookCloudSettingsService','OutlookTailoredExperiences','OwaPoweredExperienceV2')
             $Response = @()
             foreach($p in $Protocols)
             {
@@ -129,7 +129,7 @@ function Get-EASOptions
             "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
         }
         
-        $response=Invoke-WebRequest -UseBasicParsing -Uri "https://outlook.office365.com/Microsoft-Server-ActiveSync" -Method Options -Headers $headers -TimeoutSec 5
+        $response=Invoke-WebRequest -UseBasicParsing -Uri "https://outlook.office365.com/Microsoft-Server-ActiveSync" -Method Options -Headers $headers -TimeoutSec 10
         $response.headers
     }
 }
