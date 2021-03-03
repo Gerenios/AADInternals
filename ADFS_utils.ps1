@@ -112,16 +112,22 @@ function Export-ADFSCertificate
         $encPfxBytes=[System.Convert]::FromBase64String($encPfx)
 
          # Get DKM container info
-        $group=$xml.ServiceSettingsData.PolicyStore.DkmSettings.Group
-        $container=$xml.ServiceSettingsData.PolicyStore.DkmSettings.ContainerName
-        $parent=$xml.ServiceSettingsData.PolicyStore.DkmSettings.ParentContainerDn
-        $base="CN=$group,$container,$parent"
+        $group =     $xml.ServiceSettingsData.PolicyStore.DkmSettings.Group
+        $container = $xml.ServiceSettingsData.PolicyStore.DkmSettings.ContainerName
+        $parent =    $xml.ServiceSettingsData.PolicyStore.DkmSettings.ParentContainerDn
+        $base =      "LDAP://CN=$group,$container,$parent"
 
+        # The "displayName" attribute of "CryptoPolicy" object refers to the value of the "l" attribute of 
+        # the object containing the actual encryption key material in its "thumbnailphoto" attribute.
+        $ADSearch =        [System.DirectoryServices.DirectorySearcher]::new([System.DirectoryServices.DirectoryEntry]::new($base))
+        $ADSearch.Filter = '(name=CryptoPolicy)'
+        $aduser =          $ADSearch.FindOne()
+        $keyObjectGuid =   $ADUser.Properties["displayName"] 
+        
         # Read the encryption key from AD object
-        $ADSearch = New-Object System.DirectoryServices.DirectorySearcher
         $ADSearch.PropertiesToLoad.Add("thumbnailphoto") | Out-Null
-        $ADSearch.Filter='(&(objectclass=contact)(!name=CryptoPolicy))'
-        $ADUser=$ADSearch.FindOne() 
+        $ADSearch.Filter="(l=$keyObjectGuid)"
+        $aduser=$ADSearch.FindOne() 
         $key=[byte[]]$aduser.Properties["thumbnailphoto"][0] 
         Write-Verbose "Key:"
         Write-Verbose "$($key|Format-Hex)"
@@ -166,10 +172,12 @@ function Export-ADFSCertificate
         $cs = New-Object System.Security.Cryptography.CryptoStream($ms,$decryptor,[System.Security.Cryptography.CryptoStreamMode]::Write)
         $cs.Write($ciphertext,0,$ciphertext.Count)
         $cs.Close()
+        $cs.Dispose()
 
         # Get the results and export to the file
         $pfx = $ms.ToArray()
         $ms.Close()
+        $ms.Dispose()
 
         $pfx |  Set-Content $fileName -Encoding Byte 
     }

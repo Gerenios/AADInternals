@@ -599,16 +599,21 @@ function Remove-AzureADObject
     .Parameter sourceAnchor
     The source anchor for the Azure AD object. Typically Base 64 encoded GUID of on-prem AD object.
 
+    .Parameter cloudAnchor
+    The cloud anchor for the Azure AD object in the form "<type>_<objectid>". For example "User_a98368aa-f0cb-41b5-a7c6-10f18c6c837d"
+
 
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
+        [Parameter(ParameterSetName='sourceAnchor', Mandatory=$True)]
         [String]$sourceAnchor,
+        [Parameter(ParameterSetName='cloudAnchor', Mandatory=$True)]
+        [String]$cloudAnchor,
         [Parameter(Mandatory=$False)]
-        [ValidateSet('User','Group','Contact')]
+        [ValidateSet('User','Group','Contact','Device')]
         [String]$ObjectType="User",
         [Parameter(Mandatory=$False)]
         [int]$Recursion=1
@@ -631,6 +636,7 @@ function Remove-AzureADObject
 					<b:AzureADSyncObject>
 						<b:PropertyValues xmlns:c="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
                             $(Add-PropertyValue "SourceAnchor" $sourceAnchor)
+                            $(Add-PropertyValue "CloudAnchor"  $cloudAnchor)
                         </b:PropertyValues>
 						<b:SyncObjectType>$ObjectType</b:SyncObjectType>
 						<b:SyncOperation>Delete</b:SyncOperation>
@@ -1289,7 +1295,7 @@ function Set-DesktopSSO
             "IsSuccessful" = $($results.DesktopSsoEnablementResult.IsSuccessful -eq "true")
         }
 
-        $setPwd=Read-Host -Prompt "Would you like to set the password of $ComputerName to `"$Password`"(yes/no)?"
+        $setPwd=Read-Host -Prompt "Would you like to set the password of computer account $ComputerName to `"$Password`"(yes/no)?"
         if($setPwd -eq "yes")
         {
             
@@ -1929,7 +1935,7 @@ function Join-OnPremDeviceToAzureAD
         if([string]::IsNullOrEmpty($SID))
         {
             Write-Verbose "No SID given, creating a random"
-            $SID = "S-1-5-21-$(Get-Random -Minimum 1 -Maximum 0x7FFFFFFF)-$(Get-Random -Minimum 1 -Maximum 0x7FFFFFFF)-$(Get-Random -Minimum 1 -Maximum 0x7FFFFFFF)-$(Get-Random -Minimum 1000 -Maximum 9999)"
+            $SID = New-RandomSID
         }
         $sidObject = [System.Security.Principal.SecurityIdentifier]$SID
         $bSid =      New-Object Byte[] $sidObject.BinaryLength
@@ -1948,7 +1954,7 @@ function Join-OnPremDeviceToAzureAD
         if(!$Certificate)
         {
             Write-Verbose "No Certificate given, creating a new self-signed certificate"
-            $Certificate = New-AADIntSelfSignedCertificate -SubjectName "CN=$($DeviceId.ToString())"
+            $Certificate = New-Certificate -SubjectName "CN=$($DeviceId.ToString())"
             $Certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-Content "$($DeviceId.ToString())-user.pfx" -Encoding byte
             $certExported = $true
         }
@@ -1960,9 +1966,9 @@ function Join-OnPremDeviceToAzureAD
         }
                 
         # Get the public key
-        $publicKey = Convert-ByteArrayToB64 -Bytes  ($Certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+        $userCert = Convert-ByteArrayToB64 -Bytes  ($Certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
         
-        $response = Set-AzureADObject -AccessToken $AccessToken -accountEnabled $true -SourceAnchor $b64DeviceId -deviceId $b64DeviceId -displayName $DeviceName -onPremiseSecurityIdentifier $b64SID -ObjectType Device -deviceOSType Windows -deviceTrustType ServerAd -userCertificate $publicKey -Operation Add
+        $response = Set-AzureADObject -AccessToken $AccessToken -accountEnabled $true -SourceAnchor $b64DeviceId -deviceId $b64DeviceId -displayName $DeviceName -onPremiseSecurityIdentifier $b64SID -ObjectType Device -deviceOSType Windows -deviceTrustType ServerAd -userCertificate $userCert -Operation Add
 
         if($response.ResultCode -eq "Success")
         {

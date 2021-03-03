@@ -1034,16 +1034,9 @@ function Read-Accesstoken
         $payload =   $sections[1]
         $signature = $sections[2]
 
-        # Fill with padding for Base 64 decoding
-        while ($payload.Length % 4)
-        {
-            $payload += "="
-        }
-
         # Convert the token to string and json
-        $payloadBytes=[System.Convert]::FromBase64String($payload)
-        $payloadArray=[System.Text.Encoding]::ASCII.GetString($payloadBytes)
-        $payloadObj=$payloadArray | ConvertFrom-Json
+        $payloadString = Convert-B64ToText -B64 $payload
+        $payloadObj=$payloadString | ConvertFrom-Json
 
         if($ShowDate)
         {
@@ -1938,49 +1931,8 @@ function Get-AccessTokenForMySignins
         [switch]$SaveToCache
     )
     Process
-
     {
-        # Create the url
-        $request_id=    (New-Guid).ToString()
-        $state =        (New-Guid).ToString()
-        $nonce =        (New-Guid).ToString()
-        $resource=      "0000000c-0000-0000-c000-000000000000"
-        $clientId =     "19db86c3-b2b9-44cc-b339-36da233a3be2"
-        $redirect_uri = "https://mysignins.microsoft.com"
-        
-        $url="https://login.microsoftonline.com/common/oauth2/authorize?resource=$Resource&response_type=token&client_id=$clientId&redirect_uri=$redirect_uri&state=$state&login_hint=$UserPrincipalName&client-request-id=$request_id&x-client-SKU=Js&x-client-Ver=1.0.17&nonce=$nonce&amr_values=mfa"
-
-        # Create the form
-        $auth_redirect="https://mysignins.microsoft.com/#access_token"
-        $form = Create-LoginForm -Url $url -auth_redirect $auth_redirect
-
-        # Show the form and wait for the return value
-        if($form.ShowDialog() -ne "OK") {
-            # Dispose the control
-        $form.Controls[0].Dispose()
-            Write-Verbose "Login cancelled"
-            return $null
-        }
-
-        # Parse the token
-        $AccessToken = $form.Controls[0].url.AbsoluteUri.Split("/")[3].Split("&")[0].Split("=")[1]
-
-        if($SaveToCache -and $AccessToken -ne $null)
-        {
-            $script:tokens["$ClientId-$Resource"] = $AccessToken
-
-            $pat = Read-Accesstoken -AccessToken $AccessToken
-            $attributes=[ordered]@{
-                "Tenant" =   $pat.tid
-                "User" =     $pat.unique_name
-                "Resource" = $Resource
-                "Client" =   $ClientID
-            }
-            Write-Host "AccessToken saved to cache."
-            return New-Object psobject -Property $attributes
-        }
-
-        return $AccessToken
+        return Get-AccessToken -ClientId 1b730954-1685-4b74-9bfd-dac224a7b894 -Resource "0000000c-0000-0000-c000-000000000000" -ForceMFA $true -SaveToCache $SaveToCache
     }
 }
 
@@ -2038,6 +1990,8 @@ function Get-AccessTokenForAADJoin
         [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
         [String]$SAMLToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$False)]
+        [Switch]$Device,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
@@ -2052,7 +2006,14 @@ function Get-AccessTokenForAADJoin
     )
     Process
     {
-        Get-AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -ForceMFA $true -BPRT $BPRT
+        if($Device)
+        {
+            Get-AccessTokenWithDeviceSAML -SAML $SAMLToken -SaveToCache $SaveToCache
+        }
+        else
+        {
+            Get-AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -ForceMFA $true -BPRT $BPRT
+        }
     }
 }
 
@@ -2403,6 +2364,7 @@ function Get-AccessToken
             "6c7e8096-f593-4d72-807f-a5f86dcc9c77" # MAM
             "4813382a-8fa7-425e-ab75-3b753aab3abb" # Microsoft authenticator
             "8c59ead7-d703-4a27-9e55-c96a0054c8d2"
+            "c7d28c4f-0d2c-49d6-a88d-a275cc5473c7" # https://www.microsoftazuresponsorships.com/
         )
     }
     Process
@@ -2624,7 +2586,14 @@ function Get-AccessTokenWithRefreshToken
         }
 
         # Return
-        return $response.access_token    
+        if($IncludeRefreshToken)
+        {
+            return @($response.access_token, $response.refresh_token)
+        }
+        else
+        {
+            return $response.access_token    
+        }
     }
 }
 
@@ -2715,6 +2684,139 @@ function Get-AccessTokenUsingDeviceCode
             }
         }
 
+    }
+}
+
+# Gets the access token using an authorization code
+# Feb 12th 2021
+function Get-AccessTokenWithAuthorizationCode
+{
+    [cmdletbinding()]
+    Param(
+        [String]$Resource,
+        [Parameter(Mandatory=$True)]
+        [String]$ClientId,
+        [Parameter(Mandatory=$True)]
+        [String]$TenantId,
+        [Parameter(Mandatory=$True)]
+        [String]$AuthorizationCode,
+        [Parameter(Mandatory=$False)]
+        [bool]$SaveToCache = $false,
+        [Parameter(Mandatory=$False)]
+        [bool]$IncludeRefreshToken = $false,
+        [Parameter(Mandatory=$False)]
+        [String]$RedirectUri,
+        [Parameter(Mandatory=$False)]
+        [String]$CodeVerifier
+    )
+    Process
+    {
+        $headers = @{
+        }
+
+        # Set the body for API call
+        $body = @{
+            "resource"=      $Resource
+            "client_id"=     $ClientId
+            "grant_type"=    "authorization_code"
+            "code"=          $AuthorizationCode
+            "scope"=         "openid profile email"
+        }
+        if(![string]::IsNullOrEmpty($RedirectUri))
+        {
+            $body["redirect_uri"] = $RedirectUri
+            $headers["Origin"] = $RedirectUri
+        }
+
+        if(![string]::IsNullOrEmpty($CodeVerifier))
+        {
+            $body["code_verifier"] = $CodeVerifier
+            $body["code_challenge_method"] = "S256"
+        }
+
+        if($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive Sync Engine
+        {
+            $url = "https://login.windows.net/common/oauth2/token"
+        }
+        else
+        {
+            $url = "https://login.microsoftonline.com/$TenantId/oauth2/token"
+        }
+        
+        # Debug
+        Write-Debug "ACCESS TOKEN BODY: $($body | Out-String)"
+        
+        # Set the content type and call the API
+        $contentType = "application/x-www-form-urlencoded"
+        $response =    Invoke-RestMethod -Uri $url -ContentType $contentType -Method POST -Body $body -Headers $headers
+
+        # Debug
+        Write-Debug "ACCESS TOKEN RESPONSE: $response"
+
+        # Save the tokens to cache
+        if($SaveToCache)
+        {
+            Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
+            $Script:tokens["$ClientId-$Resource"] =         $response.access_token
+            $Script:refresh_tokens["$ClientId-$Resource"] = $response.refresh_token
+        }
+
+        # Return
+        return $response.access_token    
+    }
+}
+
+# Gets the access token using device SAML token
+# Feb 18th 2021
+function Get-AccessTokenWithDeviceSAML
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$SAML,
+        [Parameter(Mandatory=$False)]
+        [bool]$SaveToCache
+    )
+    Process
+    {
+        $headers = @{
+        }
+
+         
+        $ClientId = "1b730954-1685-4b74-9bfd-dac224a7b894" #"dd762716-544d-4aeb-a526-687b73838a22"
+        $Resource = "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" #"urn:ms-drs:enterpriseregistration.windows.net"
+
+        # Set the body for API call
+        $body = @{
+            "resource"=      $Resource
+            "client_id"=     $ClientId
+            "grant_type"=    "urn:ietf:params:oauth:grant-type:saml1_1-bearer"
+            "assertion"=     Convert-TextToB64 -Text $SAML
+            "scope"=         "openid"
+        }
+        
+        # Debug
+        Write-Debug "ACCESS TOKEN BODY: $($body | Out-String)"
+        
+        # Set the content type and call the API
+        $contentType = "application/x-www-form-urlencoded"
+        $response =    Invoke-RestMethod -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
+
+        # Debug
+        Write-Debug "ACCESS TOKEN RESPONSE: $response"
+
+        # Save the tokens to cache
+        if($SaveToCache)
+        {
+            Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
+            $Script:tokens["$ClientId-$Resource"] =         $response.access_token
+            $Script:refresh_tokens["$ClientId-$Resource"] = $response.refresh_token
+        }
+        else
+        {
+            # Return
+            return $response.access_token    
+        }
     }
 }
 
@@ -2862,6 +2964,10 @@ function Create-LoginForm
         $web.Anchor = "Left,Top,Right,Bottom"
         $form.Controls.Add($web)
 
+        $field = New-Object Windows.Forms.TextBox
+        $field.Visible = $false
+        $form.Controls.Add($field)
+
         # Clear WebBrowser control cache
         Clear-WebBrowser
 
@@ -2894,15 +3000,16 @@ function Create-LoginForm
                     }
                 }
                 
-
+                # Add the url to the hidden field
+                $form.Controls[1].Text = $curl
 
                 $form.DialogResult = "OK"
                 $form.Close()
-                Write-Debug "PROMPT CREDENTIALS URL: $url"
+                Write-Debug "PROMPT CREDENTIALS URL: $curl"
             } # Automatically logs in -> need to logout first
             elseif($curl.StartsWith($url)) {
                 # All others
-                Write-Warning "Returned to the starting url, someone already logged in?"
+                Write-Verbose "Returned to the starting url, someone already logged in?"
             }
         })
 
@@ -2910,7 +3017,7 @@ function Create-LoginForm
         # Add an event listener to track down where the browser is going
         $web.add_Navigating({
             $curl=$_.Url.ToString()
-            Write-Debug "NAVIGATING TO: $curl"
+            Write-Verbose "NAVIGATING TO: $curl"
             # SharePoint login
             if($curl.EndsWith("/_forms/default.aspx"))
             {
@@ -2946,8 +3053,10 @@ public static extern bool InternetGetCookieEx(string pchURL, string pchCookieNam
 "@
 #Create type from source
 $WebBrowser = Add-Type -memberDefinition $source -passthru -name WebBrowser -ErrorAction SilentlyContinue
-$INTERNET_OPTION_END_BROWSER_SESSION = 42;
-$INTERNET_COOKIE_HTTPONLY = 0x00002000;
+$INTERNET_OPTION_END_BROWSER_SESSION = 42
+$INTERNET_OPTION_SUPPRESS_BEHAVIOR   = 81
+$INTERNET_COOKIE_HTTPONLY            = 0x00002000
+$INTERNET_SUPPRESS_COOKIE_PERSIST    = 3
 function Clear-WebBrowser
 {
     [cmdletbinding()]
@@ -2956,14 +3065,18 @@ function Clear-WebBrowser
     Process
     {
         
+        # Clear the cache
         [IntPtr] $optionPointer = [IntPtr]::Zero
-        $s=[System.Runtime.InteropServices.Marshal]::SizeOf($INTERNET_OPTION_END_BROWSER_SESSION)
-        $optionPointer = [System.Runtime.InteropServices.Marshal]::AllocCoTaskMem($s)
-        [System.Runtime.InteropServices.Marshal]::WriteInt32($optionPointer, ([ref]$INTERNET_OPTION_END_BROWSER_SESSION).Value)
-        $status = $WebBrowser::InternetSetOption([IntPtr]::Zero, $INTERNET_OPTION_END_BROWSER_SESSION, [IntPtr]::Zero, 0)
+        $s =                      [System.Runtime.InteropServices.Marshal]::SizeOf($INTERNET_OPTION_END_BROWSER_SESSION)
+        $optionPointer =          [System.Runtime.InteropServices.Marshal]::AllocCoTaskMem($s)
+        [System.Runtime.InteropServices.Marshal]::WriteInt32($optionPointer, ([ref]$INTERNET_SUPPRESS_COOKIE_PERSIST).Value)
+        $status =                 $WebBrowser::InternetSetOption([IntPtr]::Zero, $INTERNET_OPTION_SUPPRESS_BEHAVIOR, $optionPointer, $s)
         Write-Debug "Clearing Web browser cache. Status:$status"
-
         [System.Runtime.InteropServices.Marshal]::Release($optionPointer)|out-null
+
+        # Clear the current session
+        $status = $WebBrowser::InternetSetOption([IntPtr]::Zero, $INTERNET_OPTION_END_BROWSER_SESSION, [IntPtr]::Zero, 0)
+        Write-Debug "Clearing Web browser. Status:$status"
     }
 }
 
@@ -3221,6 +3334,12 @@ function Get-Cache
         foreach($key in $cacheKeys)
         {
             $accessToken=$script:tokens[$key]
+
+            if([string]::IsNullOrEmpty($accessToken))
+            {
+                Write-Warning "Access token with key ""$key"" not found!"
+                return
+            }
 
             $parsedToken = Read-Accesstoken -AccessToken $accessToken
 

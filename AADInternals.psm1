@@ -27,10 +27,10 @@ Write-Host $logo -ForegroundColor Yellow
 
 # Load the .ps1 scripts
 $scripts = @(Get-ChildItem -Path $PSScriptRoot\*.ps1 -ErrorAction SilentlyContinue)
-
+$c = 0
 foreach ($script in $scripts) {
+    Write-Progress -Activity "Importin script" -Status $script -PercentComplete (($c/$scripts.count)*100) 
     try {
-        Write-Verbose "Importing $($import.FullName)"
         . $script.FullName
     } catch {
         Write-Error "Failed to import $($script.FullName): $_"
@@ -95,7 +95,6 @@ $functions=@(
     "Set-ADSyncEnabled"
 
     #FederatedIdentityTools.ps1
-    "Get-Certificate"
     "New-SAMLToken"
     "New-SAML2Token"
     "Get-ImmutableID"
@@ -279,6 +278,7 @@ $functions=@(
 
     # CommonUtils.ps1
     "Get-Error"
+    "New-Certificate"
 
     # Teams.ps1
     "Get-SkypeToken"
@@ -291,7 +291,9 @@ $functions=@(
     "Set-TeamsMessageEmotion"
 
 )
+$c = 0
 foreach($function in $functions)
 {
+    Write-Progress -Activity "Exporting function" -Status $function -PercentComplete (($c/$functions.count)*100)
     Export-ModuleMember -Function $function
 }
