@@ -2,6 +2,7 @@
 $any_sts="MIIDcTCCAligAwIBAgIBADANBgkqhkiG9w0BAQ0FADBSMQswCQYDVQQGEwJmaTESMBAGA1UECAwJUGlya2FubWFhMREwDwYDVQQKDAhHZXJlbmlvczEcMBoGA1UEAwwTaGFjay5vMzY1ZG9tYWluLm9yZzAeFw0xODAyMjExMzEyNDVaFw0yODAyMTkxMzEyNDVaMFIxCzAJBgNVBAYTAmZpMRIwEAYDVQQIDAlQaXJrYW5tYWExETAPBgNVBAoMCEdlcmVuaW9zMRwwGgYDVQQDDBNoYWNrLm8zNjVkb21haW4ub3JnMIIBIzANBgkqhkiG9w0BAQEFAAOCARAAMIIBCwKCAQIApH73Hcv30uHHve6Zd3E/aEeFgQRMZD/CJUQC2DfSk0mDX8X75MIo7gP+62ZTUsOxhSDdOOVYshK8Kyk9VZvo21A5hDcCudXxc/eifCdwGLalCaOQt8pdMlYJgsBDcieMNToCx2pXp1PvkJdKc2JiXQCIAolJySbNXGJbBG1Oh4tty7lEXUqHpHgqiIJCb64q64BIQpZr/WQG0QgtH/gwWYz7b/psNA4xVi8RJnRUl7I62+j0WVSTih2j3kK20j5OIW9Rk+5XoHJ5npOBM84pYJ6yxMz1sOdSqOccAjSVHWFKdM437PxAPeiXAXoBKczGZ72Q8ocz2YSLGKcSMnYCrhECAwEAAaNQME4wHQYDVR0OBBYEFNu32o5XSIQ0lvwB+d2cnTlrtk2PMB8GA1UdIwQYMBaAFNu32o5XSIQ0lvwB+d2cnTlrtk2PMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQENBQADggECAHokwTra0dlyG5jj08TiHlx1pJFnqlejjpFXaItuk2jEBfO/fv1AJaETSR5vupFfDHA337oPiqWugxai1TIvJGKhZImNloMj8lyeZk/9/5Pt2X4N8r1JpAQzt+Ez3z7aNrAFxRjJ0Y+rDDcSItZ5vaXJ5PqBvR7icjIBaXrHVFUC6OZ2RkebbpajbIdt6U/P7ovg7L1J6LAzL/asATZzM3Mjn+9rsC9xLbJwuEabLU+BxySsNo8TULYi9O2MSJ9FvddE6n3OPqrmldldCrb6OugK/pzCwjTnVgRtrHNJc+zKavbiu0Yfp8uYhvCCWAakdQ8g6ZNJ1TGSaYNIrpTIhXIJ"
 
 # Creates a SAML token
+# Updated Feb 19th to support device registration. Changed signature and digest to SHA256
 function New-SAMLToken
 {
 <#
@@ -11,13 +12,16 @@ function New-SAMLToken
     .DESCRIPTION
     Creates a valid SAML token for given user
 
-    .Parameter UserName
-    User Principal Name (UPN) of the user. Not used by AAD Identity Federation so can be any email address.
+    .Parameter UPN
+    User Principal Name (UPN) of the user or device. For the user, this is not used by AAD Identity Federation so can be any email address.
+    For the device, this is the display name of the device.
 
     .Parameter ImmutableID
-    Immutable ID of the user. For synced users, this is user's AD object GUID encoded in B64.
+    Immutable ID of the user or device. For synced users, this is user's AD object GUID encoded in B64.
     For non-synced users this must be set manually, can be any unique string within the tenant.
     User doesn't have to federated user.
+
+    For device, this is automatically derived from the Device GUID parameter
 
     .Parameter Issuer
     Issuer identification of Identity Provider (IdP). Usually this is a FQDN of the ADFS server, but can be any
@@ -25,6 +29,12 @@ function New-SAMLToken
 
     .Parameter ByPassMFA
     Whether to add an attribute to by-pass MFA. Default is $True.
+
+    .Parameter DeviceGUID
+    The GUID of the device.
+
+    .Parameter SID
+    The SID of the device. If not given, a random SID is created.
 
     .Parameter Certificate
     A X509 certificate used to sign the SAML token. Must match federation information of validated domain in the tenant.
@@ -36,23 +46,49 @@ function New-SAMLToken
     The password of the .pfx file
     
     .Example
-    PS C:\>New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName "MyCert.pfx" -PfxPassword -Password "mypassword"
+    PS C:\>$saml = New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword -Password "mypassword"
 
     .Example
-    PS C:\>$cert=Get-AADIntCertificate -FileName "MyCert.pfx" -Password "mypassword"
-    PS C:\>New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -Certificate $cert
+    PS C:\>$cert = Load-AADIntCertificate -FileName "MyCert.pfx" -Password "mypassword"
+    PS C:\>$saml = New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -Certificate $cert
+
+    .Example
+    PS C:\>$saml = New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword -Password "mypassword"
+
+    .Example
+    PS C:\>$saml = New-AADIntSAMLToken -UPN "My PC" -DeviceGUID (New-Guid) -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword -Password "mypassword"
 
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$False)]
-        [String]$UserName="joulupukki@korvatunturi.fi", # Not used in AAD identity federation, defaults to Santa Claus ;)
-        [Parameter(Mandatory=$True)]
+        [Parameter(ParameterSetName='DeviceFileAndPassword',Mandatory=$True)]
+        [Parameter(ParameterSetName='DeviceCertificate',Mandatory=$True)]
+        [Parameter(ParameterSetName='DeviceUseAnySTS',Mandatory=$True)]
+        [Parameter(ParameterSetName='UseAnySTS',Mandatory=$False)]
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$False)]
+        [Parameter(ParameterSetName='Certificate',Mandatory=$False)]
+        [String]$UPN="joulupukki@korvatunturi.fi", # Not used in AAD identity federation for users, defaults to Santa Claus ;)
+
+        [Parameter(ParameterSetName='DeviceFileAndPassword',Mandatory=$False)]
+        [Parameter(ParameterSetName='DeviceCertificate',Mandatory=$False)]
+        [Parameter(ParameterSetName='DeviceUseAnySTS',Mandatory=$False)]
+        [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$False)]
+        [Parameter(ParameterSetName='Certificate',Mandatory=$False)]
         [String]$ImmutableID,
+
         [Parameter(Mandatory=$True)]
         [String]$Issuer,
         [Parameter(Mandatory=$False)]
         [bool]$ByPassMFA=$true,
+
+        [Parameter(ParameterSetName='DeviceFileAndPassword',Mandatory=$True)]
+        [Parameter(ParameterSetName='DeviceCertificate',Mandatory=$True)]
+        [Parameter(ParameterSetName='DeviceUseAnySTS',Mandatory=$True)]
+        [GUID]$DeviceGUID,
+
+        [Parameter(Mandatory=$False)]
+        [string]$SID,
 
         [Parameter(Mandatory=$False)]
         [DateTime]$NotBefore,
@@ -60,24 +96,41 @@ function New-SAMLToken
         [Parameter(Mandatory=$False)]
         [DateTime]$NotAfter,
 
-        [Parameter(Mandatory=$False)]
-        [guid]$DeviceIdentifier,
-
+        
+        [Parameter(ParameterSetName='DeviceUseAnySTS',Mandatory=$True)]
         [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
         [switch]$UseBuiltInCertificate,
 
+        [Parameter(ParameterSetName='DeviceCertificate',Mandatory=$True)]
         [Parameter(ParameterSetName='Certificate',Mandatory=$True)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
 
+        [Parameter(ParameterSetName='DeviceFileAndPassword',Mandatory=$True)]
         [Parameter(ParameterSetName='FileAndPassword',Mandatory=$True)]
         [string]$PfxFileName,
+        [Parameter(ParameterSetName='DeviceFileAndPassword',Mandatory=$False)]
         [Parameter(ParameterSetName='FileAndPassword',Mandatory=$False)]
         [string]$PfxPassword
 
 
     )
+    Begin
+    {
+        # Import the assemblies
+        Add-Type -AssemblyName 'System.IdentityModel, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
+    }
     Process
     {
+        # If we got device guid, this is a device so use Device GUID as immutable id and create a new SID if needed
+        if($isDevice = $DeviceGUID -ne $null)
+        {
+            $ImmutableID = Convert-ByteArrayToB64 -Bytes $DeviceGUID.ToByteArray()
+            if([string]::IsNullOrEmpty($SID))
+            {
+                $SID = New-RandomSID
+            }
+        }
+
         # Do we use built-in certificate (any.sts)
         if($UseBuiltInCertificate)
         {
@@ -88,9 +141,6 @@ function New-SAMLToken
             $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword
         }
 
-        # Import the assemblies
-        Add-Type -AssemblyName 'System.IdentityModel, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
-        
         # Check the dates
         if([String]::IsNullOrEmpty($NotBefore))
         {
@@ -118,28 +168,49 @@ function New-SAMLToken
         # Create subject and attribute statements
         $subject = New-Object System.IdentityModel.Tokens.SamlSubject
         $subject.ConfirmationMethods.Add("urn:oasis:names:tc:SAML:1.0:cm:bearer")
-
+        
         $statement = New-Object System.IdentityModel.Tokens.SamlAttributeStatement
         # Note! Azure AD identity federation doesn't care about UPN at all, it can be anything.
-        $statement.Attributes.Add((New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.xmlsoap.org/claims","UPN",[string[]]@($UserName))))
+        $statement.Attributes.Add((New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.xmlsoap.org/claims","UPN",[string[]]@($UPN))))
         $statement.Attributes.Add((New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.microsoft.com/LiveID/Federation/2008/05","ImmutableID",[string[]]@($ImmutableID))))
-        if($ByPassMFA)
+        if($ByPassMFA -and !$IsDevice)
         {
             $statement.Attributes.Add((New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.microsoft.com/claims","authnmethodsreferences",[string[]]@("http://schemas.microsoft.com/claims/multipleauthn"))))
         }
-        # Inside company network
-        $statement.Attributes.Add((New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.microsoft.com/ws/2012/01","insidecorporatenetwork",[string[]]@("True"))))
+
+        # Default authentication method
+        $authenticationMethod = "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport"
+
+        # Set the device specific attributes and methods
+        if($IsDevice)
+        {
+            $subject.Name = $ImmutableID
+            $subject.NameFormat = "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified"
+
+            $statement.Attributes.Add((New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.microsoft.com/ws/2012/01","accounttype",[string[]]@("DJ"))))
+            $statement.Attributes.Add((New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.microsoft.com/identity/claims","onpremobjectguid",[string[]]@($ImmutableID))))
+
+            $authenticationMethod = "urn:federation:authentication:windows"
+        }
+        if(![string]::IsNullOrEmpty($SID))
+        {
+            $statement.Attributes.Add((New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.microsoft.com/ws/2008/06/identity/claims","primarysid",[string[]]@($SID))))
+        }
+        # Inside company network claim
+        [System.IdentityModel.Tokens.SamlAttribute]$attribute = New-Object System.IdentityModel.Tokens.SamlAttribute("http://schemas.microsoft.com/ws/2012/01","insidecorporatenetwork",[string[]]@("true"))
+        $attribute.OriginalIssuer = "CLIENT CONTEXT"
+        $statement.Attributes.Add($attribute)
         
         $statement.SamlSubject = $subject
 
         $assertion.Statements.Add($statement)
 
         # Create authentication statement
-        $assertion.Statements.Add((New-Object System.IdentityModel.Tokens.SamlAuthenticationStatement($subject,"urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport", $NotBefore, $null, $null, $null)))
+        $assertion.Statements.Add((New-Object System.IdentityModel.Tokens.SamlAuthenticationStatement($subject,$authenticationMethod, $NotBefore, $null, $null, $null)))
 
         # Sign the assertion
         $ski = New-Object System.IdentityModel.Tokens.SecurityKeyIdentifier((New-Object System.IdentityModel.Tokens.X509RawDataKeyIdentifierClause($Certificate))) 
-        $assertion.SigningCredentials = New-Object System.IdentityModel.Tokens.SigningCredentials((New-Object System.IdentityModel.Tokens.X509AsymmetricSecurityKey($Certificate)), [System.IdentityModel.Tokens.SecurityAlgorithms]::RsaSha1Signature, [System.IdentityModel.Tokens.SecurityAlgorithms]::Sha1Digest, $ski )
+        $assertion.SigningCredentials = New-Object System.IdentityModel.Tokens.SigningCredentials((New-Object System.IdentityModel.Tokens.X509AsymmetricSecurityKey($Certificate)), [System.IdentityModel.Tokens.SecurityAlgorithms]::RsaSha256Signature, [System.IdentityModel.Tokens.SecurityAlgorithms]::Sha256Digest, $ski )
 
         # Create a SAML token
         $token = New-Object System.IdentityModel.Tokens.SamlSecurityToken($assertion)
@@ -155,6 +226,7 @@ function New-SAMLToken
 }
 
 # Creates a SAML token
+# Updated Feb 19th: Changed signature and digest to SHA 256
 function New-SAML2Token
 {
 <#
@@ -164,7 +236,7 @@ function New-SAML2Token
     .DESCRIPTION
     Creates a valid SAML token for given user
 
-    .Parameter UserName
+    .Parameter UPN
     User Principal Name (UPN) of the user. Not used by AAD Identity Federation so can be any email address.
 
     .Parameter ImmutableID
@@ -196,7 +268,7 @@ function New-SAML2Token
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
-        [String]$UserName="joulupukki@korvatunturi.fi", # Not used in AAD identity federation, defaults to Santa Claus ;)
+        [String]$UPN="joulupukki@korvatunturi.fi", # Not used in AAD identity federation, defaults to Santa Claus ;)
         [Parameter(Mandatory=$True)]
         [String]$ImmutableID,
         [Parameter(Mandatory=$True)]
@@ -284,7 +356,7 @@ function New-SAML2Token
         $assertion.Conditions = $conditions
 
         # Add statements
-        $attrUPN = New-Object System.IdentityModel.Tokens.Saml2Attribute("IDPEmail",$UserName)
+        $attrUPN = New-Object System.IdentityModel.Tokens.Saml2Attribute("IDPEmail",$UPN)
         $statement = New-Object System.IdentityModel.Tokens.Saml2AttributeStatement
         $statement.Attributes.Add($attrUPN)
         $assertion.Statements.Add($statement)
@@ -298,7 +370,7 @@ function New-SAML2Token
 
         # Sign the assertion
         $ski = New-Object System.IdentityModel.Tokens.SecurityKeyIdentifier((New-Object System.IdentityModel.Tokens.X509RawDataKeyIdentifierClause($Certificate))) 
-        $assertion.SigningCredentials = New-Object System.IdentityModel.Tokens.SigningCredentials((New-Object System.IdentityModel.Tokens.X509AsymmetricSecurityKey($Certificate)), [System.IdentityModel.Tokens.SecurityAlgorithms]::RsaSha1Signature, [System.IdentityModel.Tokens.SecurityAlgorithms]::Sha1Digest, $ski )
+        $assertion.SigningCredentials = New-Object System.IdentityModel.Tokens.SigningCredentials((New-Object System.IdentityModel.Tokens.X509AsymmetricSecurityKey($Certificate)), [System.IdentityModel.Tokens.SecurityAlgorithms]::RsaSha256Signature, [System.IdentityModel.Tokens.SecurityAlgorithms]::Sha256Digest, $ski )
 
         # Create a SAML token
         $token = New-Object System.IdentityModel.Tokens.Saml2SecurityToken($assertion)
@@ -418,15 +490,15 @@ function Open-Office365Portal
     Opens a web browser and logins to Office 365 as the given user
 
     .DESCRIPTION
-    Creates an identity federation token and opens a login form in Internet Explorer.
+    Creates an identity federation token and opens a login form in private or incognito window.
 
-    .Parameter UserName
+    .Parameter UPN
     User Principal Name (UPN) of the user. Not used by AAD Identity Federation so can be any email address.
 
     .Parameter ImmutableID
     Immutable ID of the user. For synced users, this is user's AD object GUID encoded in B64.
     For non-synced users this must be set manually, can be any unique string within the tenant.
-    User doesn't have to federated user.
+    User doesn't have to be federated user.
 
     .Parameter Issuer
     Issuer identification of Identity Provider (IdP). Usually this is a FQDN of the ADFS server, but can be any
@@ -449,6 +521,9 @@ function Open-Office365Portal
 
     .Parameter UseBuiltInCertificate
     Use the built-in any.sts certificate.
+
+    .Parameter Browser
+    Which browser to be used. Can be "IE", "Chrome", or "Edge". Defaults to "Edge"
     
     .Example
     PS C:\>Open-AADIntOffice365Portal -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName "MyCert.pfx" -PfxPassword -Password "mypassword"
@@ -465,7 +540,7 @@ function Open-Office365Portal
     Param(
     
         [Parameter(Mandatory=$False)]
-        [String]$UserName="joulupukki@korvatunturi.fi", # Not used in AAD identity federation, defaults to Santa Claus ;)
+        [String]$UPN="joulupukki@korvatunturi.fi", # Not used in AAD identity federation, defaults to Santa Claus ;)
         [Parameter(Mandatory=$True)]
         [String]$ImmutableID,
         [Parameter(Mandatory=$True)]
@@ -487,7 +562,10 @@ function Open-Office365Portal
         [Parameter(ParameterSetName='FileAndPassword',Mandatory=$True)]
         [string]$PfxFileName,
         [Parameter(ParameterSetName='FileAndPassword',Mandatory=$False)]
-        [string]$PfxPassword
+        [string]$PfxPassword,
+
+        [ValidateSet('IE','Edge','Chrome')]
+        $Browser="Edge"
 
     )
     Process
@@ -525,7 +603,7 @@ function Open-Office365Portal
         if($TokenType -eq "WSFED")
         {
             # Create SAML token and WSFED response
-            $token=New-SAMLToken -UserName $UserName -ImmutableID $ImmutableId -Issuer $Issuer -Certificate $Certificate -NotBefore $NotBefore -NotAfter $NotAfter -ByPassMFA $ByPassMFA
+            $token=New-SAMLToken -UPN $UPN -ImmutableID $ImmutableId -Issuer $Issuer -Certificate $Certificate -NotBefore $NotBefore -NotAfter $NotAfter -ByPassMFA $ByPassMFA
             $wsfed=New-WSFedResponse -SAMLToken $token -NotBefore $NotBefore -NotAfter $NotAfter
 
             # Create a login form
@@ -546,7 +624,7 @@ function Open-Office365Portal
         else
         {
             # Create SAML2 token and SAMLP response
-            $token=New-SAML2Token -UserName $UserName -ImmutableID $ImmutableId -Issuer $Issuer -Certificate $Certificate -NotBefore $NotBefore -NotAfter $NotAfter
+            $token=New-SAML2Token -UPN $UPN -ImmutableID $ImmutableId -Issuer $Issuer -Certificate $Certificate -NotBefore $NotBefore -NotAfter $NotAfter
             $samlp=New-SAMLPResponse -SAML2Token $token -NotBefore $NotBefore -NotAfter $NotAfter
 
             # Create a login form
@@ -575,8 +653,19 @@ function Open-Office365Portal
         # Write the form to the file
         $form | Out-File $html
         
-        # Start IE in private mode  
-        Start-Process iexplore.exe -ArgumentList "-private $("file:///$html")"
+        # Start the browser in private mode  
+        if($Browser -eq "IE")
+        {
+            Start-Process iexplore.exe -ArgumentList "-private $("file:///$html")"
+        }
+        elseif($Browser -eq "Chrome")
+        {
+            Start-Process chrome.exe -ArgumentList "-incognito $("file:///$html")"
+        }
+        else
+        {
+            Start-Process msedge.exe -ArgumentList "-inprivate $("file:///$html")"
+        }
     }
 }
 

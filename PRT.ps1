@@ -284,9 +284,28 @@ function Join-DeviceToAzureAD
     .Parameter SID
     The SID of the device. Must be a valid SID and match the SID of the existing AAD device object.
 
+    .Parameter JoinType
+    The join type "Join" or "Register". Defaults to Join.
+
     .EXAMPLE
     Get-AADIntAccessTokenForAADJoin -SaveToCache
     PS\:>Join-AADIntDeviceToAzureAD -DeviceName "My computer" -DeviceType "Commodore" -OSVersion "C64"
+
+    Device successfully registered to Azure AD:
+      DisplayName:     "My computer"
+      DeviceId:        d03994c9-24f8-41ba-a156-1805998d6dc7
+      Cert thumbprint: 78CC77315A100089CF794EE49670552485DE3689
+      Cert file name : "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
+    Local SID:
+      S-1-5-32-544
+    Additional SIDs:
+      S-1-12-1-797902961-1250002609-2090226073-616445738
+      S-1-12-1-3408697635-1121971140-3092833713-2344201430
+      S-1-12-1-2007802275-1256657308-2098244751-2635987013
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForAADJoin -SaveToCache
+    PS\:>Join-AADIntDeviceToAzureAD -DeviceName "My computer" -DeviceType "Commodore" -OSVersion "C64" -JoinType Register
 
     Device successfully registered to Azure AD:
       DisplayName:     "My computer"
@@ -325,17 +344,19 @@ function Join-DeviceToAzureAD
         [Parameter(ParameterSetName="HybridCert", Mandatory=$False)]
         [Parameter(ParameterSetName="Hybrid",     Mandatory=$False)]
         [Parameter(ParameterSetName="Normal",     Mandatory=$False)]
-        [String]$DomainName="aadinternals.com",
+        [String]$DomainName,
         [Parameter(ParameterSetName="HybridCert", Mandatory=$False)]
         [Parameter(ParameterSetName="Hybrid",     Mandatory=$False)]
         [String]$DomainControllerName="dc.aadinternals.com",
 
         [Parameter(ParameterSetName="HybridCert", Mandatory=$True)]
-        [Parameter(Mandatory=$False)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
 
         [Parameter(ParameterSetName="Normal",     Mandatory=$False)]
         [String]$AccessToken,
+        [Parameter(ParameterSetName="Normal",     Mandatory=$False)]
+        [ValidateSet('Join','Register')]
+        [String]$JoinType="Join",
         [Parameter(ParameterSetName="Normal",     Mandatory=$True)]
         [Parameter(ParameterSetName="Hybrid",     Mandatory=$True)]
         [Parameter(ParameterSetName="HybridCert", Mandatory=$True)]
@@ -347,7 +368,7 @@ function Join-DeviceToAzureAD
         [Parameter(ParameterSetName="Normal",     Mandatory=$False)]
         [Parameter(ParameterSetName="Hybrid",     Mandatory=$False)]
         [Parameter(ParameterSetName="HybridCert", Mandatory=$False)]
-        [String]$OSVersion="10.0.18363.0"
+        [String]$OSVersion="10.0.19041.804"
     )
     Process
     {
@@ -376,7 +397,7 @@ function Join-DeviceToAzureAD
         }
 
         # Register the Device
-        $DeviceCertResponse = Register-DeviceToAzureAD -AccessToken $AccessToken -DeviceName $DeviceName -DeviceType $DeviceType -OSVersion $OSVersion -Certificate $Certificate -DomainController $DomainControllerName -SID $SID -TenantId $TenantId -DomainName $DomainName
+        $DeviceCertResponse = Register-DeviceToAzureAD -AccessToken $AccessToken -DeviceName $DeviceName -DeviceType $DeviceType -OSVersion $OSVersion -Certificate $Certificate -DomainController $DomainControllerName -SID $SID -TenantId $TenantId -DomainName $DomainName -RegisterOnly ($JoinType -eq "Register")
 
         if(!$DeviceCertResponse)
         {
@@ -737,6 +758,12 @@ function Get-UserPRTKeys
     .Parameter OSVersion
     The operating system version of the device. Defaults to "10.0.18363.0"
 
+    .Parameter UseRefreshToken
+    Uses cached refresh token instead of credentials. Use Get-AADIntAccessTokenForMDM with -SaveToCache switch.
+
+    .Parameter SAMLToken
+    Uses the provided SAML token instead of credentials. 
+
     .EXAMPLE
     Get-AADIntAccessTokenForAADJoin -SaveToCache
     PS C:\>Join-AADIntAzureAD -DeviceName "My computer" -DeviceType "Commodore" -OSVersion "C64"
@@ -756,34 +783,87 @@ function Get-UserPRTKeys
     PS C:\>$creds = Get-Credential
 
     PS C:\>$prtKeys = Get-UserAADIntPRTKeys -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -Credentials $cred
-    
 
+    PS C:\>$prttoken = New-UserPRTToken -Settings $prtkeys -GetNonce
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForAADJoin -SaveToCache
+    PS C:\>Join-AADIntAzureAD -DeviceName "My computer" -DeviceType "Commodore" -OSVersion "C64"
+
+    Device successfully registered to Azure AD:
+      DisplayName:     "My computer"
+      DeviceId:        d03994c9-24f8-41ba-a156-1805998d6dc7
+      Cert thumbprint: 78CC77315A100089CF794EE49670552485DE3689
+      Cert file name : "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
+    Local SID:
+      S-1-5-32-544
+    Additional SIDs:
+      S-1-12-1-797902961-1250002609-2090226073-616445738
+      S-1-12-1-3408697635-1121971140-3092833713-2344201430
+      S-1-12-1-2007802275-1256657308-2098244751-2635987013
+
+    PS C:\>Get-AADIntAccessTokenForIntuneMDM -SaveToCache
+
+    PS C:\>$prtKeys = Get-UserAADIntPRTKeys -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -UseRefreshToken
+
+    PS C:\>$prttoken = New-UserPRTToken -Settings $prtkeys -GetNonce
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForAADJoin -SaveToCache
+    PS C:\>Join-AADIntAzureAD -DeviceName "My computer" -DeviceType "Commodore" -OSVersion "C64"
+
+    Device successfully registered to Azure AD:
+      DisplayName:     "My computer"
+      DeviceId:        d03994c9-24f8-41ba-a156-1805998d6dc7
+      Cert thumbprint: 78CC77315A100089CF794EE49670552485DE3689
+      Cert file name : "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
+    Local SID:
+      S-1-5-32-544
+    Additional SIDs:
+      S-1-12-1-797902961-1250002609-2090226073-616445738
+      S-1-12-1-3408697635-1121971140-3092833713-2344201430
+      S-1-12-1-2007802275-1256657308-2098244751-2635987013
+
+    PS C:\>$saml = New-AADIntSAMLToken -ImmutableID "2Vt0xz0EgESz+vF+8BzxPw==" -Issuer "http://sts.company.com/adfs/services/trust" -PfxFileName .\ADFSSigningCertificate.pfx
+
+    PS C:\>$prtKeys = Get-UserAADIntPRTKeys -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -SAMLToken $saml
+
+    PS C:\>$prttoken = New-UserPRTToken -Settings $prtkeys -GetNonce
 #>
     [cmdletbinding()]
     Param(
         [Parameter(ParameterSetName='Certificate',Mandatory=$True)]
+        [Parameter(ParameterSetName='RTCertificate',Mandatory=$True)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
 
         [Parameter(ParameterSetName='FileAndPassword',Mandatory=$True)]
+        [Parameter(ParameterSetName='RTFileAndPassword',Mandatory=$True)]
         [string]$PfxFileName,
         [Parameter(ParameterSetName='FileAndPassword',Mandatory=$False)]
+        [Parameter(ParameterSetName='RTFileAndPassword',Mandatory=$False)]
         [string]$PfxPassword,
+
+        [Parameter(ParameterSetName='RTFileAndPassword',Mandatory=$True)]
+        [Parameter(ParameterSetName='RTCertificate',Mandatory=$True)]
+        [switch]$UseRefreshToken,
 
         [Parameter(Mandatory=$False)]
         [String]$SAMLToken,
+
         [Parameter(Mandatory=$False)]
         [String]$TenantId,
 
         [Parameter(Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+
         [Parameter(Mandatory=$False)]
         [String]$OSVersion="10.0.18363.0"
     )
     Process
     {
-        if(!$SAMLToken -and !$Credentials)
+        if(!$SAMLToken -and !$Credentials -and !$UseRefreshToken)
         {
-            throw "Credentials or SAMLToken must be provided!"
+            throw "Credentials or SAMLToken must be provided or the -UseRefreshToken switch used!"
         }
 
         if(!$Certificate)
@@ -800,7 +880,14 @@ function Get-UserPRTKeys
         # TenantId
         if(!$TenantId)
         {
-            $tenantId = Get-TenantID -Domain $Credentials.UserName.Split("@")[1]
+            if($Credentials)
+            {
+                $TenantId = Get-TenantID -Domain $Credentials.UserName.Split("@")[1]
+            }
+            else
+            {
+                $TenantId = "Common"
+            }
         }
 
         $body = "grant_type=srv_challenge" 
@@ -815,23 +902,39 @@ function Get-UserPRTKeys
 
         # Construct the payload
         $payloadObj=@{
-            "client_id" = "38aa3b87-a06d-4817-b275-7a316988d93b"
+            "client_id"     = "38aa3b87-a06d-4817-b275-7a316988d93b"
             "request_nonce" = "$nonce"
-            "scope"="openid aza ugs"
-            "win_ver" = "$OSVersion"
+            "scope"         ="openid aza ugs"
+            "win_ver"       = "$OSVersion"
         }
         if($SAMLToken)
         {
             $payloadObj["grant_type"] = "urn:ietf:params:oauth:grant-type:saml1_1-bearer"
-            $payloadObj["assertion"] =  Convert-TextToB64 -Text  $SAMLToken
+            $payloadObj["assertion"]  =  Convert-TextToB64 -Text  $SAMLToken
         }
-        else
+        elseif($Credentials)
         {
             $payloadObj["grant_type"] = "password"
-            $payloadObj["username"] =   $Credentials.UserName
-            $payloadObj["password"] =   $Credentials.GetNetworkCredential().Password
+            $payloadObj["username"]   = $Credentials.UserName
+            $payloadObj["password"]   = $Credentials.GetNetworkCredential().Password
         }
-        $payload = Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.GetBytes( ($payloadObj | ConvertTo-Json -Compress ) )) -NoPadding
+        elseif($UseRefreshToken)
+        {
+            # Trying to get the refresh token from the cache
+            $refresh_token = $script:refresh_tokens["29d9ed98-a469-4536-ade2-f981bc1d605e-https://graph.windows.net"]
+            if([string]::IsNullOrEmpty($refresh_token))
+            {
+                Throw "No refresh token found! Use Get-AADIntAccessTokenForIntuneMDM with -SaveToCache switch and try again."
+            }
+            
+            $tokens = Get-AccessTokenWithRefreshToken -RefreshToken $refresh_token -Resource "1b730954-1685-4b74-9bfd-dac224a7b894" -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -TenantId Common -IncludeRefreshToken $true 
+
+            $payloadObj["grant_type"]    = "refresh_token"
+            $payloadObj["refresh_token"] = $tokens[1]
+            $payloadObj["client_id"]     = "29d9ed98-a469-4536-ade2-f981bc1d605e"
+        }
+
+        $payload = Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.GetBytes( ($payloadObj | ConvertTo-Json -Compress ).Replace("/","\/") )) -NoPadding
 
         # Construct the JWT data to be signed
         $dataBin = [text.encoding]::UTF8.GetBytes(("{0}.{1}" -f $header,$payload))
@@ -851,6 +954,7 @@ function Get-UserPRTKeys
             "windows_api_version" = "2.0"
             "grant_type"          = "urn:ietf:params:oauth:grant-type:jwt-bearer"
             "request"             = "$jwt"
+            "client_info"         = "1"
         }
 
         # Make the request
@@ -1413,6 +1517,9 @@ function New-BulkPRTToken
     .Parameter Name
     The display name of the user to be created. Defaults to "package_<guid>". The upn will always be "package_<guid>@<default domain>".
 
+    .Parameter PackageId
+    Package Id of the previously created BPRT. Overwrites the existing user object and creates a new BPRT. If not found, a new one is created.
+
     .EXAMPLE
     Get-AADIntAccessTokenForAADGraph -Resource -Resource urn:ms-drs:enterpriseregistration.windows.net -SaveToCache
     PS C:\> New-AADIntBulkPRTToken -Name "My BPRT user"
@@ -1426,7 +1533,10 @@ function New-BulkPRTToken
         [Parameter(Mandatory=$False)]
         [DateTime]$Expires=(Get-Date).AddMonths(1),
         [Parameter(Mandatory=$False)]
+        [ValidateLength(1, 256)]
         [String]$Name,
+        [Parameter(Mandatory=$False)]
+        [guid]$PackageId=(New-Guid),
         [switch]$Force
     )
     Process
@@ -1438,21 +1548,19 @@ function New-BulkPRTToken
             "Authorization" = "Bearer $AccessToken"
         }
 
-        $guid = (New-Guid).ToString()
-
         if([string]::IsNullOrEmpty($Name))
         {
-            $Name = "package_$guid"
+            $Name = "package_$($PackageId.ToString())"
         }
 
         $body = @{
-            "pid" = $guid
+            "pid" =  $PackageId.ToString()
             "name" = $Name
             "exp" =  $Expires.ToString("MM/dd/yyyy")
         }
 
         # Make the first request to get flowToken
-        $response = Invoke-RestMethod -Method Post -UseBasicParsing -Uri "https://login.microsoftonline.com/webapp/bulkaadjtoken/begin" -Headers $headers -Body ($body | ConvertTo-Json) -ContentType "application/json"
+        $response = Invoke-RestMethod -Method Post -UseBasicParsing -Uri "https://login.microsoftonline.com/webapp/bulkaadjtoken/begin" -Headers $headers -Body ($body | ConvertTo-Json) -ContentType "application/json; charset=utf-8"
 
         if($response.state -like "*Error*")
         {
@@ -1468,6 +1576,10 @@ function New-BulkPRTToken
         # Check for the errors
         if($details.error_description)
         {
+            if($details.error -eq "unauthorized_client")
+            {
+                Write-Warning "Got unauthorized_client error. Please try again."
+            }
             throw $details.error_description
         }
 

@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.4.5'
+	ModuleVersion = '0.4.6'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -111,7 +111,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
 	} # End of PrivateData hashtable
 
 	# HelpInfo URI of this module
-	# HelpInfoURI = ''
+	HelpInfoURI = 'https://o365blog.com/aadinternals/'
 
 	# Default prefix for commands exported from this module. Override the default prefix using Import-Module -Prefix.
 	DefaultCommandPrefix = 'AADInt'

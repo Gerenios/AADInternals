@@ -216,7 +216,7 @@ function Convert-BytesToOid
     }
 }
 
-# Load .pfx certificate
+# Loads X509 certificate from .pfx file.
 function Load-Certificate
 {
 <#
@@ -231,9 +231,12 @@ function Load-Certificate
 
     .Parameter Password
     The password of the .pfx file
+
+    .Parameter Exportable
+    Whether the private key should be exportable or not.
     
     .Example
-    PS C:\>Get-AADIntCertificate -FileName "MyCert.pfx" -Password -Password "mypassword"
+    PS C:\>Load-AADIntCertificate -FileName "MyCert.pfx" -Password -Password "mypassword"
 
 #>
     [cmdletbinding()]
@@ -577,13 +580,50 @@ Function Get-Error
 }
 
 # Create a new self-signed certificate
-function New-AADIntSelfSignedCertificate
+# Jan 31st 2021
+function New-Certificate
 {
+<#
+    .SYNOPSIS
+    Creates a new self signed certificate.
+
+    .DESCRIPTION
+    Creates a new self signed certificate for the given subject name and returns it as System.Security.Cryptography.X509Certificates.X509Certificate2 or exports directly to .pfx and .cer files.
+    The certificate is valid for 100 years.
+
+    .Parameter SubjectName
+    The subject name of the certificate, MUST start with CN=
+
+    .Parameter Export
+    Export the certificate (PFX and CER) instead of returning the certificate object. The .pfx file does not have a password.
+  
+    .Example
+    PS C:\>$certificate = New-AADIntCertificate -SubjectName "CN=MyCert"
+
+    .Example
+    PS C:\>$certificate = New-AADIntCertificate -SubjectName "CN=MyCert"
+
+    PS C:\>$certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-Content MyCert.pfx -Encoding Byte
+
+    .Example
+    PS C:\>$certificate = New-AADIntCertificate -SubjectName "CN=MyCert"
+
+    PS C:\>$certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert) | Set-Content MyCert.cer -Encoding Byte
+
+    .Example
+    PS C:\>New-AADIntCertificate -SubjectName "CN=MyCert" -Export
+
+    Certificate successfully exported:
+      CN=MyCert.pfx
+      CN=MyCert.cer
+#>
     [cmdletbinding()]
 
     param(
         [parameter(Mandatory=$true,ValueFromPipeline)]
-        [String]$SubjectName
+        [ValidatePattern("[c|C][n|N]=.+")] # Must start with CN=
+        [String]$SubjectName,
+        [Switch]$Export
     )
     Process
     {
@@ -610,6 +650,71 @@ function New-AADIntSelfSignedCertificate
         $privateKey.ImportParameters($rsa.ExportParameters($true))
         $selfSigned.PrivateKey = $privateKey
 
-        return $selfSigned
+        if($Export)
+        {
+            $selfSigned.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)  | Set-Content "$SubjectName.pfx" -Encoding Byte
+            $selfSigned.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert) | Set-Content "$SubjectName.cer" -Encoding Byte
+
+            # Print out information
+            Write-Host "Certificate successfully exported:"
+            Write-Host "  $SubjectName.pfx"
+            Write-Host "  $SubjectName.cer"
+        }
+        else
+        {
+            return $selfSigned
+        }
     }
 }
+
+# Creates a new random SID
+# Feb 12th 2021
+function New-RandomSID
+{
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$False)]
+        [ValidateSet(0,1,2,3,4,5,7,9,11,12,15,16,18)]
+        [int]$IdentifierAuthority=5,
+        [parameter(Mandatory=$False)]
+        [ValidateSet(18,21,32,64,80,82,83,90,96)]
+        [int]$SubAuthority=21
+    )
+    Process
+    {
+        # Create a random SID
+        # ref: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-azod/ecc7dfba-77e1-4e03-ab99-114b349c7164
+        # ref: https://en.wikipedia.org/wiki/Security_Identifier
+
+        # Identifier Authorities:
+        # 0  = Null Authority
+        # 1  = World Authority
+        # 2  = Local Authority
+        # 3  = Creator Authority
+        # 4  = Non-unique Authority
+        # 5  = NT Authority                 NT AUTHORITY\
+        # 7  = Internet$                    Internet$\
+        # 9  = Resource Manager Authority
+        # 11 = Microsoft Account Authority  MicrosoftAccount\
+        # 12 = Azure Active Directory       AzureAD\
+        # 15 = Capability SIDS
+        # 16 =                              MandatoryLabel\
+        # 18 =                              Asserted Identity
+
+        # Sub Authorities:
+        # 18 = LocalSystem
+        # 21 = Domain
+        # 32 = Users
+        # 64 = Authentication
+        # 80 = NT Service
+        # 82 = IIS AppPool
+        # 83 = Virtual Machines
+        # 90 = Window Manager
+        # 96 = Font Driver
+
+        return "S-1-$IdentifierAuthority-$SubAuthority-$(Get-Random -Minimum 1 -Maximum 0x7FFFFFFF)-$(Get-Random -Minimum 1 -Maximum 0x7FFFFFFF)-$(Get-Random -Minimum 1 -Maximum 0x7FFFFFFF)-$(Get-Random -Minimum 1000 -Maximum 9999)"
+    }
+}
+
+

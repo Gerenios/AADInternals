@@ -24,7 +24,9 @@ function Register-DeviceToAzureAD
         [Parameter(Mandatory=$False)]
         [String]$DomainController,
         [Parameter(Mandatory=$False)]
-        [String]$SID
+        [String]$SID,
+        [Parameter(Mandatory=$False)]
+        [Bool]$RegisterOnly=$false
     )
     Process
     {
@@ -65,7 +67,17 @@ function Register-DeviceToAzureAD
             $at_info =  Read-Accesstoken -AccessToken $AccessToken
             if([string]::IsNullOrEmpty($DomainName))
             { 
-                $DomainName =   $at_info.upn.Split("@")[1]
+                if($at_info.upn)
+                {
+                    $DomainName = $at_info.upn.Split("@")[1]
+                }
+                else 
+                {
+                    # Access Token fetched with SAML token so no upn
+                    # "unique_name" = "http://<domain>/adfs/services/trust/#"
+                    $DomainName = $at_info.unique_name.split("/")[2]
+                    $hybridSAML = $true
+                }
             }
             $tenantId = [GUID]$at_info.tid
 
@@ -76,7 +88,7 @@ function Register-DeviceToAzureAD
         $rsa = [System.Security.Cryptography.RSA]::Create(2048)
 
         # Initialize the Certificate Signing Request object
-        $CN = "CN=7E980AD9-B86D-4306-9425-9AC066FB014A" 
+        $CN =  "CN=7E980AD9-B86D-4306-9425-9AC066FB014A" 
         $req = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($CN, $rsa, [System.Security.Cryptography.HashAlgorithmName]::SHA256,[System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
         
         # Create the signing request
@@ -87,7 +99,7 @@ function Register-DeviceToAzureAD
         
         # Create the request body
         # JoinType 0 = Azure AD join,        transport key = public key
-        # JoinType 4 = Azure AD registered,  transport key = RSA
+        # JoinType 4 = Azure AD registered,  transport key = public key
         # JoinType 6 = Azure AD hybrid join, transport key = public key. Hybrid join this way is not supported, there must be an existing device with user cert.
 
         $body=@{
@@ -121,16 +133,25 @@ function Register-DeviceToAzureAD
         }
         else
         {
-            $body["JoinType"] = 0 # Join
+            if($hybridSAML)
+            {
+                $body["JoinType"] =      6 # Hybrid Join
+            }
+            elseif($RegisterOnly)
+            {
+                $body["JoinType"] =      4 # Register
+            }
+            else
+            {
+                $body["JoinType"] =      0 # Join
+            }
             $body["TransportKey"] =      $transportKey
 	        $body["TargetDomain"] =      $DomainName
 	        $body["DeviceType"] =        $DeviceType
 	        $body["OSVersion"] =         $OSVersion
 	        $body["DeviceDisplayName"] = $DeviceName
-                   
         }
 
-        
         # Make the enrollment request
         try
         {

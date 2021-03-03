@@ -688,7 +688,7 @@ function Get-DeviceCompliance
             $ObjectId = Get-DeviceObjectId -DeviceId $DeviceId -TenantId $tenantId -AccessToken $AccessToken
         }
 
-        $select="`$select=displayName,objectId,deviceId,isCompliant,isManaged,deviceOwnership,deviceManagementAppId,deviceTrustType"
+        $select="`$select=displayName,objectId,deviceId,isCompliant,isManaged,deviceOwnership,deviceManagementAppId,deviceTrustType,onPremisesSecurityIdentifier"
 
         if($All)
         {

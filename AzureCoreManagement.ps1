@@ -20,8 +20,7 @@ function Get-AzureClassicAdministrators
     co-admin@comapny.com          CoAdministrator
 
     .Example
-    $at=Get-AADIntAccessTokenFor
-    C:\PS>Get-AADIntAccessTokenForAzureCoreManagement
+    $at=Get-AADIntAccessTokenForAzureCoreManagement
     C:\PS>Get-AADIntAzureClassicAdministrators -AccessToken $at
 
     emailAddress                  role                                     
@@ -444,7 +443,7 @@ function Invoke-AzureVMScript
             {
                 if($status.status -eq "Succeeded")
                 {
-                    # Script was executed successfully - but we don't the actual result
+                    # Script was executed successfully - but we don't know the actual result
                     $value = $status.properties.output.value
 
                     # Loop through the output streams
