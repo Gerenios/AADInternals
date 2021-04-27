@@ -254,6 +254,8 @@ function Invoke-ReconAsGuest
     Non-admin users restricted?  True
     Users can register apps?     True
     Directory access restricted? False
+    Guest access:                Normal
+    CA policies:                 7
 
     PS C:\>$results.allowedActions
 
@@ -318,6 +320,7 @@ function Invoke-ReconAsGuest
         Write-Host "Users can register apps?     $($tenantInformation.usersCanRegisterApps)"
         Write-Host "Directory access restricted? $($tenantInformation.restrictDirectoryAccess)"
         Write-Host "Guest access:                $($tenantInformation.guestAccess)"
+        Write-Host "CA policies:                 $($tenantInformation.conditionalAccessPolicy.Count)" 
 
         # Return
         return $tenantInformation
@@ -697,6 +700,7 @@ function Invoke-ReconAsInsider
     Directory access restricted? False
     Directory sync enabled?      true
     Global admins                3
+    CA policies:                 7
 
     PS C:\>$results.roleInformation | Where Members -ne $null | select Name,Members
 
@@ -769,7 +773,8 @@ function Invoke-ReconAsInsider
         Write-Host "Users can register apps?     $($tenantInformation.usersCanRegisterApps)"
         Write-Host "Directory access restricted? $($tenantInformation.restrictDirectoryAccess)"
         Write-Host "Directory sync enabled?      $($tenantInformation.companyInformation.DirectorySynchronizationEnabled)"
-        Write-Host "Global admins                $(($tenantInformation.roleInformation | Where-Object ObjectId -eq "62e90394-69f5-4237-9190-012177145e10" | Select-Object -ExpandProperty Members).Count)" 
+        Write-Host "Global admins:               $(($tenantInformation.roleInformation | Where-Object ObjectId -eq "62e90394-69f5-4237-9190-012177145e10" | Select-Object -ExpandProperty Members).Count)" 
+        Write-Host "CA policies:                 $($tenantInformation.conditionalAccessPolicy.Count)" 
 
         # Return
         return $tenantInformation

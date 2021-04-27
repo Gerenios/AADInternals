@@ -20,8 +20,8 @@ function Get-AzureClassicAdministrators
     co-admin@comapny.com          CoAdministrator
 
     .Example
-    $at=Get-AADIntAccessTokenForAzureCoreManagement
-    C:\PS>Get-AADIntAzureClassicAdministrators -AccessToken $at
+    C:\PS>Get-AADIntAccessTokenForAzureCoreManagement -SaveToCache
+    C:\PS>Get-AADIntAzureClassicAdministrators
 
     emailAddress                  role                                     
     ------------                  ----                                     
@@ -875,6 +875,7 @@ function Get-AzureDiagnosticSettingsDetails
     NonInteractiveUserSignInLogs   False             False              0
     ServicePrincipalSignInLogs     False             False              0
     ManagedIdentitySignInLogs       True              True            365
+    ADFSSignInLogs                 False             False            365
 
     .Example
     $at=Get-AADIntAccessTokenForAzureCoreManagement
@@ -905,6 +906,7 @@ function Get-AzureDiagnosticSettingsDetails
     NonInteractiveUserSignInLogs   False             False              0
     ServicePrincipalSignInLogs     False             False              0
     ManagedIdentitySignInLogs       True              True            365
+    ADFSSignInLogs                 False             False              0
 
 #>
     [cmdletbinding()]
@@ -950,10 +952,10 @@ function Set-AzureDiagnosticSettingsDetails
 {
 <#
     .SYNOPSIS
-    Sets log settings for the given Sentinel.
+    Sets log settings for the given Azure Workspace.
 
     .DESCRIPTION
-    Sets log settings for the given Sentinel.
+    Sets log settings for the given Azure Workspace.
 
     .Parameter AccessToken
     AccessToken of the user. Must be Global Administrator or Security Administrator.
@@ -986,6 +988,7 @@ function Set-AzureDiagnosticSettingsDetails
     NonInteractiveUserSignInLogs   False             False              0
     ServicePrincipalSignInLogs     False             False              0
     ManagedIdentitySignInLogs       True              True            365
+    ADFSSignInLogs                 False             False              0
 
     .Example
     $at=Get-AADIntAccessTokenForAzureCoreManagement
@@ -1023,7 +1026,7 @@ function Set-AzureDiagnosticSettingsDetails
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
-        [ValidateSet("SignInLogs","AuditLogs","NonInteractiveUserSignInLogs","ServicePrincipalSignInLogs","ManagedIdentitySignInLogs","ProvisioningLogs")]
+        [ValidateSet("SignInLogs","AuditLogs","NonInteractiveUserSignInLogs","ServicePrincipalSignInLogs","ManagedIdentitySignInLogs","ProvisioningLogs","ADFSSignInLogs")]
         [String[]]$Logs,
         [Parameter(Mandatory=$True)]
         [String]$Name,
@@ -1208,8 +1211,8 @@ function Remove-AzureDiagnosticSettings
     AccessToken of the user. Must be Global Administrator or Security Administrator.
 
     .Example
-    $at=Get-AADIntAccessTokenForAzureCoreManagement
-    PS C:\>Remove-AADIntDiagnosticSettings
+    Get-AADIntAccessTokenForAzureCoreManagement -SaveToCache
+    PS C:\>Remove-AADIntAzureDiagnosticSettings
   
 #>
     [cmdletbinding()]
@@ -1246,7 +1249,7 @@ function Remove-AzureDiagnosticSettings
         foreach($settings in $diagSettings)
         {
             Write-Verbose "Removing diagnostic settings ""$($settings.name)"""
-            Set-AzureDiagnosticSettingsDetails -AccessToken $AccessToken -Name $($settings.name) -Logs AuditLogs,SignInLogs,NonInteractiveUserSignInLogs,ServicePrincipalSignInLogs,ManagedIdentitySignInLogs,ProvisioningLogs -Enabled $False -RetentionEnabled $False -RetentionDays 0 | Out-Null
+            Set-AzureDiagnosticSettingsDetails -AccessToken $AccessToken -Name $($settings.name) -Logs AuditLogs,SignInLogs,NonInteractiveUserSignInLogs,ServicePrincipalSignInLogs,ManagedIdentitySignInLogs,ProvisioningLogs,ADFSSignInLogs -Enabled $False -RetentionEnabled $False -RetentionDays 0 | Out-Null
         }
         
     }

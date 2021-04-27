@@ -20,7 +20,7 @@ $logo=@"
  / ___ |/ ___ |/ /_/ _/ // / / / /_/  __/ /  / / / / /_/ / (__  ) 
 /_/  |_/_/  |_/_____/___/_/ /_/\__/\___/_/  /_/ /_/\__,_/_/____/  
   
- v$version by @NestoriSyynimaa
+ v$version by @DrAzureAD (Nestori Syynimaa)
 "@
 
 Write-Host $logo -ForegroundColor Yellow
@@ -29,8 +29,9 @@ Write-Host $logo -ForegroundColor Yellow
 $scripts = @(Get-ChildItem -Path $PSScriptRoot\*.ps1 -ErrorAction SilentlyContinue)
 $c = 0
 foreach ($script in $scripts) {
-    Write-Progress -Activity "Importin script" -Status $script -PercentComplete (($c/$scripts.count)*100) 
+    Write-Progress -Activity "Importing script" -Status $script -PercentComplete (($c++/$scripts.count)*100) 
     try {
+													 
         . $script.FullName
     } catch {
         Write-Error "Failed to import $($script.FullName): $_"
@@ -39,15 +40,18 @@ foreach ($script in $scripts) {
 
 # Export functions
 $functions=@(
+    # ADFS.ps1
+    "Export-ADFSCertificates"
+    "Export-ADFSConfiguration"
+    "Export-ADFSEncryptionKey"
+
     # ADFS_utils.ps1
-    "Export-ADFSSigningCertificate"
-    "Export-ADFSEncryptionCertificate"
     "New-ADFSSelfSignedCertificates"
     "Restore-ADFSAutoRollover"
     "Update-ADFSFederationSettings"
-
-    # AccessToken_utils.ps1
-    "Get-LoginInformation"
+    "Get-ADFSConfiguration"
+    
+    # AccessToken.ps1
     "Get-AccessTokenForAADGraph"
     "Get-AccessTokenForMSGraph"
     "Get-AccessTokenForPTA"
@@ -62,6 +66,9 @@ $functions=@(
     "Get-AccessTokenForIntuneMDM"
     "Get-AccessTokenForCloudShell"
     "Get-AccessTokenForTeams"
+    
+    # AccessToken_utils.ps1
+    "Get-LoginInformation"
     "Read-AccessToken"
     "Get-EndpointInstances"
     "Get-EndpointIps"
@@ -76,6 +83,7 @@ $functions=@(
     "Get-Devices"
     "Get-UserDetails"
     "Get-ServicePrincipals"
+    "Get-ConditionalAccessPolicies"
 
     # ProvisioningAPI.ps1
     "Set-DomainAuthentication"
@@ -290,10 +298,14 @@ $functions=@(
     "Remove-TeamsMessages"
     "Set-TeamsMessageEmotion"
 
+    # DRS_Utils.ps1
+    "Get-ADUserNTHash"
+    "Get-ADUserThumbnailPhoto"
+    "Get-DesktopSSOAccountPassword"
 )
 $c = 0
 foreach($function in $functions)
 {
-    Write-Progress -Activity "Exporting function" -Status $function -PercentComplete (($c/$functions.count)*100)
+    Write-Progress -Activity "Exporting function" -Status $function -PercentComplete (($c++/$functions.count)*100)
     Export-ModuleMember -Function $function
 }

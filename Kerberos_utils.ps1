@@ -78,61 +78,6 @@ function Get-Sids{
     }
 }
 
-# Returns RCA for given key and data
-function Get-RC4{
-    Param(
-        [Byte[]]$Key,
-        [Byte[]]$Data
-    )
-    Process
-    {
-        $nk = New-Object byte[] 256
-        $s = New-Object byte[] 256
-
-        for ($i = 0; $i -lt 256; $i++)
-        {
-            $nk[$i] = $Key[($i % $Key.Length)]
-            $s[$i] = [byte]$i
-        }
-
-        $j = 0
-
-        for ($i = 0; $i -lt 256; $i++)
-        {
-            $j = ($j + $s[$i] + $nk[$i]) % 256
-
-            $swap = $s[$i]
-            $s[$i] = $s[$j]
-            $s[$j] = $swap
-        }
-
-
-        $output = New-Object byte[] ($Data.Length)
-
-        $i = 0
-        $j = 0
-
-        for ($c = 0; $c -lt $data.Length; $c++)
-        {
-            $i = ($i + 1) % 256
-            $j = ($j + $s[$i]) % 256
-
-            $swap = $s[$i];
-            $s[$i] = $s[$j];
-            $s[$j] = $swap;
-
-            $k = $s[(($s[$i] + $s[$j]) % 256)]
-
-            $keyed = $data[$c] -bxor $k
-
-            $output[$c] = [byte]$keyed
-        }
-
-        return $output
-
-    }
-}
-
 # Converts bytearray to datetime
 # Aug 31st 2019
 function DateBytes2Date
@@ -216,107 +161,187 @@ function Date2DateStringBytes
     }
 }
 
-# Decrypts kerberos ticket using the given password
-# Aug 20th 2019
-function Decrypt-Kerberos
-{
-    Param(
-        [Parameter(ParameterSetName='Password',Mandatory=$True)]
-        [String]$Password,
-        [Parameter(ParameterSetName='Key',Mandatory=$True)]
-        [byte[]]$Key,
-        [Parameter(Mandatory=$True)]
-        [byte[]]$Cipher
-    )
-    Process
-    {
-        if($Key -ne $null)
-        {
-            # This used for the second decrypted block (authenticator) using the session key
-            $k1=$Key
-            [byte[]]$Salt=@(0x0B, 0x00, 0x00, 0x00)
-        }
-        else
-        {
-            # This used for the first decrypted block
-            $k1=Get-MD4 -String $Password -AsByteArray
-            [byte[]]$Salt=@(0x02, 0x00, 0x00, 0x00)
-        }
-
-        $hmac= [System.Security.Cryptography.HMACMD5]::new($k1)
-        $k2=$hmac.ComputeHash($Salt)
-        
-        $checksum = $Cipher[0..15]
-
-        $hmac = [System.Security.Cryptography.HMACMD5]::new($k2)
-        $k3=$hmac.ComputeHash($checksum)
-
-        $cipher = $Cipher[16..$Cipher.Length]
-
-        [byte[]]$plainText = Get-RC4 -Key $k3 -Data $cipher
-
-        $actualChecksum = $hmac.ComputeHash($plainText)
-
-        if((Compare-Object -ReferenceObject $checksum -DifferenceObject $actualChecksum) -ne $null)
-        {
-            Throw "Checksums doesn't match!"
-        }
-        Write-Host "Stuff $($plaintext[0..7] | format-hex))"
-        $output = $plaintext[8..$plainText.Length]
- 
-        return $output
-    }
-}
 
 # Encrypts the kerberos ticket using the given password (=key)
 function Encrypt-Kerberos
 {
     Param(
-        [Parameter(ParameterSetName='Password',Mandatory=$False)]
-        [String]$Password,
-        [Parameter(ParameterSetName='Password',Mandatory=$False)]
-        [String]$Hash,
-        [Parameter(ParameterSetName='Key',Mandatory=$True)]
+        [Parameter(Mandatory=$True)]
         [byte[]]$Key,
         [Parameter(Mandatory=$True)]
-        [byte[]]$Data
+        [byte[]]$Data,
+        [Parameter(Mandatory=$False)]
+        [byte[]]$Salt,
+
+        [Parameter(Mandatory=$False)]
+        [ValidateSet('Ticket','Authenticator','APRepPart','EncKrbPrivPart')]
+        [String]$Type="Ticket",
+
+        [Parameter(Mandatory=$False)]
+        [ValidateSet('RC4','AES')]
+        [String]$Crypto="RC4"
     )
     Process
     {
-        # Create some random bytes
-        $stuff = (New-Guid).ToByteArray()[0..7]
-        if($Key -ne $null)
+        if($Crypto -eq "RC4")
         {
+            if(!$Salt)
+            {
+                if($Type -eq "Ticket")
+                {
+                    [byte[]]$Salt=@(0x02, 0x00, 0x00, 0x00)
+                }
+                elseif($Type -eq "Authenticator")
+                {
+                    [byte[]]$Salt=@(0x0B, 0x00, 0x00, 0x00)
+                }
+                elseif($Type -eq "APRepPart")
+                {
+                    [byte[]]$Salt=@(0x0C, 0x00, 0x00, 0x00)
+                }
+                elseif($Type -eq "EncKrbPrivPart")
+                {
+                    [byte[]]$Salt=@(0x0D, 0x00, 0x00, 0x00)
+                }
+                else
+                {
+                    Throw "Unsupported decryption type"
+                }
+            }
+			 
             $k1=$Key
-            [byte[]]$Salt=@(0x0B, 0x00, 0x00, 0x00)
+
+
+            # Confounder (8 bytes)
+            $stuff = Get-RandomBytes -Bytes 8
+
+            $hmac= [System.Security.Cryptography.HMACMD5]::new($k1)
+            $k2=$hmac.ComputeHash($Salt) # Salt
+
+            [byte[]]$plainText = $stuff + $Data
+   
+            $hmac = [System.Security.Cryptography.HMACMD5]::new($k2)
+            $checksum = $hmac.ComputeHash($plainText)
+
+            $k3=$hmac.ComputeHash($checksum)
+
+            [byte[]]$cipherText = Get-RC4 -Key $k3 -Data $plaintext
+
+            [byte[]]$cipherText = $checksum + $cipherText
         }
         else
         {
-            if([string]::IsNullOrEmpty($Password))
-            {
-                $k1=Convert-HexToByteArray -HexString $Hash
-            }
-            else
-            {
-                $k1=Get-MD4 -String $Password -AsByteArray
-            }
-            [byte[]]$Salt=@(0x02, 0x00, 0x00, 0x00)
+            $Ke = DK -Key $Key -Usage Ticket -KeyDerivationMode Ke
+
+            # Confounder (16 bytes)
+            $stuff = Get-RandomBytes -Bytes 16
+            [byte[]]$plainText = $stuff + $Data 
+
+            [byte[]]$cipherText = AES_CTS_Encrypt -PlainText $plainText -Key $Ke 
+
+            # Calculate checksum
+            $ki = DK -Key $Key -Usage Ticket -KeyDerivationMode Ki
+            $hmacsha1 = [System.Security.Cryptography.HMACSHA1]::new($ki)
+            $checksum = ($hmacsha1.ComputeHash($plaintext))[0..11]
+
+            [byte[]]$cipherText = $cipherText+$checksum
+
         }
 
-        $hmac= [System.Security.Cryptography.HMACMD5]::new($k1)
-        $k2=$hmac.ComputeHash($Salt) # Salt
 
-        [byte[]]$plainText = $stuff + $Data
+        return $cipherText
+    }
+}
+
+# Decrypts Kerberos data
+# Mar 26th 2021
+function Decrypt-Kerberos
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Key,
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Data,
+        [Parameter(Mandatory=$False)]
+        [byte[]]$Salt,
+
+        [Parameter(Mandatory=$False)]
+        [ValidateSet('Ticket','Authenticator','APRepPart','EncKrbPrivPart')]
+        [String]$Type="Ticket",
+
+        [Parameter(Mandatory=$False)]
+        [ValidateSet('RC4','AES')]
+        [String]$Crypto="RC4"
+    )
+    Process
+    {
+        if($Crypto -eq "RC4")
+        {
+            if(!$Salt)
+            {
+                if($Type -eq "Ticket")
+                {
+                    [byte[]]$Salt=@(0x02, 0x00, 0x00, 0x00)
+                }
+                elseif($Type -eq "Authenticator")
+                {
+                    [byte[]]$Salt=@(0x0B, 0x00, 0x00, 0x00)
+                }
+                elseif($Type -eq "APRepPart")
+                {
+                    [byte[]]$Salt=@(0x0C, 0x00, 0x00, 0x00)
+                }
+                elseif($Type -eq "EncKrbPrivPart")
+                {
+                    [byte[]]$Salt=@(0x0D, 0x00, 0x00, 0x00)
+                }
+                else
+                {
+                    Throw "Unsupported decryption type"
+                }
+            }
+	 
+            $k1=$Key
+
+            $hmac= [System.Security.Cryptography.HMACMD5]::new($k1)
+            $k2=$hmac.ComputeHash($Salt) # Salt
+
+            [byte[]]$cipher = $Data[16..$($Data.Count-1)]
    
-        $hmac = [System.Security.Cryptography.HMACMD5]::new($k2)
-        $checksum = $hmac.ComputeHash($plainText)
+            $hmac = [System.Security.Cryptography.HMACMD5]::new($k2)
+            $checksum = $Data[0..15]
 
-        $k3=$hmac.ComputeHash($checksum)
+            $k3=$hmac.ComputeHash($checksum)
+
+            [byte[]]$plainText = Get-RC4 -Key $k3 -Data $cipher
+
+            $compare = $hmac.ComputeHash($plainText)
+
+            $plainText = [byte[]]$plainText[8..$($plainText.Count-1)]
+        }
+        else
+        {
+            $Ke = DK -Key $Key -Usage Ticket -KeyDerivationMode Ke
+
+            [byte[]]$plainText = AES_CTS_Decrypt -CipherText $Data[0..$($Data.Count - 13)] -Key $Ke 
+
+            # Calculate checksum
+            $ki = DK -Key $Key -Usage Ticket -KeyDerivationMode Ki
+            $hmacsha1 = [System.Security.Cryptography.HMACSHA1]::new($ki)
+            $compare = ($hmacsha1.ComputeHash($plainText))[0..11]
+            $checksum = $Data[$($plainText.Count)..$($plainText.Count+12)]
+
+            # Strip the confounder
+            $plainText = $plainText[16..($plainText.Count)]
+        }
 
 
-        [byte[]]$cipher = Get-RC4 -Key $k3 -Data $plaintext
+        if(@(Compare-Object $checksum $compare -SyncWindow 0).Length -gt 0)
+        {
+            Write-Warning "Checksum mismatch"
+        }
 
-        return [byte[]]$checksum+$cipher
+        return $plainText
     }
 }
 
@@ -474,6 +499,50 @@ function Add-DERInteger
     }
 }
 
+function Add-DERBitString
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Data
+    )
+    Process
+    {
+        return Add-DERTag -Tag 0x03 -Data $Data
+    }
+}
+
+function Add-DEROctetString
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Data
+    )
+    Process
+    {
+        return Add-DERTag -Tag 0x04 -Data $Data
+    }
+}
+
+function Add-DERObjectIdentifier
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$ObjectIdentifier
+    )
+    Process
+    {
+        return Add-DERTag -Tag 0x06 -Data (Convert-OidToBytes -Oid $ObjectIdentifier)
+    }
+}
+
+function Add-DERNull
+{
+    Process
+    {
+        return 0x05
+    }
+}
+
 function Add-DERDate
 {
     Param(
@@ -483,6 +552,25 @@ function Add-DERDate
     Process
     {
         return Add-DERUtf8String -Text $Date.ToUniversalTime().ToString("yyyyMMddHHmmssZ") -Tag 0x18
+    }
+}
+
+function Add-DERBoolean
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [bool]$Value
+    )
+    Process
+    {
+        if($Value)
+        {
+            return @(0x01, 0xFF)
+        }
+        else
+        {
+            return @(0x01, 0x00)
+        }
     }
 }
 
@@ -683,6 +771,374 @@ function Get-NFold
     }
 }
 
+# Encrypts/Decrypts the given plaintext using the given key
+# Mar 29th 2021
+function AES_CTS_Transform
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Data,
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Key, 
+        [Parameter(Mandatory=$False)]
+        [byte[]]$InitialVector = [byte[]](0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0),
+        [Parameter(Mandatory=$True)]
+        [ValidateSet('Encrypt','Decrypt')]
+        [String]$Mode
+    )
+    Process
+    {
+        [System.Security.Cryptography.Aes]$AES = [System.Security.Cryptography.Aes]::Create()
+        $AES.Padding = "None"
+        $AES.Mode = "CBC"
+        if($Mode -eq 'Encrypt')
+        {
+            $transformer = $AES.CreateEncryptor($Key,$InitialVector)
+        }
+        else
+        {
+            $transformer = $AES.CreateDecryptor($Key,$InitialVector)
+        }
+
+        # Create a memory stream and write the cipher text to it through CryptoStream
+        $ms = New-Object System.IO.MemoryStream
+        $cs = New-Object System.Security.Cryptography.CryptoStream($ms,$transformer,[System.Security.Cryptography.CryptoStreamMode]::Write)
+        $cs.Write($data,0,$data.Count)
+        $cs.Close()
+        $cs.Dispose()
+
+        $transformedData = $ms.ToArray()
+        $ms.Close()
+        $ms.Dispose()
+
+        return $transformedData
+    }
+}
+
+# Encrypts the given plaintext using the given key
+# Mar 29th 2021
+function AES_CTS_Encrypt
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$PlainText,
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Key, 
+        [Parameter(Mandatory=$False)]
+        [byte[]]$InitialVector = [byte[]](0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0)
+    )
+    Process
+    {
+        $PadSize = 16 - ($PlainText.Count % 16)
+        if($PlainText.Count -lt 16)
+        {
+            return $PlainText
+        }
+
+        if($PadSize -eq 16)
+        {
+            if($PlainText.Count -gt 16)
+            {
+                $InitialVector = [byte[]](0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0)
+            }
+
+            $data = $PlainText
+
+        }
+        else
+        {
+            $data = [byte[]]@($PlainText + (New-Object byte[] $PadSize))
+        }
+
+        $encData = AES_CTS_Transform -Data $data -Key $Key -InitialVector $InitialVector -Mode Encrypt 
+
+        if($PlainText.Count -ge 32)
+        {
+            $encData = SwapLastTwoBlocks -Data $encData
+        }
+
+        $result = New-Object byte[] $PlainText.Count
+
+        [Array]::Copy($encData, 0, $result, 0, $PlainText.Count)
+
+        return $result
+    }
+}
+
+# Decrypts the given plaintext using the given key
+# Mar 29th 2021
+function AES_CTS_Decrypt
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$CipherText,
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Key, 
+        [Parameter(Mandatory=$False)]
+        [byte[]]$InitialVector = [byte[]](0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0)
+    )
+    Process
+    {
+        $PadSize = 16 - ($CipherText.Count % 16)
+        if($CipherText.Count -lt 16)
+        {
+            return $CipherText
+        }
+
+        if($PadSize -eq 16)
+        {
+            $data = $CipherText
+
+            if($data.Count -ge 32)
+            {
+                $data = SwapLastTwoBlocks -Data $data
+            }
+            
+            if($data.Count -gt 16)
+            {
+                $InitialVector = [byte[]](0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0)
+            }
+
+            $decData = AES_CTS_Transform -Data $data -Key $Key -InitialVector $InitialVector -Mode Decrypt
+
+            return $decData
+        }
+        else
+        {
+            $depadded = New-Object byte[] 16
+            [Array]::Copy($CipherText,($CipherText.Count - 32 + $PadSize),$depadded,0,16)
+
+            [byte[]]$dn = AES_CTS_Transform -Data $depadded -Key $Key -InitialVector $InitialVector -Mode Decrypt
+
+            $data = New-Object byte[] ($CipherText.Count + $PadSize)
+            [Array]::Copy($CipherText,0,$data,0,$CipherText.Count)
+            [Array]::Copy($dn,($dn.Count - $PadSize),$data,$CipherText.Count,$PadSize)
+
+            $data = SwapLastTwoBlocks -Data $data
+            
+            [byte[]]$decData =  AES_CTS_Transform -Data $data -Key $Key -InitialVector $InitialVector -Mode Decrypt
+
+            $result = New-Object byte[] $CipherText.Count
+
+            [Array]::Copy($decData,0,$result,0,$CipherText.Count)
+
+            return $result
+
+            $data = [byte[]]@($PlainText + (New-Object byte[] $PadSize))
+        }
+
+        [System.Security.Cryptography.Aes]$AES = [System.Security.Cryptography.Aes]::Create()
+        $AES.Padding = "None"
+        $AES.Mode = "CBC"
+        $encryptor = $AES.CreateEncryptor($Key,$InitialVector)
+
+        # Create a memory stream and write the cipher text to it through CryptoStream
+        $ms = New-Object System.IO.MemoryStream
+        $cs = New-Object System.Security.Cryptography.CryptoStream($ms,$encryptor,[System.Security.Cryptography.CryptoStreamMode]::Write)
+        $cs.Write($data,0,$data.Count)
+        $cs.Close()
+        $cs.Dispose()
+
+        $encData = $ms.ToArray()
+        $ms.Close()
+        $ms.Dispose()
+
+        if($PlainText.Count -ge 32)
+        {
+            $PlainText = SwapLastTwoBlocks -Data $PlainText
+        }
+
+        $result = New-Object byte[] $PlainText.Count
+
+        [Array]::Copy($encData, 0, $result, 0, $PlainText.Count)
+
+        return $result
+    }
+}
+
+# Swaps last two blocks of the given data. 
+function SwapLastTwoBlocks
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Data
+    )
+    Process
+    {
+        for($i = 0 ; $i -lt 16; $i++)
+        {
+            [byte]$temp = $data[$i+$data.Count-32]
+
+            $data[$i + $Data.Count -32] = $data[$i + $Data.Count -16]
+            $data[$i + $Data.Count -16] = $temp
+        }
+
+        return $Data
+    }
+}
+
+# Random-octect generation function
+# https://tools.ietf.org/html/rfc3961
+# Mar 28th 021
+function DR
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Key,
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Constant,
+        [Parameter(Mandatory=$False)]
+        [int]$KeySize = 32,
+        [Parameter(Mandatory=$False)]
+        [int]$BlockSize = 16
+    )
+    Process
+    {
+        if($KeySize -ne $Key.Count)
+        {
+            Throw "Invalid key size ($($Key.count) bytes), expected $KeySize bytes)"
+        }
+        $keyBytes = New-Object byte[] $key.Count
+
+        if($Constant.Count -ne $BlockSize)
+        {
+            $Ki = Get-NFold -Data $Constant -Size $BlockSize
+        }
+        else
+        {
+            $ki = $Constant
+        }
+
+        $n = 0
+        do
+        {
+            $ki = AES_CTS_Encrypt -PlainText $ki -Key $Key
+            if(($n + $BlockSize) -ge $KeySize)
+            {
+                [Array]::Copy($Ki,0,$KeyBytes,$n,$KeySize-$n)
+                break
+            }
+
+            [Array]::Copy($Ki,0,$KeyBytes,$n,$BlockSize)
+
+            $n += $BlockSize
+        }while($n -lt $KeySize)
+
+        return $keyBytes
+    }
+}
+
+# Key derivation function
+# https://tools.ietf.org/html/rfc3961
+# Mar 28th 021
+function DK
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Key,
+
+        [Parameter(ParameterSetName='KDF',Mandatory=$True)]
+        [ValidateSet('Unknown','PaEncTs','Ticket','EncAsRepPart','TgsReqAuthDataSessionKey','TgsReqAuthDataSubSessionKey','PaTgsReqChecksum','PaTgsReqAuthenticator','EncTgsRepPartSessionKey','EncTgsRepPartSubSessionKey','AuthenticatorChecksum','ApReqAuthenticator','EncApRepPart','EncKrbPrivPart','EncKrbCredPart','KrbSafeChecksum','OtherEncrypted','PaForUserChecksum','KrbError','AdKdcIssuedChecksum','MandatoryTicketExtension','AuthDataTicketExtension','Seal','Sign','Sequence','AcceptorSeal','AcceptorSign','InitiatorSeal','InitiatorSign','PaServerReferralData','SamChecksum','SamEncTrackId','PaServerReferral','SamEncNonceSad','PaPkInitEx','AsReq','FastReqChecksum','FastEnc','FastRep','FastFinished','EncChallengeClient','EncChallengeKdc','DigestEncrypt','DigestOpaque','Krb5SignedPath','CanonicalizedPath','HslCookie')]
+        [string]$Usage = "Ticket",
+
+        [Parameter(ParameterSetName='KDF',Mandatory=$True)]
+        [ValidateSet('Kc','Ke','Ki')]
+        [string]$KeyDerivationMode = 'Ke',
+
+        [Parameter(ParameterSetName='Constant',Mandatory=$True)]
+        [byte[]]$Constant
+    )
+    Begin
+    {
+        $KeyDerivationModes = @{
+            'Kc' = 0x99
+            'Ke' = 0xAA
+            'Ki' = 0x55
+            }
+        $KeyUsages = @{
+            Unknown = 0
+            PaEncTs = 1
+            Ticket = 2
+            EncAsRepPart = 3
+            TgsReqAuthDataSessionKey = 4
+            TgsReqAuthDataSubSessionKey = 5
+            PaTgsReqChecksum = 6
+            PaTgsReqAuthenticator = 7
+            EncTgsRepPartSessionKey = 8
+            EncTgsRepPartSubSessionKey = 9
+            AuthenticatorChecksum = 10
+            ApReqAuthenticator = 11
+            EncApRepPart = 12
+            EncKrbPrivPart = 13
+            EncKrbCredPart = 14
+            KrbSafeChecksum = 15
+            OtherEncrypted = 16
+            PaForUserChecksum = 17
+            KrbError = 18
+            AdKdcIssuedChecksum = 19
+
+            MandatoryTicketExtension = 20
+            AuthDataTicketExtension = 21
+            Seal = 22
+            Sign = 23
+            Sequence = 24
+            AcceptorSeal = 22
+            AcceptorSign = 23
+            InitiatorSeal = 24
+            InitiatorSign = 25
+            PaServerReferralData = 22
+            SamChecksum = 25
+            SamEncTrackId = 26
+            PaServerReferral = 26
+            SamEncNonceSad = 27
+            PaPkInitEx = 44
+            AsReq = 56
+            FastReqChecksum = 50
+            FastEnc = 51
+            FastRep = 52
+            FastFinished = 53
+            EncChallengeClient = 54
+            EncChallengeKdc = 55
+
+
+            DigestEncrypt = -18
+            DigestOpaque = -19
+            Krb5SignedPath = -21
+            CanonicalizedPath = -23
+            HslCookie = -25
+        }
+    }
+    Process
+    {
+        if($Constant)
+        {
+            # Generate a key
+            return DR -Key $Key -KeySize ($Key.Count) -Constant $Constant 
+        }
+        else
+        {
+            # Generate a constant from Key Usage and Key Derivation Method
+            $Constant = New-Object byte[] 5
+
+            $bytes = [System.BitConverter]::GetBytes([int32]$KeyUsages[$Usage])
+            [array]::Reverse($bytes)
+            [Array]::Copy($bytes,$Constant,4)
+
+            $constant[4] = [byte]$KeyDerivationModes[$KeyDerivationMode]
+
+            return DK -Key $Key -Constant $constant
+        }
+
+
+    }
+}
+
 
 # Aligns sizes in PAC
 Function Align-Size
@@ -729,5 +1185,68 @@ Function Get-AlignBytes
             return
         }
         
+    }
+}
+
+
+# Generates Kerberos encryption key
+# Apr 1st 2021
+function New-KerberosKey
+{
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$Password,
+
+        [Parameter(Mandatory=$False)]
+        [String]$Hash,
+
+        [Parameter(Mandatory=$False)]
+        [ValidateSet('RC4','AES')]
+        [String]$Crypto="RC4"
+    )
+    Process
+    {
+        if([string]::IsNullOrEmpty($Password) -and [string]::IsNullOrEmpty($Hash))
+        {
+            Throw "Unable to create Kerberos encryption key. Either Password or Hash must be provided"
+        }
+
+        if($Crypto -eq "RC4")
+        {
+
+            if([string]::IsNullOrEmpty($Password))
+            {
+                $key = Convert-HexToByteArray -HexString $Hash
+            }
+            else
+            {
+                $key = Get-MD4 -String $Password -AsByteArray
+            }
+        }
+        elseif($Crypto -eq "AES")
+        {
+
+            if([string]::IsNullOrEmpty($Password))
+            {
+                $Key = Convert-HexToByteArray -HexString $Hash
+            }
+            else
+            {
+                $iterations =    4096
+                $pwdBytes  = [text.encoding]::UTF8.GetBytes($Password)
+
+                $pbkdf2 = New-Object System.Security.Cryptography.Rfc2898DeriveBytes([byte[]]$pwdBytes,$Salt,$iterations)
+
+                $random = $pbkdf2.GetBytes(32)
+                $Key = DK -Key $random -Constant ([text.encoding]::UTF8.GetBytes("kerberos"))
+                    
+            }
+        }
+        else
+        {
+            Throw "Unsupported crypto: $Crypto"
+        }
+
+        return $Key
     }
 }

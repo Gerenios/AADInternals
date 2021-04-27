@@ -346,3 +346,60 @@ function Get-ServicePrincipals
     }
 }
 
+# Gets tenant's conditional access policies
+# Apr 8th 2021
+function Get-ConditionalAccessPolicies
+{
+<#
+    .SYNOPSIS
+    Shows conditional access policies.
+
+    .DESCRIPTION
+    Shows conditional access policies.
+
+    .Parameter AccessToken
+    The Access Token. If not given, tries to use cached Access Token.
+
+    .Example
+    PS C:\>Get-AADIntAccessTokenForAADGraph -SaveToCache
+    PS C:\>Get-AADIntConditionalAccessPolicies
+
+    odata.type          : Microsoft.DirectoryServices.Policy
+    objectType          : Policy
+    objectId            : e35e4cd3-53f8-4d65-80bb-e3279c2c1b71
+    deletionTimestamp   : 
+    displayName         : On-Premise Authentication Flow Policy
+    keyCredentials      : {**}
+    policyType          : 8
+    policyDetail        : {**}
+    policyIdentifier    : 
+    tenantDefaultPolicy : 8
+
+    odata.type          : Microsoft.DirectoryServices.Policy
+    objectType          : Policy
+    objectId            : 259b810f-fb50-4e57-925b-ec2292c17883
+    deletionTimestamp   : 
+    displayName         : 2/5/2021 5:53:07 AM
+    keyCredentials      : {}
+    policyType          : 10
+    policyDetail        : {{"SecurityPolicy":{"Version":0,"SecurityDefaults":{"IgnoreBaselineProtectionPolicies":true,"I
+                          sEnabled":false}}}}
+    policyIdentifier    : 
+    tenantDefaultPolicy : 10
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        
+            # Call the API
+            Call-GraphAPI -AccessToken $AccessToken -Command "policies" -Method Get
+        
+
+    }
+}

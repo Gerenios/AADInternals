@@ -485,6 +485,9 @@ function Get-AzureInformation
                 $guestAccess = $guestAccessPolicies[$authPolicy.guestUserRoleId]
             }
             catch{}
+			
+			# Get Conditional access policies
+			$CAPolicy = Get-ConditionalAccessPolicies -AccessToken $access_token2
             
             # Construct the return value
             $properties | Add-Member -NotePropertyName "allowedActions"      -NotePropertyValue $permissions.allowedActions
@@ -492,6 +495,7 @@ function Get-AzureInformation
             $properties | Add-Member -NotePropertyName "domains"             -NotePropertyValue $domains
             $properties | Add-Member -NotePropertyName "directorySizeQuota"  -NotePropertyValue $response2.value[0].directorySizeQuota
             $properties | Add-Member -NotePropertyName "authorizationPolicy" -NotePropertyValue $authPolicy
+			$properties | Add-Member -NotePropertyName "conditionalAccessPolicy" -NotePropertyValue $CAPolicy
             $properties | Add-Member -NotePropertyName "guestAccess"         -NotePropertyValue $guestAccess
 
             # Return
