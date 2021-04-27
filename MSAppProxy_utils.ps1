@@ -296,16 +296,21 @@ function NewCSRforSync
                                 # Ext Key Usage
                                 Add-DERSequence -Data @(   
                                     Add-DERTag -Tag 0x06 -Data @( # Object Identifier
-                                        0x55, 0x1D, 0x25        # extKeyUsage
+                                        0x55, 0x1D, 0x25        # extKeyUsage (2.5.29.37)
                                     )
-                                    Add-DERTag 0x04 -Data @(    # Octet string
-                                        0x30, 0x0A, 0x06, 0x08, 0x2B, 0x06, 0x01, 0x05, 0x05, 0x07, 0x03, 0x02
+                                    Add-DERTag 0x04 -Data @(    
+                                        Add-DERSequence -Data @(
+                                            Add-DERTag -Tag 0x06 -Data @( # Object Identifier
+                                                0x2B, 0x06, 0x01, 0x05, 0x05, 0x07, 0x03, 0x02        # clientAuth (1.3.6.1.5.5.7.3.2)
+                                            )
+
+                                        )
                                     ) 
                                 )
 
                                 # Subject Key Identifier
                                 Add-DERSequence -Data @(   
-                                    Add-DERTag -Tag 0x06 -Data @( # subjectKeyIdentifier
+                                    Add-DERTag -Tag 0x06 -Data @( # subjectKeyIdentifier (2.5.29.14)
                                         0x55, 0x1D, 0x0E        
                                     )
                                     Add-DERTag 0x04 -Data @(    # Octet string

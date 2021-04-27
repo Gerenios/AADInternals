@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.4.6'
+	ModuleVersion = '0.4.7'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -19,7 +19,7 @@
 	CompanyName = 'Gerenios Ltd'
 
 	# Copyright statement for this module
-	Copyright = '(c) 2018 - 2021 Nestori Syynimaa. Distributed under MIT license.'
+	Copyright = '(c) 2018 - 2021 Nestori Syynimaa (@DrAzureAD). Distributed under MIT license.'
 
 	# Description of the functionality provided by this module
 	Description = 'The AADInternals PowerShell Module utilises several internal features of Azure Active Directory, Office 365, and related admin tools.
@@ -111,7 +111,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
 	} # End of PrivateData hashtable
 
 	# HelpInfo URI of this module
-	HelpInfoURI = 'https://o365blog.com/aadinternals/'
+	# HelpInfoURI = ''
 
 	# Default prefix for commands exported from this module. Override the default prefix using Import-Module -Prefix.
 	DefaultCommandPrefix = 'AADInt'
