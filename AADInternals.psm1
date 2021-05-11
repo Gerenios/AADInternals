@@ -20,7 +20,7 @@ $logo=@"
  / ___ |/ ___ |/ /_/ _/ // / / / /_/  __/ /  / / / / /_/ / (__  ) 
 /_/  |_/_/  |_/_____/___/_/ /_/\__/\___/_/  /_/ /_/\__,_/_/____/  
   
- v$version by @DrAzureAD (Nestori Syynimaa)
+ v$version (Teams Nation edition) by @DrAzureAD (Nestori Syynimaa)
 "@
 
 Write-Host $logo -ForegroundColor Yellow
@@ -44,6 +44,9 @@ $functions=@(
     "Export-ADFSCertificates"
     "Export-ADFSConfiguration"
     "Export-ADFSEncryptionKey"
+    "Set-ADFSConfiguration"
+    "Get-ADFSPolicyStoreRules"
+    "Set-ADFSPolicyStoreRules"
 
     # ADFS_utils.ps1
     "New-ADFSSelfSignedCertificates"

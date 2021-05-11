@@ -450,3 +450,182 @@ function Export-ADFSEncryptionKey
         }
     }
 }
+
+# May 5th 2021
+# Sets configuration of the local ADFS server
+function Set-ADFSConfiguration
+{
+<#
+    .SYNOPSIS
+    Sets configuration of the local AD FS server.
+
+    .DESCRIPTION
+    Sets configuration of the local AD FS server (local database).
+
+    .PARAMETER Configuration
+
+    ADFS configuration (xml-document)
+
+    .Example
+    PS C:\>$authPolicy = Get-AADIntADFSPolicyStoreRules
+    PS C:\>$config = Set-AADIntADFSPolicyStoreRules -AuthorizationPolicy $authPolicy.AuthorizationPolicy
+    PS C:\>Set-AADIntADFSConfiguration -Configuration $config
+
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory= $True)]
+        [xml]$Configuration
+    )
+    Process
+    {
+
+        # Check that we are on ADFS server
+        if((Get-Service ADFSSRV -ErrorAction SilentlyContinue) -eq $null)
+        {
+            Write-Error "This command needs to be run on ADFS server"
+            return
+        }
+
+        # Get the database connection string
+        $ADFS = Get-WmiObject -Namespace root/ADFS -Class SecurityTokenService
+        $conn = $ADFS.ConfigurationDatabaseConnectionString
+            
+        Write-Verbose "ConnectionString: $conn"
+
+        # Write the configuration to the database
+        $strConfig =          $Configuration.OuterXml
+        $SQLclient =          new-object System.Data.SqlClient.SqlConnection -ArgumentList $conn
+        $SQLclient.Open()
+        $SQLcmd =             $SQLclient.CreateCommand()
+        $SQLcmd.CommandText = "UPDATE IdentityServerPolicy.ServiceSettings SET ServiceSettingsData=@config"
+        $SQLcmd.Parameters.AddWithValue("@config",$strConfig) | Out-Null
+        $UpdatedRows =        $SQLcmd.ExecuteNonQuery() 
+        $SQLclient.Close()
+
+        Write-Verbose "Configuration successfully set ($($strConfig.Length) bytes)."
+    }
+}
+
+# May 5th 2021
+# Gets ADFS policy store authorisation policy
+function Get-ADFSPolicyStoreRules
+{
+<#
+    .SYNOPSIS
+    Gets AD FS PolicyStore Authorisation Policy rules
+
+    .DESCRIPTION
+    Gets AD FS PolicyStore Authorisation Policy rules
+
+    .PARAMETER Configuration
+    ADFS configuration (xml-document). If not given, tries to get configuration from the local database.
+
+    .Example
+    PS C:\>Get-AADIntADFSPolicyStoreRules | fl
+
+    AuthorizationPolicyReadOnly : @RuleName = "Permit Service Account"
+                                  exists([Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/primarysid", Value == "S-1-5-21-2108354183-1066939247-874701363-3086"])
+                                   => issue(Type = "http://schemas.microsoft.com/authorization/claims/permit", Value = "true");
+                              
+                                  @RuleName = "Permit Local Administrators"
+                                  exists([Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid", Value == "S-1-5-32-544"])
+                                   => issue(Type = "http://schemas.microsoft.com/authorization/claims/permit", Value = "true");
+                              
+                              
+    AuthorizationPolicy         : @RuleName = "Permit Service Account"
+                                  exists([Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/primarysid", Value == "S-1-5-21-2108354183-1066939247-874701363-3086"])
+                                   => issue(Type = "http://schemas.microsoft.com/authorization/claims/permit", Value = "true");
+                              
+                                  @RuleName = "Permit Local Administrators"
+                                  exists([Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid", Value == "S-1-5-32-544"])
+                                   => issue(Type = "http://schemas.microsoft.com/authorization/claims/permit", Value = "true");
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [xml]$Configuration
+    )
+    Process
+    {
+
+        if(!$Configuration)
+        {
+            # Check that we are on ADFS server
+            if((Get-Service ADFSSRV -ErrorAction SilentlyContinue) -eq $null)
+            {
+                Write-Error "This command needs to be run on ADFS server or provide the configuration with -Configuration parameter."
+                return
+            }
+
+            [xml]$Configuration = Export-ADFSConfiguration -Local
+        }
+
+        $parameters = @{
+            "AuthorizationPolicy"         = $Configuration.ServiceSettingsData.PolicyStore.AuthorizationPolicy
+            "AuthorizationPolicyReadOnly" = $Configuration.ServiceSettingsData.PolicyStore.AuthorizationPolicyReadOnly
+        }
+
+        return New-Object psobject -Property $parameters
+    }
+}
+
+# May 5th 2021
+# Gets ADFS policy store authorisation policy
+function Set-ADFSPolicyStoreRules
+{
+<#
+    .SYNOPSIS
+    Sets AD FS PolicyStore Authorisation Policy rules
+
+    .DESCRIPTION
+    Sets AD FS PolicyStore Authorisation Policy rules and returns the modified configuration (xml document)
+
+    .PARAMETER Configuration
+    ADFS configuration (xml-document). If not given, tries to get configuration from the local database.
+
+    .PARAMETER AuthorizationPolicy
+    PolicyStore authorization policy. By default, allows all to modify.
+
+    .PARAMETER AuthorizationPolicyReadOnly
+    PolicyStore read-only authorization policy. By default, allows all to read.
+
+    .Example
+    PS C:\>$authPolicy = Get-AADIntADFSPolicyStoreRules
+    PS C:\>$config = Set-AADIntADFSPolicyStoreRules -AuthorizationPolicy $authPolicy.AuthorizationPolicy
+    PS C:\>Set-AADIntADFSConfiguration -Configuration $config
+
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [xml]$Configuration,
+        [Parameter(Mandatory=$False)]
+        [string]$AuthorizationPolicy =         '=> issue(Type = "http://schemas.microsoft.com/authorization/claims/permit", Value = "true");',
+        [Parameter(Mandatory=$False)]
+        [string]$AuthorizationPolicyReadOnly = '=> issue(Type = "http://schemas.microsoft.com/authorization/claims/permit", Value = "true");'
+    )
+    Process
+    {
+
+        if(!$Configuration)
+        {
+            # Check that we are on ADFS server
+            if((Get-Service ADFSSRV -ErrorAction SilentlyContinue) -eq $null)
+            {
+                Write-Error "This command needs to be run on ADFS server or provide the configuration with -Configuration parameter."
+                return
+            }
+
+            [xml]$Configuration = Export-ADFSConfiguration -Local
+        }
+
+        $Configuration.ServiceSettingsData.PolicyStore.AuthorizationPolicy =         $AuthorizationPolicy
+        $Configuration.ServiceSettingsData.PolicyStore.AuthorizationPolicyReadOnly = $AuthorizationPolicyReadOnly
+
+        return $Configuration.OuterXml
+    }
+}

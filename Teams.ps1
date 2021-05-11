@@ -239,9 +239,30 @@ function Send-TeamsMessage
     .Parameter ClientMessageId
     The client message id of the message. If exists, the content is replaced with the given message.
 
+    .Parameter Thread
+    The conversation thread of existing chat or channel.
+
     .EXAMPLE
     Get-AADIntAccessTokenForTeams -SaveToCache 
     PS C:\>Send-AADIntTeamsMessage -Recipients user@company.com -Message "Hi user!"
+
+    Sent                ClientMessageID         
+    ----                ---------         
+    16/10/2020 14.40.23 132473328207053858
+
+    .EXAMPLE
+    Get-AADIntAccessTokenForTeams -SaveToCache 
+    PS C:\>Get-AADIntTeamsMessages | Select Link
+
+    Link                                                                                       
+    ----                                                                                       
+    19:a84fdc0c-519c-4467-b2e6-323a48ce09af_4d40755a-020b-422b-b9cf-2f1f50602377@unq.gbl.spaces
+    19:a84fdc0c-519c-4467-b2e6-323a48ce09af_4d40755a-020b-422b-b9cf-2f1f50602377@unq.gbl.spaces
+    19:292f1d53677d45ff9d61d333cb0b4853@thread.tacv2                                           
+    19:292f1d53677d45ff9d61d333cb0b4853@thread.tacv2                                           
+    19:292f1d53677d45ff9d61d333cb0b4853@thread.tacv2                                           
+
+    PS C:\>Send-AADIntTeamsMessage -Thread 19:292f1d53677d45ff9d61d333cb0b4853@thread.tacv2 -Message "Hi there!"
 
     Sent                ClientMessageID         
     ----                ---------         
@@ -258,17 +279,14 @@ function Send-TeamsMessage
         [switch]$Html,
         [Parameter(ParameterSetName = "Existing", Mandatory=$True)]
         [String]$ClientMessageId,
+        [Parameter(ParameterSetName = "Thread", Mandatory=$True)]
+        [String]$Thread,
         [switch]$External
     )
     Process
     {
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264"
-
-        if([string]::IsNullOrEmpty($ClientMessageId))
-        {
-            $ClientMessageId=(Get-Date).ToFileTimeUtc()
-        }
 
         if($Html)
         {
@@ -309,7 +327,11 @@ function Send-TeamsMessage
 
             $thread = $response.Link
         }
-        else
+        elseif($Thread) # Thread is given, so post message to there
+        {
+            $ClientMessageId=(Get-Date).ToFileTimeUtc()
+        }
+        else # A new message
         {
             $ClientMessageId=(Get-Date).ToFileTimeUtc()
 
