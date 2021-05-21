@@ -28,7 +28,7 @@ function Install-PTASpy
         }
 
         # Check the dependencies..
-        if([String]::IsNullOrEmpty((Get-ChildItem -Path HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty | Where-Object {$_.DisplayName -like "Micraosoft Visual C++ 2015 Redistributable (x64)*"})))
+        if([String]::IsNullOrEmpty((Get-ChildItem -Path HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty | Where-Object {$_.DisplayName -like "Microsoft Visual C++ 2015 Redistributable (x64)*"})))
         {
             Write-Warning "Microsoft Visual C++ 2015 Redistributable (x64) seems not to be installed! If PTASpy installation fails, install from: https://download.microsoft.com/download/6/A/A/6AA4EDFF-645B-48C5-81CC-ED5963AEAD48/vc_redist.x64.exe"
         }
