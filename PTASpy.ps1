@@ -97,11 +97,14 @@ function Remove-PTASpy
         }
 
         Restart-Service $serviceName
+        
         Write-Verbose "Removing C:\PTASpy\PTASpy.dll"
-
         Remove-Item "C:\PTASpy\PTASpy.dll" -Force
 
-        Write-Host "Service restarted and C:\PTASpy\PTASpy.dll removed."
+        Write-Verbose "Removing C:\PTASpy\PTASpy.csv"
+        Remove-Item "C:\PTASpy\PTASpy.csv" -Force
+
+        Write-Host "Service restarted. Removed C:\PTASpy\PTASpy.dll and C:\PTASpy\PTASpy.csv."
     }
 }
 
