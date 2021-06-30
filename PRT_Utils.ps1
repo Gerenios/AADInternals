@@ -108,9 +108,9 @@ function Register-DeviceToAzureAD
                 "Data" = $csr
                 }
             "Attributes" = @{
-                "ReuseDevice" =     $true
-                "ReturnClientSid" = $true
-                "SharedDevice" =    $SharedDevice
+                "ReuseDevice" =     "$true"
+                "ReturnClientSid" = "$true"
+                "SharedDevice" =    "$SharedDevice"
                 }
         }
         if($hybrid)

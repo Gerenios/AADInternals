@@ -242,7 +242,7 @@ function Parse-AuthApps
                 "OathSecretKey"=     $app.OathTokenSecretKey
                 "PhoneAppVersion"=   $app.PhoneAppVersion
                 "TimeInterval"=      $app.TimeInterval
-                "LastAuthTime" =     [DateTime]$app.lastAuthenticatedTimestamp
+                "LastAuthTime" =     $(if($app.lastAuthenticatedTimestamp){[DateTime]$app.lastAuthenticatedTimestamp}else{$null})
             }
 
             $apps+=New-Object psobject -Property $appAtributes

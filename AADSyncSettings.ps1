@@ -95,57 +95,21 @@ function Get-SyncCredentials
 
     Name                           Value
     ----                           -----
-    ADDomain                       company.com  
-    ADUser                         MSOL_4bc4a34e95fa
-    ADUserPassword                 Q9@p(poz{#:kF_G)(s/Iy@8c*9(t;...
     AADUser                        Sync_SRV01_4bc4a34e95fa@company.onmicrosoft.com                                                      
     AADUserPassword                $.1%(lxZ&/kNZz[r
-
-    .Example
-    Get-AADIntSyncCredentials -AsCredentials
-
-    UserName                                                            Password
-    --------                                                            --------
-    MSOL_4bc4a34e95fa                               System.Security.SecureString
-    Sync_SRV01_4bc4a34e95fa@company.onmicrosoft.com System.Security.SecureString
-
-    .Example
-    $syncCreds=Get-AADIntSyncCredentials -AsCredentials
-    PS C:\>$at=Get-AADIntAccessTokenForAADGraph -Credentials $syncCreds[1]
-    PS C:\>Get-AADIntSyncConfiguration -AccessToken $at
-
-    AllowedFeatures                         : {ObjectWriteback,  , PasswordWriteback}
-    AnchorAttribute                         : mS-DS-ConsistencyGuid
-    ApplicationVersion                      : 1651564e-7ce4-4d99-88be-0a65050d8dc3
-    ClientVersion                           : 1.4.38.0
-    DirSyncClientMachine                    : SERVER1
-    DirSyncFeatures                         : 41016
-    DisplayName                             : Company Ltd
-    IsDirSyncing                            : true
-    IsPasswordSyncing                       : false
-    IsTrackingChanges                       : false
-    MaxLinksSupportedAcrossBatchInProvision : 15000
-    PreventAccidentalDeletion               : EnabledForCount
-    SynchronizationInterval                 : PT30M
-    TenantId                                : 57cf9f28-1ad7-40f4-bee8-d3ab9877f0a8
-    TotalConnectorSpaceObjects              : 1
-    TresholdCount                           : 500
-    TresholdPercentage                      : 0
-    UnifiedGroupContainer                   : 
-    UserContainer                           : 
-    DirSyncAnchorAttribute                  : mS-DS-ConsistencyGuid
-    DirSyncServiceAccount                   : Sync_SERVER1_xxxxxxxxxxx@company.onmicrosoft.com
-    DirectorySynchronizationStatus          : Enabled
-    InitialDomain                           : company.onmicrosoft.com
-    LastDirSyncTime                         : 2020-03-03T10:23:09Z
-    LastPasswordSyncTime                    : 2020-03-04T10:23:43Z
+    ADDomain1                      company.com  
+    ADUser1                        MSOL_4bc4a34e95fa
+    ADUserPassword1                Q9@p(poz{#:kF_G)(s/Iy@8c*9(t;...
+    ADDomain2                      business.net  
+    ADUser2                        MSOL_4bc4a34e95fa
+    ADUserPassword2                cE/Pj+4/MR6hW)2L_4P=H^hiq)pZhMb...
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$false)]
         [bool]$AsADSync=$true,
-        [Parameter(Mandatory=$false)]
-        [switch]$AsCredentials,
+        #[Parameter(Mandatory=$false)]
+        #[switch]$AsCredentials,
         [Parameter(Mandatory=$false)]
         [switch]$force
     )
@@ -170,12 +134,16 @@ function Get-SyncCredentials
         $SQLreader.Close()
 
         # Read the AD configuration data
+        $ADConfigs=@()
         $SQLcmd = $SQLclient.CreateCommand()
         $SQLcmd.CommandText = "SELECT private_configuration_xml, encrypted_configuration FROM mms_management_agent WHERE ma_type = 'AD'"
         $SQLreader = $SQLcmd.ExecuteReader()
-        $SQLreader.Read() | Out-Null
-        $ADConfig = $SQLreader.GetString(0)
-        $ADCryptedConfig = $SQLreader.GetString(1)
+        while($SQLreader.Read())
+        {
+            $ADConfig = $SQLreader.GetString(0)
+            $ADCryptedConfig = $SQLreader.GetString(1)
+            $ADConfigs += New-Object -TypeName psobject -Property @{"ADConfig" = $ADConfig; "ADCryptedConfig" = $ADCryptedConfig}
+        }
         $SQLreader.Close()
 
         # Read the AAD configuration data
@@ -189,10 +157,9 @@ function Get-SyncCredentials
         $SQLclient.Close()
 
         # Extract the data
-        $attributes=@{}
-        $attributes["ADUser"]=([xml]$ADConfig).'adma-configuration'.'forest-login-user'
-        $attributes["ADDomain"]=([xml]$ADConfig).'adma-configuration'.'forest-login-domain'
+        $attributes=[ordered]@{}
         $attributes["AADUser"]=([xml]$AADConfig).MAConfig.'parameter-values'.parameter[0].'#text'
+        $attributes["AADUserPassword"]=""
 
         try
         {
@@ -204,13 +171,23 @@ function Get-SyncCredentials
             $KeyMgr.GetActiveCredentialKey([ref]$key)
             $key2 = $null
             $KeyMgr.GetKey(1, [ref]$key2)
-            $ADDecryptedConfig = $null
-            $AADDecryptedConfig = $null
-            $key2.DecryptBase64ToString($ADCryptedConfig, [ref]$ADDecryptedConfig)
-            $key2.DecryptBase64ToString($AADCryptedConfig, [ref]$AADDecryptedConfig)
 
-            # Extract the ecrypted data
-            $attributes["ADUserPassword"]=([xml]$ADDecryptedConfig).'encrypted-attributes'.attribute.'#text'
+            # Extract the encrypted data
+            $n=1
+            foreach($ADConfig in $ADConfigs)
+            {
+                $ADDecryptedConfig = $null
+                $key2.DecryptBase64ToString($ADConfig.ADCryptedConfig, [ref]$ADDecryptedConfig)
+                
+                $attributes["ADDomain$n"      ]=([xml]$ADConfig.ADConfig).'adma-configuration'.'forest-login-domain'
+                $attributes["ADUser$n"        ]=([xml]$ADConfig.ADConfig).'adma-configuration'.'forest-login-user'
+                $attributes["ADUserPassword$n"]=([xml]$ADDecryptedConfig).'encrypted-attributes'.attribute.'#text'
+                
+                $n++
+            }
+
+            $AADDecryptedConfig = $null
+            $key2.DecryptBase64ToString($AADCryptedConfig, [ref]$AADDecryptedConfig)
             $attributes["AADUserPassword"]=([xml]$AADDecryptedConfig).'encrypted-attributes'.attribute.'#text'
         }
         catch
@@ -219,17 +196,17 @@ function Get-SyncCredentials
         }
 
         # Return
-        if($AsCredentials)
-        {
-            $adCreds =  New-Object System.Management.Automation.PSCredential($attributes["ADUser"],  (ConvertTo-SecureString $attributes["ADUserPassword"] -AsPlainText -Force))
-            $aadCreds = New-Object System.Management.Automation.PSCredential($attributes["AADUser"], (ConvertTo-SecureString $attributes["AADUserPassword"] -AsPlainText -Force))
-
-            return @($adCreds, $aadCreds)
-        }
-        else
-        {
+        #if($AsCredentials)
+        #{
+        #    $adCreds =  New-Object System.Management.Automation.PSCredential($attributes["ADUser"],  (ConvertTo-SecureString $attributes["ADUserPassword"] -AsPlainText -Force))
+        #    $aadCreds = New-Object System.Management.Automation.PSCredential($attributes["AADUser"], (ConvertTo-SecureString $attributes["AADUserPassword"] -AsPlainText -Force))
+        #
+        #    return @($adCreds, $aadCreds)
+        #}
+        #else
+        #{
             return New-Object -TypeName PSObject -Property $attributes
-        }
+        #}
         
     }
 }
