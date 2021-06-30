@@ -20,9 +20,6 @@ function Register-ProxyAgent
     .Example
     $pt=Get-AADIntAccessTokenForPTA
     PS C:\>Register-AADIntProxyAgent -AccessToken $pt -MachineName server2.company.com -AgentType Sync -FileName server2-sync.pfx
-
-    
-   
     #>
     [cmdletbinding()]
     Param(
@@ -452,4 +449,3 @@ function Add-ProxyAgentToGroup
         Write-Host "Agent ($($Agent.toString())) added to group ($($Group.toString()))"
     }
 }
-

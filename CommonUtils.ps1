@@ -1,5 +1,8 @@
 ﻿# This script contains common utility functions used in different functions
 
+# Unix epoch time (1.1.1970)
+$epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millisecond 0
+
 Function Convert-ByteArrayToB64
 {
 
@@ -843,14 +846,14 @@ function Parse-Asn1
         if(($tag -shr 4) -eq 0x06) # Application element
         { 
                 $appNum = $tag -band 0x0F
-                $tType = "APP #$appNum"
+                $tType = "6{0:X}" -f $appNum
 
                 $multiValue = $true
         }
         elseif(($tag -shr 4) -eq 0x0A) # Sequence element
         { 
                 $seqNum = $tag -band 0x0F
-                $tType = "SEQ #$seqNum"
+                $tType = "A{0:X}" -f $seqNum
 
                 $multiValue = $true
         }
@@ -952,8 +955,7 @@ function Parse-Asn1
                         $min  = [int]$dStr.Substring(10,2)
                         $ss   = [int]$dStr.Substring(12,2)
 
-                        #$tData = Get-Date -Year $yyyy -Month $MM -Day $dd -Hour $hh -Minute $min -Second $ss 
-                        $tData = [DateTime]"$($yyyy)-$('{0:D2}' -f $MM)-$('{0:D2}' -f $dd)T$('{0:D2}' -f $hh):$('{0:D2}' -f $mm):$('{0:D2}' -f $ss)Z" 
+                        $tData = [DateTime]"$($yyyy)-$('{0:D2}' -f $MM)-$('{0:D2}' -f $dd)T$('{0:D2}' -f $hh):$('{0:D2}' -f $min):$('{0:D2}' -f $ss)Z" 
 
                         $tValue = $tData
 
@@ -1235,5 +1237,19 @@ function Get-Digest
         $SHA1.Dispose()
 
         return $digest
+    }
+}
+
+# Creates a new random SID
+# May 31st 2021
+function New-RandomIPv4
+{
+    [cmdletbinding()]
+
+    param(
+    )
+    Process
+    {
+        return "$(Get-Random -Minimum 0 -Maximum 255).$(Get-Random -Minimum 0 -Maximum 255).$(Get-Random -Minimum 0 -Maximum 255).$(Get-Random -Minimum 0 -Maximum 255)"
     }
 }

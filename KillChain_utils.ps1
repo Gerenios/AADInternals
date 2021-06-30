@@ -75,30 +75,82 @@ function DoesUserExists
 {
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName="External", Mandatory=$True)]
-        [Parameter(ParameterSetName="Normal", Mandatory=$True)]
+        [Parameter(Mandatory=$True)]
         [String]$User,
-        [Parameter(ParameterSetName="External", Mandatory=$True)]
-        [Switch]$External,
-        [Parameter(ParameterSetName="External",Mandatory=$True)]
-        [String]$Domain
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("Normal","Login")]
+        [String]$Method="Normal"
     )
     Process
     {
-        # If the user is external, change to correct format
-        if($External)
-        {
-            $User="$($User.Replace("@","_"))#EXT#@$domain"
-        }
         $exists = $false 
 
-        # Get the credential type information
-        $credType=Get-CredentialType -UserName $User 
-
-        # Works only if desktop sso (aka. Seamless SSO) is enabled
-        if($credType.EstsProperties.DesktopSsoEnabled -eq "True")
+        if($Method -eq "Normal")
         {
-            $exists = $credType.IfExistsResult -eq 0 -or $credType.IfExistsResult -eq 6
+            # Get the credential type information
+            $credType=Get-CredentialType -UserName $User 
+
+            # Works only if desktop sso (aka. Seamless SSO) is enabled
+            if($credType.EstsProperties.DesktopSsoEnabled -eq "True")
+            {
+                # Return empty if throttling
+                if($credType.ThrottleStatus -eq 1)
+                {
+                    Write-Warning "Requests throttled!"
+                    Remove-Variable exists
+                }
+                else
+                {
+                    $exists = $credType.IfExistsResult -eq 0 -or $credType.IfExistsResult -eq 6
+                }
+            }
+            else
+            {
+                Remove-Variable exists
+            }
+        }
+        elseif($Method -eq "Login")
+        {
+            # Try to log in as the user
+            $randomGuid = New-Guid
+            $body = @{
+                "resource"=$randomGuid
+                "client_id"=$randomGuid
+                "grant_type"="password"
+                "username"=$User
+                "password"="none"
+                "scope"="openid"
+            }
+
+            try
+            {
+                $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Method POST -Body $body -Headers $headers
+                $exists = $True # May be should change password..?
+            }
+            catch
+            {
+                $errorDetails = ($_.ErrorDetails.Message | convertfrom-json).error_description
+                if($errorDetails.startsWith("AADSTS50053")) # The account is locked, you've tried to sign in too many times with an incorrect user ID or password.
+                {
+                    $exists = $True
+                }
+                elseif($errorDetails.StartsWith("AADSTS50126")) # Error validating credentials due to invalid username or password.
+                {
+                    $exists = $True
+                }
+                elseif($errorDetails.StartsWith("AADSTS50076")) # Due to a configuration change made by your administrator, or because you moved to a new location, you must use multi-factor authentication to access '{resource}'
+                {
+                    $exists = $True
+                }
+                elseif($errorDetails.StartsWith("AADSTS50034")) # The user account {identifier} does not exist in the {tenant} directory. To sign into this application, the account must be added to the directory.
+                {
+                    $exists = $False
+                }
+                else
+                {
+                    Remove-Variable exists
+                }
+            }
         }
 
         return $exists

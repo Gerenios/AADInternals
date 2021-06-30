@@ -1138,6 +1138,10 @@ function Prompt-Credentials
         {
             $auth_redirect="https://admin.onedrive.com/"
         }
+        elseif($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive native client
+        {
+            $auth_redirect="https://login.windows.net/common/oauth2/nativeclient"
+        }
         
         # Create the url
         $request_id=(New-Guid).ToString()

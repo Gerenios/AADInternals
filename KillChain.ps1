@@ -167,15 +167,27 @@ function Invoke-UserEnumerationAsOutsider
 {
 <#
     .SYNOPSIS
-    Checks whether the given user exists in Azure AD or not.
+    Checks whether the given user exists in Azure AD or not. Returns $True or $False or empty.
 
     .DESCRIPTION
-    Checks whether the given user exists in Azure AD or not. Works only if the user is in the tenant where Desktop SSO (aka Seamless SSO) is enabled for any domain.
-    Works also with external users!
+    Checks whether the given user exists in Azure AD or not. Works also with external users! Supports two enumeration methods: Normal and Login. 
+    The Normal method works only if the user is in the tenant where Desktop SSO (aka Seamless SSO) is enabled for any domain. 
 
-    .Parameter Site
-    UserName
+    The Login method works with any tenant, but enumeration queries will be logged to Azure AD sign-in log as failed login events!
+
+    Returns $True or $False if existence can be verified and empty if not.
+
+    .Parameter UserName
     User name or email address of the user.
+
+    .Parameter External
+    Whether the given user name is for external user. Requires also -Domain parater!
+
+    .Parameter Domain
+    The initial domain of the given tenant.
+
+    .Parameter Method
+    The used enumeration method. One of "Normal","Login"
 
     .Example
     Invoke-AADIntUserEnumerationAsOutsider -UserName user@company.com
@@ -185,23 +197,56 @@ function Invoke-UserEnumerationAsOutsider
     user@company.com True
 
     .Example
+    Invoke-AADIntUserEnumerationAsOutsider -UserName external.user@gmail.com -External -Domain company.onmicrosoft.com
+
+    UserName                                             Exists
+    --------                                             ------
+    external.user_gmail.com#EXT#@company.onmicrosoft.com True
+
+    .Example
     Get-Content .\users.txt | Invoke-AADIntUserEnumerationAsOutsider
 
     UserName                                               Exists
     --------                                               ------
     user@company.com                                       True
     user2@company.com                                      False
+    user@company.net                                      
+    external.user_gmail.com#EXT#@company.onmicrosoft.com   True
+    external.user_outlook.com#EXT#@company.onmicrosoft.com False
+
+    .Example
+    Get-Content .\users.txt | Invoke-AADIntUserEnumerationAsOutsider -Method Login
+
+    UserName                                               Exists
+    --------                                               ------
+    user@company.com                                       True
+    user2@company.com                                      False
+    user@company.net                                       True
     external.user_gmail.com#EXT#@company.onmicrosoft.com   True
     external.user_outlook.com#EXT#@company.onmicrosoft.com False
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory,ValueFromPipeline)]
-        [String]$UserName
+        [Parameter(ParameterSetName="Normal",  Mandatory=$True,ValueFromPipeline)]
+        [Parameter(ParameterSetName="External",Mandatory=$True,ValueFromPipeline)]
+        [String]$UserName,
+        [Parameter(ParameterSetName="External", Mandatory=$True)]
+        [Switch]$External,
+        [Parameter(ParameterSetName="External",Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("Normal","Login")]
+        [String]$Method="Normal"
     )
     Process
     {
-        return new-object psobject -Property ([ordered]@{"UserName"=$UserName;"Exists" = $(DoesUserExists -User $UserName)})
+        # If the user is external, change to correct format
+        if($External)
+        {
+            $UserName="$($UserName.Replace("@","_"))#EXT#@$domain"
+        }
+
+        return new-object psobject -Property ([ordered]@{"UserName"=$UserName;"Exists" = $(DoesUserExists -User $UserName -Method $Method)})
     }
 }
 
@@ -1137,7 +1182,7 @@ function Invoke-Phishing
         # Clear the teams messages
         foreach($msg in $teamsMessages)
         {
-            Send-TeamsMessage -AccessToken $AccessToken -Recipients $msg.Recipient -MessageId $msg.MessageID -Message $CleanMessage -Html | Out-Null
+            Send-TeamsMessage -AccessToken $AccessToken -ClientMessageId $msg.ClientMessageId -Message $CleanMessage -Html | Out-Null
         }
 
         # Save the tokens to cache

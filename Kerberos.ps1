@@ -930,7 +930,7 @@ function Parse-PAC
     }
 }
 
-# Parses PAC
+# Parses Authenticator
 # Mar 27th 2021
 function Parse-Authenticator
 {
