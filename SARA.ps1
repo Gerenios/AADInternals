@@ -99,14 +99,14 @@ function Call-AnalysisAPI
                 "Authorization" = $(Create-AuthorizationHeader -AccessToken $AccessToken)
         }
         
-        $reply = Invoke-RestMethod -Uri $uri -Method Post -Body $body -Headers $headers
+        $reply = Invoke-RestMethod -UseBasicParsing -Uri $uri -Method Post -Body $body -Headers $headers
         $sessionId = $reply.SessionId
 
         while($reply.RequestStatus -ne "Completed")
         {
             Write-Host "Retrieving information.."
             sleep -Seconds "2"
-            $reply = Invoke-RestMethod -Uri "$uri/?id=$sessionId" -Method Get -Headers $headers
+            $reply = Invoke-RestMethod -UseBasicParsing -Uri "$uri/?id=$sessionId" -Method Get -Headers $headers
         }
 
         # Get the results

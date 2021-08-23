@@ -51,7 +51,7 @@ function Get-ODAuthenticationCookie
         }
 
         # Call the authentication API
-        $response = Invoke-WebRequest -uri $url -MaximumRedirection 0 -ErrorAction SilentlyContinue -Method Post -ContentType "application/x-www-form-urlencoded" -Headers $headers
+        $response = Invoke-WebRequest -UseBasicParsing -uri $url -MaximumRedirection 0 -ErrorAction SilentlyContinue -Method Post -ContentType "application/x-www-form-urlencoded" -Headers $headers
         
         # Return the SPOIDCRL cookie
         ($response.headers["Set-Cookie"].split(";"))[0]
@@ -123,11 +123,11 @@ function Invoke-ODCommand
             {
                 if($Body -ne $null)
                 {
-                    $fullResponse = Invoke-WebRequest -uri $url -Method Post -Headers $headers -WebSession $session -Body $Body
+                    $fullResponse = Invoke-WebRequest -UseBasicParsing -uri $url -Method Post -Headers $headers -WebSession $session -Body $Body
                 }
                 else
                 {
-                    $fullResponse = Invoke-WebRequest -uri $url -Method Get -Headers $headers -WebSession $session
+                    $fullResponse = Invoke-WebRequest -UseBasicParsing -uri $url -Method Get -Headers $headers -WebSession $session
                 }
 
                 $response = [System.IO.StreamReader]::new($fullResponse.RawContentStream, [System.Text.Encoding]::UTF8).ReadToEnd()
@@ -138,7 +138,7 @@ function Invoke-ODCommand
             }
             else
             {
-                $response = Invoke-RestMethod -uri $url -Method Get -Headers $headers -WebSession $session
+                $response = Invoke-RestMethod -UseBasicParsing -uri $url -Method Get -Headers $headers -WebSession $session
             }
         }
         catch

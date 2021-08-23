@@ -75,7 +75,7 @@ function Set-TeamsAvailability
             "User-Agent" =    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Teams/1.3.00.24755 Chrome/69.0.3497.128 Electron/4.2.12 Safari/537.36"
         }
 
-        Invoke-RestMethod -Method Put -Uri "https://presence.teams.microsoft.com/v1/me/forceavailability/" -Headers $headers -Body $body -ContentType "application/json"
+        Invoke-RestMethod -UseBasicParsing -Method Put -Uri "https://presence.teams.microsoft.com/v1/me/forceavailability/" -Headers $headers -Body $body -ContentType "application/json"
 
     }
 }
@@ -137,7 +137,7 @@ function Set-TeamsStatusMessage
             "User-Agent" =    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Teams/1.3.00.24755 Chrome/69.0.3497.128 Electron/4.2.12 Safari/537.36"
         }
 
-        Invoke-RestMethod -Method Put -Uri "https://presence.teams.microsoft.com/v1/me/publishnote" -Headers $headers -Body ($body | ConvertTo-Json -Compress) -ContentType "application/json;charset=utf-8"
+        Invoke-RestMethod -UseBasicParsing -Method Put -Uri "https://presence.teams.microsoft.com/v1/me/publishnote" -Headers $headers -Body ($body | ConvertTo-Json -Compress) -ContentType "application/json;charset=utf-8"
 
     }
 }
@@ -209,7 +209,7 @@ function Search-TeamsUser
             "User-Agent" =    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Teams/1.3.00.24755 Chrome/69.0.3497.128 Electron/4.2.12 Safari/537.36"
         }
 
-        $response=Invoke-RestMethod -Method Post -Uri "https://substrate.office.com/search/api/v1/suggestions" -Headers $headers -Body $body -ContentType "application/json"
+        $response=Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://substrate.office.com/search/api/v1/suggestions" -Headers $headers -Body $body -ContentType "application/json"
 
         $response.Groups.Suggestions 
 
@@ -348,7 +348,7 @@ function Send-TeamsMessage
                     {
                         if(![string]::IsNullOrEmpty($recipient))
                         {
-                            $msgRecipients += Invoke-RestMethod -Method Get -Uri "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/$recipient/externalsearchv3" -Headers $headers                }
+                            $msgRecipients += Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/$recipient/externalsearchv3" -Headers $headers                }
                         }
                     catch
                     {
@@ -407,7 +407,7 @@ function Send-TeamsMessage
                 }
             }
         
-            $threadResponse = Invoke-WebRequest -Method Post -Uri "$chatService/v1/threads" -Headers $headers -Body ($threadBody | ConvertTo-Json) -ContentType "application/json" -MaximumRedirection 0
+            $threadResponse = Invoke-WebRequest -UseBasicParsing -Method Post -Uri "$chatService/v1/threads" -Headers $headers -Body ($threadBody | ConvertTo-Json) -ContentType "application/json" -MaximumRedirection 0
             $threadUrl =      $threadResponse.Headers["location"]
             $thread =         $threadUrl.Substring($threadUrl.LastIndexOf("/")+1)
         }
@@ -468,7 +468,7 @@ function Send-TeamsMessage
             $messageBody["toSipUri"] =   $msgRecipients | Select-Object -ExpandProperty email
         }
 
-        $response=Invoke-RestMethod -Method Post -Uri "$chatService/v1/users/ME/conversations/$thread/messages" -Headers $headers -Body ($messageBody | ConvertTo-Json -Depth 5) -ContentType "application/json; charset=utf-8"
+        $response=Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$chatService/v1/users/ME/conversations/$thread/messages" -Headers $headers -Body ($messageBody | ConvertTo-Json -Depth 5) -ContentType "application/json; charset=utf-8"
         
         $posted=$epoch.AddMilliseconds($response.OriginalArrivalTime)
 
@@ -539,7 +539,7 @@ function Get-TeamsMessages
             "Authentication" = "skypetoken=$skypeToken"
         }
 
-        $conversations = Invoke-RestMethod -Method Get -Uri "$chatService/v1/users/ME/conversations" -Headers $headers
+        $conversations = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "$chatService/v1/users/ME/conversations" -Headers $headers
         
         foreach($conversation in $conversations.conversations)
         {
@@ -550,7 +550,7 @@ function Get-TeamsMessages
             {
                 if($id.startsWith("19:"))
                 {
-                    $chatMessages = Invoke-RestMethod -Method Get -Uri "$chatService/v1/users/ME/conversations/$id/messages?startTime=0&view=msnp24Equivalent" -Headers $headers
+                    $chatMessages = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "$chatService/v1/users/ME/conversations/$id/messages?startTime=0&view=msnp24Equivalent" -Headers $headers
                 }
 
                 foreach($message in $chatMessages.messages)
@@ -668,7 +668,7 @@ function Remove-TeamsMessages
             {
                 try
                 {
-                    $response = Invoke-RestMethod -Method Delete -Uri "$chatService/v1/users/ME/conversations/$($message.Link)/messages/$($message.Id)`?behavior=$DeleteType" -Headers $headers -ErrorAction SilentlyContinue
+                    $response = Invoke-RestMethod -UseBasicParsing -Method Delete -Uri "$chatService/v1/users/ME/conversations/$($message.Link)/messages/$($message.Id)`?behavior=$DeleteType" -Headers $headers -ErrorAction SilentlyContinue
                 }
                 catch{
                     Write-Warning "MessageId $($message.Id):`n$(($_.ErrorDetails.Message | ConvertFrom-Json).message)"
@@ -768,7 +768,7 @@ function Set-TeamsMessageEmotion
             {
                 try
                 {
-                    $response = Invoke-RestMethod -Method Get -Uri "$chatService/v1/users/ME/conversations/$($conversation.id)/messages/$MessageID" -Headers $headers -ErrorAction SilentlyContinue
+                    $response = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "$chatService/v1/users/ME/conversations/$($conversation.id)/messages/$MessageID" -Headers $headers -ErrorAction SilentlyContinue
                     $ConversationID = $conversation.id
                     break
                 }
@@ -784,13 +784,13 @@ function Set-TeamsMessageEmotion
             {
                 $headers["x-ms-client-caller"] = "updateMessageReactionRemove"
                 $body = "{""emotions"":""{\""key\"":\""$Emotion\""}""}"
-                $response = Invoke-RestMethod -Method Delete -Uri "$chatService/v1/users/ME/conversations/$ConversationID/messages/$MessageID/properties?name=emotions" -Headers $headers -ErrorAction SilentlyContinue -Body $body
+                $response = Invoke-RestMethod -UseBasicParsing -Method Delete -Uri "$chatService/v1/users/ME/conversations/$ConversationID/messages/$MessageID/properties?name=emotions" -Headers $headers -ErrorAction SilentlyContinue -Body $body
             }
             else
             {
                 $headers["x-ms-client-caller"] = "updateMessageReactionAdd"
                 $body = "{""emotions"":""{\""key\"":\""$Emotion\"",\""value\"":$([long]((Get-Date)-$epoch).TotalMilliseconds)}""}"
-                $response = Invoke-RestMethod -Method Put -Uri "$chatService/v1/users/ME/conversations/$ConversationID/messages/$MessageID/properties?name=emotions" -Headers $headers -ErrorAction SilentlyContinue -Body $body
+                $response = Invoke-RestMethod -UseBasicParsing -Method Put -Uri "$chatService/v1/users/ME/conversations/$ConversationID/messages/$MessageID/properties?name=emotions" -Headers $headers -ErrorAction SilentlyContinue -Body $body
             }
 
         }
@@ -859,7 +859,7 @@ function Get-TeamsMemberships
             "x-skypetoken" =  "$skypeToken"
         }
 
-        $membershipInfo = Invoke-RestMethod -Method Get -Uri "https://teams.microsoft.com/api/csa/api/v1/teams/users/me?isPrefetch=false&enableMembershipSummary=true" -Headers $headers
+        $membershipInfo = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://teams.microsoft.com/api/csa/api/v1/teams/users/me?isPrefetch=false&enableMembershipSummary=true" -Headers $headers
         
         return $membershipInfo
   
@@ -906,7 +906,7 @@ function Remove-TeamsMember
             "updateType" = "Left"
         }
        
-        $response = Invoke-RestMethod -Method Put -Uri "$teamsAndChannelsService/beta/teams/$Thread/members?allowBotsInChannel=true" -Headers $headers -Body ($body|ConvertTo-Json) -ContentType "application/json"
+        $response = Invoke-RestMethod -UseBasicParsing -Method Put -Uri "$teamsAndChannelsService/beta/teams/$Thread/members?allowBotsInChannel=true" -Headers $headers -Body ($body|ConvertTo-Json) -ContentType "application/json"
     }
 }
 
@@ -949,7 +949,7 @@ function Add-TeamsMember
                                 "role" = 2
                              })}
 
-        $response = Invoke-RestMethod -Method Put -Uri "$teamsAndChannelsService/beta/teams/$Thread/bulkUpdateRoledMembers?allowBotsInChannel=true" -Headers $headers -Body ($body|ConvertTo-Json) -ContentType "application/json"
+        $response = Invoke-RestMethod -UseBasicParsing -Method Put -Uri "$teamsAndChannelsService/beta/teams/$Thread/bulkUpdateRoledMembers?allowBotsInChannel=true" -Headers $headers -Body ($body|ConvertTo-Json) -ContentType "application/json"
 
         if($response.value.updatedUsers[0].errorType)
         {

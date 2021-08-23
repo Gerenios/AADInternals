@@ -645,12 +645,12 @@ function Get-AccessTokenWithKerberosTicket
             "resource" = $Resource
             "tbidv2" = "" # Optional, see https://tools.ietf.org/html/draft-ietf-tokbind-protocol-19
             "scope" = "openid"
-            "redirect_uri" = "urn:ietf:wg:oauth:2.0:oob" # Originally: "ms-appx-web://Microsoft.AAD.BrokerPlugin/$clientId"
+            "redirect_uri" = Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource # Originally: "ms-appx-web://Microsoft.AAD.BrokerPlugin/$clientId"
             "win_ver" = "10.0.17763.529"
             "windows_api_version" = "2.0"
             "msafed" = "0"
         }
-
+        
         try
         {
             $response = Invoke-WebRequest -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -Method Post -Body $body

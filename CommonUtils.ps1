@@ -576,7 +576,7 @@ Function Get-Error
     Process
     {
         # Get the error message
-        $response=Invoke-RestMethod -Method Get -Uri "https://login.microsoftonline.com/error?code=$ErrorCode"
+        $response=Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://login.microsoftonline.com/error?code=$ErrorCode"
 
         if($response.IndexOf("<table>") -gt 0)
         {

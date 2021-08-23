@@ -99,6 +99,7 @@ function Get-SyncConfiguration
             IsDirSyncing =                    $config.DirectorySynchronizationEnabled
             LastDirSyncTime =                 $config.LastDirSyncTime 
             LastPasswordSyncTime =            $config.LastPasswordSyncTime
+			PasswordSynchronizationEnabled =  $config.PasswordSynchronizationEnabled
         }
         
         # Try to get synchronization information using Azure AD Sync
@@ -530,6 +531,8 @@ function Set-AzureADObject
                             $(Add-PropertyValue "netBiosName"                 $netBiosName)
                             $(Add-PropertyValue "onPremiseSecurityIdentifier" $onPremiseSecurityIdentifier -Type base64)
                             $(Add-PropertyValue "onPremisesDistinguishedName" $onPremisesDistinguishedName)
+                            $(Add-PropertyValue "onPremisesSamAccountName"    $onPremisesSamAccountName)
+                            
                             $(Add-PropertyValue "surname"                     $surname)
                             $(Add-PropertyValue "userPrincipalName"           $userPrincipalName)
                             $(Add-PropertyValue "cloudMastered"               $cloudMastered -Type bool)
@@ -1167,7 +1170,7 @@ function Set-PassThroughAuthenticationEnabled
         $tenant_id = Get-TenantId -AccessToken $AccessToken
         
         # Call the api
-        $response=Invoke-RestMethod -Uri "https://$tenant_id.registration.msappproxy.net/register/EnablePassthroughAuthentication" -Method Post -ContentType "application/xml; charset=utf-8" -Body $body
+        $response=Invoke-RestMethod -UseBasicParsing -Uri "https://$tenant_id.registration.msappproxy.net/register/EnablePassthroughAuthentication" -Method Post -ContentType "application/xml; charset=utf-8" -Body $body
 
         # Create and return the response object
         $attributes=@{
@@ -1221,7 +1224,7 @@ function Get-DesktopSSO
 	        <AuthenticationToken>$AccessToken</AuthenticationToken>
         </TokenAuthenticationRequest>
 "@
-        $results=Invoke-RestMethod -Uri $url -Body $body -Method Post -ContentType "application/xml; charset=utf-8"
+        $results=Invoke-RestMethod -UseBasicParsing -Uri $url -Body $body -Method Post -ContentType "application/xml; charset=utf-8"
 
         $attributes=@{
             "ErrorMessage" = $results.DesktopSsoStatusResult.ErrorMessage
@@ -1287,7 +1290,7 @@ function Set-DesktopSSO
 	        <Secret>$([System.Security.SecurityElement]::Escape($Password))</Secret>
         </DesktopSsoRequest>
 "@
-        $results=Invoke-RestMethod -Uri $url -Body $body -Method Post -ContentType "application/xml; charset=utf-8"
+        $results=Invoke-RestMethod -UseBasicParsing -Uri $url -Body $body -Method Post -ContentType "application/xml; charset=utf-8"
 
 
         $attributes=@{
@@ -1367,7 +1370,7 @@ function Set-DesktopSSOEnabled
 	        <Enable>$($Enable.ToString().ToLower())</Enable>
         </DesktopSsoEnablementRequest >
 "@
-        $results=Invoke-RestMethod -Uri $url -Body $body -Method Post -ContentType "application/xml; charset=utf-8"
+        $results=Invoke-RestMethod -UseBasicParsing -Uri $url -Body $body -Method Post -ContentType "application/xml; charset=utf-8"
 
 
         $attributes=@{

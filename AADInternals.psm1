@@ -305,6 +305,21 @@ $functions=@(
     "Get-ADUserNTHash"
     "Get-ADUserThumbnailPhoto"
     "Get-DesktopSSOAccountPassword"
+
+    # HybridHealthServices.ps1
+    "New-HybridHealthService"
+    "Get-HybridHealthServices"
+    "Remove-HybridHealthService"
+    "Get-HybridHealthServiceMembers"
+    "New-HybridHealthServiceMember"
+    "Remove-HybridHealthServiceMember"
+    "Get-HybridHealthServiceMonitoringPolicies"
+    "Send-HybridHealthServiceEvents"
+    "Register-HybridHealthServiceAgent"
+
+    # HybridHealthServices_utils.ps1
+    "New-HybridHealtServiceEvent"
+    "Get-HybridHealthServiceAgentInfo"
 )
 $c = 0
 foreach($function in $functions)

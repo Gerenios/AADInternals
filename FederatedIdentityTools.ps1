@@ -685,7 +685,7 @@ function Get-ImmutableID
 
     .Example
     PS C:\>$user=Get-ADUser "myuser"
-    PS C:\>$immutableId=Get-AADIntImmutableID
+    PS C:\>$immutableId=Get-AADIntImmutableID -ADUser $user
 
 #>
     [cmdletbinding()]

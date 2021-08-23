@@ -55,7 +55,7 @@ function Get-SPOSiteGroups
         }
 
         # Invoke the request
-        $response=Invoke-WebRequest -Uri "$Site/_api/web/sitegroups" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
+        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/web/sitegroups" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
 
         if($response.StatusCode -eq 200)
         {
@@ -144,7 +144,7 @@ function Get-SPOSiteUsers
         }
 
         # Invoke the request
-        $response=Invoke-WebRequest -Uri "$Site/_api/web/siteusers" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue
+        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/web/siteusers" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue
 
         if($response.StatusCode -eq 200)
         {
@@ -236,7 +236,7 @@ function Get-SPOUserProperties
         $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
 
         # Invoke the request
-        $response=Invoke-WebRequest -Uri "$Site/_api/sp.userprofiles.peoplemanager/getpropertiesfor(@v)?@v='$User'" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue 
+        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/sp.userprofiles.peoplemanager/getpropertiesfor(@v)?@v='$User'" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue 
 
         if($response.StatusCode -eq 200)
         {
@@ -347,7 +347,7 @@ function Get-SPOSiteUserProperties
         }
 
         # Invoke the request
-        $response=Invoke-WebRequest -Uri "$Site/_api/SP.UserProfiles.PeopleManager/GetPropertiesFor(accountName=@v)?@v='$UserName'" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
+        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/SP.UserProfiles.PeopleManager/GetPropertiesFor(accountName=@v)?@v='$UserName'" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
 
         if($response.StatusCode -eq 200)
         {
@@ -471,7 +471,7 @@ function Set-SPOSiteUserProperty
         }
 
         # Invoke the request
-        $response=Invoke-WebRequest -Uri "$Site/_api/SP.UserProfiles.PeopleManager/SetSingleValueProfileProperty" -Method Post -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers -ContentType "application/json" -Body ($body | ConvertTo-Json)
+        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/SP.UserProfiles.PeopleManager/SetSingleValueProfileProperty" -Method Post -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers -ContentType "application/json" -Body ($body | ConvertTo-Json)
 
         if($response.StatusCode -eq 200)
         {
@@ -554,7 +554,7 @@ function Get-SPOSettings
 
         
         # Invoke the request
-        $response=Invoke-RestMethod -Uri "https://$Tenant-admin.sharepoint.com/_vti_bin/client.svc/ProcessQuery" -Method Post -Body $body -Headers $headers -UseBasicParsing
+        $response=Invoke-RestMethod -UseBasicParsing -Uri "https://$Tenant-admin.sharepoint.com/_vti_bin/client.svc/ProcessQuery" -Method Post -Body $body -Headers $headers
 
         if($response.count -gt 4)
         {

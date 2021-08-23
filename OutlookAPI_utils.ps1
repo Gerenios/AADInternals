@@ -49,11 +49,11 @@ function Call-OutlookAPI
 
         if($Method -ne "Post" -and $Method -ne "Patch")
         {
-            $response=Invoke-RestMethod -Uri $Url -Method $Method -Headers $headers 
+            $response=Invoke-RestMethod -UseBasicParsing -Uri $Url -Method $Method -Headers $headers 
         }
         else
         {
-            $response=Invoke-RestMethod -Uri $Url -Method $Method -Headers $headers -Body $Request
+            $response=Invoke-RestMethod -UseBasicParsing -Uri $Url -Method $Method -Headers $headers -Body $Request
         }
         $response.value
     }

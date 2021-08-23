@@ -48,7 +48,7 @@ function Get-MDMEnrollmentService
             "User-Agent"   = "ENROLLClient"
         }
 
-        $response = Invoke-RestMethod -Method Post -Uri "https://enrollment.manage.microsoft.com/enrollmentserver/discovery.svc" -Body $body -ContentType "application/soap+xml; charset=utf-8" -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://enrollment.manage.microsoft.com/enrollmentserver/discovery.svc" -Body $body -ContentType "application/soap+xml; charset=utf-8" -Headers $headers
 
         # Get the data
         $activityId = $response.Envelope.Header.ActivityId.'#text'
@@ -179,7 +179,7 @@ function Enroll-DeviceToMDM
         # The user might not have the lisence
         try
         {
-            $response = Invoke-RestMethod -Method Post -Uri $url -Body $csrBody -ContentType "application/soap+xml; charset=utf-8" -Headers $headers
+            $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri $url -Body $csrBody -ContentType "application/soap+xml; charset=utf-8" -Headers $headers
         }
         catch
         {
@@ -721,7 +721,7 @@ function Get-DeviceObjectId
         }
 
         Write-Verbose "Getting objectId for device $DeviceId"
-        $devices = Invoke-RestMethod -Method Get -Uri "https://graph.windows.net/$tenantId/devices?`$filter=deviceId eq guid'$DeviceId'&`$select=objectId,displayName,deviceId&api-version=1.61-internal" -Headers $headers
+        $devices = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://graph.windows.net/$tenantId/devices?`$filter=deviceId eq guid'$DeviceId'&`$select=objectId,displayName,deviceId&api-version=1.61-internal" -Headers $headers
 
         foreach($device in $devices.value)
         {

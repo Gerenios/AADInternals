@@ -593,7 +593,7 @@ function New-P2PDeviceCertificate
         }
 
         # Get the nonce
-        $nonce = (Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/token" -Body "grant_type=srv_challenge").Nonce
+        $nonce = (Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/token" -Body "grant_type=srv_challenge").Nonce
 
         # We are doing this with the existing device certificate
         if($Certificate)
@@ -682,7 +682,7 @@ function New-P2PDeviceCertificate
         }
 
         # Make the request to get the P2P certificate
-        $response = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$tenantId/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body
+        $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/$tenantId/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body
 
         # Get the certificate
         $binCert = [byte[]](Convert-B64ToByteArray -B64 $response.x5c)
@@ -893,7 +893,7 @@ function Get-UserPRTKeys
         $body = "grant_type=srv_challenge" 
         
         # Get the nonce
-        $response = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$tenantId/oauth2/token" -Body $body
+        $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/$tenantId/oauth2/token" -Body $body
         $nonce = $response.Nonce
         Remove-Variable body
 
@@ -958,7 +958,7 @@ function Get-UserPRTKeys
         }
 
         # Make the request
-        $response = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body -ErrorAction SilentlyContinue
+        $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body -ErrorAction SilentlyContinue
 
         if(!$response.token_type)
         {
@@ -1063,7 +1063,7 @@ function Remove-DeviceFromAzureAD
 
         try
         {
-            $response = Invoke-WebRequest -Certificate $Certificate -Method Delete -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/$($deviceID)?api-version=1.0" -Headers $headers -ErrorAction SilentlyContinue
+            $response = Invoke-WebRequest -UseBasicParsing -Certificate $Certificate -Method Delete -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/$($deviceID)?api-version=1.0" -Headers $headers -ErrorAction SilentlyContinue
         }
         catch
         {
@@ -1136,7 +1136,7 @@ function Get-DeviceRegAuthMethods
         }
 
         # Get the methods
-        $response = Invoke-RestMethod -Method Get -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?`$select=deviceSystemMetadata&api-version=1.61-internal" -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?`$select=deviceSystemMetadata&api-version=1.61-internal" -Headers $headers
 
         $methods = $response.deviceSystemMetadata | Where-Object key -eq RegistrationAuthMethods | Select-Object -ExpandProperty value | ConvertFrom-Json
 
@@ -1209,7 +1209,7 @@ function Set-DeviceRegAuthMethods
         }
 
         # Get the current methods
-        $response = Invoke-RestMethod -Method Get -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?`$select=deviceSystemMetadata&api-version=1.61-internal" -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?`$select=deviceSystemMetadata&api-version=1.61-internal" -Headers $headers
 
         # Change the methods and convert to JSON
         $newMethods =           $Methods | ConvertTo-Json -Compress
@@ -1217,7 +1217,7 @@ function Set-DeviceRegAuthMethods
         $currentMethods.value = $newMethods
 
         # Post the changes to Azure AD
-        Invoke-RestMethod -Method Patch -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?api-version=1.61-internal" -Headers $headers -Body ($response|ConvertTo-Json) -ContentType "application/json"
+        Invoke-RestMethod -UseBasicParsing -Method Patch -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?api-version=1.61-internal" -Headers $headers -Body ($response|ConvertTo-Json) -ContentType "application/json"
 
         Get-DeviceRegAuthMethods -AccessToken $AccessToken -ObjectId $ObjectId
     }
@@ -1280,7 +1280,7 @@ function Get-DeviceTransportKey
         }
 
         # Get the key information
-        $response = Invoke-RestMethod -Method Get -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?`$select=deviceId,deviceKey,alternativeSecurityIds,objectId&api-version=1.61-internal" -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?`$select=deviceId,deviceKey,alternativeSecurityIds,objectId&api-version=1.61-internal" -Headers $headers
         
         $DeviceId = $response.deviceId
 
@@ -1469,7 +1469,7 @@ function Set-DeviceTransportKey
         }
 
         # Get the current key information
-        $response = Invoke-RestMethod -Method Get -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?`$select=deviceKey,alternativeSecurityIds&api-version=1.61-internal" -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?`$select=deviceKey,alternativeSecurityIds&api-version=1.61-internal" -Headers $headers
 
         Write-Verbose "Current key material: $(Convert-B64ToText -B64 $response.deviceKey[0].keyMaterial)"
 
@@ -1490,7 +1490,7 @@ function Set-DeviceTransportKey
         $response.alternativeSecurityIds[0].key = $key
 
 
-        Invoke-RestMethod -Method Patch -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?api-version=1.61-internal" -Headers $headers -Body ($response | ConvertTo-Json) -ContentType "application/json"
+        Invoke-RestMethod -UseBasicParsing -Method Patch -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?api-version=1.61-internal" -Headers $headers -Body ($response | ConvertTo-Json) -ContentType "application/json"
 
     }
 }
@@ -1560,7 +1560,7 @@ function New-BulkPRTToken
         }
 
         # Make the first request to get flowToken
-        $response = Invoke-RestMethod -Method Post -UseBasicParsing -Uri "https://login.microsoftonline.com/webapp/bulkaadjtoken/begin" -Headers $headers -Body ($body | ConvertTo-Json) -ContentType "application/json; charset=utf-8"
+        $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/webapp/bulkaadjtoken/begin" -Headers $headers -Body ($body | ConvertTo-Json) -ContentType "application/json; charset=utf-8"
 
         if($response.state -like "*Error*")
         {
@@ -1569,7 +1569,7 @@ function New-BulkPRTToken
         }
 
         # Get the BPRT
-        $response = Invoke-RestMethod -Method Get -UseBasicParsing -Uri "https://login.microsoftonline.com/webapp/bulkaadjtoken/poll?flowToken=$($response.flowToken)" -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://login.microsoftonline.com/webapp/bulkaadjtoken/poll?flowToken=$($response.flowToken)" -Headers $headers
 
         $details = $response.resultData | ConvertFrom-Json
 

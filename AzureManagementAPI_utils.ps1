@@ -501,7 +501,7 @@ function Get-DelegationToken
             "tenant" = Get-TenantId -AccessToken $AccessToken.access_token
         }
         # Call the API
-        $response = Invoke-RestMethod -Uri "https://portal.azure.com/api/DelegationToken?feature.tokencaching=true" -ContentType "application/json" -Method POST -Body ($Body | ConvertTo-Json) #-Headers $Headers -WebSession $Script:azureWebSession
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://portal.azure.com/api/DelegationToken?feature.tokencaching=true" -ContentType "application/json" -Method POST -Body ($Body | ConvertTo-Json) #-Headers $Headers -WebSession $Script:azureWebSession
 
         # Return
         $response.value
@@ -539,7 +539,7 @@ function Call-AzureAADIAMAPI
             "x-ms-client-request-id" = (New-Guid).ToString()
         }
         # Call the API
-        $response = Invoke-RestMethod -Uri "https://main.iam.ad.ext.azure.com/api/$command`?api-version=$Version" -ContentType "application/json; charset=utf-8" -Headers $headers -Method $Method -Body ($Body | ConvertTo-Json -Depth 5)
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://main.iam.ad.ext.azure.com/api/$command`?api-version=$Version" -ContentType "application/json; charset=utf-8" -Headers $headers -Method $Method -Body ($Body | ConvertTo-Json -Depth 5)
 
         # Return
         if($response.StatusCode -eq $null)
@@ -576,7 +576,7 @@ function Call-AzureManagementAPI
             "x-ms-client-request-id" = (New-Guid).ToString()
         }
         # Call the API
-        $response=Invoke-RestMethod -Uri "https://portal.azure.com/api/$command" -Method Post -Headers $headers
+        $response=Invoke-RestMethod -UseBasicParsing -Uri "https://portal.azure.com/api/$command" -Method Post -Headers $headers
     
         # Return
         return $response

@@ -276,18 +276,18 @@ function Export-ADFSConfiguration
                       
             # Request Security Token 
             $envelope =      Create-RSTEnvelope -Server $server -KerberosTicket $kerberosTicket
-            [xml]$response = Invoke-RestMethod -uri "http://$Server/adfs/services/policystoretransfer" -Method Post -Body $envelope -ContentType "application/soap+xml"
+            [xml]$response = Invoke-RestMethod -UseBasicParsing -uri "http://$Server/adfs/services/policystoretransfer" -Method Post -Body $envelope -ContentType "application/soap+xml"
             $RSTR =          Parse-RSTR -RSTR $response -Key $sessionKey
 
             Write-Verbose "RST end`n"
-            Write-Verbose "CST begin"
+            Write-Verbose "SCT begin"
  
             # Request Security Context Token 
             $envelope =      Create-SCTEnvelope -Key $RSTR.Key -ClientSecret $clientSecret -Context $RSTR.Context -KeyIdentifier $RSTR.Identifier -Server $server
         
             try
             {
-                [xml]$response = Invoke-RestMethod -uri "http://$Server/adfs/services/policystoretransfer" -Method Post -Body $envelope -ContentType "application/soap+xml"
+                [xml]$response = Invoke-RestMethod -UseBasicParsing -uri "http://$Server/adfs/services/policystoretransfer" -Method Post -Body $envelope -ContentType "application/soap+xml"
             }
             catch
             {
@@ -300,9 +300,9 @@ function Export-ADFSConfiguration
             }
             Check-SoapError -Message $response
 
-            $CSTR = Parse-CSTR -CSTR $response -Key $RSTR.Key
+            $CSTR = Parse-SCTR -SCTR $response -Key $RSTR.Key
 
-            Write-Verbose "CST end`n"
+            Write-Verbose "SCT end`n"
     
             # Get the capabilities    
             #[xml]$response = Invoke-ADFSSoapRequest -Key $CSTR.Key -Context $CSTR.Context -KeyIdentifier $CSTR.Identifier -Server $server -Command Capabilities

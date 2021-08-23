@@ -31,7 +31,7 @@ function Get-UserConnections
             "Authorization"="Bearer $AccessToken"
         }
         
-        $response=Invoke-RestMethod -Uri "https://odc.officeapps.live.com/odc/servicemanager/userconnected" -Headers $headers
+        $response=Invoke-RestMethod -UseBasicParsing -Uri "https://odc.officeapps.live.com/odc/servicemanager/userconnected" -Headers $headers
 
         return $response.ConnectedServicesResults.ServiceConnections.Connection
     }
@@ -79,7 +79,7 @@ function Get-RecentLocations
             $Apps=$App
         }
         
-        Invoke-RestMethod -Uri "https://ocws.officeapps.live.com/ocs/locations/recent?apps=$Apps&show=$Show" -Headers $headers
+        Invoke-RestMethod -UseBasicParsing -Uri "https://ocws.officeapps.live.com/ocs/locations/recent?apps=$Apps&show=$Show" -Headers $headers
 
     }
 }
@@ -113,7 +113,7 @@ function Get-SharedWithUser
             "Authorization"="Bearer $AccessToken"
         }
         
-        $response=Invoke-RestMethod -Uri "https://ocws.officeapps.live.com/ocs/docs/v2.0/sharedwithme" -Headers $headers
+        $response=Invoke-RestMethod -UseBasicParsing -Uri "https://ocws.officeapps.live.com/ocs/docs/v2.0/sharedwithme" -Headers $headers
 
         return $response.shared_documents
     }

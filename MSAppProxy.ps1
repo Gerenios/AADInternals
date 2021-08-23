@@ -126,7 +126,7 @@ function Register-ProxyAgent
 "@
         
         # Register the app and get the certificate
-        $response = Invoke-RestMethod -Uri "https://$tenantId.registration.msappproxy.net/register/RegisterConnector" -Method Post -Body $body -Headers @{"Content-Type"="application/xml; charset=utf-8"}
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://$tenantId.registration.msappproxy.net/register/RegisterConnector" -Method Post -Body $body -Headers @{"Content-Type"="application/xml; charset=utf-8"}
         if($response.RegistrationResult.IsSuccessful -eq "true")
         {
             # Get the certificate and convert to byte array
@@ -247,7 +247,7 @@ function Get-ProxyAgents
         
         foreach($type in $publishingTypes)
         {
-            $agents = Invoke-RestMethod -Uri "https://$TenantId.admin.msappproxy.net/onPremisesPublishingProfiles('$type')/agents" -Method Get -Headers $headers -ErrorAction SilentlyContinue
+            $agents = Invoke-RestMethod -UseBasicParsing -Uri "https://$TenantId.admin.msappproxy.net/onPremisesPublishingProfiles('$type')/agents" -Method Get -Headers $headers -ErrorAction SilentlyContinue
 
             # Return
             if($agents)
@@ -315,7 +315,7 @@ function Get-ProxyAgentGroups
             "x-ms-gateway-serviceRoot" =""
         }
 
-        $response = Invoke-RestMethod -Uri "https://$TenantId.admin.msappproxy.net/onPremisesPublishingProfiles('provisioning')/agentGroups?`$expand=agents" -Method Get -Headers $headers 
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://$TenantId.admin.msappproxy.net/onPremisesPublishingProfiles('provisioning')/agentGroups?`$expand=agents" -Method Get -Headers $headers 
         
         # return
         $response.value
@@ -390,10 +390,10 @@ function New-ProxyAgentGroup
 
         # First, create the agent group with the given name
         $Body = "{""displayName"":""$DisplayName""}"
-        $response  = Invoke-RestMethod -Uri "https://$TenantId.admin.msappproxy.net/onPremisesPublishingProfiles('provisioning')/agentGroups" -Method POST -Headers $headers -Body $Body
+        $response  = Invoke-RestMethod -UseBasicParsing -Uri "https://$TenantId.admin.msappproxy.net/onPremisesPublishingProfiles('provisioning')/agentGroups" -Method POST -Headers $headers -Body $Body
 
         $Body = "{""displayName"":""$ConfigurationDisplayName"",""resourceName"":""$ConfigurationResourceName"",""agentGroups"":[{""id"":""$($response.id)""}]}"
-        $response2 = Invoke-RestMethod -Uri "https://$TenantId.admin.msappproxy.net/onPremisesPublishingProfiles('provisioning')/publishedResources" -Method POST -Headers $headers -Body $Body
+        $response2 = Invoke-RestMethod -UseBasicParsing -Uri "https://$TenantId.admin.msappproxy.net/onPremisesPublishingProfiles('provisioning')/publishedResources" -Method POST -Headers $headers -Body $Body
         
         # Extract the information and create the return value
         $attributes=[ordered]@{}
@@ -444,7 +444,7 @@ function Add-ProxyAgentToGroup
             "Content-Type" = "application/json"
         }
 
-        Invoke-RestMethod -Uri "https://$TenantId.admin.msappproxy.net/onPremisesPublishingProfiles('provisioning')/agents('$($Agent.toString())')/agentGroups/`$ref" -Method Post -Headers $headers -Body $body
+        Invoke-RestMethod -UseBasicParsing -Uri "https://$TenantId.admin.msappproxy.net/onPremisesPublishingProfiles('provisioning')/agents('$($Agent.toString())')/agentGroups/`$ref" -Method Post -Headers $headers -Body $body
 
         Write-Host "Agent ($($Agent.toString())) added to group ($($Group.toString()))"
     }
