@@ -242,7 +242,7 @@ function Get-UserRealm
     {
       
         # Call the API
-        $userRealm=Invoke-RestMethod -Uri ("https://login.microsoftonline.com/common/userrealm/$UserName"+"?api-version=1.0")
+        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/common/userrealm/$UserName"+"?api-version=1.0")
 
         # Verbose
         Write-Verbose "USER REALM $($userRealm | Out-String)"
@@ -299,7 +299,7 @@ function Get-UserRealmExtended
     {
       
         # Call the API
-        $userRealm=Invoke-RestMethod -Uri ("https://login.microsoftonline.com/common/userrealm/$UserName"+"?api-version=2.0")
+        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/common/userrealm/$UserName"+"?api-version=2.0")
 
         # Verbose
         Write-Verbose "USER REALM $($userRealm | Out-String)"
@@ -355,7 +355,7 @@ function Get-UserRealmV2
     {
       
         # Call the API
-        $userRealm=Invoke-RestMethod -Uri ("https://login.microsoftonline.com/GetUserRealm.srf?login=$UserName")
+        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/GetUserRealm.srf?login=$UserName")
 
         # Verbose
         Write-Verbose "USER REALM: $($userRealm | Out-String)"
@@ -436,7 +436,7 @@ function Get-CredentialType
         }
       
         # Call the API
-        $userRealm=Invoke-RestMethod -Uri ("https://login.microsoftonline.com/common/GetCredentialType") -ContentType "application/json; charset=UTF-8" -Method POST -Body ($body|ConvertTo-Json)
+        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/common/GetCredentialType") -ContentType "application/json; charset=UTF-8" -Method POST -Body ($body|ConvertTo-Json)
 
         # Verbose
         Write-Verbose "CREDENTIAL TYPE: $($userRealm | Out-String)"
@@ -507,7 +507,7 @@ function Get-OpenIDConfiguration
 
       
         # Call the API
-        $openIdConfig=Invoke-RestMethod "https://login.microsoftonline.com/$domain/.well-known/openid-configuration"
+        $openIdConfig=Invoke-RestMethod -UseBasicParsing "https://login.microsoftonline.com/$domain/.well-known/openid-configuration"
 
         # Return
         $openIdConfig
@@ -774,7 +774,7 @@ function Get-OAuthInfoUsingSAML
         $contentType="application/x-www-form-urlencoded"
         try
         {
-            $jsonResponse=Invoke-RestMethod -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
+            $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
         }
         catch
         {
@@ -837,7 +837,7 @@ function Get-OAuthInfo
             $contentType="application/x-www-form-urlencoded"
             try
             {
-                $jsonResponse=Invoke-RestMethod -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
+                $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
             }
             catch
             {
@@ -853,7 +853,7 @@ function Get-OAuthInfo
             $federation_metadata_url=$userRealm.federation_metadata_url
 
             # Call the API to get metadata
-            [xml]$response=Invoke-RestMethod -Uri $federation_metadata_url 
+            [xml]$response=Invoke-RestMethod -UseBasicParsing -Uri $federation_metadata_url 
 
             # Get the url of identity provider endpoint.
             # Note! Tested only with AD FS - others may or may not work
@@ -920,7 +920,7 @@ function Get-OAuthInfo
 
             # Set the content type and call the authentication service            
             $contentType="application/soap+xml"
-            [xml]$xmlResponse=Invoke-RestMethod -Uri $federation_url -ContentType $contentType -Method POST -Body $envelope -Headers $headers
+            [xml]$xmlResponse=Invoke-RestMethod -UseBasicParsing -Uri $federation_url -ContentType $contentType -Method POST -Body $envelope -Headers $headers
 
             # Get the SAML token from response and encode it with Base64
             $samlToken=$xmlResponse.Envelope.Body.RequestSecurityTokenResponse.RequestedSecurityToken.Assertion.OuterXml
@@ -1102,47 +1102,9 @@ function Prompt-Credentials
         }
 
         # Set variables
-        $auth_redirect= "urn:ietf:wg:oauth:2.0:oob"
+        $auth_redirect= Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
         $client_id=     $ClientId # Usually should be graph_api
-
-        # Some services need to use different auth_redirect
-        if($ClientId -eq "1fec8e78-bce4-4aaf-ab1b-5451cc387264")     # Teams
-        {
-            $auth_redirect="https://login.microsoftonline.com/common/oauth2/nativeclient"
-        }
-        elseif($ClientId -eq "9bc3ab49-b65d-410a-85ad-de819febfddc") # SPO
-        {
-            $auth_redirect="https://oauth.spops.microsoft.com/"
-        }
-        elseif($ClientId -eq "c44b4083-3bb0-49c1-b47d-974e53cbdf3c") # Azure admin interface
-        {
-            $auth_redirect="https://portal.azure.com/signin/index/?feature.prefetchtokens=true&feature.showservicehealthalerts=true&feature.usemsallogin=true"
-        }
-        elseif($ClientId -eq "0000000c-0000-0000-c000-000000000000") # Azure AD Account
-        {
-            $auth_redirect="https://account.activedirectory.windowsazure.com/"
-        }
-        elseif($ClientId -eq "19db86c3-b2b9-44cc-b339-36da233a3be2") # My sign-ins
-        {
-            $auth_redirect="https://mysignins.microsoft.com"
-        }
-        elseif($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -ne "https://enrollment.manage.microsoft.com/") # Azure AD Join
-        {
-            $auth_redirect="ms-aadj-redir://auth/drs"
-        }
-        elseif($ClientId -eq "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa") # Azure Android App
-        {
-            $auth_redirect="https://azureapp"
-        }
-        elseif($ClientId -eq "33be1cef-03fb-444b-8fd3-08ca1b4d803f") # OneDrive Web
-        {
-            $auth_redirect="https://admin.onedrive.com/"
-        }
-        elseif($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive native client
-        {
-            $auth_redirect="https://login.windows.net/common/oauth2/nativeclient"
-        }
-        
+                        
         # Create the url
         $request_id=(New-Guid).ToString()
         $url="https://login.microsoftonline.com/$Tenant/oauth2/authorize?resource=$Resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=openid profile"
@@ -1189,7 +1151,7 @@ function Prompt-Credentials
 
         # Set the content type and call the Microsoft Online authentication API
         $contentType="application/x-www-form-urlencoded"
-        $jsonResponse=Invoke-RestMethod -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token" -ContentType $contentType -Method POST -Body $body
+        $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token" -ContentType $contentType -Method POST -Body $body
 
         # return 
         $jsonResponse
@@ -1472,7 +1434,7 @@ function Get-EndpointInstances
     Process
     {
         $clientrequestid=(New-Guid).ToString();
-        Invoke-RestMethod -Uri "https://endpoints.office.com/version?clientrequestid=$clientrequestid"
+        Invoke-RestMethod -UseBasicParsing -Uri "https://endpoints.office.com/version?clientrequestid=$clientrequestid"
     }
 }
 
@@ -1543,7 +1505,7 @@ function Get-EndpointIps
     Process
     {
         $clientrequestid=(New-Guid).ToString();
-        Invoke-RestMethod -Uri ("https://endpoints.office.com/endpoints/$Instance"+"?clientrequestid=$clientrequestid")
+        Invoke-RestMethod -UseBasicParsing -Uri ("https://endpoints.office.com/endpoints/$Instance"+"?clientrequestid=$clientrequestid")
     }
 }
 
@@ -1619,7 +1581,7 @@ function Get-APIKeys
     )
     Process
     {
-        $keys=Invoke-RestMethod "https://login.microsoftonline.com/common/discovery/keys"
+        $keys=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/discovery/keys"
 
         if($KeyId)
         {
@@ -1770,10 +1732,67 @@ function Get-TenantDomains
             "User-Agent" =   "AutodiscoverClient"
         }
         # Invoke
-        $response = Invoke-RestMethod -Method Post -uri "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc" -Body $body -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Method Post -uri "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc" -Body $body -Headers $headers
 
         # Return
         $response.Envelope.body.GetFederationInformationResponseMessage.response.Domains.Domain | Sort-Object
     }
 }
 
+# Gets the auth_redirect url for the given client and resource
+# Aug 12th 2021
+function Get-AuthRedirectUrl
+{
+
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$ClientId,
+        [Parameter(Mandatory=$True)]
+        [String]$Resource
+    )
+    Process
+    {
+        # default
+        $redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
+
+        if($ClientId -eq "1fec8e78-bce4-4aaf-ab1b-5451cc387264")     # Teams
+        {
+            $redirect_uri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
+        }
+        elseif($ClientId -eq "9bc3ab49-b65d-410a-85ad-de819febfddc") # SPO
+        {
+            $redirect_uri = "https://oauth.spops.microsoft.com/"
+        }
+        elseif($ClientId -eq "c44b4083-3bb0-49c1-b47d-974e53cbdf3c") # Azure admin interface
+        {
+            $redirect_uri = "https://portal.azure.com/signin/index/?feature.prefetchtokens=true&feature.showservicehealthalerts=true&feature.usemsallogin=true"
+        }
+        elseif($ClientId -eq "0000000c-0000-0000-c000-000000000000") # Azure AD Account
+        {
+            $redirect_uri = "https://account.activedirectory.windowsazure.com/"
+        }
+        elseif($ClientId -eq "19db86c3-b2b9-44cc-b339-36da233a3be2") # My sign-ins
+        {
+            $redirect_uri = "https://mysignins.microsoft.com"
+        }
+        elseif($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -ne "https://enrollment.manage.microsoft.com/") # Azure AD Join
+        {
+            $redirect_uri = "ms-aadj-redir://auth/drs"
+        }
+        elseif($ClientId -eq "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa") # Azure Android App
+        {
+            $redirect_uri = "https://azureapp"
+        }
+        elseif($ClientId -eq "33be1cef-03fb-444b-8fd3-08ca1b4d803f") # OneDrive Web
+        {
+            $redirect_uri = "https://admin.onedrive.com/"
+        }
+        elseif($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive native client
+        {
+            $redirect_uri = "https://login.windows.net/common/oauth2/nativeclient"
+        }
+
+        return $redirect_uri
+    }
+}

@@ -1,4 +1,5 @@
 ﻿# This file contains functions for AMQP and relay messaging
+# http://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-transport-v1.0-os.html
 
 # Parses Bus message from the given byte array
 function Parse-BusMessage
@@ -41,6 +42,7 @@ function Parse-BusMessage
             # This is an AMQP frame
             $message = Parse-AMQPFrame -Bytes $Bytes
         }
+        Write-Verbose "IN: $message"
         return $message
     }
 }
@@ -760,9 +762,11 @@ function New-AMQPAttach
         [PSObject]$BootStrap,
         [Parameter(Mandatory=$True)]
         [String]$RelayLinkGuid,
-        [Parameter(Mandatory=$True)]        [ValidateSet('in','out')]
+        [Parameter(Mandatory=$True)]
+        [ValidateSet('in','out')]
         [String]$Direction,
-        [Parameter(Mandatory=$True)]        [String]$TrackingID
+        [Parameter(Mandatory=$True)]
+        [String]$TrackingID
     )
     Process
     {
@@ -917,6 +921,587 @@ function New-AMQPAttach
     }
 }
 
+# Returns an AMQP Attach message
+# May 28th 2021
+function New-AMQPAttachADFS
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [byte]$Handle=0,
+        [Parameter(Mandatory=$True)]
+        [ValidateSet('in','out')]
+        [String]$Direction,
+        [Parameter(Mandatory=$True)]
+        [String]$Name,
+        [Parameter(Mandatory=$True)]
+        [String]$Target,
+        [Parameter(Mandatory=$False)]
+        [String]$Source
+    )
+    Process
+    {
+
+
+        # Get the bytes of the strings 
+        $bName=   [text.encoding]::UTF8.GetBytes($Name)
+        $bTarget= [text.encoding]::UTF8.GetBytes($Target)
+        $bSource= [text.encoding]::UTF8.GetBytes($Source)
+        
+        # Calculate the combined length
+        $strLen =   $bName.length + $bTarget.length +$bSource.length
+
+        #if($bSource.length -gt 0)
+        #{
+        #    $strLen+=1 # 0xA1 
+        #}
+
+        # Set the handle
+        if($Handle -gt 0)
+        {
+            $bHandle=(0x52,  # smallUint
+                    $Handle) # handle value
+        }
+        else
+        {
+            $bHandle+=@(0x43)    # Handle = 0, UInt 8 
+        }
+        # Set the role
+        if($Direction -eq "in")
+        {
+            $bRole=0x41 # true
+        }
+        else
+        {
+            $bRole=0x42 # false
+        }
+
+        # Construct the message
+        $message = [byte[]]@(([BitConverter]::GetBytes([uint32]($strLen + 90 +($bHandle.Length - 1))))[3..0]) # Length of the frame
+        $message+=@(0x02,   # DOFF = 2
+                    0x00,   # Message type = AMQP
+                    0x00,   #
+                    0x00,   #
+                    0x00,   #
+                    0x53,   # SmallULong
+                    0x12)   # AMQP Attach
+
+                        
+        $message+=@(0xC0,   # List
+                    ($strLen+78+($bHandle.Length - 1)), # Length
+                    0x0E,   # Number of elements 
+                    0xA1,   # String
+                    $bName.length)   # String length
+        $message+=@($bName)   # 1. Name 
+        $message+=@($bHandle) # 2. Handle
+        $message+=@($bRole)   # 3. Role (False) = Sender
+        
+        
+        if($Direction -eq "in")
+        {
+            $message+=@(0x50,     # uByte 
+                        0x01,     # 4. snd-settle-mode 1 = settled
+                        0x40)     # 5. rcv-settle-mode ($null)
+
+            # 6. source
+            $message+=@(0x00)     # Constructor
+            $message+=@(0x53,     # SmallULong
+                        0x28,     # (0x28 = 40)
+                        0xC0)     # List
+            if($bSource.length -gt 0)
+            {
+                $message+=@((0x0E + $bSource.length -1), # List Length 
+                           0x0B,                       # List elements
+                           0xA1, # String
+                           $bSource.length) # String length
+                $message+=$bSource
+                $message+=@(0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40) # nulls
+            }
+            else
+            {
+                $message+=@(0x0C,     # List Length 
+                            0x0B)     # List elements
+                $message+=@(0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40) # nulls
+            }
+
+            # 7. target
+            $message+=@(0x00,   # Constructor
+                        0x53,   # SmallULong
+                        0x29,   # (0x29 = 41)
+                        0xC0,   # List
+                        (0x09 + $bTarget.length),   # List Length 
+                        0x07,   # List items
+                        0xA1,   # String
+                        $bTarget.length)   # String length
+            $message+=$bTarget
+            $message+=@(0x40, 0x40, 0x40, 0x40, 0x40, 0x40) # nulls
+        }
+        else
+        {
+            $message+=@(0x50,     # uByte 
+                        0x01,     # 4. snd-settle-mode 1 = settled
+                        0x40)     # 5. rcv-settle-mode ($null)
+
+            # 6. source
+            $message+=@(0x00,   # Constructor
+                        0x53,   # SmallULong
+                        0x28,   # (0x28 = 40)
+                        0xC0,   # List
+                        (0x0D + $bSource.length),   # List Length 
+                        0x0B,   # List elements
+                        0xA1,   # String
+                        $bSource.length)   # String length
+            $message+=$bSource
+            $message+=@(0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40) # nulls
+
+            # 7. target
+            $message+=@(0x00,   # Constructor
+                        0x53,   # SmallULong
+                        0x29,   # (0x29 = 41)
+                        0xC0,   # List
+                        (0x09 + $bTarget.length),   # List Length 
+                        0x07,   # List items
+                        0xA1,   # String
+                        $bTarget.length)   # String length
+            $message+=$bTarget
+            $message+=@(0x40, 0x40, 0x40, 0x40, 0x40, 0x40) # nulls
+        }
+
+        $message+=@(0x40, #  8. incomplete-unsettled
+                    0x40, #  9. incomplete-unsettled
+                    0x40, # 10. initial-delivery-count
+                    0x40, # 11. max-message-size
+                    0x40, # 12. offered-capabilities
+                    0x40) # 13. desired-capabilities
+                       
+        # 14. properties
+        $message+=$(0xC1, # Map
+                    0x1D, # Length
+                    0x02, # Elements
+                    0xA3, # Symbol
+                    0x15) # Length
+        $message+=[text.encoding]::ASCII.GetBytes("com.microsoft:timeout")
+        $message+=@(0x70, # uint
+                    0x00, 0x01, 0x11, 0x50)
+        
+                    
+        return [byte[]]$message
+    }
+}
+
+# Returns an AMQP Attach message2
+# May 29th 2021
+function New-AMQPAttachADFS2
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [byte]$Handle=0,
+        [Parameter(Mandatory=$True)]
+        [String]$Name,
+        [Parameter(Mandatory=$True)]
+        [String]$Target
+    )
+    Process
+    {
+
+
+        # Get the bytes of the strings 
+        $bName=   [text.encoding]::UTF8.GetBytes($Name)
+        $bTarget= [text.encoding]::UTF8.GetBytes($Target)
+        
+        # Calculate the combined length
+        $strLen =   $bName.length + $bTarget.length
+
+        # Set the handle
+        if($Handle -gt 0)
+        {
+            $bHandle=(0x52,  # smallUint
+                    $Handle) # handle value
+        }
+        else
+        {
+            $bHandle+=@(0x43)    # Handle = 0, UInt 8 
+        }
+  
+        # Construct the message
+        $message = [byte[]]@(([BitConverter]::GetBytes([uint32]($strLen + 148 +($bHandle.Length - 1))))[3..0]) # Length of the frame
+        $message+=@(0x02,   # DOFF = 2
+                    0x00,   # Message type = AMQP
+                    0x00,   #
+                    0x00,   #
+                    0x00,   #
+                    0x53,   # SmallULong
+                    0x12)   # AMQP Attach
+
+                        
+        $message+=@(0xC0,   # List
+                    ($strLen+135+($bHandle.Length - 1)), # Length
+                    0x0E,   # Number of elements 
+                    0xA1,   # String
+                    $bName.length)   # String length
+        $message+=@($bName)   # 1. Name 
+        $message+=@($bHandle) # 2. Handle
+        $message+=@(0x42,   # 3. Role (False) = Sender
+                    0x40,     # 4. snd-settle-mode ($null)
+                    0x40,     # 5. rcv-settle-mode ($null)
+                    0x40)     # 6. sender
+        
+
+        # 7. target
+        $message+=@(0x00,   # Constructor
+                    0x53,   # SmallULong
+                    0x29,   # (0x29 = 41)
+                    0xC0,   # List
+                    (0x09 + $bTarget.length),   # List Length 
+                    0x07,   # List items
+                    0xA1,   # String
+                    $bTarget.length)   # String length
+        $message+=$bTarget
+        $message+=@(0x40, 0x40, 0x40, 0x40, 0x40, 0x40) # nulls
+        
+
+        $message+=@(0x40, #  8. incomplete-unsettled
+                    0x40, #  9. incomplete-unsettled
+                    0x43, # 10. initial-delivery-count
+                    0x40, # 11. max-message-size
+                    0x40, # 12. offered-capabilities
+                    0x40) # 13. desired-capabilities
+                       
+        # 14. properties
+        $message+=$(0xC1, # Map
+                    0x69, # Length
+                    0x06, # Elements
+                    0xA3, # Symbol
+                    0x15) # Length
+        $message+=[text.encoding]::ASCII.GetBytes("com.microsoft:timeout")
+        $message+=@(0x70, # uint
+                    0x00, 0x01, 0x10, 0x37)
+
+        $message+=@(0xA3, # Symbol
+                    0x2C) # Symbol length 
+        $message+=[text.encoding]::ASCII.GetBytes("com.microsoft:get-runtime-entity-description")
+
+        $message+=@(0x41) # True
+
+        $message+=@(0xA3, # Symbol
+                    0x19) # Symbol length 
+        $message+=[text.encoding]::ASCII.GetBytes("com.microsoft:entity-type")
+
+        $message+=@(0x54, # Small int
+                    0x07) # 7
+        
+                    
+        return [byte[]]$message
+    }
+}
+
+# Returns an AMQP Transfer message for ADFS SAS
+# May 29th 2021
+function New-AMQPTransferADFSSAS
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte]$Handle,
+        [Parameter(Mandatory=$True)]
+        [String]$Name,
+        [Parameter(Mandatory=$True)]
+        [String]$Id,
+        [Parameter(Mandatory=$True)]
+        [String]$SharedAccessSignature
+    )
+    Process
+    {
+        # Parse the expiration time from SAS
+        $s=$sharedAccessSignature.IndexOf("se=")+3
+        $e=$sharedAccessSignature.IndexOf("&",$s)
+        [uint64]$expires = [uint64]$sharedAccessSignature.Substring($s,$e-$s)
+
+        # Set the handle
+        if($Handle -gt 0)
+        {
+            $bHandle=(0x52,  # smallUint
+                    $Handle) # handle value
+        }
+        else
+        {
+            $bHandle+=@(0x43)    # Handle = 0, UInt 8 
+        }
+
+        # Construct the message
+        $message = [byte[]][BitConverter]::GetBytes([uint32](188 + $sharedAccessSignature.Length + $name.Length +($bHandle.Length - 1)))[3..0] # Length of the frame
+        $message+=@(0x02,     # DOFF = 2
+                    0x00,     # Message type = AMQP
+                    0x00,     #
+                    0x00,     #
+                    0x00,     #
+                    0x53,     # SmallULong
+                    0x14,     # AMQP Transfer
+
+                    0xC0,     # List
+                    (0x0D+$bHandle.Length - 1),     # Length
+                    0x0B)     # Number of elements 
+        $message+= ($bHandle) # 1. handle
+        $message+=@(0x43,     # 2. delivery-id
+                    0xA0,     # binary
+                    0x00,     # binary length 3. delivery-tag
+                    0x43,     # 4. message-format = 0
+                    0x41,     # 5. settled = true
+                    0x42,     # 6. more = false
+                    0x40,     # 7. rcv-settle-mode
+                    0x40,     # 8. state
+                    0x40,     # 9. resume
+                    0x40,     # 10. aborted
+                    0x42)     # 11. batchable = false
+                    
+        $message+=@(0x00,     # Constructor
+                    0x53,     # SmallULong
+                    0x73,     # AMQP properties list
+                    0xC0,     # List
+                    0x38,     # List length
+                    0x0D,     # Elements
+                    # 1. message-id
+                    0xA1,     # String
+                    0x08)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("request1")
+        $message+=@(0x40,     # 2. user-id
+                    0x40,     # 3. to
+                    0x40,     # 4. subject
+                    # 5. reply-to
+                    0xA1,     # String
+                    0x20)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes($id)
+        $message+=@(0x40,     # 6. correlation-id
+                    0x40,     # 7. content-type
+                    0x40,     # 8. content-encoding
+                    0x40,     # 9. absolute-expiry-time
+                    0x40,     # 10. creation-time
+                    0x40,     # 11. group-id
+                    0x40,     # 12. group-sequence
+                    0x40)     # 13. reply-to-group-id
+
+        $message+=@(0x00,     # Constructor
+                    0x53,     # SmallULong
+                    0x74,     # AMQP application properties
+                    0xC1,     # Map
+                    0xD0,     # Map length
+                    0x08)     # Map elements
+
+        $message+=@(0xA1,     # String
+                    0x09)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("operation")
+        $message+=@(0xA1,     # String
+                    0x09)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("put-token")
+
+        $message+=@(0xA1,     # String
+                    0x04)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("type")
+        $message+=@(0xA1,     # String
+                    0x1F)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("servicebus.windows.net:sastoken")
+
+        $message+=@(0xA1,     # String
+                    0x04)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("name")
+        $message+=@(0xA1,     # String
+                    $name.Length)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes($name)
+
+        $message+=@(0xA1,     # String
+                    0x0A)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("expiration")
+        $message+=@(0x83)     # Date
+        $message+=[System.BitConverter]::GetBytes( $expires * 1000)[7..0]
+
+        $message+=@(0x00,     # Constructor
+                    0x53,     # SmallULong
+                    0x77,     # AMQP value
+                    0xA1,     # String
+                    $sharedAccessSignature.Length)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes($sharedAccessSignature)
+        
+                    
+        return [byte[]]$message
+    }
+}
+
+# Returns an AMQP Transfer message for ADFS insights
+# May 29th 2021
+function New-AMQPTransferADFSInsights
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte]$Handle,
+        [Parameter(Mandatory=$True)]
+        [guid]$MachineId,
+        [Parameter(Mandatory=$True)]
+        [guid]$TenantId,
+        [Parameter(Mandatory=$True)]
+        [guid]$ServiceId,
+        [Parameter(Mandatory=$False)]
+        [guid]$CorrelationId = (New-Guid),
+        [Parameter(Mandatory=$True)]
+        [string]$BlobUri,
+        [Parameter(Mandatory=$True)]
+        [datetime]$SigningTime,
+        [Parameter(Mandatory=$True)]
+        [string]$HmacSignature,
+        [Parameter(Mandatory=$False)]
+        [byte[]]$Data
+    )
+    Process
+    {
+        # Set the handle
+        if($Handle -gt 0)
+        {
+            $bHandle=(0x52,  # smallUint
+                    $Handle) # handle value
+        }
+        else
+        {
+            $bHandle+=@(0x43)    # Handle = 0, UInt 8 
+        }
+
+        $bid = $TenantId.ToByteArray()
+        $bTenantId = $bid[3..0] + $bid[5..4] + $bid[7..6] + $bid[8..9] + $bid[10..15]
+        $bid = $MachineId.ToByteArray()
+        $bMachineId = $bid[3..0] + $bid[5..4] + $bid[7..6] + $bid[8..9] + $bid[10..15]
+        $bid = $ServiceId.ToByteArray()
+        $bServiceId = $bid[3..0] + $bid[5..4] + $bid[7..6] + $bid[8..9] + $bid[10..15]
+        $bid = $CorrelationId.ToByteArray()
+        $bCorrelationId = $bid[3..0] + $bid[5..4] + $bid[7..6] + $bid[8..9] + $bid[10..15]
+
+        # Construct the message
+        $message = [byte[]][BitConverter]::GetBytes([uint32](338 + $BlobUri.Length + $HmacSignature.Length +$Data.Length +($bHandle.Length - 1)))[3..0] # Length of the frame
+        $message+=@(0x02,     # DOFF = 2
+                    0x00,     # Message type = AMQP
+                    0x00,     #
+                    0x00,     #
+                    0x00,     #
+                    0x53,     # SmallULong
+                    0x14,     # AMQP Transfer
+
+                    0xC0,     # List
+                    (0x11+$bHandle.Length - 1),     # Length
+                    0x0B)     # Number of elements 
+        $message+= ($bHandle) # 1. handle
+        $message+=@(0x43,     # 2. delivery-id
+                    0xA0,     # binary
+                    0x04,     # binary length 3. delivery-tag
+                    0x01,     
+                    0x00,     
+                    0x00,     
+                    0x00,     
+                    0x43,     # 4. message-format = 0
+                    0x40,     # 5. settled = null
+                    0x42,     # 6. more = false
+                    0x40,     # 7. rcv-settle-mode
+                    0x40,     # 8. state
+                    0x40,     # 9. resume
+                    0x40,     # 10. aborted
+                    0x41)     # 11. batchable = true
+                    
+        $message+=@(0x00,     # Constructor
+                    0x53,     # SmallULong
+                    0x74,     # AMQP application properties
+                    0xD1)     # Map
+        $message+=[bitconverter]::GetBytes([uint32]295 + $BlobUri.Length + $HmacSignature.Length)[3..0] # Map length
+        $message+=[bitconverter]::GetBytes([uint32]0x16 )[3..0] # Map elements
+        
+        $message+=@(0xA1,     # String
+                    0x0D)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("CorrelationId")
+        $message+=@(0x98)     # UUID
+        $message+=$bCorrelationId
+
+        $message+=@(0xA1,     # String
+                    0x07)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("UrlType")
+        $message+=@(0xA1,     # String
+                    0x04)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("Blob")
+
+        $message+=@(0xA1,     # String
+                    0x0A)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("ConfigType")
+        $message+=@(0xA1,     # String
+                    0x0C)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("InsightsData")
+
+        $message+=@(0xA1,     # String
+                    0x08)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("TenantId")
+        $message+=@(0x98)     # UUID
+        $message+=$bTenantId
+
+        $message+=@(0xA1,     # String
+                    0x09)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("ServiceId")
+        $message+=@(0x98)     # UUID
+        $message+=$bServiceId
+
+        $message+=@(0xA1,     # String
+                    0x09)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("MachineId")
+        $message+=@(0x98)     # UUID
+        $message+=$bMachineId
+
+        $message+=@(0xA1,     # String
+                    0x10)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("MonitorEventName")
+        $message+=@(0xA1,     # String
+                    0x11)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("Adfs-UsageMetrics")
+
+        $message+=@(0xA1,     # String
+                    0x0F)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("BlobAbsoluteUri")
+        $message+=@(0x00,     # Constructor
+                    0xA3,     # Symbol
+                    0x11)     # Symbol length
+        $message+=[text.encoding]::ASCII.GetBytes("com.microsoft:uri")
+        $message+=@(0xA1,     # String
+                    $BlobUri.Length)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes($BlobUri)
+
+        $message+=@(0xA1,     # String
+                    0x0E)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("DataCompressed")
+        $message+=@(0x41)     # True
+        #$message+=@(0x42)     # False
+
+        $message+=@(0xA1,     # String
+                    0x0E)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("SigningUtcTime")
+        $message+=@(0x83)     # Date
+        $message+=[System.BitConverter]::GetBytes(([uint64](($SigningTime).ToUniversalTime() - $epoch).TotalSeconds)*1000)[7..0]
+
+        $message+=@(0xA1,     # String
+                    0x0D)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes("HmacSignature")
+        $message+=@(0xA1,     # String
+                    $HmacSignature.Length)     # String length
+        $message+=[text.encoding]::ASCII.GetBytes($HmacSignature)
+        
+
+        $message+=@(0x00,     # Constructor
+                    0x53,     # SmallULong
+                    0x75,     # AMQP data
+                    0xA0,     # Binary
+                    $Data.Length) # Binary length
+        if($Data.Length -gt 0)
+        {
+            $message+=$Data
+        }
+        
+                    
+        return [byte[]]$message
+    }
+}
+
 # Returns an AMQP Open message
 # Mar 11th 2020
 function New-AMQPFlow
@@ -928,7 +1513,7 @@ function New-AMQPFlow
         
         # Construct the message
         $message = [byte[]]@(
-                    0x00, 0x00, 0x00, 0x28, # Length of the message
+                    0x00, 0x00, 0x00, 0x25, # Length of the message
                     0x02,   # DOFF = 2
                     0x00,   # Message type = AMQP
                     0x00,   #
@@ -938,7 +1523,7 @@ function New-AMQPFlow
                     0x13,   # AMQP Flow
 
                     0xC0,   # Array
-                    0x1B,   # Array length
+                    0x18,   # Array length
                     0x0B,   # Array items
                     0x52,   # Small Uint
                     0x01,   # Next incoming Id
@@ -951,8 +1536,10 @@ function New-AMQPFlow
                     0x52,   # Small Uint
                     0x01,   # Handle (=1)
                     0x43,   # UInt Delivery count = 0
-                    0x70,   # UInt 32
-                    0x00, 0x00, 0x03, 0xE8,   # Link credit = 1000
+                    0x52,   # uint
+                    0x32,   # Link credit = 50
+                    #0x70,   # UInt 32
+                    #0x00, 0x00, 0x03, 0xE8,   # Link credit = 1000
                     0x43,   # UInt Available count = 0
                     0x40,   # Drain ($null)
                     0x42,   # Echo ($false)
@@ -998,7 +1585,7 @@ function New-AMQPDetach
                     0x16,   # AMQP Detach
 
                     0xC0,   # List
-                    (0x04+($bHandle.Length - 1)),# Size
+                    (0x04+$bHandle.Length - 1),# Size
                     0x03)   # Elements
         $message+=@($bHandle)
         $message+=@(0x41,   # Closed ($true)
@@ -1364,5 +1951,60 @@ function New-RelayProxyConnectReply
         $message += @(0x01, 0x01, 0x01, 0x01)
                     
         return [byte[]]$message
+    }
+}
+
+# Writes the given bytes to the given socket
+function SendToSocket
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [System.Net.WebSockets.ClientWebSocket]$Socket,
+        [Parameter(Mandatory=$True)]
+        [System.Threading.CancellationToken]$Token,
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Bytes
+    )
+    Process
+    {
+        try
+        {
+            $message = Parse-BusMessage -Bytes $Bytes
+            Write-Verbose "OUT:$message"
+        }
+        catch{}
+
+        $connection = $Socket.SendAsync($Bytes,1,$true,$Token)
+        while(!$connection.IsCompleted)
+        { 
+            Start-Sleep -Milliseconds 100 
+        }
+    }
+}
+
+# Reads an AMQP message from socket
+function ReadFromSocket
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [System.Net.WebSockets.ClientWebSocket]$Socket,
+        [Parameter(Mandatory=$True)]
+        [System.Threading.CancellationToken]$Token,
+        [Parameter(Mandatory=$False)]
+        [int]$ArraySize=1024
+    )
+    Process
+    {
+        $buffer = New-Object Byte[] $ArraySize
+
+        $connection = $Socket.ReceiveAsync($buffer, $Token)
+        while(!$connection.IsCompleted)
+        { 
+            Start-Sleep -Milliseconds 100 
+        }
+
+        return $buffer[0..$($connection.Result.Count-1)]
     }
 }

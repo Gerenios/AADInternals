@@ -36,7 +36,7 @@ function Register-SyncAgent
     )
     Process
     {
-        return Register-Agent -AccessToken $AccessToken -MachineName $MachineName -FileName $FileName -AgentType Sync
+        return Register-ProxyAgent -AccessToken $AccessToken -MachineName $MachineName -FileName $FileName -AgentType Sync
     }
 }
 

@@ -1184,6 +1184,7 @@ function Get-AccessToken
             "4813382a-8fa7-425e-ab75-3b753aab3abb" # Microsoft authenticator
             "8c59ead7-d703-4a27-9e55-c96a0054c8d2"
             "c7d28c4f-0d2c-49d6-a88d-a275cc5473c7" # https://www.microsoftazuresponsorships.com/
+            "04b07795-8ddb-461a-bbee-02f9e1bf7b46" # Azure CLI
         )
     }
     Process
@@ -1391,7 +1392,7 @@ function Get-AccessTokenWithRefreshToken
         
         # Set the content type and call the API
         $contentType="application/x-www-form-urlencoded"
-        $response=Invoke-RestMethod -Uri $url -ContentType $contentType -Method POST -Body $body
+        $response=Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType $contentType -Method POST -Body $body
 
         # Debug
         Write-Debug "ACCESS TOKEN RESPONSE: $response"
@@ -1567,7 +1568,7 @@ function Get-AccessTokenWithAuthorizationCode
         
         # Set the content type and call the API
         $contentType = "application/x-www-form-urlencoded"
-        $response =    Invoke-RestMethod -Uri $url -ContentType $contentType -Method POST -Body $body -Headers $headers
+        $response =    Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType $contentType -Method POST -Body $body -Headers $headers
 
         # Debug
         Write-Debug "ACCESS TOKEN RESPONSE: $response"
@@ -1619,7 +1620,7 @@ function Get-AccessTokenWithDeviceSAML
         
         # Set the content type and call the API
         $contentType = "application/x-www-form-urlencoded"
-        $response =    Invoke-RestMethod -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
+        $response =    Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
 
         # Debug
         Write-Debug "ACCESS TOKEN RESPONSE: $response"

@@ -170,15 +170,18 @@ function Invoke-UserEnumerationAsOutsider
     Checks whether the given user exists in Azure AD or not. Returns $True or $False or empty.
 
     .DESCRIPTION
-    Checks whether the given user exists in Azure AD or not. Works also with external users! Supports two enumeration methods: Normal and Login. 
-    The Normal method works only if the user is in the tenant where Desktop SSO (aka Seamless SSO) is enabled for any domain. 
+    Checks whether the given user exists in Azure AD or not. Works also with external users! Supports two enumeration methods: Normal, Login, and Autologon.
+
+    The Normal method seems currently work with all tenants. Previously it required Desktop SSO (aka Seamless SSO) to be enabled for at least one domain. 
 
     The Login method works with any tenant, but enumeration queries will be logged to Azure AD sign-in log as failed login events!
+
+    The Autologon method works with any tenant and enumeration queries are not logged!
 
     Returns $True or $False if existence can be verified and empty if not.
 
     .Parameter UserName
-    User name or email address of the user.
+    List of User names or email addresses of the users.
 
     .Parameter External
     Whether the given user name is for external user. Requires also -Domain parater!
@@ -187,7 +190,7 @@ function Invoke-UserEnumerationAsOutsider
     The initial domain of the given tenant.
 
     .Parameter Method
-    The used enumeration method. One of "Normal","Login"
+    The used enumeration method. One of "Normal","Login","Autologon"
 
     .Example
     Invoke-AADIntUserEnumerationAsOutsider -UserName user@company.com
@@ -202,6 +205,14 @@ function Invoke-UserEnumerationAsOutsider
     UserName                                             Exists
     --------                                             ------
     external.user_gmail.com#EXT#@company.onmicrosoft.com True
+
+    .Example
+    Invoke-AADIntUserEnumerationAsOutsider -UserName user@company.com,user2@company.com -Method Autologon
+
+    UserName                                               Exists
+    --------                                               ------
+    user@company.com                                       True
+    user2@company.com                                      False
 
     .Example
     Get-Content .\users.txt | Invoke-AADIntUserEnumerationAsOutsider
@@ -229,24 +240,27 @@ function Invoke-UserEnumerationAsOutsider
     Param(
         [Parameter(ParameterSetName="Normal",  Mandatory=$True,ValueFromPipeline)]
         [Parameter(ParameterSetName="External",Mandatory=$True,ValueFromPipeline)]
-        [String]$UserName,
+        [String[]]$UserName,
         [Parameter(ParameterSetName="External", Mandatory=$True)]
         [Switch]$External,
         [Parameter(ParameterSetName="External",Mandatory=$True)]
         [String]$Domain,
         [Parameter(Mandatory=$False)]
-        [ValidateSet("Normal","Login")]
+        [ValidateSet("Normal","Login","Autologon")]
         [String]$Method="Normal"
     )
     Process
     {
-        # If the user is external, change to correct format
-        if($External)
+        foreach($User in $UserName)
         {
-            $UserName="$($UserName.Replace("@","_"))#EXT#@$domain"
-        }
+            # If the user is external, change to correct format
+            if($Method -eq "Normal" -and $External)
+            {
+                $User="$($User.Replace("@","_"))#EXT#@$domain"
+            }
 
-        return new-object psobject -Property ([ordered]@{"UserName"=$UserName;"Exists" = $(DoesUserExists -User $UserName -Method $Method)})
+            new-object psobject -Property ([ordered]@{"UserName"=$User;"Exists" = $(DoesUserExists -User $User -Method $Method)})
+        }
     }
 }
 
@@ -897,7 +911,7 @@ function Invoke-UserEnumerationAsInsider
         # Get the users and some relevant information
         if([String]::IsNullOrEmpty($GroupId))
         {
-            $users = Call-MSGraphAPI -MaxResults $MaxResults -AccessToken $AccessToken -API "users" -ApiVersion "v1.0" -QueryString "`$select=id,displayName,userPrincipalName,userType,onPremisesImmutableId,onPremisesLastSyncDateTime,onPremisesSamAccountName,onPremisesSecurityIdentifier,refreshTokensValidFromDateTime,signInSessionsValidFromDateTime,proxyAddresses,businessPhones,identities"
+            $users = Call-MSGraphAPI -MaxResults $MaxResults -AccessToken $AccessToken -API "users" -ApiVersion "v1.0" -QueryString "`$select=id,displayName,userPrincipalName,userType,onPremisesImmutableId,onPremisesLastSyncDateTime,onPremisesSamAccountName,onPremisesSecurityIdentifier,onPremisesDistinguishedName,refreshTokensValidFromDateTime,signInSessionsValidFromDateTime,proxyAddresses,businessPhones,identities"
         }
 
         # Get the groups

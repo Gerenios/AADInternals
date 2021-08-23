@@ -635,19 +635,19 @@ function Create-SCTEnvelope
 
 # Parse CST response
 # Apr 14th 2021
-function Parse-CSTR
+function Parse-SCTR
 {
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [xml]$CSTR,
+        [xml]$SCTR,
         [Parameter(Mandatory=$True)]
         [byte[]]$Key
     )
     Process
     {
         # Parse the response and fetch the server secret
-        [xml]$xPlaintext = Parse-ADFSResponse -Response $CSTR -Key $Key
+        [xml]$xPlaintext = Parse-ADFSResponse -Response $SCTR -Key $Key
         $token =           $xPlaintext.RequestSecurityTokenResponse.Entropy.BinarySecret.'#text'
         
         $serverSecret = Convert-B64ToByteArray -B64 $token
@@ -781,11 +781,11 @@ function Invoke-ADFSSoapRequest
         # Create the envelope
         $payload =  "<GetState xmlns=""http://schemas.microsoft.com/ws/2009/12/identityserver/protocols/policystore""><serviceObjectType>$Command</serviceObjectType><mask xmlns:i=""http://www.w3.org/2001/XMLSchema-instance"" i:nil=""true""></mask><filter xmlns:i=""http://www.w3.org/2001/XMLSchema-instance"" i:nil=""true""></filter><clientVersionNumber>1</clientVersionNumber></GetState>"
         $action =   "http://schemas.microsoft.com/ws/2009/12/identityserver/protocols/policystore/IPolicyStoreReadOnlyTransfer/GetState"
-        $envelope = Create-ADFSSoapEnvelope -Key $CSTR.Key -Context $CSTR.Context -KeyIdentifier $CSTR.Identifier -Server $server -Payload $payload -Action $action
+        $envelope = Create-ADFSSoapEnvelope -Key $Key -Context $Context -KeyIdentifier $KeyIdentifier -Server $server -Payload $payload -Action $action
 
         try
         {
-            [xml]$response = Invoke-RestMethod -uri "http://$Server/adfs/services/policystoretransfer" -Method Post -Body $envelope -ContentType "application/soap+xml"
+            [xml]$response = Invoke-RestMethod -UseBasicParsing -uri "http://$Server/adfs/services/policystoretransfer" -Method Post -Body $envelope -ContentType "application/soap+xml"
         }
         catch
         {

@@ -157,11 +157,11 @@ function Register-DeviceToAzureAD
         {
             if($hybrid)
             {
-                $response = Invoke-RestMethod -Method Put -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/$deviceId`?api-version=1.0" -Body $($body | ConvertTo-Json -Depth 5) -ContentType "application/json; charset=utf-8"
+                $response = Invoke-RestMethod -UseBasicParsing -Method Put -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/$deviceId`?api-version=1.0" -Body $($body | ConvertTo-Json -Depth 5) -ContentType "application/json; charset=utf-8"
             }
             else
             {
-                $response = Invoke-RestMethod -Method Post -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/?api-version=1.0" -Headers $headers -Body $($body | ConvertTo-Json -Depth 5) -ContentType "application/json; charset=utf-8"
+                $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://enterpriseregistration.windows.net/EnrollmentServer/device/?api-version=1.0" -Headers $headers -Body $($body | ConvertTo-Json -Depth 5) -ContentType "application/json; charset=utf-8"
             }
         }
         catch
@@ -358,7 +358,7 @@ function Get-AccessTokenWithPRT
             }
 
         # First, make the request to get the authorisation code (tries to redirect so throws an error)
-        $response = Invoke-RestMethod -Uri $url -Headers $headers -MaximumRedirection 0 -ErrorAction SilentlyContinue
+        $response = Invoke-RestMethod -UseBasicParsing -Uri $url -Headers $headers -MaximumRedirection 0 -ErrorAction SilentlyContinue
 
         Write-Debug "RESPONSE: $($response.OuterXml)"
 
@@ -418,7 +418,7 @@ function Get-AccessTokenWithPRT
         }
 
         # Make the second request to get the access token
-        $response = Invoke-RestMethod -Uri "https://login.microsoftonline.com/common/oauth2/token" -Body $body -ContentType "application/x-www-form-urlencoded" -Method Post
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -Body $body -ContentType "application/x-www-form-urlencoded" -Method Post
 
         Write-Debug "ACCESS TOKEN: $($response.access_token)"
         Write-Debug "REFRESH TOKEN: $($response.refresh_token)"
@@ -509,7 +509,7 @@ function Set-AccessTokenDeviceAuth
         }
                 
         # Get the nonce
-        $nonce = (Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/common/oauth2/token" -Body $body).Nonce
+        $nonce = (Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/common/oauth2/token" -Body $body).Nonce
 
         # B64 encode the public key
         $x5c = Convert-ByteArrayToB64 -Bytes ($certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
@@ -552,7 +552,7 @@ function Set-AccessTokenDeviceAuth
         }
 
         # Make the request to get the new access token
-        $response = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body
+        $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body
         
         if($BPRT)
         {
@@ -635,7 +635,7 @@ function Get-PRTKeyInfo
         }
         
         # Get the nonce
-        $nonce = (Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/common/oauth2/token" -Body $body).Nonce
+        $nonce = (Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/common/oauth2/token" -Body $body).Nonce
 
         # B64 encode the public key
         $x5c = Convert-ByteArrayToB64 -Bytes ($certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
@@ -672,7 +672,7 @@ function Get-PRTKeyInfo
         }
 
         # Make the request to get the P2P certificate
-        $response = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body
+        $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body
 
 
         

@@ -13,7 +13,7 @@ function Get-TeamsInformation
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264"
 
-        Invoke-RestMethod -Method Post -Uri "https://teams.microsoft.com/api/authsvc/v1.0/authz" -Headers @{"Authorization"="Bearer $AccessToken"}
+        Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://teams.microsoft.com/api/authsvc/v1.0/authz" -Headers @{"Authorization"="Bearer $AccessToken"}
 
     }
 }
@@ -56,7 +56,7 @@ function Get-TeamsRecipients
         }
 
         
-        $recipientInfo = Invoke-RestMethod -Method Post -Uri "$apiUrl/beta/users/fetch?isMailAddress=true&canBeSmtpAddress=false&enableGuest=true&includeIBBarredUsers=true&skypeTeamsInfo=true" -Headers $headers -Body ([String[]]$Recipients|ConvertTo-Json) -ContentType "application/json"
+        $recipientInfo = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$apiUrl/beta/users/fetch?isMailAddress=true&canBeSmtpAddress=false&enableGuest=true&includeIBBarredUsers=true&skypeTeamsInfo=true" -Headers $headers -Body ([String[]]$Recipients|ConvertTo-Json) -ContentType "application/json"
         $msgRecipients = $recipientInfo.Value
             
         return $msgRecipients

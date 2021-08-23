@@ -491,7 +491,7 @@ function Get-ODDocument
             $session.Cookies.Add($webCookie)
 
             # Download the file
-            Invoke-WebRequest -Method Get -Uri $DocFile.Url -OutFile ".$($DocFile.Path)" -WebSession $session
+            Invoke-WebRequest -UseBasicParsing -Method Get -Uri $DocFile.Url -OutFile ".$($DocFile.Path)" -WebSession $session
 
             # Set the date attributes
             $FileItem = Get-Item ".$($DocFile.Path)"

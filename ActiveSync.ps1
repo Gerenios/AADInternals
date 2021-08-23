@@ -49,14 +49,14 @@ function Get-EASAutoDiscover
             {
                 $url = "https://outlook.office365.com/Autodiscover/Autodiscover.json?Email=$Email&Protocol=$p"
 
-                $response+=Invoke-RestMethod -Uri $url -Method Get
+                $response+=Invoke-RestMethod -UseBasicParsing -Uri $url -Method Get
             }
         }
         else
         {
             $url = "https://outlook.office365.com/Autodiscover/Autodiscover.json?Email=$Email&Protocol=$Protocol"
 
-            $response=Invoke-RestMethod -Uri $url -Method Get
+            $response=Invoke-RestMethod -UseBasicParsing -Uri $url -Method Get
         }
         $response
     }
@@ -108,7 +108,7 @@ function Get-EASAutoDiscoverV1
             </Autodiscover>
 "@
         
-        $response=Invoke-RestMethod -Uri $url -Method Post -Headers $headers -Body $body -TimeoutSec 60
+        $response=Invoke-RestMethod -UseBasicParsing -Uri $url -Method Post -Headers $headers -Body $body -TimeoutSec 60
         $response.Autodiscover.Response.Action.Settings.Server.Url
     }
 }
@@ -441,7 +441,7 @@ function Get-MobileOutlookSettings
             "Accept"="application/json"
         }
 
-        $response=Invoke-RestMethod "https://outlook.office365.com/outlookservice/ishxscapable" -Headers $headers
+        $response=Invoke-RestMethod -UseBasicParsing  -Uri "https://outlook.office365.com/outlookservice/ishxscapable" -Headers $headers
 
         # Return
         $response
@@ -465,7 +465,7 @@ function Get-EASSettings
             "Accept"="application/json"
         }
 
-        $response=Invoke-RestMethod "https://outlook.office365.com/outlookservice/ishxscapable" -Headers $headers
+        $response=Invoke-RestMethod -UseBasicParsing  -Uri "https://outlook.office365.com/outlookservice/ishxscapable" -Headers $headers
 
         # Return
         $response

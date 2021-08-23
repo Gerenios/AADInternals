@@ -466,14 +466,14 @@ function Get-AzureInformation
             $access_token2 = Get-AccessTokenWithRefreshToken -Resource "https://graph.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
 
             # Get the domain details
-            #$response = Invoke-RestMethod -Method Get -Uri "https://graph.windows.net/myorganization/domains?api-version=1.61-internal" -Headers @{"Authorization"="Bearer $access_token2"}
+            #$response = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://graph.windows.net/myorganization/domains?api-version=1.61-internal" -Headers @{"Authorization"="Bearer $access_token2"}
             #$domains = $response.Value
 
             # Create a new AccessToken for graph.microsoft.com
             $access_token3 = Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
 
             # Get the directory quota
-            $response2 = Invoke-RestMethod -Uri "https://main.iam.ad.ext.azure.com/api/MsGraph/v1.0/organization/?`$select=directorySizeQuota" -Headers @{"Authorization" = "Bearer $access_token3"}
+            $response2 = Invoke-RestMethod -UseBasicParsing -Uri "https://main.iam.ad.ext.azure.com/api/MsGraph/v1.0/organization/?`$select=directorySizeQuota" -Headers @{"Authorization" = "Bearer $access_token3"}
 
             # Get the domain details
             $domains = Get-MSGraphDomains -AccessToken $access_token3

@@ -274,7 +274,7 @@ function Get-MFAAppRegistrationInfo
         }
 
         # Get the authorization information
-        $response = Invoke-RestMethod -Uri "https://account.activedirectory.windowsazure.com/securityinfo/Authorize" -Method POST -Headers $headers 
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://account.activedirectory.windowsazure.com/securityinfo/Authorize" -Method POST -Headers $headers 
 
         # Strip the carbage from the start and convert to psobject
         $response=$response.Substring($response.IndexOf("{")-1) | ConvertFrom-Json
@@ -284,7 +284,7 @@ function Get-MFAAppRegistrationInfo
         $headers["SessionCtx"] = $sessionCtx
 
         # Get the needed codes
-        $response = Invoke-RestMethod -Uri "https://account.activedirectory.windowsazure.com/securityinfo/InitializeMobileAppRegistration" -Method POST -Headers $headers -Body '{"securityInfoType":2}'
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://account.activedirectory.windowsazure.com/securityinfo/InitializeMobileAppRegistration" -Method POST -Headers $headers -Body '{"securityInfoType":2}'
 
         # Strip the carbage from the start and convert to psobject
         $response=$response.Substring($response.IndexOf("{")-1) | ConvertFrom-Json
@@ -354,7 +354,7 @@ function Send-MFAAppNewActivation
 </soap:Envelope>
 "@
         # Send the activation request
-        $response = Invoke-RestMethod -Uri $Url -Method POST -Headers $headers -Body $body
+        $response = Invoke-RestMethod -UseBasicParsing -Uri $Url -Method POST -Headers $headers -Body $body
 
         # Extract the activation information
         $activationInformation=$response.Envelope.Body.ActivateNewResponse.activationInfo
@@ -416,7 +416,7 @@ function Send-MFAAppNewActivationConfirmation
 "@
             
         # Send the activation confirmation
-        $response = Invoke-RestMethod -Uri $Url -Method POST -Headers $headers -Body $body
+        $response = Invoke-RestMethod -UseBasicParsing -Uri $Url -Method POST -Headers $headers -Body $body
 
         Write-Verbose "Confirmation Activation: $($response.Envelope.Body.ConfirmActivationResponse.ConfirmActivationResult)"
 
@@ -469,7 +469,7 @@ function Add-MFAAppAddDevice
             Write-Verbose "Adding MFA application #$counter"
 
             # Send the AddSecurityInfo request
-            $response = Invoke-RestMethod -Method Post -Uri "https://account.activedirectory.windowsazure.com/securityinfo/AddSecurityInfo" -Headers $headers -Body $body
+            $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://account.activedirectory.windowsazure.com/securityinfo/AddSecurityInfo" -Headers $headers -Body $body
 
             # Strip the carbage from the start and convert to psobject
             $response=$response.Substring($response.IndexOf("{")-1) | ConvertFrom-Json
@@ -532,7 +532,7 @@ function Verify-MFAAppAddDevice
             Write-Verbose "Sending VerifySecurityInfo message #$counter"
 
             # Send the VerifySecurityInfo message
-            $response = Invoke-RestMethod -Method Post -Uri "https://account.activedirectory.windowsazure.com/securityinfo/VerifySecurityInfo" -Headers $headers -Body $body
+            $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://account.activedirectory.windowsazure.com/securityinfo/VerifySecurityInfo" -Headers $headers -Body $body
 
             # Strip the carbage from the start and convert to psobject
             $responseBody=$response.Substring($response.IndexOf("{")-1) | ConvertFrom-Json

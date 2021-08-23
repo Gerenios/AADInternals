@@ -703,7 +703,7 @@ function Get-DeviceCompliance
             $url="https://graph.windows.net/$tenantId/devices/$($ObjectId)?$select&api-version=1.61-internal"
         }
 
-        $response = Invoke-RestMethod -Method Get -Uri $url -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Method Get -Uri $url -Headers $headers
 
         if($response.value)
         {
@@ -792,7 +792,7 @@ function Set-DeviceCompliant
         }
 
         # Set the device compliance
-        Invoke-RestMethod -Method Patch -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?api-version=1.61-internal" -Headers $headers -Body ($body|ConvertTo-Json) -ContentType "application/json"
+        Invoke-RestMethod -UseBasicParsing -Method Patch -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?api-version=1.61-internal" -Headers $headers -Body ($body|ConvertTo-Json) -ContentType "application/json"
 
         Get-DeviceCompliance -ObjectId $ObjectId -AccessToken $AccessToken
 

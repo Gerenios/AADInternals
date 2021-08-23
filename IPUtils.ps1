@@ -52,7 +52,7 @@ function Get-IPLocationInfo
             }
         }
 
-        $response = Invoke-RestMethod -Uri "https://api.ipgeolocationapi.com/geolocate/$IpAddress" -Headers @{"Accept" = "application/json; charset=utf-8"}
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://api.ipgeolocationapi.com/geolocate/$IpAddress" -Headers @{"Accept" = "application/json; charset=utf-8"}
 
         if($Short)
         {

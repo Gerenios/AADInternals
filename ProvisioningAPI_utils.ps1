@@ -130,7 +130,7 @@ function Call-ProvisioningAPI
     Process
     {
         # Call the API
-        Invoke-RestMethod -Uri "https://provisioningapi.microsoftonline.com/provisioningwebservice.svc" -ContentType "application/soap+xml" -Method POST -Body $envelope
+        Invoke-RestMethod -UseBasicParsing -Uri "https://provisioningapi.microsoftonline.com/provisioningwebservice.svc" -ContentType "application/soap+xml" -Method POST -Body $envelope
     }
 }
 

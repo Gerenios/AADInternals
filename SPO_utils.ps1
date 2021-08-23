@@ -242,7 +242,7 @@ function Get-IDCRLToken
 
 "@
             # Invoke the command to get the SAML token
-            $response=Invoke-RestMethod -Method Post -Uri $url -Body $body -ContentType "application/soap+xml; charset=utf-8" -Headers @{"User-Agent"=""} 
+            $response=Invoke-RestMethod -UseBasicParsing -Method Post -Uri $url -Body $body -ContentType "application/soap+xml; charset=utf-8" -Headers @{"User-Agent"=""} 
 
             $samlToken = $response.Envelope.Body.RequestSecurityTokenResponse.RequestedSecurityToken.InnerXml
 
@@ -305,7 +305,7 @@ function Get-IDCRLToken
        
         
         # Invoke the command
-        $response=Invoke-RestMethod -Method Post -Uri $url -Body $body -ContentType "application/soap+xml; charset=utf-8" -Headers @{"User-Agent"=""} 
+        $response=Invoke-RestMethod -UseBasicParsing -Method Post -Uri $url -Body $body -ContentType "application/soap+xml; charset=utf-8" -Headers @{"User-Agent"=""} 
 
         # Extract the token
         $token = $response.Envelope.Body.RequestSecurityTokenResponse.RequestedSecurityToken.BinarySecurityToken.'#text'

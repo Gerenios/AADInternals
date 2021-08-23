@@ -39,7 +39,7 @@ function Call-MSGraphAPI
         $url = "https://graph.microsoft.com/$($ApiVersion)/$($API)?$(if(![String]::IsNullOrEmpty($QueryString)){"&$QueryString"})"
 
         # Call the API
-        $response = Invoke-RestMethod -Uri $url -ContentType "application/json" -Method $Method -Body $Body -Headers $Headers
+        $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method -Body $Body -Headers $Headers
 
         # Check if we have more items to fetch
         if($response.psobject.properties.name -match '@odata.nextLink')
@@ -52,7 +52,7 @@ function Call-MSGraphAPI
                 # Return
                 $response.value
                      
-                $response = Invoke-RestMethod -Uri $url -ContentType "application/json" -Method $Method -Body $Body -Headers $Headers
+                $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method -Body $Body -Headers $Headers
                 $items+=$response.value.count
             }
 

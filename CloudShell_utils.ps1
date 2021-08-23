@@ -22,7 +22,7 @@ function New-CloudShell
 
         $body = '{"properties":{"osType":"linux"}}'
 
-        $response = Invoke-RestMethod -Uri "https://management.azure.com/providers/Microsoft.Portal/consoles/default?api-version=2020-04-01-preview" -Method Put -Body $body -Headers $headers -ErrorAction SilentlyContinue
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://management.azure.com/providers/Microsoft.Portal/consoles/default?api-version=2020-04-01-preview" -Method Put -Body $body -Headers $headers -ErrorAction SilentlyContinue
         
         # return
         return $response.properties
@@ -55,7 +55,7 @@ function Get-CloudShellAuthToken
         # Fix the url
         $url = $url.Replace(":443","")
 
-        $response = Invoke-RestMethod -Uri "$url/authorize" -Method Post -Body $body -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "$url/authorize" -Method Post -Body $body -Headers $headers
         
         # return
         return $response.token
@@ -99,7 +99,7 @@ function Get-CloudShellSettings
         # Fix the url
         $url = $url.Replace(":443","")
 
-        $response = Invoke-RestMethod -Uri "$url/terminals?cols=$cols&rows=$rows&version=2019-01-01&shell=$Shell" -Method Post -Body $body -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "$url/terminals?cols=$cols&rows=$rows&version=2019-01-01&shell=$Shell" -Method Post -Body $body -Headers $headers
         
         # return
         return $response
