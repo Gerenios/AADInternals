@@ -16,6 +16,11 @@ function Get-UserPRTToken
     Param()
     Process
     {
+
+        # Get the nonce
+        $response = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/Common/oauth2/token" -Body "grant_type=srv_challenge"
+        $nonce = $response.Nonce
+
         # There are two possible locations
         $locations = @(
             "$($env:ProgramFiles)\Windows Security\BrowserCore\browsercore.exe"
@@ -48,7 +53,7 @@ function Get-UserPRTToken
         $body = @"
         {
             "method":"GetCookies",
-            "uri":"https://login.microsoftonline.com/common/oauth2/authorize",
+            "uri":"https://login.microsoftonline.com/common/oauth2/authorize?sso_nonce=$nonce",
             "sender":"https://login.microsoftonline.com"
         }
 "@
