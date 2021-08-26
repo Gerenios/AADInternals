@@ -1199,7 +1199,7 @@ function Get-AzureDiagnosticSettings
 }
 
 # Remove all diagnostic settings
-# Ja 23rd 2021
+# Jan 23rd 2021
 function Remove-AzureDiagnosticSettings
 {
 <#
@@ -1254,5 +1254,79 @@ function Remove-AzureDiagnosticSettings
             Set-AzureDiagnosticSettingsDetails -AccessToken $AccessToken -Name $($settings.name) -Logs "AuditLogs","SignInLogs","NonInteractiveUserSignInLogs","ServicePrincipalSignInLogs","ManagedIdentitySignInLogs","ProvisioningLogs","ADFSSignInLogs","RiskyUsers","UserRiskEvents" -Enabled $False -RetentionEnabled $False -RetentionDays 0 | Out-Null
         }
         
+    }
+}
+
+# Get Azure Directory Activity Log
+# Aug 8th 2021
+function Get-AzureDirectoryActivityLog
+{
+<#
+    .SYNOPSIS
+    Gets Azure Directory Activity log events.
+
+    .DESCRIPTION
+    Gets Azure Directory Activity log events even from tenants without Azure subscription.
+
+    .Parameter AccessToken
+    AccessToken of the user. Should be Global Administrator with access to any Azure subscription of the tenant.
+    If the tenant doesn't have Azure subscription, the user must have "Access management for Azure resources" 
+    switched on at https://portal.azure.com/#blade/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/Properties or use 
+    Grant-AADIntAzureUserAccessAdminRole
+
+    .Parameter Start
+    Start time, must be 90 days of less of the current time. Defaults to one day.
+
+    Get-AADIntAccessTokenForAzureCoreManagement -SaveToCache
+    PS C:\>Grant-AADIntAzureUserAccessAdminRole
+    PS C:\>$events = Get-AADIntAzureDirectoryActivityLog -Start (Get-Date).AddDays(-31)
+    PS C:\>$events | where {$_.authorization.action -like "Microsoft.ADHybrid*"} | %{New-Object psobject -Property ([ordered]@{"Scope"=$_.authorization.scope;"Operation"=$_.operationName.localizedValue;"Caller"=$_.caller;"TimeStamp"=$_.eventTimeStamp})} 
+
+    Scope                                                                                   Operation          Caller          
+    -----                                                                                   ---------          ------          
+    /providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com Creates a server.  administrator...
+    /providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com Creates a server.  administrator...
+    /providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com Creates a server.  administrator...
+    /providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com Creates a server.  administrator...
+    /providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com Creates a server.  administrator...
+    /providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com Creates a server.  administrator...
+    /providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com Creates a server.  administrator...
+    /providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com Creates a server.  administrator...
+    /providers/Microsoft.ADHybridHealthService                                              Updates a service. administrator...
+    /providers/Microsoft.ADHybridHealthService                                              Updates a service. administrator...
+    /providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com Deletes service.   administrator...
+    /providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com Deletes service.   administrator...
+    /providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com Deletes service.   administrator...
+    /providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com Deletes service.   administrator...
+    /providers/Microsoft.ADHybridHealthService                                              Updates a service. administrator...
+    /providers/Microsoft.ADHybridHealthService                                              Updates a service. administrator...
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [DateTime]$Start=(Get-Date).AddDays(-1)
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
+        $headers = @{
+            "Authorization" = "Bearer $AccessToken"
+        }
+
+        $startTime = $Start.ToUniversalTime().ToString("s", [cultureinfo]::InvariantCulture)+"Z"
+
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://management.azure.com/providers/microsoft.insights/eventtypes/management/values?api-version=2015-04-01&`$filter=eventTimestamp ge '$startTime'" -Headers $headers
+        while($response.nextLink)
+        {
+            $response.value
+            $response = Invoke-RestMethod -Uri $response.nextLink -Headers $headers
+        }
+        $response.value
+       
+
     }
 }

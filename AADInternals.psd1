@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.5.0'
+	ModuleVersion = '0.6.1'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -54,7 +54,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
 	# RequiredAssemblies = @()
 
 	# Script files (.ps1) that are run in the caller's environment prior to importing this module.
-	ScriptsToProcess = @()
+	# ScriptsToProcess = @()
 
 	# Type files (.ps1xml) to be loaded when importing this module
 	# TypesToProcess = @()
@@ -63,10 +63,353 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
 	# FormatsToProcess = @()
 
 	# Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-	# NestedModules = @()
+	NestedModules = @(
+        ".\AADSyncSettings.ps1"
+        ".\AccessToken.ps1"
+        ".\AccessToken_utils.ps1"
+        ".\ActiveSync.ps1"
+        ".\ActiveSync_utils.ps1"
+        ".\ADFS.ps1"
+        ".\ADFS_utils.ps1"
+        ".\AD_utils.ps1"
+        ".\AMQP.ps1"
+        ".\AzureADConnectAPI.ps1"
+        ".\AzureADConnectAPI_utils.ps1"
+        ".\AzureCoreManagement.ps1"
+        ".\AzureManagementAPI.ps1"
+        ".\AzureManagementAPI_utils.ps1"
+        ".\ClientTools.ps1"
+        ".\CloudShell.ps1"
+        ".\CloudShell_utils.ps1"
+        ".\CommonUtils.ps1"
+        ".\DRS_Utils.ps1"
+        ".\FederatedIdentityTools.ps1"
+        ".\GraphAPI.ps1"
+        ".\GraphAPI_utils.ps1"
+        ".\HybridHealthServices.ps1"
+        ".\HybridHealthServices_utils.ps1"
+        ".\IPUtils.ps1"
+        ".\Kerberos.ps1"
+        ".\Kerberos_utils.ps1"
+        ".\KillChain.ps1"
+        ".\KillChain_utils.ps1"
+        ".\md4.ps1"
+        ".\MDM.ps1"
+        ".\MDM_utils.ps1"
+        ".\MFA.ps1"
+        ".\MFA_utils.ps1"
+        ".\MSAppProxy.ps1"
+        ".\MSAppProxy_utils.ps1"
+        ".\MSGraphAPI.ps1"
+        ".\MSGraphAPI_utils.ps1"
+        ".\OfficeApps.ps1"
+        ".\OneDrive.ps1"
+        ".\OneDrive_utils.ps1"
+        ".\OutlookAPI.ps1"
+        ".\OutlookAPI_utils.ps1"
+        ".\ProcessTools.ps1"
+        ".\ProvisioningAPI.ps1"
+        ".\ProvisioningAPI_utils.ps1"
+        ".\PRT.ps1"
+        ".\PRT_Utils.ps1"
+        ".\PSRP.ps1"
+        ".\PSRP_utils.ps1"
+        ".\PTA.ps1"
+        ".\PTAAgent.ps1"
+        ".\PTASpy.ps1"
+        ".\SARA.ps1"
+        ".\SPO.ps1"
+        ".\SPO_utils.ps1"
+        ".\SyncAgent.ps1"
+        ".\Teams.ps1"
+        ".\Teams_utils.ps1"
+        ".\WBAWeaponiser.ps1"
+)
 
 	# Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-	FunctionsToExport = '*'
+	FunctionsToExport = @(
+    # ADFS.ps1
+    "Export-ADFSCertificates"
+    "Export-ADFSConfiguration"
+    "Export-ADFSEncryptionKey"
+    "Set-ADFSConfiguration"
+    "Get-ADFSPolicyStoreRules"
+    "Set-ADFSPolicyStoreRules"
+
+    # ADFS_utils.ps1
+    "New-ADFSSelfSignedCertificates"
+    "Restore-ADFSAutoRollover"
+    "Update-ADFSFederationSettings"
+    "Get-ADFSConfiguration"
+    
+    # AccessToken.ps1
+    "Get-AccessTokenForAADGraph"
+    "Get-AccessTokenForMSGraph"
+    "Get-AccessTokenForPTA"
+    "Get-AccessTokenForEXO"
+    "Get-AccessTokenForSARA"
+    "Get-AccessTokenForOneDrive"
+    "Get-AccessTokenForOfficeApps"
+    "Get-AccessTokenForAzureCoreManagement"
+    "Get-AccessTokenForSPO"
+    "Get-AccessTokenForMySignins"
+    "Get-AccessTokenForAADJoin"
+    "Get-AccessTokenForIntuneMDM"
+    "Get-AccessTokenForCloudShell"
+    "Get-AccessTokenForTeams"
+    
+    # AccessToken_utils.ps1
+    "Get-LoginInformation"
+    "Read-AccessToken"
+    "Get-EndpointInstances"
+    "Get-EndpointIps"
+    "Get-OpenIDConfiguration"
+    "Get-TenantId"
+    "Get-TenantDomains"
+    "Get-Cache"
+    "Clear-Cache"
+
+    # GraphAPI.ps1
+    "Get-TenantDetails"
+    "Get-Devices"
+    "Get-UserDetails"
+    "Get-ServicePrincipals"
+    "Get-ConditionalAccessPolicies"
+
+    # ProvisioningAPI.ps1
+    "Set-DomainAuthentication"
+    "Get-CompanyInformation"
+    "Get-SPOServiceInformation"
+    "Get-ServiceLocations"
+    "Get-CompanyTags"
+    "Get-ServicePlans"
+    "Get-Subscriptions"
+    "Get-Users"
+    "Get-User"
+    "Remove-User"
+    "New-User" # TODO: remove unused parameters
+    "Set-User" # TODO: remove unused parameters
+    "Get-GlobalAdmins"
+    "New-Domain" # TODO: remove unused parameters
+    "Set-ADSyncEnabled"
+
+    #FederatedIdentityTools.ps1
+    "New-SAMLToken"
+    "New-SAML2Token"
+    "Get-ImmutableID"
+    "ConvertTo-Backdoor"
+    "New-Backdoor"
+    "Open-Office365Portal"
+
+    # AzureADConnectAPI.ps1
+    "Get-SyncConfiguration"
+    "Set-AzureADObject"
+    "Remove-AzureADObject"
+    "Get-SyncObjects"
+    "Set-UserPassword"
+    "Reset-ServiceAccount"
+    "Set-PassThroughAuthenticationEnabled"
+    "Set-PasswordHashSyncEnabled"
+    "Set-DesktopSSOEnabled"
+    "Get-DesktopSSO"
+    "Set-DesktopSSO"
+    "Get-KerberosDomainSyncConfig"
+    "Get-WindowsCredentialsSyncConfig"
+    "Get-SyncDeviceConfiguration"
+    "Join-OnPremDeviceToAzureAD"
+
+    # AzureManagementAPI_utils.ps1
+    "Get-AccessTokenForAADIAMAPI"
+    "Get-AccessTokenForAzureMgmtAPI"
+
+    # AzureManagementAPI.ps1
+    "New-GuestInvitation"
+    "Get-AzureInformation"
+    "Get-AADConnectStatus"
+
+    # ActiveSync.ps1
+    "Get-EASAutoDiscover"
+    "Get-EASAutoDiscoverV1"
+    "Get-EASOptions"
+    "Send-EASMessage"
+    "Add-EASDevice"
+    "Set-EASSettings"
+
+    # OutlookAPI.ps1
+    "Send-OutlookMessage"
+
+    # PSRP.ps1
+    "Get-MobileDevices"
+    "Get-UnifiedAuditLogSettings"
+    "Set-UnifiedAuditLogSettings"
+
+    # AADSyncSettings.ps1
+    "Get-SyncCredentials"
+    "Update-SyncCredentials"
+    "Get-SyncEncryptionKeyInfo"
+    "Get-SyncEncryptionKey"
+
+    # PTASpy.ps1
+    "Install-PTASpy"
+    "Remove-PTASpy"
+    "Get-PTASpyLog"
+
+    # ClientTools.ps1
+    "Get-OfficeUpdateBranch"
+    "Set-OfficeUpdateBranch"
+
+    # SARA.ps1
+    "Get-SARAUserInfo"
+    "Get-SARATenantInfo"
+
+    # SPO_utils.ps1
+    "Get-SPOAuthenticationHeader"
+
+    # SPO.ps1
+    "Get-SPOSiteUsers"
+    "Get-SPOSiteGroups"
+    "Get-SPOUserProperties"
+
+    # Kerberos.ps1
+    "New-KerberosTicket"
+
+    # PTA.ps1
+    "Register-PTAAgent"
+    "Set-PTACertificate"
+
+    # PTAAgent.ps1
+    "Invoke-PTAAgent"
+
+    # OneDrive_utils.ps1
+    "New-OneDriveSettings"
+
+    # OneDrive.ps1
+    "Get-OneDriveFiles"
+    "Send-OneDriveFile"
+
+    # MFA.ps1
+    "Get-UserMFA"
+    "Set-UserMFA"
+    "New-OTP"
+    "New-OTPSecret"
+    "Get-UserMFAApps"
+    "Set-UserMFAApps"
+    "Register-MFAApp"
+
+    # SyncAgent.ps1
+    "Register-SyncAgent"
+
+    # MSAppProxy_utils.ps1
+    "Get-ProxyAgents"
+    "Get-ProxyAgentGroups"
+
+    # AD_Utils.ps1
+    "Get-DPAPIKeys"
+    "Get-LSASecrets"
+    "Get-LSABackupKeys"
+    "Get-UserMasterkeys"
+    "Get-LocalUserCredentials"
+    "Get-SystemMasterkeys"
+
+    # AzureCoreManagement.ps1
+    "Get-AzureClassicAdministrators"
+    "Grant-AzureUserAccessAdminRole"
+    "Get-AzureSubscriptions"
+    "Set-AzureRoleAssignment"
+    "Get-AzureResourceGroups"
+    "Get-AzureVMs"
+    "Invoke-AzureVMScript"
+    "Get-AzureVMRdpSettings"
+    "Get-AzureTenants"
+    "Get-AzureDiagnosticSettingsDetails"
+    "Set-AzureDiagnosticSettingsDetails"
+    "Get-AzureDiagnosticSettings"
+    "Remove-AzureDiagnosticSettings"
+    "Get-AzureDirectoryActivityLog"
+
+    # MSGraphAPI.ps1
+    "Get-AzureSignInLog"
+    "Get-AzureAuditLog"
+    "Get-TenantAuthPolicy"
+    "Get-TenantGuestAccess"
+    "Set-TenantGuestAccess"
+    "Enable-TenantMsolAccess"
+    "Disable-TenantMsolAccess"
+    "Get-RolloutPolicies"
+    "Get-RolloutPolicyGroups"
+    "Add-RolloutPolicyGroups"
+    "Remove-RolloutPolicyGroups"
+    "Remove-RolloutPolicy"
+    "Set-RolloutPolicy"
+
+    # KillChain.ps1
+    "Invoke-UserEnumerationAsOutsider"
+    "Invoke-ReconAsOutsider"
+    "Invoke-ReconAsGuest"
+    "Invoke-UserEnumerationAsGuest"
+    "Invoke-ReconAsInsider"
+    "Invoke-UserEnumerationAsInsider"
+    "Invoke-Phishing"
+
+    # WBAWeaponiser.ps1
+    "New-InvitationVBA"
+
+    # PRT.ps1
+    "Get-UserPRTToken"
+    "Get-UserPRTKeys"
+    "New-UserPRTToken"
+    "Join-DeviceToAzureAD"
+    "New-P2PDeviceCertificate"
+    "Remove-DeviceFromAzureAD"
+    "Get-DeviceRegAuthMethods"
+    "Set-DeviceRegAuthMethods"
+    "Get-DeviceTransportKey"
+    "Set-DeviceTransportKey"
+    "New-BulkPRTToken"
+
+    # MDM.ps1
+    "Join-DeviceToIntune"
+    "Start-DeviceIntuneCallback"
+    "Set-DeviceCompliant"
+    "Get-DeviceCompliance"
+
+    # CloudShell.ps1
+    "Start-CloudShell"
+
+    # CommonUtils.ps1
+    "Get-Error"
+    "New-Certificate"
+
+    # Teams.ps1
+    "Get-SkypeToken"
+    "Set-TeamsAvailability"
+    "Set-TeamsStatusMessage"
+    "Search-TeamsUser"
+    "Send-TeamsMessage"
+    "Get-TeamsMessages"
+    "Remove-TeamsMessages"
+    "Set-TeamsMessageEmotion"
+
+    # DRS_Utils.ps1
+    "Get-ADUserNTHash"
+    "Get-ADUserThumbnailPhoto"
+    "Get-DesktopSSOAccountPassword"
+
+    # HybridHealthServices.ps1
+    "New-HybridHealthService"
+    "Get-HybridHealthServices"
+    "Remove-HybridHealthService"
+    "Get-HybridHealthServiceMembers"
+    "New-HybridHealthServiceMember"
+    "Remove-HybridHealthServiceMember"
+    "Get-HybridHealthServiceMonitoringPolicies"
+    "Send-HybridHealthServiceEvents"
+    "Register-HybridHealthServiceAgent"
+
+    # HybridHealthServices_utils.ps1
+    "New-HybridHealtServiceEvent"
+    "Get-HybridHealthServiceAgentInfo"
+)
 
 	# Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 	CmdletsToExport = @()

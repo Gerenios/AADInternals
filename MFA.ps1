@@ -97,7 +97,7 @@ function Set-UserMFA
         }
 
         # Convert time to text
-        $startText = $StartTime.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ss+00:00").Replace(".",":")
+        $startText = $StartTime.ToUniversalTime().ToString("s", [cultureinfo]::InvariantCulture)+"+00:00"
 
         # Set StrongAuthenticationRequirements
         $StrongAuthenticationRequirements="<c:StrongAuthenticationRequirements/>"
