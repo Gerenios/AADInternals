@@ -829,8 +829,8 @@ function Create-ADFSSoapEnvelope
         $TSIdentifier = (New-Guid).ToString()
         $now =          Get-Date
         $exp =          $now.AddMinutes(5)
-        $created =      $now.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
-        $expires =      $exp.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
+        $created =      $now.ToUniversalTime().ToString("s", [cultureinfo]::InvariantCulture)+"Z"
+        $expires =      $exp.ToUniversalTime().ToString("s", [cultureinfo]::InvariantCulture)+"Z"
 
         # Create nonce and derive keys for signing and encrypting
         $nonce0 =        Get-RandomBytes -Bytes 16

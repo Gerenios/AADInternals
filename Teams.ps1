@@ -120,7 +120,7 @@ function Set-TeamsStatusMessage
 
         if($Expires)
         {
-            $expiry = $Expires.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
+            $expiry = $Expires.ToUniversalTime().ToString("s", [cultureinfo]::InvariantCulture)+"Z"
         }
         else
         {

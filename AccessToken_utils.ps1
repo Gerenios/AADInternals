@@ -866,8 +866,8 @@ function Get-OAuthInfo
             # Set credentials and other needed variables
             $username=$Credentials.UserName
             $password=$Credentials.GetNetworkCredential().Password
-            $created=(Get-Date).ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
-            $expires=(Get-Date).AddMinutes(10).ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
+            $created=(Get-Date).ToUniversalTime().ToString("s", [cultureinfo]::InvariantCulture)+"Z"
+            $expires=(Get-Date).AddMinutes(10).ToUniversalTime().ToString("s", [cultureinfo]::InvariantCulture)+"Z"
             $message_id=(New-Guid).ToString()
             $user_id=(New-Guid).ToString()
 
