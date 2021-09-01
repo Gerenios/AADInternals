@@ -97,7 +97,7 @@ function Set-UserMFA
         }
 
         # Convert time to text
-        $startText = $StartTime.ToUniversalTime().ToString("s", [cultureinfo]::InvariantCulture)+"+00:00"
+        $startText = $StartTime.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ss+00:00").Replace(".",":")
 
         # Set StrongAuthenticationRequirements
         $StrongAuthenticationRequirements="<c:StrongAuthenticationRequirements/>"
@@ -821,12 +821,12 @@ function Register-MFAApp
 {
 <#
     .SYNOPSIS
-    Registers AADInternals Authenticator App for the user. 
+    Registers AADInternals Authenticator App or OTP app for the user. 
 
     .DESCRIPTION
-    Registers AADInternals Authenticator App for the user. 
+    Registers AADInternals Authenticator App or OTP appfor the user. 
     
-    Requirements:
+    Requirements for App:
     * AADInternals Authentication app is installed.
     * Device Token is copied from the app.
     * The user have registered at least one MFA method, e.g. SMS. This is because Access Token creation performs MFA.
@@ -840,7 +840,7 @@ function Register-MFAApp
     ------                               ----             --------                             ------                              
     9a79b12c-f563-4bdc-9d18-6e6d0d52f73b user@company.com 0000000c-0000-0000-c000-000000000000 19db86c3-b2b9-44cc-b339-36da233a3be2
 
-    PS C:\>Register-AADIntMFAApp -DeviceToken -$deviceToken -DeviceName "My MFA App"
+    PS C:\>Register-AADIntMFAApp -DeviceToken -$deviceToken -DeviceName "My MFA App" -Type APP
 
     DefaultMethodOptions : 1
     DefaultMethod        : 0
@@ -851,15 +851,30 @@ function Register-MFAApp
     OathTokenSecretKey   : dzv5osvdx6dhtly4av2apcts32eqh4bg
     OathTokenEnabled     : true
 
+    .Example
+    PS C:\>Get-AADIntAccessTokenForMySignins -SaveToCache
+
+    Tenant                               User             Resource                             Client                              
+    ------                               ----             --------                             ------                              
+    9a79b12c-f563-4bdc-9d18-6e6d0d52f73b user@company.com 0000000c-0000-0000-c000-000000000000 19db86c3-b2b9-44cc-b339-36da233a3be2
+
+    PS C:\>Register-AADIntMFAApp -Type OTP
+
+    OathSecretKey    DefaultMethodOptions DefaultMethod
+    -------------    -------------------- -------------
+    5bhbqsrb6ft5rxdx                    1             0
+
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$DeviceToken,
         [Parameter(Mandatory=$False)]
-        [String]$DeviceName="AADInternals"
+        [String]$DeviceName="AADInternals",
+        [ValidateSet("APP","OTP")]
+        [String]$Type="APP"
     )
     Begin
     {
@@ -879,32 +894,45 @@ function Register-MFAApp
             Throw "Access token not found! Call Get-AADIntAccessTokenForMySignins with SaveToCache switch."
         }
 
+        # Check that DeviceCode exists for APP
+        if($Type -eq "APP" -and [string]::IsNullOrEmpty($DeviceToken))
+        {
+            Throw "Type APP requires DeviceToken"
+        }
+
         # Phase 1: Get the registration info (url, activation code, session context)
-        $regInfo = Get-MFAAppRegistrationInfo -AccessToken $AccessToken
+        $regInfo = Get-MFAAppRegistrationInfo -AccessToken $AccessToken -Type $Type
         if(!$regInfo)  {
             Throw "Registration failed (phase 1)"
         }
         
-        # Phase 2: Send a new activation request
-        $actInfo = Send-MFAAppNewActivation -AccessToken $AccessToken -RegistrationInfo $regInfo -DeviceToken $DeviceToken -DeviceName $DeviceName
-        if(!$actInfo) {
-            Throw "Registration failed (phase 2)"
-        }
+        if($Type -eq "APP")
+        {
+            # Phase 2: Send a new activation request
+            $actInfo = Send-MFAAppNewActivation -AccessToken $AccessToken -RegistrationInfo $regInfo -DeviceToken $DeviceToken -DeviceName $DeviceName
+            if(!$actInfo) {
+                Throw "Registration failed (phase 2)"
+            }
 
-        # Phase 3: Send confirmation
-        $confResult = Send-MFAAppNewActivationConfirmation -AccessToken $AccessToken -ActivationInfo $actInfo -RegistrationInfo $regInfo
-        if(!$confResult) {
-            Throw "Registration failed (phase 3)"
+            # Phase 3: Send confirmation
+            $confResult = Send-MFAAppNewActivationConfirmation -AccessToken $AccessToken -ActivationInfo $actInfo -RegistrationInfo $regInfo
+            if(!$confResult) {
+                Throw "Registration failed (phase 3)"
+            }
+        }
+        else
+        {
+            $actInfo = New-Object psobject -Property @{ "OathSecretKey" = $regInfo.SecretKey}
         }
 
         # Phase 4: Add the device to the user
-        $verContext = Add-MFAAppAddDevice -AccessToken $AccessToken -RegistrationInfo $regInfo
+        $verContext = Add-MFAAppAddDevice -AccessToken $AccessToken -RegistrationInfo $regInfo -Type $Type
         if(!$verContext) {
             Throw "Registration failed (phase 4)"
         }
 
         # Phase 5: Get data updates (not needed)
-        $updates = Verify-MFAAppAddDevice -AccessToken $AccessToken -RegistrationInfo $regInfo -VerificationContext $verContext
+        $updates = Verify-MFAAppAddDevice -AccessToken $AccessToken -RegistrationInfo $regInfo -VerificationContext $verContext -Type $Type
         if(!$updates) {
             Write-Warning "Couldn't get data updates."
         }

@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.6.1'
+	ModuleVersion = '0.6.2'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -82,6 +82,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\CloudShell.ps1"
         ".\CloudShell_utils.ps1"
         ".\CommonUtils.ps1"
+        ".\ComplianceAPI.ps1"
+        ".\ComplianceAPI_utils.ps1"
         ".\DRS_Utils.ps1"
         ".\FederatedIdentityTools.ps1"
         ".\GraphAPI.ps1"
@@ -100,6 +102,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\MFA_utils.ps1"
         ".\MSAppProxy.ps1"
         ".\MSAppProxy_utils.ps1"
+        ".\MSCommerce.ps1"
         ".\MSGraphAPI.ps1"
         ".\MSGraphAPI_utils.ps1"
         ".\OfficeApps.ps1"
@@ -157,6 +160,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AccessTokenForIntuneMDM"
     "Get-AccessTokenForCloudShell"
     "Get-AccessTokenForTeams"
+    "Get-AccessTokenForMSCommerce"
     
     # AccessToken_utils.ps1
     "Get-LoginInformation"
@@ -237,6 +241,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
 
     # OutlookAPI.ps1
     "Send-OutlookMessage"
+    "Open-OWA"
 
     # PSRP.ps1
     "Get-MobileDevices"
@@ -409,6 +414,14 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     # HybridHealthServices_utils.ps1
     "New-HybridHealtServiceEvent"
     "Get-HybridHealthServiceAgentInfo"
+
+    # MSCommerce.ps1
+    "Get-SelfServicePurchaseProducts"
+    "Set-SelfServicePurchaseProduct"
+
+    # ComplianceAPI.ps1
+    "Get-ComplianceAPICookies"
+    "Search-UnifiedAuditLog"
 )
 
 	# Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
