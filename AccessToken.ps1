@@ -356,7 +356,7 @@ function Get-AccessTokenForEXO
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
-        [ValidateSet("https://graph.microsoft.com","https://outlook.office365.com")]
+        [ValidateSet("https://graph.microsoft.com","https://outlook.office365.com","https://outlook.office.com","https://substrate.office.com")]
         [String]$Resource="https://outlook.office365.com"
     )
     Process
@@ -1089,10 +1089,10 @@ function Get-AccessTokenForAADIAMAPI
     UserPrincipalName of the user of Kerberos token
     
     .Example
-    Get-AccessTokenForAADIAMAPI
+    Get-AADIntAccessTokenForAADIAMAPI
     
     .Example
-    PS C:\>Get-AccessTokenForAADIAMAPI -SaveToCache
+    PS C:\>Get-AADIntAccessTokenForAADIAMAPI -SaveToCache
 #>
     [cmdletbinding()]
     Param(
@@ -1124,6 +1124,68 @@ function Get-AccessTokenForAADIAMAPI
         {
             return $AccessToken
         }
+    }
+}
+
+# Gets an access token for MS Commerce
+# Aug 27th 2021
+function Get-AccessTokenForMSCommerce
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for MS Commerce
+
+    .DESCRIPTION
+    Gets OAuth Access Token for MS Commerce
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+    
+    .Example
+    Get-AADIntAccessTokenForMSCommerce
+    
+    .Example
+    PS C:\>Get-AADIntAccessTokenForMSCommerce -SaveToCache
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant
+    )
+    Process
+    {
+        Get-AccessToken -Resource "aeb86249-8ea3-49e2-900b-54cc8e308f85" -ClientId "3d5cffa9-04da-4657-8cab-c7f074657cad" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
 

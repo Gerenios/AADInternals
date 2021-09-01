@@ -866,8 +866,8 @@ function Get-OAuthInfo
             # Set credentials and other needed variables
             $username=$Credentials.UserName
             $password=$Credentials.GetNetworkCredential().Password
-            $created=(Get-Date).ToUniversalTime().ToString("s", [cultureinfo]::InvariantCulture)+"Z"
-            $expires=(Get-Date).AddMinutes(10).ToUniversalTime().ToString("s", [cultureinfo]::InvariantCulture)+"Z"
+            $created=(Get-Date).ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
+            $expires=(Get-Date).AddMinutes(10).ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
             $message_id=(New-Guid).ToString()
             $user_id=(New-Guid).ToString()
 
@@ -1257,6 +1257,7 @@ function Create-LoginForm
         $field = New-Object Windows.Forms.TextBox
         $field.Visible = $false
         $form.Controls.Add($field)
+		$field.Text = $auth_redirect
 
         # Clear WebBrowser control cache
         Clear-WebBrowser
@@ -1265,6 +1266,7 @@ function Create-LoginForm
         $web.add_Navigated({
             # If the url matches the redirect url, close with OK.
             $curl=$_.Url.ToString()
+			$auth_redirect = $form.Controls[1].Text							   
             Write-Debug "NAVIGATED TO: $($curl)"
             if($curl.StartsWith($auth_redirect)) {
 
@@ -1291,7 +1293,7 @@ function Create-LoginForm
                 }
                 
                 # Add the url to the hidden field
-                $form.Controls[1].Text = $curl
+                #$form.Controls[1].Text = $curl
 
                 $form.DialogResult = "OK"
                 $form.Close()
@@ -1317,6 +1319,7 @@ function Create-LoginForm
             }
         })
         
+        $web.ScriptErrorsSuppressed = $True
 
         # Set the url
         if([String]::IsNullOrEmpty($Headers))
@@ -1791,6 +1794,10 @@ function Get-AuthRedirectUrl
         elseif($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive native client
         {
             $redirect_uri = "https://login.windows.net/common/oauth2/nativeclient"
+        }
+        elseif($ClientId -eq "3d5cffa9-04da-4657-8cab-c7f074657cad") # MS Commerce
+        {
+            $redirect_uri = "http://localhost/m365/commerce"
         }
 
         return $redirect_uri

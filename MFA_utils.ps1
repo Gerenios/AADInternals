@@ -262,7 +262,10 @@ function Get-MFAAppRegistrationInfo
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [String]$AccessToken
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("APP","OTP")]
+        [String]$Type="APP"
     )
     Process
     {
@@ -271,6 +274,16 @@ function Get-MFAAppRegistrationInfo
             "Authorization" = "Bearer $AccessToken"
             "Content-Type" =  "application/json"
             "User-Agent" =    ""
+        }
+
+        # Registration type
+        if($Type -eq "APP")
+        {
+            $securityInfoType = 2
+        }
+        elseif($Type -eq "OTP")
+        {
+            $securityInfoType = 3
         }
 
         # Get the authorization information
@@ -284,7 +297,7 @@ function Get-MFAAppRegistrationInfo
         $headers["SessionCtx"] = $sessionCtx
 
         # Get the needed codes
-        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://account.activedirectory.windowsazure.com/securityinfo/InitializeMobileAppRegistration" -Method POST -Headers $headers -Body '{"securityInfoType":2}'
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://account.activedirectory.windowsazure.com/securityinfo/InitializeMobileAppRegistration" -Method POST -Headers $headers -Body "{""securityInfoType"": $securityInfoType}"
 
         # Strip the carbage from the start and convert to psobject
         $response=$response.Substring($response.IndexOf("{")-1) | ConvertFrom-Json
@@ -436,7 +449,9 @@ function Add-MFAAppAddDevice
         [Parameter(Mandatory=$True)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
-        $RegistrationInfo
+        $RegistrationInfo,
+        [ValidateSet("APP","OTP")]
+        [String]$Type="APP"
 
     )
     Process
@@ -454,8 +469,18 @@ function Add-MFAAppAddDevice
             "Content-Type" =   "application/json"
 
         }
+        if($Type -eq "APP")
+        {
+            $securityType = 2
+            $secretKey = $RegistrationInfo.ActivationCode
+        }
+        elseif($Type -eq "OTP")
+        {
+            $securityType = 3
+            $secretKey = $RegistrationInfo.SecretKey
+        }
 
-        $body="{""Type"":2,""Data"":""{\""secretKey\"":\""$($RegistrationInfo.ActivationCode)\"",\""affinityRegion\"":\""$($RegistrationInfo.AffinityRegion)\""}""}"
+        $body="{""Type"":$securityType,""Data"":""{\""secretKey\"":\""$secretKey\"",\""affinityRegion\"":\""$($RegistrationInfo.AffinityRegion)\""}""}"
 
         $state=0
         $counter=0
@@ -498,7 +523,9 @@ function Verify-MFAAppAddDevice
         [Parameter(Mandatory=$True)]
         $RegistrationInfo,
         [Parameter(Mandatory=$True)]
-        [String]$VerificationContext
+        [String]$VerificationContext,
+        [ValidateSet("APP","OTP")]
+        [String]$Type="APP"
     )
     Process
     {
@@ -516,8 +543,20 @@ function Verify-MFAAppAddDevice
 
         }
 
+        if($Type -eq "APP")
+        {
+            $securityType = 2
+            $verificationData = $null
+        }
+        elseif($Type -eq "OTP")
+        {
+            $securityType = 3
+            $verificationData = (New-AADIntOTP -SecretKey $RegistrationInfo.SecretKey).OTP.replace(" ","")
+            Start-Sleep -Seconds 3
+        }
+
         # Create the body
-        $body = "{""Type"":2,""VerificationContext"":""$VerificationContext"",""VerificationData"":null}"
+        $body = "{""Type"":$securityType,""VerificationContext"":""$VerificationContext"",""VerificationData"":$verificationData}"
 
         $state=0
         $counter=0

