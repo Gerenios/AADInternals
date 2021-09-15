@@ -1,4 +1,7 @@
-﻿# Initial AADSync server name
+﻿# Add assembly
+Add-type -AssemblyName System.Xml -ErrorAction SilentlyContinue
+
+# Initial AADSync server name
 $aadsync_server=        "adminwebservice.microsoftonline.com"
 $aadsync_client_version="8.0"
 $aadsync_client_build=  "1.5.29.0"

@@ -464,7 +464,8 @@ function Get-AccessTokenForSARA
         [String]$KerberosTicket,
         [Parameter(Mandatory=$False)]
         [String]$Domain,
-        [switch]$SaveToCache
+        [switch]$SaveToCache,
+        [switch]$UseDeviceCode
     )
     Process
     {

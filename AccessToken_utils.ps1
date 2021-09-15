@@ -1319,7 +1319,7 @@ function Create-LoginForm
             }
         })
         
-        $web.ScriptErrorsSuppressed = $True
+#        $web.ScriptErrorsSuppressed = $True
 
         # Set the url
         if([String]::IsNullOrEmpty($Headers))
