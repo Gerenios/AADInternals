@@ -15,11 +15,12 @@ function Invoke-ReconAsOutsider
     Starts tenant recon of the given domain. Gets all verified domains of the tenant and extracts information such as their type.
     Also checks whether Desktop SSO (aka Seamless SSO) is enabled for the tenant.
 
-    DNS:  Does the DNS record exists?
-    MX:   Does the MX point to Office 365?
-    SPF:  Does the SPF contain Exchange Online?
-    Type: Federated or Managed
-    STS:  The FQDN of the federated IdP's (Identity Provider) STS (Security Token Service) server
+    DNS:   Does the DNS record exists?
+    MX:    Does the MX point to Office 365?
+    SPF:   Does the SPF contain Exchange Online?
+    Type:  Federated or Managed
+    DMARC: Is the DMARC record configured?
+    STS:   The FQDN of the federated IdP's (Identity Provider) STS (Security Token Service) server
 
     .Parameter DomainName
     Any domain name of the Azure AD tenant.

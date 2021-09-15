@@ -335,9 +335,6 @@ function Send-TeamsMessage
         {
             $ClientMessageId=(Get-Date).ToFileTimeUtc()
 
-            # Get information for the recipients (add empty string to make sure its an array)
-            $Recipients += ""
-
             $msgRecipients = @()
 
             if($External)
@@ -361,7 +358,14 @@ function Send-TeamsMessage
                 $msgRecipients = Get-TeamsRecipients -AccessToken $AccessToken -Recipients $Recipients
             }
 
-            if($msgRecipients.Count -lt 1)
+            if(!$msgRecipients.Count)
+            {
+                # Just one found so create an array
+                $newRecipients = @($msgRecipients)
+                Remove-Variable "msgRecipients"
+                $msgRecipients = $newRecipients
+            }
+            elseif($msgRecipients.Count -lt 1)
             {
                 Throw "Recipient not found"
             }
