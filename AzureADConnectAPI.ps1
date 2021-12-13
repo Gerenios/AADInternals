@@ -205,7 +205,7 @@ function Get-SyncConfiguration2
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
 
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
 
         if(IsRedirectResponse($xml_doc))
         {
@@ -359,7 +359,7 @@ function Set-SyncFeatures
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
 
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
 
         if(IsRedirectResponse($xml_doc))
         {
@@ -477,10 +477,13 @@ function Set-AzureADObject
         [Parameter(Mandatory=$False)]
         $cloudMastered,
         [Parameter(Mandatory=$False)]
-        [ValidateSet('AF','AX','AL','DZ','AS','AD','AO','AI','AQ','AG','AR','AM','AW','AU','AT','AZ','BS','BH','BD','BB','BY','BE','BZ','BJ','BM','BT','BO','BQ','BA','BW','BV','BR','IO','BN','BG','BF','BI','KH','CM','CA','CV','KY','CF','TD','CL','CN','CX','CC','CO','KM','CG','CD','CK','CR','CI','HR','CU','CW','CY','CZ','DK','DJ','DM','DO','EC','EG','SV','GQ','ER','EE','ET','FK','FO','FJ','FI','FR','GF','PF','TF','GA','GM','GE','DE','GH','GI','GR','GL','GD','GP','GU','GT','GG','GN','GW','GY','HT','HM','VA','HN','HK','HU','IS','IN','ID','IQ','IE','IR','IM','IL','IT','JM','JP','JE','JO','KZ','KE','KI','KP','KR','KW','KG','LA','LV','LB','LS','LR','LY','LI','LT','LU','MO','MK','MG','MW','MY','MV','ML','MT','MH','MQ','MR','MU','YT','MX','FM','MD','MC','MN','ME','MS','MA','MZ','MM','NA','NR','NP','NL','NC','NZ','NI','NE','NG','NU','NF','MP','NO','OM','PK','PW','PS','PA','PG','PY','PE','PH','PN','PL','PT','PR','QA','RE','RO','RU','RW','BL','SH','KN','LC','MF','PM','VC','WS','SM','ST','SA','SN','RS','SC','SL','SG','SX','SK','SI','SB','SO','ZA','GS','SS','ES','LK','SD','SR','SJ','SZ','SE','CH','SY','TW','TJ','TZ','TH','TL','TG','TK','TO','TT','TN','TR','TM','TC','TV','UG','UA','AE','GB','US','UM','UY','UZ','VU','VE','VN','VG','VI','WF','EH','YE','ZM','ZW')][String]$usageLocation,
+        [ValidateSet('AF','AX','AL','DZ','AS','AD','AO','AI','AQ','AG','AR','AM','AW','AU','AT','AZ','BS','BH','BD','BB','BY','BE','BZ','BJ','BM','BT','BO','BQ','BA','BW','BV','BR','IO','BN','BG','BF','BI','KH','CM','CA','CV','KY','CF','TD','CL','CN','CX','CC','CO','KM','CG','CD','CK','CR','CI','HR','CU','CW','CY','CZ','DK','DJ','DM','DO','EC','EG','SV','GQ','ER','EE','ET','FK','FO','FJ','FI','FR','GF','PF','TF','GA','GM','GE','DE','GH','GI','GR','GL','GD','GP','GU','GT','GG','GN','GW','GY','HT','HM','VA','HN','HK','HU','IS','IN','ID','IQ','IE','IR','IM','IL','IT','JM','JP','JE','JO','KZ','KE','KI','KP','KR','KW','KG','LA','LV','LB','LS','LR','LY','LI','LT','LU','MO','MK','MG','MW','MY','MV','ML','MT','MH','MQ','MR','MU','YT','MX','FM','MD','MC','MN','ME','MS','MA','MZ','MM','NA','NR','NP','NL','NC','NZ','NI','NE','NG','NU','NF','MP','NO','OM','PK','PW','PS','PA','PG','PY','PE','PH','PN','PL','PT','PR','QA','RE','RO','RU','RW','BL','SH','KN','LC','MF','PM','VC','WS','SM','ST','SA','SN','RS','SC','SL','SG','SX','SK','SI','SB','SO','ZA','GS','SS','ES','LK','SD','SR','SJ','SZ','SE','CH','SY','TW','TJ','TZ','TH','TL','TG','TK','TO','TT','TN','TR','TM','TC','TV','UG','UA','AE','GB','US','UM','UY','UZ','VU','VE','VN','VG','VI','WF','EH','YE','ZM','ZW')]
+        [String]$usageLocation,
         [Parameter(Mandatory=$False)]
         [ValidateSet('User','Group','Contact','Device')]
         [String]$ObjectType="User",
+        [ValidateSet('Guest','Member')]
+        [String]$UserType="Member",
         [Parameter(Mandatory=$False)]
         [String[]]$proxyAddresses,
 		[Parameter(Mandatory=$False)]
@@ -546,6 +549,8 @@ function Set-AzureADObject
                             $(Add-PropertyValue "deviceTrustType"             $deviceTrustType)
                             $(Add-PropertyValue "deviceOSType"                $deviceOSType)
                             $(Add-PropertyValue "userCertificate"             $userCertificate -Type ArrayOfbase64)
+
+                            $(if($ObjectType -eq "User"){Add-PropertyValue "userType" $userType})
                         </b:PropertyValues>
 						<b:SyncObjectType>$ObjectType</b:SyncObjectType>
 						<b:SyncOperation>$Operation</b:SyncOperation>
@@ -566,7 +571,7 @@ function Set-AzureADObject
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
         
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
 
         
         if(IsRedirectResponse($xml_doc))
@@ -660,7 +665,7 @@ function Remove-AzureADObject
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
         
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
 
         
         if(IsRedirectResponse($xml_doc))
@@ -717,7 +722,7 @@ function Finalize-Export
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Parse-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
 
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
         
         if(IsRedirectResponse($xml_doc))
         {
@@ -849,7 +854,7 @@ function Get-SyncObjects
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
 
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
 
         if(IsRedirectResponse($xml_doc))
         {
@@ -1014,7 +1019,7 @@ function Set-UserPassword
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
 
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
 
         if(IsRedirectResponse($xml_doc))
         {
@@ -1093,7 +1098,7 @@ function Reset-ServiceAccount
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
 
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
 
         if(IsRedirectResponse($xml_doc))
         {
@@ -1171,6 +1176,71 @@ function Set-PassThroughAuthenticationEnabled
         
         # Call the api
         $response=Invoke-RestMethod -UseBasicParsing -Uri "https://$tenant_id.registration.msappproxy.net/register/EnablePassthroughAuthentication" -Method Post -ContentType "application/xml; charset=utf-8" -Body $body
+
+        if($response.PassthroughAuthenticationRequestResult.ErrorMessage)
+        {
+            Write-Error $response.PassthroughAuthenticationRequestResult.ErrorMessage
+            return
+        }
+
+        # Create and return the response object
+        $attributes=@{
+            IsSuccesful = $response.PassthroughAuthenticationRequestResult.IsSuccessful
+            Enable = $response.PassthroughAuthenticationRequestResult.Enable
+            Exists = $response.PassthroughAuthenticationRequestResult.Exists
+        }
+        return New-Object -TypeName psobject -Property $Attributes
+    }
+}
+
+# Get the status of pass-through authentication
+# Nov 9th 2021
+function Get-PassThroughAuthenticationStatus
+{
+<#
+    .SYNOPSIS
+    Gets the status of passthrough authentication (PTA).
+
+    .DESCRIPTION
+    Gets the status of passthrough authentication (PTA). using msapproxy.net api.
+
+    .Parameter AccessToken
+    Access Token.
+
+    .Example
+    PS C:\>Get-AADIntAccessTokenForPTA -SaveToCache
+    PS C:\>Get-AADIntPassThroughAuthentication
+
+    IsSuccesful Enable Exists
+    ----------- ------ ------
+    true        true   true
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "cb1056e2-e479-49de-ae31-7812af012ed8" -Resource "https://proxy.cloudwebappproxy.net/registerapp"
+
+        # Create the body block
+        $body=@"
+	    <TokenAuthenticationRequest xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Security.AadSecurity" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	        <AuthenticationToken>$AccessToken</AuthenticationToken>
+        </TokenAuthenticationRequest>
+"@
+        $tenant_id = Get-TenantId -AccessToken $AccessToken
+        
+        # Call the api
+        $response=Invoke-RestMethod -UseBasicParsing -Uri "https://$tenant_id.registration.msappproxy.net/register/GetPassthroughAuthenticationStatus" -Method Post -ContentType "application/xml; charset=utf-8" -Body $body
+
+        if($response.PassthroughAuthenticationRequestResult.ErrorMessage)
+        {
+            Write-Error $response.PassthroughAuthenticationRequestResult.ErrorMessage
+            return
+        }
 
         # Create and return the response object
         $attributes=@{
@@ -1298,7 +1368,7 @@ function Set-DesktopSSO
             "IsSuccessful" = $($results.DesktopSsoEnablementResult.IsSuccessful -eq "true")
         }
 
-        $setPwd=Read-Host -Prompt "Would you like to set the password of computer account $ComputerName to `"$Password`"(yes/no)?"
+        $setPwd=Read-Host -Prompt "Would you like to set the password of computer account $ComputerName to `"$Password`" also in your ON-PREM ACTIVE DIRECTORY (yes/no)?"
         if($setPwd -eq "yes")
         {
             
@@ -1339,9 +1409,8 @@ function Set-DesktopSSOEnabled
     Access Token.
 
     .Example
-    PS C:\>$cred=Get-Credential
-    PS C:\>$pt=Get-AADIntAccessTokenForPTA -Credentials $cred
-    PS C:\>Set-AADIntSeamlessSSOEnabled -AccessToken $pt -Enable $true 
+    PS C:\>Get-AADIntAccessTokenForPTA -SaveToCache
+    PS C:\>Set-AADIntDesktopSSOEnabled -Enable $true 
 
     Domains      : company.com
     Enabled      : True
@@ -1438,7 +1507,7 @@ function Get-KerberosDomainSyncConfig
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
 
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
 
         if(IsRedirectResponse($xml_doc))
         {
@@ -1516,7 +1585,7 @@ function Get-KerberosDomain
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
 
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
 
         if(IsRedirectResponse($xml_doc))
         {
@@ -1579,7 +1648,7 @@ function Get-MonitoringTenantCertificate
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
 
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
 
         if(IsRedirectResponse($xml_doc))
         {
@@ -1652,7 +1721,7 @@ function Get-WindowsCredentialsSyncConfig
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
 
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
 
         if(IsRedirectResponse($xml_doc))
         {
@@ -1733,7 +1802,7 @@ function Get-SyncDeviceConfiguration
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
 
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
 
         if(IsRedirectResponse($xml_doc))
         {
@@ -1816,7 +1885,7 @@ function Get-SyncCapabilities
         $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
 
         # Convert binary response to XML
-        $xml_doc=BinaryToXml $response
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
 
         if(IsRedirectResponse($xml_doc))
         {

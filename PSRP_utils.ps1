@@ -1,9 +1,5 @@
 ﻿# PowerShell Remoting Protocol utils
 
-
-# Constants
-$const_bom = [byte[]]@(0xEF,0xBB,0xBF)
-
 # Fragments
 $const_fragment_start =     0x01
 $const_fragment_end =       0x02 
@@ -131,56 +127,6 @@ function Get-WaitingMessage
 {
     [int]$msg=Get-Random -Minimum 0 -Maximum ($waiting_messages.Count-1)
     return $waiting_messages[$msg]
-}
-
-# Remove bom bytes from the byte array
-function Remove-Bom
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [Byte[]]$ByteArray
-    )
-    Process
-    {
-        Remove-Bytes -ByteArray $ByteArray -BytesToRemove $const_bom
-    }
-}
-
-# removes the given bytes from the given bytearray
-function Remove-Bytes
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [Byte[]]$ByteArray,
-        [Parameter(Mandatory=$True)]
-        [Byte[]]$BytesToRemove
-    )
-    Process
-    {
-        $retVal = @()
-
-        for($i = 0; $i -le $ByteArray.Count; $i++)
-        {
-            $AddByte=$true
-
-            for($b = 0; $b -le $BytesToRemove.Count; $b++)
-            {
-                $ByteToRemove = $BytesToRemove[$b]
-                if($ByteArray[$i] -eq $ByteToRemove)
-                {
-                    $AddByte=$false
-                }
-            }
-            if($AddByte)
-            {
-                $retVal+=$ByteArray[$i]
-            }
-        }
-
-        $retVal
-    }
 }
 
 

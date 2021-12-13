@@ -759,8 +759,12 @@ function Invoke-ReconAsInsider
     Users can register apps?     True
     Directory access restricted? False
     Directory sync enabled?      true
-    Global admins                3
-    CA policies:                 7
+    Global admins:               3
+    CA policies:                 8
+    MS Partner IDs:              
+    MS Partner DAP enabled?      False
+    MS Partner contracts:        0
+    MS Partners:                 1
 
     PS C:\>$results.roleInformation | Where Members -ne $null | select Name,Members
 
@@ -784,8 +788,11 @@ function Invoke-ReconAsInsider
         
         # Get the refreshtoken from the cache and create AAD token
         $tenantId = (Read-Accesstoken $AccessToken).tid
-        $refresh_token=$script:refresh_tokens["d3590ed6-52b3-4102-aeff-aad2292ab01c-https://management.core.windows.net/"]
-        $AAD_AccessToken = Get-AccessTokenWithRefreshToken -RefreshToken $refresh_token -Resource "https://graph.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenantId
+        $refresh_token = $script:refresh_tokens["d3590ed6-52b3-4102-aeff-aad2292ab01c-https://management.core.windows.net/"]
+        
+        $AAD_AccessToken       = Get-AccessTokenWithRefreshToken -RefreshToken $refresh_token -Resource "https://graph.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenantId
+        $MSPartner_AccessToken = Get-AccessTokenWithRefreshToken -RefreshToken $refresh_token -Resource "fa3d9a0c-3fb0-42cc-9193-47c7ecd2edbd" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenantId
+        $AdminAPI_AccessToken  = Get-AccessTokenWithRefreshToken -RefreshToken $refresh_token -Resource "https://admin.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenantId
 
         # Get the tenant information
         Write-Verbose "Getting company information"
@@ -816,12 +823,53 @@ function Invoke-ReconAsInsider
         }
 
         # Get the tenant information
+        Write-Verbose "Getting tenant information"
         $tenantInformation = Get-AzureInformation -Tenant $tenantId
 
+        # Get basic partner information
+        Write-Verbose "Getting basic partner information"
+        $partnerInformation = Get-PartnerInformation -AccessToken $AAD_AccessToken
+
+        # Get partner organisation information
+        Write-Verbose "Getting partner organisation information"
+        $partnerOrganisations = @(Get-MSPartnerOrganizations -AccessToken $MSPartner_AccessToken)
+
+        # Get partner role information
+        Write-Verbose "Getting partner role information"
+        $partnerRoleInformation = @(Get-MSPartnerRoleMembers -AccessToken $MSPartner_AccessToken)
+
+        # Get partner contracts (customers)
+        Write-Verbose "Getting partner contracts (customers)"
+        try
+        {
+            $partnerContracts = @(Get-MSPartnerContracts -AccessToken $AAD_AccessToken)
+        }
+        catch
+        {
+            # Okay, not all are partner organisations :)
+        }
+
+        # Get partners
+        Write-Verbose "Getting partners"
+        try
+        {
+            $partners = @(Get-MSPartners -AccessToken $AdminAPI_AccessToken)
+        }
+        catch
+        {
+            # Okay
+        }
+
         # Set the extra tenant information
-        $tenantInformation |Add-Member -NotePropertyName "companyInformation" -NotePropertyValue $companyInformation
-        $tenantInformation |Add-Member -NotePropertyName "SPOInformation"     -NotePropertyValue $sharePointInformation
-        $tenantInformation |Add-Member -NotePropertyName "roleInformation"    -NotePropertyValue $roleInformation
+        $tenantInformation |Add-Member -NotePropertyName "companyInformation"     -NotePropertyValue $companyInformation
+        $tenantInformation |Add-Member -NotePropertyName "SPOInformation"         -NotePropertyValue $sharePointInformation
+        $tenantInformation |Add-Member -NotePropertyName "roleInformation"        -NotePropertyValue $roleInformation
+        $tenantInformation |Add-Member -NotePropertyName "partnerDAPEnabled"      -NotePropertyValue ($partnerInformation.DapEnabled -eq "true")
+        $tenantInformation |Add-Member -NotePropertyName "partnerType"            -NotePropertyValue $partnerInformation.CompanyType
+        $tenantInformation |Add-Member -NotePropertyName "partnerContracts"       -NotePropertyValue $partnerContracts
+        $tenantInformation |Add-Member -NotePropertyName "partnerOrganisations"   -NotePropertyValue $partnerOrganisations
+        $tenantInformation |Add-Member -NotePropertyName "partners"               -NotePropertyValue $partners
+        $tenantInformation |Add-Member -NotePropertyName "partnerRoleInformation" -NotePropertyValue $partnerRoleInformation
 
         # Print out some relevant information
         Write-Host "Tenant brand:                $($tenantInformation.displayName)"
@@ -833,8 +881,13 @@ function Invoke-ReconAsInsider
         Write-Host "Users can register apps?     $($tenantInformation.usersCanRegisterApps)"
         Write-Host "Directory access restricted? $($tenantInformation.restrictDirectoryAccess)"
         Write-Host "Directory sync enabled?      $($tenantInformation.companyInformation.DirectorySynchronizationEnabled)"
-        Write-Host "Global admins:               $(($tenantInformation.roleInformation | Where-Object ObjectId -eq "62e90394-69f5-4237-9190-012177145e10" | Select-Object -ExpandProperty Members).Count)" 
+        Write-Host "Global admins:               $(@($tenantInformation.roleInformation | Where-Object ObjectId -eq "62e90394-69f5-4237-9190-012177145e10" | Select-Object -ExpandProperty Members).Count)" 
         Write-Host "CA policies:                 $($tenantInformation.conditionalAccessPolicy.Count)" 
+        Write-Host "MS Partner IDs:              $(($tenantInformation.partnerOrganisations | where typeName -Like "Partner*" ).MPNID -join ",")"             
+        Write-Host "MS Partner DAP enabled?      $($tenantInformation.partnerDAPEnabled)"
+        Write-Host "MS Partner contracts:        $($tenantInformation.partnerContracts.Count)"             
+        Write-Host "MS Partners:                 $($tenantInformation.partners.Count)"
+            
 
         # Return
         return $tenantInformation

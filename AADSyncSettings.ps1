@@ -1,5 +1,8 @@
 ﻿# This module contains functions to extract and update AADConnect sync credentials
 
+# Print the loading message here as this is the first .ps1 to be loaded :)
+Write-Host "Loading module.."
+
 # Oct 29th 2019
 function Check-Server
 {
@@ -20,7 +23,7 @@ function Check-Server
         }
 
         # Add the encryption reference (should always be there)
-        $ADSyncLocation = Get-ItemPropertyValue -Path "HKLM:SOFTWARE\Microsoft\AD Sync" -Name Location
+        $ADSyncLocation = (Get-ItemProperty -Path "HKLM:SOFTWARE\Microsoft\AD Sync").Location
         Add-Type -path "$ADSyncLocation\Bin\mcrypt.dll"
 
         $ADSyncUser=""
@@ -188,7 +191,7 @@ function Get-SyncCredentials
 
             $AADDecryptedConfig = $null
             $key2.DecryptBase64ToString($AADCryptedConfig, [ref]$AADDecryptedConfig)
-            $attributes["AADUserPassword"]=([xml]$AADDecryptedConfig).'encrypted-attributes'.attribute.'#text'
+            $attributes["AADUserPassword"]=([xml]$AADDecryptedConfig).'encrypted-attributes'.attribute | Where name -eq "Password" | Select -ExpandProperty "#text"
         }
         catch
         {
@@ -784,9 +787,9 @@ function Get-AADConfigDbConnection
     {
         # Create the connection string for the configuration database
         $parametersPath =    "HKLM:\SYSTEM\CurrentControlSet\Services\ADSync\Parameters"
-        $dBServer =          Get-ItemPropertyValue -Path $parametersPath -Name "Server"
-        $dBName =            Get-ItemPropertyValue -Path $parametersPath -Name "DBName"
-        $dBInstance =        Get-ItemPropertyValue -Path $parametersPath -Name "SQLInstance"
+        $dBServer =          (Get-ItemProperty -Path $parametersPath).Server
+        $dBName =            (Get-ItemProperty -Path $parametersPath).DBName
+        $dBInstance =        (Get-ItemProperty -Path $parametersPath).SQLInstance
         $connectionString  = "Data Source=$dbServer\$dBInstance;Initial Catalog=$dBName"
     }
     Process

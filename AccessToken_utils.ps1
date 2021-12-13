@@ -54,6 +54,8 @@ $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millis
                             "1fec8e78-bce4-4aaf-ab1b-5451cc387264" # Teams client
                             "de0853a1-ab20-47bd-990b-71ad5077ac7b" # Windows Configuration Designer (WCD)
                             "b90d5b8f-5503-4153-b545-b31cecfaece2" # AADJ CSP
+                            "fb78d390-0c51-40cd-8e17-fdbfab77341b" # Microsoft Exchange REST API Based Powershell
+                            "18ed3507-a475-4ccb-b669-d66bc9f2a36e" # Microsoft_AAD_RegisteredApps
 #>
 
 
@@ -1799,6 +1801,16 @@ function Get-AuthRedirectUrl
         {
             $redirect_uri = "http://localhost/m365/commerce"
         }
+        elseif($ClientId -eq "4990cffe-04e8-4e8b-808a-1175604b879f") # MS Partner - this flow doesn't work as expected :(
+        {
+            $redirect_uri = "https://partner.microsoft.com/aad/authPostGateway"
+        }
+        elseif($ClientId -eq "fb78d390-0c51-40cd-8e17-fdbfab77341b") # Microsoft Exchange REST API Based Powershell
+        {
+            $redirect_uri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
+        }
+
+        
 
         return $redirect_uri
     }

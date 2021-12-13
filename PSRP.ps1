@@ -35,7 +35,7 @@ function Create-PSRPShell
         catch
         {
             # Probably wrong credentials or access token
-            Write-error $_.ToString().split("]")[1].trim()
+            Write-error $_.Exception.Message
             return
         }
 
