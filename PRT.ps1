@@ -10,85 +10,125 @@ function Get-UserPRTToken
 
     .DESCRIPTION
     Gets user's PRT token from the Azure AD joined or Hybrid joined computer.
-    Uses browsercore.exe to get the PRT token.
+    Uses browsercore.exe or Token Provider DLL to get the PRT token.
 #>
     [cmdletbinding()]
-    Param()
+    Param(
+        [Parameter(Mandatory=$False)]
+        [ValidateSet('BrowserCore','TokenProvider')]
+        [String]$Method="BrowserCore"
+    )
     Process
     {
 
         # Get the nonce
-        $response = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/Common/oauth2/token" -Body "grant_type=srv_challenge"
+        $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/Common/oauth2/token" -Body "grant_type=srv_challenge"
         $nonce = $response.Nonce
 
-        # There are two possible locations
-        $locations = @(
-            "$($env:ProgramFiles)\Windows Security\BrowserCore\browsercore.exe"
-            "$($env:windir)\BrowserCore\browsercore.exe"
-        )
-
-        # Check the locations
-        foreach($file in $locations)
+        if($Method -eq "BrowserCore")
         {
-            if(Test-Path $file)
+            # There are two possible locations
+            $locations = @(
+                "$($env:ProgramFiles)\Windows Security\BrowserCore\browsercore.exe"
+                "$($env:windir)\BrowserCore\browsercore.exe"
+            )
+
+            # Check the locations
+            foreach($file in $locations)
             {
-                $browserCore = $file
+                if(Test-Path $file)
+                {
+                    $browserCore = $file
+                }
             }
-        }
 
-        if(!$browserCore)
-        {
-            throw "Browsercore not found!"
-        }
+            if(!$browserCore)
+            {
+                throw "Browsercore not found!"
+            }
 
-        # Create the process
-        $p = New-Object System.Diagnostics.Process
-        $p.StartInfo.FileName = $browserCore
-        $p.StartInfo.UseShellExecute = $false
-        $p.StartInfo.RedirectStandardInput = $true
-        $p.StartInfo.RedirectStandardOutput = $true
-        $p.StartInfo.CreateNoWindow = $true
+            # Create the process
+            $p = New-Object System.Diagnostics.Process
+            $p.StartInfo.FileName = $browserCore
+            $p.StartInfo.UseShellExecute = $false
+            $p.StartInfo.RedirectStandardInput = $true
+            $p.StartInfo.RedirectStandardOutput = $true
+            $p.StartInfo.CreateNoWindow = $true
 
-        # Create the message body
-        $body = @"
-        {
-            "method":"GetCookies",
-            "uri":"https://login.microsoftonline.com/common/oauth2/authorize?sso_nonce=$nonce",
-            "sender":"https://login.microsoftonline.com"
-        }
+            # Create the message body
+            $body = @"
+            {
+                "method":"GetCookies",
+                "uri":"https://login.microsoftonline.com/common/oauth2/authorize?sso_nonce=$nonce",
+                "sender":"https://login.microsoftonline.com"
+            }
 "@
-        # Start the process
-        $p.Start() | Out-Null
-        $stdin =  $p.StandardInput
-        $stdout = $p.StandardOutput
+            # Start the process
+            $p.Start() | Out-Null
+            $stdin =  $p.StandardInput
+            $stdout = $p.StandardOutput
 
-        # Write the input
-        $stdin.BaseStream.Write([bitconverter]::GetBytes($body.Length),0,4) 
-        $stdin.Write($body)
-        $stdin.Close()
+            # Write the input
+            $stdin.BaseStream.Write([bitconverter]::GetBytes($body.Length),0,4) 
+            $stdin.Write($body)
+            $stdin.Close()
 
-        # Read the output
-        $response=""
-        while(!$stdout.EndOfStream)
-        {
-            $response += $stdout.ReadLine()
-        }
+            # Read the output
+            $response=""
+            while(!$stdout.EndOfStream)
+            {
+                $response += $stdout.ReadLine()
+            }
 
-        Write-Debug "RESPONSE: $response"
+            Write-Debug "RESPONSE: $response"
         
-        $p.WaitForExit()
+            $p.WaitForExit()
 
-        # Strip the stuff from the beginning of the line
-        $response = $response.Substring($response.IndexOf("{")) | ConvertFrom-Json
+            # Strip the stuff from the beginning of the line
+            $response = $response.Substring($response.IndexOf("{")) | ConvertFrom-Json
 
-        # Check for error
-        if($response.status -eq "Fail")
-        {
-            Throw "Error getting PRT: $($response.code). $($response.description)"
+            # Check for error
+            if($response.status -eq "Fail")
+            {
+                Throw "Error getting PRT: $($response.code). $($response.description)"
+            }
+
+            # Return the last one
+            $tokens = $response.response.data
+            if($tokens.Count -gt 1)
+            {
+                return $tokens[$tokens.Count - 1]
+            }
+            else
+            {
+                return $tokens
+            }
+                
         }
+        else
+        {
+            $tokens = [AADInternals.Native]::getCookieInfoForUri("https://login.microsoftonline.com/common/oauth2/authorize?sso_nonce=$nonce")
 
-        # Return
-        return $response.response.data
+            if($tokens.Count)
+            {
+                Write-Verbose "Found $($tokens.Count) token(s)."
+
+                # Return the last one
+                if($tokens.Count -gt 1)
+                {
+                    return $tokens[$tokens.Count - 1].Data.Split(";")[0]
+                }
+                else
+                {
+                    return $tokens.Data.Split(";")[0]
+                }
+            }
+            else
+            {
+                Throw "Error getting tokens."
+            }
+
+        }
     }
 }
 
@@ -1526,7 +1566,7 @@ function New-BulkPRTToken
     Package Id of the previously created BPRT. Overwrites the existing user object and creates a new BPRT. If not found, a new one is created.
 
     .EXAMPLE
-    Get-AADIntAccessTokenForAADGraph -Resource -Resource urn:ms-drs:enterpriseregistration.windows.net -SaveToCache
+    Get-AADIntAccessTokenForAADGraph -Resource urn:ms-drs:enterpriseregistration.windows.net -SaveToCache
     PS C:\> New-AADIntBulkPRTToken -Name "My BPRT user"
 
     BPRT saved to package_8eb8b873-2b6a-4d55-bd96-27b0abadec6a-BPRT.json   

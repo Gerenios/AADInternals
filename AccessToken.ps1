@@ -460,12 +460,19 @@ function Get-AccessTokenForSARA
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$False)]
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$KerberosTicket,
-        [Parameter(Mandatory=$False)]
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
-        [switch]$SaveToCache,
-        [switch]$UseDeviceCode
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache
     )
     Process
     {
@@ -898,6 +905,8 @@ function Get-AccessTokenForIntuneMDM
     Param(
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [switch]$ForceMFA,
         [Parameter(ParameterSetName='PRT',Mandatory=$True)]
         [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
@@ -924,7 +933,7 @@ function Get-AccessTokenForIntuneMDM
     )
     Process
     {
-        Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -Resource $Resource -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword -BPRT $BPRT
+        Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -Resource $Resource -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword -BPRT $BPRT -ForceMFA $ForceMFA
     }
 }
 
@@ -1157,9 +1166,6 @@ function Get-AccessTokenForMSCommerce
     .Parameter UseDeviceCode
     Use device code flow.
     
-    .Parameter UserPrincipalName
-    UserPrincipalName of the user of Kerberos token
-    
     .Example
     Get-AADIntAccessTokenForMSCommerce
     
@@ -1187,6 +1193,125 @@ function Get-AccessTokenForMSCommerce
     Process
     {
         Get-AccessToken -Resource "aeb86249-8ea3-49e2-900b-54cc8e308f85" -ClientId "3d5cffa9-04da-4657-8cab-c7f074657cad" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+    }
+}
+
+# Gets an access token for MS Partner
+# Sep 22nd 2021
+function Get-AccessTokenForMSPartner
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for MS Partner
+
+    .DESCRIPTION
+    Gets OAuth Access Token for MS Partner
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
+    .Example
+    Get-AADIntAccessTokenForMSCommerce
+    
+    .Example
+    PS C:\>Get-AADIntAccessTokenForMSPartner -SaveToCache
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant
+    )
+    Process
+    {
+        # The correct client id would be 4990cffe-04e8-4e8b-808a-1175604b879f but that flow doesn't work :(
+        Get-AccessToken -Resource "fa3d9a0c-3fb0-42cc-9193-47c7ecd2edbd" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+    }
+}
+
+# Gets an access token for admin.microsoft.com
+# Sep 22nd 2021
+function Get-AccessTokenForAdmin
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for admin.microsoft.com
+
+    .DESCRIPTION
+    Gets OAuth Access Token for admin.microsoft.com
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
+    .Example
+    Get-AADIntAccessTokenForAdmin
+    
+    .Example
+    PS C:\>Get-AADIntAccessTokenForAdmin -SaveToCache
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant
+    )
+    Process
+    {
+        Get-AccessToken -Resource "https://admin.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
 

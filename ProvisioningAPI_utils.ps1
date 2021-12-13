@@ -104,6 +104,7 @@ function Create-Envelope
 			        <request xmlns:b="http://schemas.datacontract.org/2004/07/Microsoft.Online.Administration.WebService" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
                         <b:BecVersion>Version16</b:BecVersion>
 		                <b:TenantId i:nil="true"/>
+                        <b:VerifiedDomain i:nil="true"/>
 		                $RequestElements
                     </request>
                 </$Command>

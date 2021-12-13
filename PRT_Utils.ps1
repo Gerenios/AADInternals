@@ -349,7 +349,7 @@ function Get-AccessTokenWithPRT
         # Add sso_nonce if exist
         if($parsedCookie.request_nonce)
         {
-            $url += "&sso_nonce=$sso_nonce"
+            $url += "&sso_nonce=$($parsedCookie.request_nonce)"
         }
 
         $headers = @{

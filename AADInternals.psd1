@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.6.4'
+	ModuleVersion = '0.6.5'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -72,6 +72,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\ADFS.ps1"
         ".\ADFS_utils.ps1"
         ".\AD_utils.ps1"
+        ".\AdminAPI.ps1"
+        ".\AdminAPI_utils.ps1"
         ".\AMQP.ps1"
         ".\AzureADConnectAPI.ps1"
         ".\AzureADConnectAPI_utils.ps1"
@@ -103,6 +105,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\MSAppProxy.ps1"
         ".\MSAppProxy_utils.ps1"
         ".\MSCommerce.ps1"
+        ".\MSPartner.ps1"
+        ".\MSPartner_utils.ps1"
         ".\MSGraphAPI.ps1"
         ".\MSGraphAPI_utils.ps1"
         ".\OfficeApps.ps1"
@@ -138,6 +142,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Set-ADFSConfiguration"
     "Get-ADFSPolicyStoreRules"
     "Set-ADFSPolicyStoreRules"
+    "Unprotect-ADFSRefreshToken"
+    "New-ADFSRefreshToken"
 
     # ADFS_utils.ps1
     "New-ADFSSelfSignedCertificates"
@@ -161,6 +167,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AccessTokenForCloudShell"
     "Get-AccessTokenForTeams"
     "Get-AccessTokenForMSCommerce"
+    "Get-AccessTokenForMSPartner"
+    "Get-AccessTokenForAdmin"
     
     # AccessToken_utils.ps1
     "Get-LoginInformation"
@@ -196,6 +204,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-GlobalAdmins"
     "New-Domain" # TODO: remove unused parameters
     "Set-ADSyncEnabled"
+    "Get-MSPartnerContracts"
 
     #FederatedIdentityTools.ps1
     "New-SAMLToken"
@@ -221,6 +230,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-WindowsCredentialsSyncConfig"
     "Get-SyncDeviceConfiguration"
     "Join-OnPremDeviceToAzureAD"
+    "Get-PassThroughAuthenticationStatus"
 
     # AzureManagementAPI_utils.ps1
     "Get-AccessTokenForAADIAMAPI"
@@ -384,6 +394,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     # CommonUtils.ps1
     "Get-Error"
     "New-Certificate"
+    "Get-AzureWireServerAddress"
 
     # Teams.ps1
     "Get-SkypeToken"
@@ -422,6 +433,19 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     # ComplianceAPI.ps1
     "Get-ComplianceAPICookies"
     "Search-UnifiedAuditLog"
+
+    # MSPartner.ps1
+    "New-MSPartnerDelegatedAdminRequest"
+    #"New-MSPartnerTrialOffer"
+    #"Get-MSPartnerOffers"
+    #"Get-MSPartnerPublishers"
+    "Get-MSPartnerOrganizations"
+    "Get-MSPartnerRoleMembers"
+
+    # AdminAPI.ps1
+    "Approve-MSPartnerDelegatedAdminRequest"
+    "Remove-MSPartnerDelegatedAdminRoles"
+    "Get-MSPartners"    
 )
 
 	# Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.

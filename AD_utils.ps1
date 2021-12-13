@@ -589,7 +589,7 @@ function Get-LSASecrets
     }
 }
 
-# Gets LSA secrets
+# Gets LSA backup keys
 # Apr 24th 2020
 function Get-LSABackupKeys
 {
