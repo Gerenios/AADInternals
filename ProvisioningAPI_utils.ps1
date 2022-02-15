@@ -72,7 +72,10 @@ function Create-Envelope
         [String]$Command,
 
         [Parameter(Mandatory=$True)]
-        [String]$RequestElements
+        [String]$RequestElements,
+
+        [Parameter(Mandatory=$False)]
+        [String]$TenantId
     )
     Process
     {
@@ -103,7 +106,7 @@ function Create-Envelope
                 <$Command xmlns="http://provisioning.microsoftonline.com/">
 			        <request xmlns:b="http://schemas.datacontract.org/2004/07/Microsoft.Online.Administration.WebService" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
                         <b:BecVersion>Version16</b:BecVersion>
-		                <b:TenantId i:nil="true"/>
+                        $(Add-BElement -Parameter "TenantId" -Value $TenantId)
                         <b:VerifiedDomain i:nil="true"/>
 		                $RequestElements
                     </request>

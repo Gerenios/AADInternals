@@ -126,11 +126,11 @@ function Get-MSPartners
         {
             if($_.ErrorDetails.Message)
             {
-                Write-Error $_.ErrorDetails.Message
+                throw $_.ErrorDetails.Message
             }
             else
             {
-                Write-Error $_.Exception.Message
+                throw $_.Exception.Message
             }
             return
         }
@@ -166,7 +166,7 @@ function Get-AccessTokenUsingAdminAPI
         [Parameter(Mandatory=$False)]
         [ValidateSet('PortalAT','BusinessStoreAT')]
         [String]$TokenType="PortalAT",
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken
     )
     Process

@@ -94,13 +94,13 @@ function Register-DeviceToAzureAD
         # Create the signing request
         $csr = Convert-ByteArrayToB64 -Bytes $req.CreateSigningRequest()
 
-        # Use the public key as a transport key just to make things easier
+        # Use the device private key as a transport key just to make things simpler
         $transportKey = Convert-ByteArrayToB64 -Bytes $rsa.Key.Export([System.Security.Cryptography.CngKeyBlobFormat]::GenericPublicBlob)
         
         # Create the request body
-        # JoinType 0 = Azure AD join,        transport key = public key
-        # JoinType 4 = Azure AD registered,  transport key = public key
-        # JoinType 6 = Azure AD hybrid join, transport key = public key. Hybrid join this way is not supported, there must be an existing device with user cert.
+        # JoinType 0 = Azure AD join,        transport key = device key
+        # JoinType 4 = Azure AD registered,  transport key = device key
+        # JoinType 6 = Azure AD hybrid join, transport key = device key. Hybrid join this way is not supported, there must be an existing device with user cert.
 
         $body=@{
             "CertificateRequest" = @{
@@ -227,46 +227,6 @@ function Sign-JWT
 
         # Return
         return $signature
-    }
-}
-
-# Aug 22nd 2020
-# Parses the JWE and decrypts the session key
-function Decrypt-PRTSessionKey
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [String]$JWE,
-        [Parameter(Mandatory=$True)]
-        [System.Security.Cryptography.RSA]$PrivateKey
-    )
-    Process
-    {
-        # Get the encoded key
-        $parts =   $JWE.Split(".")
-        $header =  [text.encoding]::UTF8.GetString((Convert-B64ToByteArray -B64 $parts[0])) | ConvertFrom-Json
-        $encKey =  Convert-B64ToByteArray -B64 $parts[1]
-        # The following could be used to decode the encData (and verify the encryption key) but can't do A256GCM with C#
-        #$IV =      Convert-B64ToByteArray -B64 $parts[2]
-        #$encData = Convert-B64ToByteArray -B64 $parts[3] 
-        #$tag =     Convert-B64ToByteArray -B64 $parts[4]
-
-        Write-Verbose "JWE: enc=$($header.enc), alg=$($header.alg)"
-
-        try
-        {
-            # Do the magic
-            $deFormatter = [System.Security.Cryptography.RSAOAEPKeyExchangeDeformatter]::new($privateKey)
-            $deckey =      $deFormatter.DecryptKeyExchange($encKey)
-        }
-        catch
-        {
-            throw "Decrypting the session key failed: ""$($_.Exception.InnerException.Message)"". Are you using the correct certificate (transport key)?"
-        }
-
-        # Return 
-        return $decKey
     }
 }
 
@@ -467,7 +427,9 @@ function Set-AccessTokenDeviceAuth
         [Parameter(Mandatory=$False)]
         [string]$PfxFileName,
         [Parameter(Mandatory=$False)]
-        [string]$PfxPassword
+        [string]$PfxPassword,
+        [Parameter(Mandatory=$False)]
+        [string]$TransportKeyFileName
     )
     Process
     {
@@ -493,7 +455,17 @@ function Set-AccessTokenDeviceAuth
         }
         
         # Get the private key
-        $privateKey = Load-PrivateKey -Certificate $Certificate 
+        if($TransportKeyFileName)
+        {       
+            # Get the transport key from the provided file 
+            $tkPEM = (Get-Content $TransportKeyFileName) -join "`n"
+            $tkParameters = Convert-PEMToRSA -PEM $tkPEM
+            $privateKey = [System.Security.Cryptography.RSA]::Create($tkParameters)
+        }
+        else
+        {
+            $privateKey = Load-PrivateKey -Certificate $Certificate 
+        }
 
         $body=@{
             "grant_type" =          "srv_challenge"
@@ -671,10 +643,8 @@ function Get-PRTKeyInfo
             "request"             = "$jwt"
         }
 
-        # Make the request to get the P2P certificate
+        # Make the request to get the PRT key information
         $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body
-
-
         
         Write-Debug "ACCESS TOKEN: $($response.access_token)"
         Write-Debug "REFRESH TOKEN: $($response.refresh_token)"
@@ -682,5 +652,117 @@ function Get-PRTKeyInfo
         # Return
         return $response
             
+    }
+}
+
+# Parses the given JWE
+# Dec 22nd 2021
+Function Parse-JWE
+{
+
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$True,ValueFromPipeline)]
+        [String]$JWE
+    )
+    process
+    {
+        $parts = $JWE.Split(".")
+        if($parts.Count -ne 5)
+        {
+            Throw "Invalid JWE: $($parts.Count) parts, expected 5"
+        }
+
+        # Decode and parse the header
+        $parsedJWT = Convert-B64ToText -B64 $parts[0] | ConvertFrom-Json 
+        # Add other parts
+        $parsedJWT | Add-Member -NotePropertyName "Key"        -NotePropertyValue $parts[1]
+        $parsedJWT | Add-Member -NotePropertyName "Iv"         -NotePropertyValue $parts[2]
+        $parsedJWT | Add-Member -NotePropertyName "CipherText" -NotePropertyValue $parts[3]
+        $parsedJWT | Add-Member -NotePropertyName "Tag"        -NotePropertyValue $parts[4]
+        
+        return $parsedJWT
+    }
+}
+
+# Decrypt the given JWE
+# Dec 22nd 2021
+Function Decrypt-JWE
+{
+
+    [cmdletbinding()]
+
+    param(
+        [Parameter(Mandatory=$True,ValueFromPipeline)]
+        [String]$JWE,
+        [Parameter(Mandatory=$True,ParameterSetName = "RSA")]
+        [System.Security.Cryptography.RSA]$PrivateKey,
+        [Parameter(Mandatory=$True,ParameterSetName = "Key")]
+        [byte[]]$Key,
+        [Parameter(Mandatory=$True,ParameterSetName = "SessionKey")]
+        [byte[]]$SessionKey
+    )
+    process
+    {
+        $parsedJWE = Parse-JWE -JWE $JWE
+
+        $alg = $parsedJWE.alg
+
+        if($parsedJWE.enc -ne "A256GCM")
+        {
+            Throw "Unsupported enc: $enc"
+        }
+
+        if($alg -eq "dir") # Probably encrypted data
+        {
+            # Calculate key from session key and context
+            if($SessionKey)
+            {
+                if(!$parsedJWE.ctx)
+                {
+                    Throw "JWE is missing ctx, unable to derive encryption key!"
+                }
+                $context = Convert-B64ToByteArray -B64 $parsedJWE.ctx
+                $Key = Get-PRTDerivedKey -SessionKey $SessionKey -Context $context
+            }
+
+            if(!$parsedJWE.Iv -or !$parsedJWE.CipherText)
+            {
+                Throw "Missing Iv and/or CipherText, unable to decrypt!"
+            }
+            
+            $iv      = Convert-B64ToByteArray -B64 $parsedJWE.Iv
+            $encData = Convert-B64ToByteArray -B64 $parsedJWE.CipherText
+
+            Write-Warning "dir alg not supported yet :("
+        }
+        elseif($alg -eq "RSA-OAEP") # Key exchange
+        {
+            if(!$PrivateKey)
+            {
+                Throw "PrivateKey required for RSA-OAEP encrypted JWE"
+            }
+
+            try
+            {
+                # Do the magic
+                $encKey = Convert-B64ToByteArray -B64 $parsedJWE.Key
+                $decKey = [System.Security.Cryptography.RSAOAEPKeyExchangeDeformatter]::new($privateKey).DecryptKeyExchange($encKey)
+
+                # Return 
+                return $decKey
+            }
+            catch
+            {
+                throw "Decrypting the key failed: ""$($_.Exception.InnerException.Message)"". Are you using the correct certificate?"
+            }
+        }
+        else
+        {
+            Throw "Unsupported alg: $alg"
+        }
+  
+        
     }
 }

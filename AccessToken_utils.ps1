@@ -56,6 +56,7 @@ $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millis
                             "b90d5b8f-5503-4153-b545-b31cecfaece2" # AADJ CSP
                             "fb78d390-0c51-40cd-8e17-fdbfab77341b" # Microsoft Exchange REST API Based Powershell
                             "18ed3507-a475-4ccb-b669-d66bc9f2a36e" # Microsoft_AAD_RegisteredApps
+                            "3f1abb3f-12cc-42c3-ad06-5b608dc5fb67" # Microsoft Intune multi-tenant management UX extension
 #>
 
 
@@ -1809,7 +1810,10 @@ function Get-AuthRedirectUrl
         {
             $redirect_uri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
         }
-
+		elseif($ClientId -eq "3b511579-5e00-46e1-a89e-a6f0870e2f5a") 
+        {
+            $redirect_uri = "https://windows365.microsoft.com/signin-oidc"
+        }
         
 
         return $redirect_uri

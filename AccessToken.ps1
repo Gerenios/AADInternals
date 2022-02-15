@@ -885,6 +885,9 @@ function Get-AccessTokenForIntuneMDM
     .Parameter Certificate
     x509 device certificate.
 
+    .Parameter TransportKeyFileName
+    File name of the transport key
+
     .Parameter PfxFileName
     File name of the .pfx device certificate.
 
@@ -929,11 +932,14 @@ function Get-AccessTokenForIntuneMDM
         [Parameter(Mandatory=$False)]
         [string]$PfxPassword,
         [Parameter(Mandatory=$False)]
+        [string]$TransportKeyFileName,
+
+        [Parameter(Mandatory=$False)]
         [string]$Resource="https://enrollment.manage.microsoft.com/"
     )
     Process
     {
-        Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -Resource $Resource -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword -BPRT $BPRT -ForceMFA $ForceMFA
+        Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -Resource $Resource -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword -BPRT $BPRT -ForceMFA $ForceMFA -TransportKeyFileName $TransportKeyFileName
     }
 }
 
@@ -1352,7 +1358,9 @@ function Get-AccessToken
         [Parameter(Mandatory=$False)]
         [string]$PfxFileName,
         [Parameter(Mandatory=$False)]
-        [string]$PfxPassword
+        [string]$PfxPassword,
+        [Parameter(Mandatory=$False)]
+        [string]$TransportKeyFileName
     )
     Begin
     {
@@ -1373,6 +1381,7 @@ function Get-AccessToken
             "8c59ead7-d703-4a27-9e55-c96a0054c8d2"
             "c7d28c4f-0d2c-49d6-a88d-a275cc5473c7" # https://www.microsoftazuresponsorships.com/
             "04b07795-8ddb-461a-bbee-02f9e1bf7b46" # Azure CLI
+            "ecd6b820-32c2-49b6-98a6-444530e5a77a" # Edge
         )
     }
     Process
@@ -1481,7 +1490,7 @@ function Get-AccessToken
             try
             {
                 Write-Verbose "Trying to get new tokens with deviceid claim."
-                $deviceTokens = Set-AccessTokenDeviceAuth -AccessToken $access_token -RefreshToken $refresh_token -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword -BPRT $([string]::IsNullOrEmpty($BPRT) -eq $False)
+                $deviceTokens = Set-AccessTokenDeviceAuth -AccessToken $access_token -RefreshToken $refresh_token -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword -BPRT $([string]::IsNullOrEmpty($BPRT) -eq $False) -TransportKeyFileName $TransportKeyFileName
             }
             catch
             {

@@ -3,6 +3,9 @@
 # Constants
 $const_bom = [byte[]]@(0xEF,0xBB,0xBF)
 
+$DPAPI_ENTROPY_CNG_KEY_PROPERTIES = @(0x36,0x6A,0x6E,0x6B,0x64,0x35,0x4A,0x33,0x5A,0x64,0x51,0x44,0x74,0x72,0x73,0x75,0x00) # "6jnkd5J3ZdQDtrsu" + null terminator 
+$DPAPI_ENTROPY_CNG_KEY_BLOB		  = @(0x78,0x54,0x35,0x72,0x5A,0x57,0x35,0x71,0x56,0x56,0x62,0x72,0x76,0x70,0x75,0x41,0x00) # "xT5rZW5qVVbrvpuA" + null terminator
+
 # Unix epoch time (1.1.1970)
 $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millisecond 0
 
@@ -592,114 +595,107 @@ Function Parse-KeyBLOB
         # https://docs.microsoft.com/en-us/windows/win32/api/bcrypt/ns-bcrypt-bcrypt_rsakey_blob
         # https://docs.microsoft.com/en-us/windows/win32/seccrypto/base-provider-key-blobs
 
-        # RSAPUBKEY
-        # DWORD magic   ("RSA1" = public, or "RSA2" = private)
-        # DWORD bitlen
-        # ORD pubex
-        $magic  = [text.encoding]::ASCII.GetString($Key[0..3])
-        $bitlen = [bitconverter]::ToUInt16($Key,4)
-        $publen = [bitconverter]::ToUInt16($Key,8)
-        $modlen = [bitconverter]::ToUInt16($Key,12)
-        $pri1len = [bitconverter]::ToUInt16($Key,16)
-        $pri2len = [bitconverter]::ToUInt16($Key,20)
+        # Parse the header
+        $magic   = [text.encoding]::ASCII.GetString($Key[0..3])
+        $bitlen  = [bitconverter]::ToUInt32($Key,4)
+        $publen  = [bitconverter]::ToUInt32($Key,8)
+        $modlen  = [bitconverter]::ToUInt32($Key,12)
+        $pri1len = [bitconverter]::ToUInt32($Key,16)
+        $pri2len = [bitconverter]::ToUInt32($Key,20)
 
-        $pubex  = $Key[24..(24+$publen-1)]
+        $headerLen = 6* [System.Runtime.InteropServices.Marshal]::SizeOf([uint32]::new())
 
-        $p=24+$publen
+        # BYTE pubexp[publen]
+        # BYTE modulus[bitlen/8]
+        # BYTE prime1[bitlen/16]
+        # BYTE prime2[bitlen/16]
+        # BYTE exponent1[bitlen/16]
+        # BYTE exponent2[bitlen/16]
+        # BYTE coefficient[bitlen/16]
+        # BYTE privateExponent[bitlen/8]
 
-        $modulus = $key[($p)..($bitlen/8 + $p)]
-        $p += $modlen
-
-        # Private key
-        if($magic -eq "RSA2") 
+        # Parse RSA1 (RSAPUBLICBLOB)
+        $p = $headerLen
+        $pubexp  = $Key[$headerLen..($headerLen + $publen - 1)]; $p += $publen
+        $modulus = $key[($p)..($p-1 + $modlen)];                 $p += $modlen
+        
+        # Parse RSA2 (RSAPRIVATEBLOB)
+        if($magic -eq "RSA2" -or $magic -eq "RSA3") 
         {
-            # RSAPUBKEY rsapubkey;
+            $prime1 =           $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
+            $prime2 =           $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
+        }
 
-            # BYTE modulus[rsapubkey.bitlen/8];
-            # BYTE prime1[rsapubkey.bitlen/16];
-            # BYTE prime2[rsapubkey.bitlen/16];
-            # BYTE exponent1[rsapubkey.bitlen/16];
-            # BYTE exponent2[rsapubkey.bitlen/16];
-            # BYTE coefficient[rsapubkey.bitlen/16];
-            # BYTE privateExponent[rsapubkey.bitlen/8];
-
-            $prime1 =           $key[($p)..($p + $bitlen/16)] ; $p += $bitlen/16
-            $prime2 =           $key[($p)..($p + $bitlen/16)] ; $p += $bitlen/16
-            $exponent1 =        $key[($p)..($p + $bitlen/16)] ; $p += $bitlen/16
-            $exponent2 =        $key[($p)..($p + $bitlen/16)] ; $p += $bitlen/16
-            $coefficient =      $key[($p)..($p + $bitlen/16)] ; $p += $bitlen/16
-            $privateExponent =  $key[($p)..($p + $bitlen/8)] 
-            
+        # Parse RSA3 (RSAFULLPRIVATEBLOB)
+        if($magic -eq "RSA3") 
+        {
+            $exponent1 =        $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
+            $exponent2 =        $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
+            $coefficient =      $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
+            $privateExponent =  $key[($p)..($p-1 + $bitlen/8)] 
         }
         
         $attributes=@{
             "D" =        $privateExponent
             "DP" =       $exponent1
             "DQ" =       $exponent2
-            "Exponent" = $pubex
+            "Exponent" = $pubexp
             "InverseQ" = $coefficient
             "Modulus" =  $modulus
             "P" =        $prime1
             "Q"=         $prime2
         }
 
-        [System.Security.Cryptography.RSAParameters]$RSAp = New-Object psobject -Property $attributes
+        [System.Security.Cryptography.RSAParameters]$RSAParameters = New-Object psobject -Property $attributes
 
-        return $RSAp
-
+        return $RSAParameters
     }
 }
 
-# Converts the given RSAParameters to DER
-Function Convert-RSAToDER
+# Converts the given RSAParameters to PEM
+# Feb 6th 2022
+Function Convert-RSAToPEM
 {
 
     [cmdletbinding()]
 
     param(
         [parameter(Mandatory=$true,ValueFromPipeline)]
-        [System.Security.Cryptography.RSAParameters]$RSAParameters,
-        [Switch]$PEM
+        [System.Security.Cryptography.RSAParameters]$RSAParameters
     )
     process
     {
-        # Reverse bytes
+        $pemWriter = [Org.BouncyCastle.OpenSsl.PemWriter]::new([System.IO.StringWriter]::new())
+        $pemWriter.WriteObject([Org.BouncyCastle.Security.DotNetUtilities]::GetRsaKeyPair($RSAParameters).Private)
 
-        $modulus =  $RSAParameters.Modulus[($RSAParameters.Modulus.Length)..0]
-        $exponent = $RSAParameters.Exponent[($RSAParameters.Exponent.Length)..0]
+        $PEM = $pemWriter.Writer.ToString()
 
-        $der = Add-DERSequence -Data @(
-                    Add-DERSequence -Data @(
-                        # OID
-                        Add-DERTag -Tag 0x06 -Data @( 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01 )
-                    
-                        0x05 # Null
-                        0x00
-                    ) # Sequence
-                    Add-DERTag -Tag 0x03 -Data @(
-                        0x00 # Number of unused bits
+        $pemWriter.Writer.Dispose()
 
-                        Add-DERSequence -Data @(
-                            Add-DERInteger -Data $modulus
-                            Add-DERInteger -Data $exponent
-                        
-                        ) # Sequence
-                    ) # Tag 0x03
-                    
-                ) # Sequence
+        return $PEM
 
-        if($PEM)
-        {
-            return @"
------BEGIN PUBLIC KEY-----
-$(Convert-ByteArrayToB64 -Bytes $der)
------END PUBLIC KEY-----
-"@
-        }                
-        else
-        {
-            return $der
-        }
+    }
+}
+
+# Converts the given PEM to RSAParameters
+# Feb 6th 2022
+Function Convert-PEMToRSA
+{
+    [cmdletbinding()]
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [String]$PEM
+    )
+    process
+    {
+        $pemReader = [Org.BouncyCastle.OpenSsl.PemReader]::new([System.IO.StringReader]::new($PEM))
+        $keys = $pemReader.ReadObject()
+
+        $RSAParameters = [Org.BouncyCastle.Security.DotNetUtilities]::ToRSAParameters($keys.Private)
+
+        $pemReader.Reader.Dispose()
+
+        return $RSAParameters
 
     }
 }
@@ -1555,5 +1551,355 @@ function Remove-Bytes
         }
 
         $retVal
+    }
+}
+
+# Parses the given Cng blob
+# Dec 17th 2021
+function Parse-CngBlob
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [byte[]]$Data,
+        [Parameter(Mandatory=$false)]
+        [switch]$Decrypt,
+        [Parameter(Mandatory=$false)]
+        [switch]$LocalMachine
+    )
+    Begin
+    {
+        Add-Type -AssemblyName System.Security
+    }
+    Process
+    {
+        # Parse the header
+        $version =  [System.BitConverter]::ToInt32($Data,0)
+        $unknown =  [System.BitConverter]::ToInt32($Data,4)
+        $nameLen =  [System.BitConverter]::ToInt32($Data,8)
+        $type    =  [System.BitConverter]::ToInt32($Data,12)
+
+        $publicPropertiesLen  = [System.BitConverter]::ToInt32($Data,16)
+        $privatePropertiesLen = [System.BitConverter]::ToInt32($Data,20)
+        $privateKeyLen        = [System.BitConverter]::ToInt32($Data,24)
+        
+        $unknownArray = $Data[28..43]
+        
+        $name = [text.encoding]::Unicode.GetString($Data, 44, $nameLen)
+
+        Write-Debug "Version:                   $version"
+        Write-Debug "Unknown:                   $unknown"
+        Write-Debug "Name length:               $nameLen"
+        Write-Debug "Type:                      $type"
+        Write-Debug "Public properties length:  $publicPropertiesLen"
+        Write-Debug "Private properties length: $privatePropertiesLen"
+        Write-Debug "Private key length:        $privateKeyLen"
+        Write-Debug "Unknown array:             $(Convert-ByteArrayToHex -Bytes $unknownArray)"
+        Write-Debug "Name:                      $name`n`n"
+
+        Write-Verbose "Parsing Cng key: $name"
+
+        # Set the position
+        $p = 44+$nameLen
+
+        # Parse public properties
+        $publicProperties = @{}
+        $publicPropertiesTotal = 0
+        while($publicPropertiesTotal -lt $publicPropertiesLen)
+        {
+            $pubStructLen         = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+            $pubStructType        = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+            $pubStructUnk         = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+            $pubStructNameLen     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+            $pubStructPropertyLen = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+
+            $pubStructName        = [text.encoding]::Unicode.GetString($Data, $p, $pubStructNameLen); $p += $pubStructNameLen
+            $pubStructProperty    = $Data[$p..$($p + $pubStructPropertyLen - 1)]; $p += $pubStructPropertyLen
+
+            $publicPropertiesTotal += $pubStructLen
+
+            if([string]::IsNullOrEmpty($pubStructName))
+            {
+                $pubStructName = "Public Key"
+            }
+            elseif($pubStructName -eq "Modified")
+            {
+               $fileTimeUtc =  [System.BitConverter]::ToInt64($pubStructProperty,0)
+               Remove-Variable pubStructProperty
+               $pubStructProperty = [datetime]::FromFileTimeUtc($fileTimeUtc)
+            }
+
+            Write-Debug "Public property struct length: $pubStructLen"
+            Write-Debug "Public property struct type:   $pubStructType"
+            Write-Debug "Public property unknown:       $pubStructUnk"
+            Write-Debug "Public property name length:   $pubStructNameLen"
+            Write-Debug "Public property length:        $pubStructPropertyLen"
+            Write-Debug "Public property name:          $pubStructName"
+
+            if($pubStructName -eq "Modified")
+            {
+                Write-Verbose "Modified:        $($pubStructProperty.ToUniversalTime().ToString("s", [cultureinfo]::InvariantCulture))z`n`n"
+            }
+            else
+            {
+                Write-Debug "Public property:               $(Convert-ByteArrayToHex -Bytes $pubStructProperty)`n`n"
+            }
+
+            $publicProperties[$pubStructName] = $pubStructProperty
+        }
+        
+        # Parse private properties
+        $privateProperties = @{}
+        $privatePropertiesTotal = 0
+
+        $privatePropertiesBlob = $Data[$p..$($p + $privatePropertiesLen -1)]
+        $privateKeyBlob        = $Data[$($p + $privatePropertiesLen)..$($p + $privatePropertiesLen + $privateKeyLen -1)]
+        
+        $attributes = [ordered]@{
+            "Name"          = $name
+            "PublicKeyBlob" = $publicProperties["Public Key"]
+            "PrivateKeyBlob" = @()
+            "RSAParameters" = Parse-KeyBLOB -Key $publicProperties["Public Key"]
+        }
+        if($Decrypt)
+        {
+            $dpapiScope = "CurrentUser"
+            
+            if($LocalMachine)
+            {
+                $CurrentUser = "{0}\{1}" -f $env:USERDOMAIN,$env:USERNAME
+        
+                $dpapiScope = "LocalMachine"
+                # Elevate to get access to the DPAPI keys
+                if([AADInternals.Native]::copyLsassToken())
+                {
+                    Write-Warning "Running as LOCAL SYSTEM. You MUST restart PowerShell to restore $CurrentUser rights."
+                }
+                else
+                {
+                    Write-Error "Could not elevate, unable to decrypt. MUST be run as administrator!"
+                    return
+                }
+            }
+            
+            # Decrypt the private key properties using DPAPI
+            $decPrivateProperties = [Security.Cryptography.ProtectedData]::Unprotect($privatePropertiesBlob, $DPAPI_ENTROPY_CNG_KEY_PROPERTIES, $dpapiScope)
+            $attributes["PrivateKeyProperties"] = $decPrivateProperties
+
+            # Decrypt the private key blob using DPAPI
+            $decPrivateBlob = [Security.Cryptography.ProtectedData]::Unprotect($privateKeyBlob, $DPAPI_ENTROPY_CNG_KEY_BLOB, $dpapiScope)
+            $attributes["PrivateKeyBlob"] = $decPrivateBlob
+
+            # Convert to RSAFULLPRIVATEBLOB to get all parameters
+            $fullPrivateBlob = [AADInternals.Native]::convertKey($decPrivateBlob,"RSAPRIVATEBLOB", "RSAFULLPRIVATEBLOB")
+            $attributes["FullPrivateKeyBlob"] = $fullPrivateBlob
+            $attributes["RSAParameters"] = Parse-KeyBLOB -Key $fullPrivateBlob
+            
+        }
+
+        return New-Object psobject -Property $attributes
+        
+    }
+}
+
+# Splits the given string to the given line lenght using the given separator
+# Dec 17th 2021
+function Split-String
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$String,
+        [Parameter(Mandatory=$false)]
+        [int]$LineLength = 64,
+        [Parameter(Mandatory=$false)]
+        [string]$Separator = "`n"
+    )
+    Process
+    {
+        $retVal = ""
+        $p = 0
+
+        while($p -lt $String.Length)
+        {
+            if($String.Length - $p -lt $LineLength)
+            {
+                $retVal += $String.Substring($p)
+                break
+            }
+            else
+            {
+                $retVal += $String.Substring($p, $LineLength)
+                $retVal += $Separator
+                $p += $LineLength
+            }
+        }
+
+        return $retVal
+    }
+}
+
+# Creates a new RSA keyBLOB from the given RSAParameters
+# Dec 19th 2021
+Function New-KeyBLOB
+{
+
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [System.Security.Cryptography.RSAParameters]$Parameters,
+        [Parameter(Mandatory=$True)]
+        [ValidateSet('RSA1','RSA2','RSA3')]
+        [String]$Type
+    )
+    process
+    {
+        # Set the size information
+        $bitlen = $Parameters.Modulus.Length * 8
+        $pubLen = $Parameters.Exponent.Length
+        $modlen = $Parameters.Modulus.Length
+        $pri1len = 0
+        $pri2len = 0
+        
+        # Calculate the needed blob size for RSA1 (RSAPUBLICBLOB)
+        $headerLen = 6 * [System.Runtime.InteropServices.Marshal]::SizeOf([uint32]::new())
+        $blobLen =  $headerLen + $pubLen + $modLen
+
+        # Check the parameters and choose the type accordingly
+        if($Type -eq "RSA3" -and (!$Parameters.DP -or !$Parameters.DQ -or !$Parameters.InverseQ -or !$Parameters.D))
+        {
+            Write-Warning "No parameters for RSA3, creating RSA2"
+            $Type = "RSA2"
+        }
+        if($Type -eq "RSA2" -and (!$Parameters.P -or !$Parameters.D))
+        {
+            Write-Warning "No parameters for RSA2, creating RSA1"
+            $Type = "RSA1"
+        }
+
+        # If RSA2 or RSA3, set the P & Q lenghts
+        if($Type -ne "RSA1")
+        {
+            $pri1len = $Parameters.P.Length
+            $pri2len = $Parameters.Q.Length
+        }
+
+        # Adjust the total lenght for RSA2 (RSAPRIVATEBLOB)
+        if($Type -eq "RSA2")
+        {
+            $blobLen += $modLen
+        }
+
+        # Adjust the total lenght for RSA3 (RSAFULLPRIVATEBLOB)
+        if($Type -eq "RSA3")
+        {
+            $blobLen += $modLen + (5 * $modlen/2)
+        }
+        
+        # Create the blob
+        $blob = New-Object byte[] $blobLen
+
+        $magic = [text.encoding]::ASCII.GetBytes($Type)
+
+        $p = 0
+
+        # Set the magic and size information
+        [Array]::Copy($magic, 0, $blob, $p, 4); $p += 4
+        [Array]::Copy([bitconverter]::GetBytes([UInt32]$bitLen) , 0, $blob, $p, 4); $p += 4
+        [Array]::Copy([bitconverter]::GetBytes([UInt32]$pubLen) , 0, $blob, $p, 4); $p += 4
+        [Array]::Copy([bitconverter]::GetBytes([UInt32]$modLen) , 0, $blob, $p, 4); $p += 4
+        [Array]::Copy([bitconverter]::GetBytes([UInt32]$pri1len), 0, $blob, $p, 4); $p += 4
+        [Array]::Copy([bitconverter]::GetBytes([UInt32]$pri2len), 0, $blob, $p, 4); $p += 4
+
+        # Set the public exponent and modulus
+        [Array]::Copy($Parameters.Exponent, 0, $blob, $p, $pubLen) ; $p += $pubLen
+        [Array]::Copy($Parameters.Modulus , 0, $blob, $p, $modLen) ; $p += $modLen
+
+        # Set the private parameters for RSA2 & RSA3
+        if($Type -eq "RSA2" -or $Type -eq "RSA3")
+        {
+            [Array]::Copy($Parameters.P        , 0, $blob, $p, $pri1len) ; $p += $pri1len
+            [Array]::Copy($Parameters.Q        , 0, $blob, $p, $pri2len) ; $p += $pri2len
+        }
+
+        # Set the private parameters for RSA3
+        if($Type -eq "RSA3")
+        {
+            [Array]::Copy($Parameters.DP       , 0, $blob, $p, $pri1len) ; $p += $pri1len
+            [Array]::Copy($Parameters.DQ       , 0, $blob, $p, $pri2len) ; $p += $pri2len
+            [Array]::Copy($Parameters.InverseQ , 0, $blob, $p, $pri2len) ; $p += $pri2len
+            [Array]::Copy($Parameters.D        , 0, $blob, $p, $modLen)
+        }
+        
+        return $blob
+
+    }
+}
+
+# Creates a new pfx file from the given certificate and private key (RSAParameters)
+# Feb 6th 2022
+Function New-PfxFile
+{
+
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true)]
+        [System.Security.Cryptography.RSAParameters]$RSAParameters,
+        [parameter(Mandatory=$true)]
+        [byte[]]$X509Certificate
+    )
+    Begin
+    {
+        Add-Type -path "$PSScriptRoot\BouncyCastle.Crypto.dll"
+    }
+    Process
+    {
+        # Create X509 and private key entries
+        $x509entry       = [Org.BouncyCastle.Pkcs.X509CertificateEntry]::new([Org.BouncyCastle.X509.X509Certificate    ]::new($X509Certificate))
+        $privateKeyEntry = [Org.BouncyCastle.Pkcs.AsymmetricKeyEntry  ]::new([Org.BouncyCastle.Security.DotNetUtilities]::GetRsaKeyPair($RSAParameters).Private)
+
+        # Create a PKCS12 store and add entries
+        $pkcsStore = [Org.BouncyCastle.Pkcs.Pkcs12StoreBuilder]::new().Build()
+        $pkcsStore.SetKeyEntry("AADInternals",$privateKeyEntry,$x509entry)
+
+        # Export as byte array
+        $stream = [System.IO.MemoryStream]::new()
+        $pkcsStore.Save($stream,$null,[Org.BouncyCastle.Security.SecureRandom]::new())
+        $pfxFile = $stream.ToArray() 
+        $stream.Dispose()
+        
+        # Return
+        return $pfxFile
+    }
+}
+
+
+# Checks is the current user running as Administrator
+# Feb 6th 2022
+function Test-LocalAdministrator  
+{
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$False)]
+        [switch]$Throw,
+        [parameter(Mandatory=$False)]
+        [switch]$Warn
+    )
+    Process
+    {  
+        $isAdmin = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+
+        if(!$isAdmin -and $Throw)
+        {
+            Write-Warning "The PowerShell session is not elevated, please run as Administrator."
+        }
+        elseif(!$isAdmin -and $Throw)
+        {
+            Throw "The PowerShell session is not elevated, please run as Administrator."
+        }
+        return $isAdmin
     }
 }
