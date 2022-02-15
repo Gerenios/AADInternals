@@ -1,9 +1,10 @@
 ﻿# Add some assemblies
-Add-type -AssemblyName System.xml.linq              -ErrorAction SilentlyContinue
-Add-Type -AssemblyName System.Runtime.Serialization -ErrorAction SilentlyContinue
-Add-Type -AssemblyName System.Windows.Forms         -ErrorAction SilentlyContinue
-Add-Type -AssemblyName System.Web                   -ErrorAction SilentlyContinue
-Add-Type -AssemblyName System.Web.Extensions        -ErrorAction SilentlyContinue
+Add-type -AssemblyName System.xml.linq                 -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.Runtime.Serialization    -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.Windows.Forms            -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.Web                      -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.Web.Extensions           -ErrorAction SilentlyContinue
+Add-Type -path "$PSScriptRoot\BouncyCastle.Crypto.dll" -ErrorAction SilentlyContinue
 
 # Set supported TLS methods
 [Net.ServicePointManager]::SecurityProtocol = "Tls, Tls11, Tls12, Ssl3"

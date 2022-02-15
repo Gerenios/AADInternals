@@ -114,14 +114,9 @@ function Get-UserPRTToken
                 Write-Verbose "Found $($tokens.Count) token(s)."
 
                 # Return the last one
-                if($tokens.Count -gt 1)
-                {
-                    return $tokens[$tokens.Count - 1].Data.Split(";")[0]
-                }
-                else
-                {
-                    return $tokens.Data.Split(";")[0]
-                }
+                $token = $tokens[$tokens.Count - 1]["data"]
+                
+                return $token.Split(";")[0]
             }
             else
             {
@@ -339,6 +334,8 @@ function Join-DeviceToAzureAD
     Device successfully registered to Azure AD:
       DisplayName:     "My computer"
       DeviceId:        d03994c9-24f8-41ba-a156-1805998d6dc7
+      ObjectId:        afdeac87-b32a-41a0-95ad-0a555a91f0a4
+      TenantId:        8aeb6b82-6cc7-4e33-becd-97566b330f5b
       Cert thumbprint: 78CC77315A100089CF794EE49670552485DE3689
       Cert file name : "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
     Local SID:
@@ -355,6 +352,8 @@ function Join-DeviceToAzureAD
     Device successfully registered to Azure AD:
       DisplayName:     "My computer"
       DeviceId:        d03994c9-24f8-41ba-a156-1805998d6dc7
+      ObjectId:        afdeac87-b32a-41a0-95ad-0a555a91f0a4
+      TenantId:        8aeb6b82-6cc7-4e33-becd-97566b330f5b
       Cert thumbprint: 78CC77315A100089CF794EE49670552485DE3689
       Cert file name : "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
     Local SID:
@@ -370,6 +369,8 @@ function Join-DeviceToAzureAD
     Device successfully registered to Azure AD:
       DisplayName:     "My computer"
       DeviceId:        f24f116f-6e80-425d-8236-09803da7dfbe
+      ObjectId:        afdeac87-b32a-41a0-95ad-0a555a91f0a4
+      TenantId:        8aeb6b82-6cc7-4e33-becd-97566b330f5b
       Cert thumbprint: A531B73CFBAB2BA26694BA2AD31113211CC2174A
       Cert file name : "f24f116f-6e80-425d-8236-09803da7dfbe.pfx"
 
@@ -453,8 +454,13 @@ function Join-DeviceToAzureAD
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$deviceCert = $DeviceCertResponse[0]
         $regResponse = $DeviceCertResponse[1]
 
+        # Parse certificate information
+        $oids = Parse-CertificateOIDs -Certificate $deviceCert
+        $deviceId = $oids.DeviceId.ToString()
+        $tenantId = $oids.TenantId.ToString()
+        $objectId = $oids.ObjectId.ToString()
+
         # Write the device certificate to disk
-        $deviceId = $deviceCert.Subject.Split("=")[1]
         $deviceCert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-Content "$deviceId.pfx" -Encoding Byte
 
         # Remove the private key from the store
@@ -463,6 +469,8 @@ function Join-DeviceToAzureAD
         Write-Host "Device successfully registered to Azure AD:"
         Write-Host "  DisplayName:     ""$DeviceName"""
         Write-Host "  DeviceId:        $deviceId"
+        Write-Host "  ObjectId:        $objectId"
+        Write-Host "  TenantId:        $tenantId"
         Write-Host "  Cert thumbprint: $($regResponse.Certificate.Thumbprint)"
         Write-host "  Cert file name : ""$deviceId.pfx"""
 
@@ -529,7 +537,7 @@ function New-P2PDeviceCertificate
     .EXAMPLE
     PS C\:>New-AADIntP2PDeviceCertificate -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -TenantId 4169fee0-df47-4e31-b1d7-5d248222b872 -DeviceName "mypc1.company.com"
 
-    Device certificate successfully created:
+    Device P2P certificate successfully created:
       Subject:         "CN=d03994c9-24f8-41ba-a156-1805998d6dc7, DC=4169fee0-df47-4e31-b1d7-5d248222b872"
       DnsName:         "mypc1.company.com"
       Issuer:          "CN=MS-Organization-P2P-Access [2020]"
@@ -630,6 +638,11 @@ function New-P2PDeviceCertificate
         if(!$DNSNames)
         {
             $DNSNames = @($DeviceName)
+        }
+
+        if(!$Certificate)
+        {
+            $TenantId = (Parse-CertificateOIDs -Certificate $Certificate).TenantId
         }
 
         if(!$TenantId)
@@ -757,7 +770,7 @@ $($response.x5c_ca)
         # Print out information
         if($Certificate)
         {
-            Write-Host "Device certificate successfully created:"
+            Write-Host "Device P2P certificate successfully created:"
         }
         else
         {
@@ -816,6 +829,8 @@ function Get-UserPRTKeys
     Device successfully registered to Azure AD:
       DisplayName:     "My computer"
       DeviceId:        d03994c9-24f8-41ba-a156-1805998d6dc7
+      ObjectId:        afdeac87-b32a-41a0-95ad-0a555a91f0a4
+      TenantId:        8aeb6b82-6cc7-4e33-becd-97566b330f5b
       Cert thumbprint: 78CC77315A100089CF794EE49670552485DE3689
       Cert file name : "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
     Local SID:
@@ -827,9 +842,9 @@ function Get-UserPRTKeys
 
     PS C:\>$creds = Get-Credential
 
-    PS C:\>$prtKeys = Get-UserAADIntPRTKeys -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -Credentials $cred
+    PS C:\>$prtKeys = Get-AADIntUserPRTKeys -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -Credentials $cred
 
-    PS C:\>$prttoken = New-UserPRTToken -Settings $prtkeys -GetNonce
+    PS C:\>$prttoken = New-AADIntUserPRTToken -Settings $prtkeys -GetNonce
 
     .EXAMPLE
     Get-AADIntAccessTokenForAADJoin -SaveToCache
@@ -838,6 +853,8 @@ function Get-UserPRTKeys
     Device successfully registered to Azure AD:
       DisplayName:     "My computer"
       DeviceId:        d03994c9-24f8-41ba-a156-1805998d6dc7
+      ObjectId:        afdeac87-b32a-41a0-95ad-0a555a91f0a4
+      TenantId:        8aeb6b82-6cc7-4e33-becd-97566b330f5b
       Cert thumbprint: 78CC77315A100089CF794EE49670552485DE3689
       Cert file name : "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
     Local SID:
@@ -849,9 +866,9 @@ function Get-UserPRTKeys
 
     PS C:\>Get-AADIntAccessTokenForIntuneMDM -SaveToCache
 
-    PS C:\>$prtKeys = Get-UserAADIntPRTKeys -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -UseRefreshToken
+    PS C:\>$prtKeys = Get-AADIntUserPRTKeys -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -UseRefreshToken
 
-    PS C:\>$prttoken = New-UserPRTToken -Settings $prtkeys -GetNonce
+    PS C:\>$prttoken = New-AADIntUserPRTToken -Settings $prtkeys -GetNonce
 
     .EXAMPLE
     Get-AADIntAccessTokenForAADJoin -SaveToCache
@@ -860,6 +877,8 @@ function Get-UserPRTKeys
     Device successfully registered to Azure AD:
       DisplayName:     "My computer"
       DeviceId:        d03994c9-24f8-41ba-a156-1805998d6dc7
+      ObjectId:        afdeac87-b32a-41a0-95ad-0a555a91f0a4
+      TenantId:        8aeb6b82-6cc7-4e33-becd-97566b330f5b
       Cert thumbprint: 78CC77315A100089CF794EE49670552485DE3689
       Cert file name : "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
     Local SID:
@@ -871,32 +890,60 @@ function Get-UserPRTKeys
 
     PS C:\>$saml = New-AADIntSAMLToken -ImmutableID "2Vt0xz0EgESz+vF+8BzxPw==" -Issuer "http://sts.company.com/adfs/services/trust" -PfxFileName .\ADFSSigningCertificate.pfx
 
-    PS C:\>$prtKeys = Get-UserAADIntPRTKeys -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -SAMLToken $saml
+    PS C:\>$prtKeys = Get-AADIntUserPRTKeys -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -SAMLToken $saml
 
-    PS C:\>$prttoken = New-UserPRTToken -Settings $prtkeys -GetNonce
+    PS C:\>$prttoken = New-AADIntUserPRTToken -Settings $prtkeys -GetNonce
+
+    .Example
+    PS C\:>Export-AADIntLocalDeviceCertificate
+
+    Device certificate exported to f72ad27e-5833-48d3-b1d6-00b89c429b91.pfx
+
+    PS C\:>Export-AADIntLocalDeviceTransportKey
+
+    Transport key exported to f72ad27e-5833-48d3-b1d6-00b89c429b91_tk.pem
+   
+    PS C:\>$creds = Get-Credential
+
+    PS C\:>$prtKeys = Get-AADIntUserPRTKeys -PfxFileName .\f72ad27e-5833-48d3-b1d6-00b89c429b91.pfx -TransportKeyFileName .\f72ad27e-5833-48d3-b1d6-00b89c429b91_tk.pem -Credentials $creds
+
+    PS C:\>$prttoken = New-AADIntUserPRTToken -Settings $prtkeys -GetNonce
+
+    .Example
+    PS C\:>Export-AADIntLocalDeviceCertificate
+
+    Device certificate exported to f72ad27e-5833-48d3-b1d6-00b89c429b91.pfx
+
+    PS C\:>Export-AADIntLocalDeviceTransportKey
+
+    Transport key exported to f72ad27e-5833-48d3-b1d6-00b89c429b91_tk.pem
+   
+    PS C\:>$prtKeys = Get-AADIntUserPRTKeys -PfxFileName .\f72ad27e-5833-48d3-b1d6-00b89c429b91.pfx -TransportKeyFileName .\f72ad27e-5833-48d3-b1d6-00b89c429b91_tk.pem
+
+    PS C:\>$prttoken = New-AADIntUserPRTToken -Settings $prtkeys -GetNonce
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='Certificate',Mandatory=$True)]
-        [Parameter(ParameterSetName='RTCertificate',Mandatory=$True)]
+        [Parameter(ParameterSetName='Certificate'      ,Mandatory=$True)]
+        [Parameter(ParameterSetName='RTCertificate'    ,Mandatory=$True)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
 
-        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$True)]
+        [Parameter(ParameterSetName='FileAndPassword'  ,Mandatory=$True)]
         [Parameter(ParameterSetName='RTFileAndPassword',Mandatory=$True)]
         [string]$PfxFileName,
-        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$False)]
+        [Parameter(ParameterSetName='FileAndPassword'  ,Mandatory=$False)]
         [Parameter(ParameterSetName='RTFileAndPassword',Mandatory=$False)]
         [string]$PfxPassword,
 
+        [Parameter(Mandatory=$False)]
+        [string]$TransportKeyFileName,
+
         [Parameter(ParameterSetName='RTFileAndPassword',Mandatory=$True)]
-        [Parameter(ParameterSetName='RTCertificate',Mandatory=$True)]
+        [Parameter(ParameterSetName='RTCertificate'    ,Mandatory=$True)]
         [switch]$UseRefreshToken,
 
         [Parameter(Mandatory=$False)]
         [String]$SAMLToken,
-
-        [Parameter(Mandatory=$False)]
-        [String]$TenantId,
 
         [Parameter(Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
@@ -904,13 +951,10 @@ function Get-UserPRTKeys
         [Parameter(Mandatory=$False)]
         [String]$OSVersion="10.0.18363.0"
     )
+
     Process
     {
-        if(!$SAMLToken -and !$Credentials -and !$UseRefreshToken)
-        {
-            throw "Credentials or SAMLToken must be provided or the -UseRefreshToken switch used!"
-        }
-
+        # Load the certificate if not provided
         if(!$Certificate)
         {
             $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword -Exportable
@@ -918,22 +962,15 @@ function Get-UserPRTKeys
 
         # Get the private key
         $privateKey = Load-PrivateKey -Certificate $Certificate
-              
-        # B64 encode the public key
-        $x5c = [convert]::ToBase64String(($certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)))
 
-        # TenantId
-        if(!$TenantId)
-        {
-            if($Credentials)
-            {
-                $TenantId = Get-TenantID -Domain $Credentials.UserName.Split("@")[1]
-            }
-            else
-            {
-                $TenantId = "Common"
-            }
-        }
+        # Get the public key
+        $publicKey = $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+
+        # Parse certificate information
+        $oids = Parse-CertificateOIDs -Certificate $Certificate
+        $deviceId = $oids.DeviceId.ToString()
+        $tenantId = $oids.TenantId.ToString()
+        $objectId = $oids.ObjectId.ToString()
 
         $body = "grant_type=srv_challenge" 
         
@@ -943,7 +980,12 @@ function Get-UserPRTKeys
         Remove-Variable body
 
         # Construct the header
-        $header = Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.GetBytes("{""alg"":""RS256"", ""typ"":""JWT"", ""x5c"":""$($x5c.Replace("/","\/"))""}")) -NoPadding
+        $headerObj = [ordered]@{
+            "alg" = "RS256"
+            "typ" = "JWT"
+            "x5c" = Convert-ByteArrayToB64 ($publicKey)
+        }
+        $header = Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.GetBytes(($headerObj | ConvertTo-Json -Compress))) -NoPadding
 
         # Construct the payload
         $payloadObj=@{
@@ -978,8 +1020,17 @@ function Get-UserPRTKeys
             $payloadObj["refresh_token"] = $tokens[1]
             $payloadObj["client_id"]     = "29d9ed98-a469-4536-ade2-f981bc1d605e"
         }
+        else
+        {
+            # Get access token interactively (supports MFA)
+            $tokens = Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -PfxFileName $PfxFileName -Resource "1b730954-1685-4b74-9bfd-dac224a7b894" -IncludeRefreshToken $true -ForceMFA $true
 
-        $payload = Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.GetBytes( ($payloadObj | ConvertTo-Json -Compress ).Replace("/","\/") )) -NoPadding
+            $payloadObj["grant_type"]    = "refresh_token"
+            $payloadObj["refresh_token"] = $tokens[1]
+            $payloadObj["client_id"]     = "29d9ed98-a469-4536-ade2-f981bc1d605e"
+        }
+
+        $payload = Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.GetBytes( ($payloadObj | ConvertTo-Json -Compress ) )) -NoPadding
 
         # Construct the JWT data to be signed
         $dataBin = [text.encoding]::UTF8.GetBytes(("{0}.{1}" -f $header,$payload))
@@ -1013,7 +1064,14 @@ function Get-UserPRTKeys
         # Decrypt the session key and add it to return value
         try
         {
-            $sessionKey = Decrypt-PRTSessionKey -JWE $response.session_key_jwe -PrivateKey $privateKey
+            if($TransportKeyFileName)
+            {
+                # Get the transport key from the provided file 
+                $tkPEM = (Get-Content $TransportKeyFileName) -join "`n"
+                $tkParameters = Convert-PEMToRSA -PEM $tkPEM
+                $privateKey = [System.Security.Cryptography.RSA]::Create($tkParameters)
+            }
+            $sessionKey = Decrypt-JWE -JWE $response.session_key_jwe -PrivateKey $privateKey
             $response | Add-Member -NotePropertyName "session_key" -NotePropertyValue (Convert-ByteArrayToB64 -Bytes $sessionKey)
         }
         catch
@@ -1022,7 +1080,7 @@ function Get-UserPRTKeys
         }
 
         # Write to file
-        $outFileName = "$($Certificate.Subject.Split("=")[1]).json"
+        $outFileName = "$deviceId.json"
         $response | ConvertTo-Json |Set-Content $outFileName -Encoding UTF8
         Write-Host "Keys saved to $outFileName"
 

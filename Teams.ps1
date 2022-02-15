@@ -92,7 +92,7 @@ function Set-TeamsStatusMessage
     Sets the Teams status message status of the user.
 
     .Parameter AccessToken
-    The access token used to set the availability
+    The access token used to set the status message
 
     .Parameter Message
     The status message
@@ -281,7 +281,8 @@ function Send-TeamsMessage
         [String]$ClientMessageId,
         [Parameter(ParameterSetName = "Thread", Mandatory=$True)]
         [String]$Thread,
-        [switch]$External
+        [switch]$External,
+        [switch]$FakeInternal
     )
     Process
     {
@@ -470,6 +471,13 @@ function Send-TeamsMessage
             $messageBody["properties"]["interopType"]="receiverSfB"
             $messageBody["fromSipUri"] = $parsedToken.upn
             $messageBody["toSipUri"] =   $msgRecipients | Select-Object -ExpandProperty email
+        }
+
+        if($FakeInternal)
+        {
+            # Fake internal by removing the "fed." from the thread
+            # This allows sending rich text to external users too.
+            $Thread = $Thread.Replace("@fed.","@")
         }
 
         $response=Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$chatService/v1/users/ME/conversations/$thread/messages" -Headers $headers -Body ($messageBody | ConvertTo-Json -Depth 5) -ContentType "application/json; charset=utf-8"

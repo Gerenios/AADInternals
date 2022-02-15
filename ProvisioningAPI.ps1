@@ -4650,7 +4650,7 @@ function Get-CompanyInformation
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
-        $ReturnValue
+        [String]$TenantId
     )
     Process
     {
@@ -4666,7 +4666,7 @@ function Get-CompanyInformation
 "@
 
         # Create the envelope and call the API
-        $response=Call-ProvisioningAPI(Create-Envelope $AccessToken $command $request_elements)
+        $response=Call-ProvisioningAPI(Create-Envelope $AccessToken $command $request_elements -TenantId $TenantId)
 
         # Get the results
         $results = Parse-SOAPResponse($Response)
@@ -6414,19 +6414,21 @@ function Get-SPOServiceInformation
 
         # Get service information and parse SPO data
         $ServiceInformation = Get-CompanyInformation -AccessToken $AccessToken
-        $service_info=Parse-ServiceInformation $ServiceInformation.ServiceInformation
-        foreach($name in $service_info.Keys)
+        if($ServiceInformation.ServiceInformation)
         {
-            if($name.toLower().StartsWith("sharepoint"))
+            $service_info=Parse-ServiceInformation $ServiceInformation.ServiceInformation
+            foreach($name in $service_info.Keys)
             {
-                $value=$service_info[$name]
-                foreach($attribute in $value)
+                if($name.toLower().StartsWith("sharepoint"))
                 {
-                    $attributes[$attribute.Name]=$attribute.Value
+                    $value=$service_info[$name]
+                    foreach($attribute in $value)
+                    {
+                        $attributes[$attribute.Name]=$attribute.Value
+                    }
                 }
             }
         }
-        
         # Return
         return New-Object -TypeName PSObject -Property $attributes
 

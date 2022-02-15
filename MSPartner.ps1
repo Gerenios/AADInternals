@@ -532,3 +532,132 @@ function Get-MSPartnerRoleMembers
         $roles
     }
 }
+
+# Finds MS Partners
+# Dec 14th 2021
+function Find-MSPartners
+{
+<#
+    .SYNOPSIS
+    Finds MS Partners using the given criteria.
+
+    .DESCRIPTION
+    Finds MS Partners using the given criteria.
+
+    .Parameter MaxResults
+    Maximum number of partners to return. Defaults to 100.
+
+    .Parameter Country
+    Two letter country code
+
+    .Example
+    PS C:\>Find-AADIntMSPartners -Country FI -MaxResults 20 | Sort CompanyName
+    
+    TenantId                             CompanyName                          Country Address                             
+    --------                             -----------                          ------- -------                             
+    6f28e5b8-67fe-4207-a048-cc17b8e13499 Addend Analytics LLP                 FI      @{country=FI; region=Europe; city...
+    12f4ed76-f694-4b1e-9b57-c3849eea3f6c CANORAMA OY AB                       FI      @{country=FI; region=Europe; city...
+    bff3224c-767a-4628-8c53-23a4df13a03c CloudNow IT Oy                       FI      @{country=FI; region=Europe; city...
+    719dc930-9d0e-4ea4-b53e-a2c65a625979 Cloudriven Oy                        FI      @{country=FI; region=Europe; city...
+    6f1ff46b-bd45-422f-ad28-485c03cd59fc Cubiq Analytics Oy                   FI      @{country=FI; region=Europe; city...
+    6fce4bb8-3501-41c9-afcc-db0fb51c7e3d Digia                                FI      @{country=FI; region=Europe; city...
+    87fc9aba-de47-425e-b0ac-712471cbb34f Fujitsu Limited                      FI      @{country=FI; region=Europe; city...
+    a951d4b8-d93b-4425-a116-6a0b4efbb964 Futurice Oy                          FI      @{country=FI; region=Europe; city...
+    4b4e036d-f94b-4209-8f07-6860b3641366 Gofore Oyj                           FI      @{country=FI; region=Europe; city...
+    4eee4718-7215-41bf-b130-25ce43c85b33 Henson Group                         FI      @{country=FI; region=Europe; city...
+    b6602c2f-7bd6-49d3-a2aa-f0b0359a73ef Henson Group Service Ireland Limited FI      @{country=FI; region=Europe; city...
+    7c0c36f5-af83-4c24-8844-9962e0163719 Hexaware Technologies                FI      @{country=FI; region=Europe; city...
+    99ebba89-0dd9-4b7b-8f23-95339d2a81e1 IBM                                  FI      @{country=FI; region=Europe; city...
+    1c8672ad-d9cc-4f59-b839-90be132d96ab IFI Techsolutions Pvt Ltd            FI      @{country=FI; region=Europe; city...
+    1e3ee4c0-94a9-45a4-9151-07e1858e6372 InlineMarket Oy                      FI      @{country=FI; region=Europe; city...
+    431fbbea-8544-49f8-9891-e8a4e4756e83 Medha Hosting (OPC) Ltd              FI      @{country=FI; region=Europe; city...
+    04207efa-4522-4391-a621-5708a40b634d MPY Yrityspalvelut Oyj               FI      @{country=FI; region=Europe; city...
+    8c467c92-8e59-426e-a612-e23d69cb4437 Myriad Technologies                  FI      @{country=FI; region=Europe; city...
+    50950a2d-dde4-4887-978d-630468d7f741 Solteq Plc                           FI      @{country=FI; region=Europe; city...
+    eab8b88b-cf1a-441a-9ad9-6a8d94dcccbb Solu Digital Oy                      FI      @{country=FI; region=Europe; city...
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [int]$MaxResults=100,
+        [Parameter(Mandatory=$False)]
+        [string]$Country,
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("Consulting","Custom solution","Deployment or Migration","Hardware","IP Services(ISV)","Integration","Learning and Certification","Licensing","Managed Services (MSP)","Project management")]
+        [string[]]$Services
+    )
+    Process
+    {
+        if($Domain)
+        {
+            $TenantId = Get-TenantID -Domain $Domain
+        }
+        if($services)
+        {
+            $servicesParameter = ";services=$([System.Web.HttpUtility]::UrlEncode(($services -join ",")))"
+        }
+
+        $totalresults = 0
+        $offSet       = 0
+        $pageSize     = 20
+        
+        $first=$true
+
+        # For book keeping, returns many duplicates :(
+        $foundTenants = @()
+
+        while($totalResults -lt $MaxResults)
+        {
+            $url = "https://main.prod.marketplacepartnerdirectory.azure.com/api/partners?filter=pageSize=$pageSize;pageOffset=$offSet;country=$Country;onlyThisCountry=true$servicesParameter"
+
+            # Invoke the API call
+            $response = Invoke-RestMethod -UseBasicParsing -Method Get -Uri $url
+
+            # Print out the estimated number of results
+            if($first)
+            {
+                Write-Host "Estimated total matches: $($response.estimatedTotalMatchingPartners)"
+                $first = $false
+            }
+
+            # Adjust the max results as needed
+            $MaxResults = [math]::Min($MaxResults,$response.estimatedTotalMatchingPartners)
+            
+
+            #$totalResults += $response.matchingPartners.totalCount
+
+            $items = $response.matchingPartners.items
+
+            # Loop through the items
+            foreach($item in $items)
+            {
+                if($foundTenants -notcontains $item.partnerId)
+                {
+                    $totalResults++
+
+                    $foundTenants += $item.partnerId
+                    $attributes = [ordered]@{
+                        "TenantId"    = $item.partnerId
+                        "CompanyName" = $item.name
+                        "Country"     = $item.location.address.country
+                        "Address"     = $item.location.address
+                    }
+                    New-Object psobject -Property $attributes
+                }
+            }
+
+            # Continue as needed
+            if($items.count -eq $pageSize)
+            {
+                # More items
+                $offSet += $pageSize
+            }
+            else
+            {
+                # Got all
+                break
+            }
+        }
+
+    }
+}

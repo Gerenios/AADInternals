@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.6.5'
+	ModuleVersion = '0.6.6'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -19,7 +19,7 @@
 	CompanyName = 'Gerenios Ltd'
 
 	# Copyright statement for this module
-	Copyright = '(c) 2018 - 2021 Nestori Syynimaa (@DrAzureAD). Distributed under MIT license.'
+	Copyright = '(c) 2018 - 2022 Nestori Syynimaa (@DrAzureAD). Distributed under MIT license.'
 
 	# Description of the functionality provided by this module
 	Description = 'The AADInternals PowerShell Module utilises several internal features of Azure Active Directory, Office 365, and related admin tools.
@@ -27,6 +27,7 @@
 AADInternals allows you to export ADFS certificates, Azure AD Connect passwords, and modify numerous Azure AD / Office 365 settings not otherwise possible.
 
 DISCLAIMER: Functionality provided through this module are not supported by Microsoft and thus should not be used in a production environment. Use on your own risk! 
+
 '
 
 	# Minimum version of the Windows PowerShell engine required by this module
@@ -86,6 +87,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\CommonUtils.ps1"
         ".\ComplianceAPI.ps1"
         ".\ComplianceAPI_utils.ps1"
+        ".\Device.ps1"
+        ".\Device_utils.ps1"
         ".\DRS_Utils.ps1"
         ".\FederatedIdentityTools.ps1"
         ".\GraphAPI.ps1"
@@ -117,6 +120,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\ProcessTools.ps1"
         ".\ProvisioningAPI.ps1"
         ".\ProvisioningAPI_utils.ps1"
+        ".\ProxySettings.ps1"
         ".\PRT.ps1"
         ".\PRT_Utils.ps1"
         ".\PSRP.ps1"
@@ -441,11 +445,21 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     #"Get-MSPartnerPublishers"
     "Get-MSPartnerOrganizations"
     "Get-MSPartnerRoleMembers"
+    "Find-MSPartners"
 
     # AdminAPI.ps1
     "Approve-MSPartnerDelegatedAdminRequest"
     "Remove-MSPartnerDelegatedAdminRoles"
-    "Get-MSPartners"    
+    "Get-MSPartners"  
+    
+    # Device.ps1
+    "Export-LocalDeviceCertificate"
+    "Export-LocalDeviceTransportKey" 
+    "Join-LocalDeviceToAzureAD"
+    "Get-LocalDeviceJoinInfo"
+
+    # ProxySettings.ps1
+    "Set-ProxySettings"
 )
 
 	# Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
