@@ -160,6 +160,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AccessTokenForMSGraph"
     "Get-AccessTokenForPTA"
     "Get-AccessTokenForEXO"
+    "Get-AccessTokenForEXOPS"
     "Get-AccessTokenForSARA"
     "Get-AccessTokenForOneDrive"
     "Get-AccessTokenForOfficeApps"

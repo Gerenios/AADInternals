@@ -1813,6 +1813,9 @@ function Get-AuthRedirectUrl
 		elseif($ClientId -eq "3b511579-5e00-46e1-a89e-a6f0870e2f5a") 
         {
             $redirect_uri = "https://windows365.microsoft.com/signin-oidc"
+        }elseif($ClientId -eq "a0c73c16-a7e3-4564-9a95-2bdf47383716") # EXO PS
+        {
+            $redirect_uri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
         }
         
 
