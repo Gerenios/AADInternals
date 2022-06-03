@@ -282,52 +282,244 @@ function Set-PasswordHashSyncEnabled
     )
     Process
     {
+        Write-Warning "Set-AADIntPasswordHashSyncEnabled is deprecated." 
+        Write-Warning "Use 'Set-AADIntSyncFeatures -EnableFeatures PasswordHashSync' instead."
+
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
-        # Get the current configuration
-        $CompanyConfig = Get-CompanyInformation -AccessToken $AccessToken
+        # Get the current feature status
+        $features = Get-SyncFeatures -AccessToken $AccessToken
 
         # Check whether the PHS sync is already enabled
-        if($Enabled -and $CompanyConfig["PasswordSynchronizationEnabled"].'#text' -eq "true")
+        if($Enabled -and $features.PasswordHashSync)
         {
             Write-Host "Password Hash Synchronization already enabled"
         }
+        elseif(!$Enabled -and !$features.PasswordHashSync)
+        {
+            Write-Host "Password Hash Synchronization already disabled"
+        }
         else
         {
-            # Check whether the dirsync is disabled
-            if($CompanyConfig["DirectorySynchronizationEnabled"].'#text' -ne "true")
-            {
-                # Turn dirsync on
-                Set-ADSyncEnabled -AccessToken $AccessToken -EnableDirSync $true
-            }
-
             # Enable or disable PHS
             if($Enabled)
             {
-                Set-SyncFeatures -AccessToken $AccessToken -Features 41017
+                $features = Set-SyncFeatures -AccessToken $AccessToken -EnableFeatures PasswordHashSync
+                if(!$features.PasswordHashSync)
+                {
+                    Write-Error "Could not enable Password Hash Sync"
+                }
+
             }
             else
             {
-                Set-SyncFeatures -AccessToken $AccessToken -Features 41016
+                $features = Set-SyncFeatures -AccessToken $AccessToken -DisableFeatures PasswordHashSync | Out-Null
+                if($features.PasswordHashSync)
+                {
+                    Write-Error "Could not disable Password Hash Sync"
+                }
             }
         }
         
     }
 }
 
-
-# Set dirsync features (i.e. enable or disable password sync).
-# May 8th 2019
+# Set sync features
+# Nov 3rd 2021
 function Set-SyncFeatures
 {
+<#
+    .SYNOPSIS
+    Enables or disables synchronisation features.
+
+    .DESCRIPTION
+    Enables or disables synchronisation features using Azure AD Sync API. 
+    As such, doesn't require "Global Administrator" credentials, "Directory Synchronization Accounts" credentials will do.
+    
+    .Parameter AccessToken
+    Access Token
+
+    .Parameter EnableFeatures
+    List of features to be enabled
+
+    .Parameter DisableFeatures
+    List of features to be disabled
+
+    .Example
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+    PS C:\>Set-AADIntSyncFeature -EnableFeatures PasswordHashSync -DisableFeatures BlockCloudObjectTakeoverThroughHardMatch
+
+    BlockCloudObjectTakeoverThroughHardMatch         : False
+    BlockSoftMatch                                   : False
+    DeviceWriteback                                  : False
+    DirectoryExtensions                              : False
+    DuplicateProxyAddressResiliency                  : True
+    DuplicateUPNResiliency                           : True
+    EnableSoftMatchOnUpn                             : True
+    EnableUserForcePasswordChangeOnLogon             : False
+    EnforceCloudPasswordPolicyForPasswordSyncedUsers : False
+    PassThroughAuthentication                        : False
+    PasswordHashSync                                 : True
+    PasswordWriteBack                                : False
+    SynchronizeUpnForManagedUsers                    : True
+    UnifiedGroupWriteback                            : False
+    UserWriteback                                    : False
+#>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
-        [Validateset("41016","41017")] # 41016 = DirSync, 41017 = DirSync + Password Hash Sync
-        [String]$Features="41016",
+        [ValidateSet('PasswordHashSync','PasswordWriteBack','DirectoryExtensions','DuplicateUPNResiliency','EnableSoftMatchOnUpn','DuplicateProxyAddressResiliency','EnforceCloudPasswordPolicyForPasswordSyncedUsers','UnifiedGroupWriteback','UserWriteback','DeviceWriteback','SynchronizeUpnForManagedUsers','EnableUserForcePasswordChangeOnLogon','PassThroughAuthentication','BlockSoftMatch','BlockCloudObjectTakeoverThroughHardMatch')]
+        [String[]]$EnableFeatures,
+        [Parameter(Mandatory=$False)]
+        [ValidateSet('PasswordHashSync','PasswordWriteBack','DirectoryExtensions','DuplicateUPNResiliency','EnableSoftMatchOnUpn','DuplicateProxyAddressResiliency','EnforceCloudPasswordPolicyForPasswordSyncedUsers','UnifiedGroupWriteback','UserWriteback','DeviceWriteback','SynchronizeUpnForManagedUsers','EnableUserForcePasswordChangeOnLogon','PassThroughAuthentication','BlockSoftMatch','BlockCloudObjectTakeoverThroughHardMatch')]
+        [String[]]$DisableFeatures
+    )
+    Begin
+    {
+        $feature_values = [ordered]@{
+            "PasswordHashSync"                                 =       1 
+            "PasswordWriteBack"                                =       2 
+            "DirectoryExtensions"                              =       4
+            "DuplicateUPNResiliency"                           =       8 
+            "EnableSoftMatchOnUpn"                             =      16
+            "DuplicateProxyAddressResiliency"                  =      32
+                                                               #      64
+                                                               #     128
+                                                               #     256
+            "EnforceCloudPasswordPolicyForPasswordSyncedUsers" =     512 
+            "UnifiedGroupWriteback"                            =    1024 
+            "UserWriteback"                                    =    2048 
+            "DeviceWriteback"                                  =    4096 
+            "SynchronizeUpnForManagedUsers"                    =    8192 
+            "EnableUserForcePasswordChangeOnLogon"             =   16384 
+                                                               #   32768
+                                                               #   65536
+            "PassThroughAuthentication"                        =  131072
+                                                               #  262144
+            "BlockSoftMatch"                                   =  524288
+            "BlockCloudObjectTakeoverThroughHardMatch"         = 1048576
+        }
+    }
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        # Get the current features
+        $features = (Get-SyncConfiguration2 -AccessToken $AccessToken).DirSyncFeatures
+
+        # Enable features
+        foreach($feature in $EnableFeatures)
+        {
+            $features = $features -bor $feature_values[$feature]
+        }
+
+        # Disable features
+        foreach($feature in $DisableFeatures)
+        {
+            $features = $features -band (0x7FFFFFFF -bxor $feature_values[$feature])
+        }
+
+        Update-SyncFeatures -AccessToken $AccessToken -Features $features
+
+        Get-SyncFeatures -AccessToken $AccessToken
+    }
+}
+
+# Get sync features
+# Nov 3rd 2021
+function Get-SyncFeatures
+{
+<#
+    .SYNOPSIS
+    Show the status of synchronisation features.
+
+    .DESCRIPTION
+    Show the status of synchronisation features using Azure AD Sync API. 
+    As such, doesn't require "Global Administrator" credentials, "Directory Synchronization Accounts" credentials will do.
+    
+    .Parameter AccessToken
+    Access Token
+
+    .Example
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+    PS C:\>Get-AADIntSyncFeatures 
+
+    BlockCloudObjectTakeoverThroughHardMatch         : True
+    BlockSoftMatch                                   : False
+    DeviceWriteback                                  : False
+    DirectoryExtensions                              : False
+    DuplicateProxyAddressResiliency                  : True
+    DuplicateUPNResiliency                           : True
+    EnableSoftMatchOnUpn                             : True
+    EnableUserForcePasswordChangeOnLogon             : False
+    EnforceCloudPasswordPolicyForPasswordSyncedUsers : False
+    PassThroughAuthentication                        : False
+    PasswordHashSync                                 : True
+    PasswordWriteBack                                : False
+    SynchronizeUpnForManagedUsers                    : True
+    UnifiedGroupWriteback                            : False
+    UserWriteback                                    : False
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Begin
+    {
+        $feature_values = [ordered]@{
+            "BlockCloudObjectTakeoverThroughHardMatch"         = 1048576
+            "BlockSoftMatch"                                   =  524288
+            "DeviceWriteback"                                  =    4096 
+            "DirectoryExtensions"                              =       4
+            "DuplicateProxyAddressResiliency"                  =      32
+            "DuplicateUPNResiliency"                           =       8 
+            "EnableSoftMatchOnUpn"                             =      16
+            "EnableUserForcePasswordChangeOnLogon"             =   16384 
+            "EnforceCloudPasswordPolicyForPasswordSyncedUsers" =     512 
+            "PassThroughAuthentication"                        =  131072
+            "PasswordHashSync"                                 =       1 
+            "PasswordWriteBack"                                =       2 
+            "SynchronizeUpnForManagedUsers"                    =    8192 
+            "UnifiedGroupWriteback"                            =    1024 
+            "UserWriteback"                                    =    2048 
+        }
+    }
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        # Get the current features
+        $features = (Get-SyncConfiguration2 -AccessToken $AccessToken).DirSyncFeatures
+
+        $attributes = [ordered]@{}
+
+        # Enable features
+        foreach($key in $feature_values.Keys)
+        {
+            $attributes[$key] = ($features -band $feature_values[$key]) -gt 0
+        }
+
+        New-Object psobject -Property $attributes
+    }
+}
+
+
+# Update dirsync features
+# Nov 3rd 2021
+function Update-SyncFeatures
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [int]$Features,
         [Parameter(Mandatory=$False)]
         [int]$Recursion=1
     )
@@ -477,13 +669,10 @@ function Set-AzureADObject
         [Parameter(Mandatory=$False)]
         $cloudMastered,
         [Parameter(Mandatory=$False)]
-        [ValidateSet('AF','AX','AL','DZ','AS','AD','AO','AI','AQ','AG','AR','AM','AW','AU','AT','AZ','BS','BH','BD','BB','BY','BE','BZ','BJ','BM','BT','BO','BQ','BA','BW','BV','BR','IO','BN','BG','BF','BI','KH','CM','CA','CV','KY','CF','TD','CL','CN','CX','CC','CO','KM','CG','CD','CK','CR','CI','HR','CU','CW','CY','CZ','DK','DJ','DM','DO','EC','EG','SV','GQ','ER','EE','ET','FK','FO','FJ','FI','FR','GF','PF','TF','GA','GM','GE','DE','GH','GI','GR','GL','GD','GP','GU','GT','GG','GN','GW','GY','HT','HM','VA','HN','HK','HU','IS','IN','ID','IQ','IE','IR','IM','IL','IT','JM','JP','JE','JO','KZ','KE','KI','KP','KR','KW','KG','LA','LV','LB','LS','LR','LY','LI','LT','LU','MO','MK','MG','MW','MY','MV','ML','MT','MH','MQ','MR','MU','YT','MX','FM','MD','MC','MN','ME','MS','MA','MZ','MM','NA','NR','NP','NL','NC','NZ','NI','NE','NG','NU','NF','MP','NO','OM','PK','PW','PS','PA','PG','PY','PE','PH','PN','PL','PT','PR','QA','RE','RO','RU','RW','BL','SH','KN','LC','MF','PM','VC','WS','SM','ST','SA','SN','RS','SC','SL','SG','SX','SK','SI','SB','SO','ZA','GS','SS','ES','LK','SD','SR','SJ','SZ','SE','CH','SY','TW','TJ','TZ','TH','TL','TG','TK','TO','TT','TN','TR','TM','TC','TV','UG','UA','AE','GB','US','UM','UY','UZ','VU','VE','VN','VG','VI','WF','EH','YE','ZM','ZW')]
-        [String]$usageLocation,
+        [ValidateSet('AF','AX','AL','DZ','AS','AD','AO','AI','AQ','AG','AR','AM','AW','AU','AT','AZ','BS','BH','BD','BB','BY','BE','BZ','BJ','BM','BT','BO','BQ','BA','BW','BV','BR','IO','BN','BG','BF','BI','KH','CM','CA','CV','KY','CF','TD','CL','CN','CX','CC','CO','KM','CG','CD','CK','CR','CI','HR','CU','CW','CY','CZ','DK','DJ','DM','DO','EC','EG','SV','GQ','ER','EE','ET','FK','FO','FJ','FI','FR','GF','PF','TF','GA','GM','GE','DE','GH','GI','GR','GL','GD','GP','GU','GT','GG','GN','GW','GY','HT','HM','VA','HN','HK','HU','IS','IN','ID','IQ','IE','IR','IM','IL','IT','JM','JP','JE','JO','KZ','KE','KI','KP','KR','KW','KG','LA','LV','LB','LS','LR','LY','LI','LT','LU','MO','MK','MG','MW','MY','MV','ML','MT','MH','MQ','MR','MU','YT','MX','FM','MD','MC','MN','ME','MS','MA','MZ','MM','NA','NR','NP','NL','NC','NZ','NI','NE','NG','NU','NF','MP','NO','OM','PK','PW','PS','PA','PG','PY','PE','PH','PN','PL','PT','PR','QA','RE','RO','RU','RW','BL','SH','KN','LC','MF','PM','VC','WS','SM','ST','SA','SN','RS','SC','SL','SG','SX','SK','SI','SB','SO','ZA','GS','SS','ES','LK','SD','SR','SJ','SZ','SE','CH','SY','TW','TJ','TZ','TH','TL','TG','TK','TO','TT','TN','TR','TM','TC','TV','UG','UA','AE','GB','US','UM','UY','UZ','VU','VE','VN','VG','VI','WF','EH','YE','ZM','ZW')][String]$usageLocation,
         [Parameter(Mandatory=$False)]
         [ValidateSet('User','Group','Contact','Device')]
         [String]$ObjectType="User",
-        [ValidateSet('Guest','Member')]
-        [String]$UserType="Member",
         [Parameter(Mandatory=$False)]
         [String[]]$proxyAddresses,
 		[Parameter(Mandatory=$False)]
@@ -1180,66 +1369,6 @@ function Set-PassThroughAuthenticationEnabled
         if($response.PassthroughAuthenticationRequestResult.ErrorMessage)
         {
             Write-Error $response.PassthroughAuthenticationRequestResult.ErrorMessage
-            return
-        }
-
-        # Create and return the response object
-        $attributes=@{
-            IsSuccesful = $response.PassthroughAuthenticationRequestResult.IsSuccessful
-            Enable = $response.PassthroughAuthenticationRequestResult.Enable
-            Exists = $response.PassthroughAuthenticationRequestResult.Exists
-        }
-        return New-Object -TypeName psobject -Property $Attributes
-    }
-}
-
-# Get the status of pass-through authentication
-# Nov 9th 2021
-function Get-PassThroughAuthenticationStatus
-{
-<#
-    .SYNOPSIS
-    Gets the status of passthrough authentication (PTA).
-
-    .DESCRIPTION
-    Gets the status of passthrough authentication (PTA). using msapproxy.net api.
-
-    .Parameter AccessToken
-    Access Token.
-
-    .Example
-    PS C:\>Get-AADIntAccessTokenForPTA -SaveToCache
-    PS C:\>Get-AADIntPassThroughAuthentication
-
-    IsSuccesful Enable Exists
-    ----------- ------ ------
-    true        true   true
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [String]$AccessToken
-    )
-    Process
-    {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "cb1056e2-e479-49de-ae31-7812af012ed8" -Resource "https://proxy.cloudwebappproxy.net/registerapp"
-
-        # Create the body block
-        $body=@"
-	    <TokenAuthenticationRequest xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Security.AadSecurity" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
-	        <AuthenticationToken>$AccessToken</AuthenticationToken>
-        </TokenAuthenticationRequest>
-"@
-        $tenant_id = Get-TenantId -AccessToken $AccessToken
-        
-        # Call the api
-        $response=Invoke-RestMethod -UseBasicParsing -Uri "https://$tenant_id.registration.msappproxy.net/register/GetPassthroughAuthenticationStatus" -Method Post -ContentType "application/xml; charset=utf-8" -Body $body
-
-        if($response.PassthroughAuthenticationRequestResult.ErrorMessage)
-        {
-            Write-Error $response.PassthroughAuthenticationRequestResult.ErrorMessage
-            return
         }
 
         # Create and return the response object

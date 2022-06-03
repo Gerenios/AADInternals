@@ -163,11 +163,8 @@ function Get-ComputerName
     Param()
     Process
     {
-        # Get the current controlset 
-        $cc = Get-ItemPropertyValue "HKLM:\SYSTEM\Select" -Name "Current"
-
         # Construct the bootkey
-        $computer = Get-ItemPropertyValue "HKLM:\SYSTEM\ControlSet00$cc\Control\ComputerName\ComputerName" -Name "ComputerName"
+        $computer = Get-ItemPropertyValue "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName"
 
         Write-Verbose "ComputerName: $computer"
         

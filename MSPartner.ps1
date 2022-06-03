@@ -624,8 +624,6 @@ function Find-MSPartners
             $MaxResults = [math]::Min($MaxResults,$response.estimatedTotalMatchingPartners)
             
 
-            #$totalResults += $response.matchingPartners.totalCount
-
             $items = $response.matchingPartners.items
 
             # Loop through the items

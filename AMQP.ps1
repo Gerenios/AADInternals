@@ -376,7 +376,7 @@ function Parse-AMQPItem
                     $p+=8
                  }
             # timestamp
-            0x82 { 
+            0x83 { 
                     $timeStamp = [BitConverter]::ToUint($Bytes[$($p+7)..$($p)],0)
                     $retVal = $epoch.AddSeconds($timeStamp)
                     $p+=8

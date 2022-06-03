@@ -238,3 +238,96 @@ function Remove-MSPartnerDelegatedAdminRoles
         $response
     }
 }
+
+# Returns tenant organisation information 
+# Jan 26th 2022
+function Get-TenantOrganisationInformation
+{
+<#
+    .SYNOPSIS
+    Returns organisation information for the given tenant.
+
+    .DESCRIPTION
+    Returns organisation information for the given tenant using commercial API used to get Partner Tenant information.
+
+    .Parameter AccessToken
+    Access Token used to fetch information. Can be any standard user of any tenant.
+
+    .Parameter TenantId
+    TenantId of the target tenant.
+
+    .Parameter Domain
+    Domain name of the target tenant.
+
+    .Example
+    PS C:\>Get-AADIntAccessTokenForAdmin -SaveToCache
+
+    PS C:\>Get-AADIntTenantOrganisationInformation -Domain "company.com"
+    
+    TenantId         : 043050e2-7993-416a-ae66-108ab1951612
+    CompanyName      : Company Ltd
+    StreetAddress    : 10 Wall Street
+    ApartmentOrSuite : 666
+    City             : New York
+    StateOrProvince  : NY
+    PostalCode       : 10005
+    CountryCode      : US
+    PhoneNumber      : 1234567890
+    FirstName        : John
+    LastName         : Doe
+#>
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(ParameterSetName='Domain',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(ParameterSetName='TenantId',Mandatory=$True)]
+        [guid]$TenantId
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://admin.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
+        if($Domain)
+        {
+            [guid]$TenantId = [guid](Get-TenantID -Domain $Domain)
+        }
+
+        if($TenantId -eq ([guid](Read-AccessToken $AccessToken).tid))
+        {
+            Write-Error "Can't query information from your own tenant. Log in to another tenant and try again."
+            return
+        }
+
+        $headers = @{
+            "Authorization" = "Bearer $AccessToken"
+            "Accept" = "application/json; charset=utf-8"
+        }
+        $response = Invoke-WebRequest -UseBasicParsing -uri "https://admin.microsoft.com/fd/commerceMgmt/partnermanage/partners/csp/$($TenantId.toString())/delegatedaccess?invType=Administration&api-version=2.1" -Headers $headers
+
+        # Content is utf-8 encoded json, but response headers don't have encoding information
+        $responseBytes = New-Object byte[] $response.RawContentLength
+        $response.RawContentStream.Read($responseBytes,0,$response.RawContentLength)
+        $responseObj = ConvertFrom-Json -InputObject ([text.encoding]::UTF8.GetString($responseBytes))
+        
+        $tenantInfo = $responseObj.authorizeDelegateAdminData
+
+        $attributes = [ordered]@{
+            "TenantId"         = $tenantInfo.partnerId
+            "CompanyName"      = $tenantInfo.companyName
+            "StreetAddress"    = $tenantInfo.address.line1
+            "ApartmentOrSuite" = $tenantInfo.address.line2
+            #"Line3"            = $tenantInfo.address.line3
+            "City"             = $tenantInfo.address.city
+            "StateOrProvince"  = $tenantInfo.address.state
+            "PostalCode"       = $tenantInfo.address.postalCode
+            "CountryCode"      = $tenantInfo.address.countryCode
+            "PhoneNumber"      = $tenantInfo.address.phoneNumber
+            "FirstName"        = $tenantInfo.address.firstName
+            "LastName"         = $tenantInfo.address.lastName
+        }
+
+        New-Object psobject -Property $attributes
+    }
+}

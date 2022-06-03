@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.6.6'
+	ModuleVersion = '0.6.7'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -115,6 +115,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\OfficeApps.ps1"
         ".\OneDrive.ps1"
         ".\OneDrive_utils.ps1"
+        ".\OneNote.ps1"
         ".\OutlookAPI.ps1"
         ".\OutlookAPI_utils.ps1"
         ".\ProcessTools.ps1"
@@ -126,9 +127,9 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\PSRP.ps1"
         ".\PSRP_utils.ps1"
         ".\PTA.ps1"
-        ".\PTAAgent.ps1"
         ".\PTASpy.ps1"
         ".\SARA.ps1"
+        ".\SARA_utils.ps1"
         ".\SPO.ps1"
         ".\SPO_utils.ps1"
         ".\SyncAgent.ps1"
@@ -160,6 +161,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AccessTokenForMSGraph"
     "Get-AccessTokenForPTA"
     "Get-AccessTokenForEXO"
+    "Get-AccessTokenForEXOPS"
     "Get-AccessTokenForSARA"
     "Get-AccessTokenForOneDrive"
     "Get-AccessTokenForOfficeApps"
@@ -173,6 +175,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AccessTokenForMSCommerce"
     "Get-AccessTokenForMSPartner"
     "Get-AccessTokenForAdmin"
+    "Get-AccessTokenForOneNote"
+    "Unprotect-EstsAuthPersistentCookie"
     
     # AccessToken_utils.ps1
     "Get-LoginInformation"
@@ -226,7 +230,9 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Set-UserPassword"
     "Reset-ServiceAccount"
     "Set-PassThroughAuthenticationEnabled"
-    "Set-PasswordHashSyncEnabled"
+    #"Set-PasswordHashSyncEnabled"
+    "Set-SyncFeatures"
+    "Get-SyncFeatures"
     "Set-DesktopSSOEnabled"
     "Get-DesktopSSO"
     "Set-DesktopSSO"
@@ -234,7 +240,6 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-WindowsCredentialsSyncConfig"
     "Get-SyncDeviceConfiguration"
     "Join-OnPremDeviceToAzureAD"
-    "Get-PassThroughAuthenticationStatus"
 
     # AzureManagementAPI_utils.ps1
     "Get-AccessTokenForAADIAMAPI"
@@ -296,9 +301,6 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Register-PTAAgent"
     "Set-PTACertificate"
 
-    # PTAAgent.ps1
-    "Invoke-PTAAgent"
-
     # OneDrive_utils.ps1
     "New-OneDriveSettings"
 
@@ -321,6 +323,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     # MSAppProxy_utils.ps1
     "Get-ProxyAgents"
     "Get-ProxyAgentGroups"
+    "Export-ProxyAgentCertificates"
 
     # AD_Utils.ps1
     "Get-DPAPIKeys"
@@ -409,6 +412,12 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-TeamsMessages"
     "Remove-TeamsMessages"
     "Set-TeamsMessageEmotion"
+    "Find-TeamsExternalUser"
+    "Get-TeamsAvailability"
+    "Get-Translation"
+
+    # Teams_utils.ps1
+    "Get-TeamsUserSettings"
 
     # DRS_Utils.ps1
     "Get-ADUserNTHash"
@@ -451,6 +460,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Approve-MSPartnerDelegatedAdminRequest"
     "Remove-MSPartnerDelegatedAdminRoles"
     "Get-MSPartners"  
+    "Get-TenantOrganisationInformation"
     
     # Device.ps1
     "Export-LocalDeviceCertificate"
@@ -460,6 +470,9 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
 
     # ProxySettings.ps1
     "Set-ProxySettings"
+
+    # OneNote.ps1
+    "Start-Speech"
 )
 
 	# Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.

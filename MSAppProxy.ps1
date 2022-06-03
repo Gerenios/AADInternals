@@ -3,7 +3,8 @@
 Add-Type -AssemblyName System.Web
 
 # Registers App proxy agent to the Azure AD
-# Apr 2 2020
+# Apr 2nd 2020
+# May 5th 2022: Added UpdateTrust
 function Register-ProxyAgent
 {
     <#
@@ -27,13 +28,18 @@ function Register-ProxyAgent
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$MachineName,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$FileName,
         [Parameter(Mandatory=$True)]
         [Validateset("PTA","Sync")]
         [String]$AgentType,
         [Parameter(Mandatory=$False)]
-        $AgentGroup
+        $AgentGroup,
+        [Parameter(ParameterSetName='update',Mandatory=$False)]
+        [switch]$UpdateTrust,
+        [Parameter(ParameterSetName='update',Mandatory=$False)]
+        [String]$PfxFileName
+        
     )
     Begin
     {
@@ -52,11 +58,21 @@ function Register-ProxyAgent
     }
     Process
     {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8"
+        if($UpdateTrust)
+        {
+            # Load the old certificate
+            $cert = Load-Certificate -FileName $PfxFileName
+
+            $tenantId = $cert.Subject.Split("=")[1]
+        }
+        else
+        {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8"
+            $tenantId = Get-TenantID -AccessToken $AccessToken
+        }
 
         # Set some variables
-        $tenantId = Get-TenantID -AccessToken $AccessToken
         $OSLanguage="1033"
         $OSLocale="0409"
         $OSSku="8"
@@ -95,46 +111,107 @@ function Register-ProxyAgent
         $b64Csr=[convert]::ToBase64String($csr)
 
         # Create the request body 
-        $body=@"
-        <RegistrationRequest xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Registration" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
-            <Base64Csr>$b64Csr
-</Base64Csr>
-            <AuthenticationToken>$AccessToken</AuthenticationToken>
-            <Base64Pkcs10Csr i:nil="true"/>
-            <Feature>ApplicationProxy</Feature>
-            <FeatureString>$($AgentInfo[$AgentType]["FeatureString"])</FeatureString>
-            <RegistrationRequestSettings>
-                <SystemSettingsInformation i:type="a:SystemSettings" xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.RegistrationCommons" xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Utilities.SystemSettings">
-                    <a:MachineName>$machineName</a:MachineName>
-                    <a:OsLanguage>$OSLanguage</a:OsLanguage>
-                    <a:OsLocale>$OSLocale</a:OsLocale>
-                    <a:OsSku>$OSSku</a:OsSku>
-                    <a:OsVersion>$OSVersion</a:OsVersion>
-                </SystemSettingsInformation>
-                <PSModuleVersion>1.5.643.0</PSModuleVersion>
-                <SystemSettings i:type="a:SystemSettings" xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Utilities.SystemSettings">
-                    <a:MachineName>$machineName</a:MachineName>
-                    <a:OsLanguage>$OSLanguage</a:OsLanguage>
-                    <a:OsLocale>$OSLocale</a:OsLocale>
-                    <a:OsSku>$OSSku</a:OsSku>
-                    <a:OsVersion>$OSVersion</a:OsVersion>
-                </SystemSettings>
-            </RegistrationRequestSettings>
-            <TenantId>$tenantId</TenantId>
-            <UserAgent>$($AgentInfo[$AgentType]["UserAgent"])</UserAgent>
-        </RegistrationRequest>
-"@
-        
-        # Register the app and get the certificate
-        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://$tenantId.registration.msappproxy.net/register/RegisterConnector" -Method Post -Body $body -Headers @{"Content-Type"="application/xml; charset=utf-8"}
-        if($response.RegistrationResult.IsSuccessful -eq "true")
+        if($UpdateTrust)
         {
-            # Get the certificate and convert to byte array
-            $b64Cert = $response.RegistrationResult.Certificate
+            [xml]$config=Get-BootstrapConfiguration -Certificate $cert -MachineName $MachineName
+            $body=@"
+            <TrustRenewalRequest xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Registration.TrustRenewal" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+                <Base64Csr xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Registration">$b64Csr
+</Base64Csr>
+                <TrustRenewalRequestSettings>
+                    <SystemSettingsInformation i:type="a:SystemSettings" xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.RegistrationCommons" xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Utilities.SystemSettings">
+                        <a:MachineName>$machineName</a:MachineName>
+                        <a:OsLanguage>$OSLanguage</a:OsLanguage>
+                        <a:OsLocale>$OSLocale</a:OsLocale>
+                        <a:OsSku>$OSSku</a:OsSku>
+                        <a:OsVersion>$OSVersion</a:OsVersion>
+                    </SystemSettingsInformation>
+                    <ConnectorVersion>1.5.2482.0</ConnectorVersion>
+                </TrustRenewalRequestSettings>
+            </TrustRenewalRequest>
+"@
+            # Renew trust and get the certificate
+            $response = Invoke-RestMethod -UseBasicParsing -Uri "$($config.BootstrapResponse.TrustRenewEndpoint)/RenewTrustCertificate" -Method Post -Body $body -Headers @{"Content-Type"="application/xml; charset=utf-8"} -Certificate $cert
+
+            if($response.TrustRenewalResult.IsSuccessful.'#text' -eq "true")
+            {
+                # Get the certificate
+                $b64Cert = $response.TrustRenewalResult.Certificate.'#text'
+            }
+            else
+            {
+                # Something went wrong
+                Write-Error $response.TrustRenewalResult.ErrorMessage.'#text'
+            }
+        }
+        else
+        {
+            $body=@"
+            <RegistrationRequest xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Registration" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+                <Base64Csr>$b64Csr
+</Base64Csr>
+                <AuthenticationToken>$AccessToken</AuthenticationToken>
+                <Base64Pkcs10Csr i:nil="true"/>
+                <Feature>ApplicationProxy</Feature>
+                <FeatureString>$($AgentInfo[$AgentType]["FeatureString"])</FeatureString>
+                <RegistrationRequestSettings>
+                    <SystemSettingsInformation i:type="a:SystemSettings" xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.RegistrationCommons" xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Utilities.SystemSettings">
+                        <a:MachineName>$machineName</a:MachineName>
+                        <a:OsLanguage>$OSLanguage</a:OsLanguage>
+                        <a:OsLocale>$OSLocale</a:OsLocale>
+                        <a:OsSku>$OSSku</a:OsSku>
+                        <a:OsVersion>$OSVersion</a:OsVersion>
+                    </SystemSettingsInformation>
+                    <PSModuleVersion>1.5.643.0</PSModuleVersion>
+                    <SystemSettings i:type="a:SystemSettings" xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Utilities.SystemSettings">
+                        <a:MachineName>$machineName</a:MachineName>
+                        <a:OsLanguage>$OSLanguage</a:OsLanguage>
+                        <a:OsLocale>$OSLocale</a:OsLocale>
+                        <a:OsSku>$OSSku</a:OsSku>
+                        <a:OsVersion>$OSVersion</a:OsVersion>
+                    </SystemSettings>
+                </RegistrationRequestSettings>
+                <TenantId>$tenantId</TenantId>
+                <UserAgent>$($AgentInfo[$AgentType]["UserAgent"])</UserAgent>
+            </RegistrationRequest>
+"@
+            # Register the app and get the certificate
+            $response = Invoke-RestMethod -UseBasicParsing -Uri "https://$tenantId.registration.msappproxy.net/register/RegisterConnector" -Method Post -Body $body -Headers @{"Content-Type"="application/xml; charset=utf-8"}
+
+            if($response.RegistrationResult.IsSuccessful -eq "true")
+            {
+                # Get the certificate
+                $b64Cert = $response.RegistrationResult.Certificate
+            }
+            else
+            {
+                # Something went wrong
+                Write-Error $response.RegistrationResult.ErrorMessage
+            }
+        }
+        
+        if(![string]::IsNullOrEmpty($b64Cert))
+        {
+        
+            # Convert certificate to byte array
             $binCert = [convert]::FromBase64String($b64Cert)
             
             # Create a new x509certificate 
             $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($binCert,"",[System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::UserKeySet -band [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+
+            # Get the instance Id (=Agent Id)
+            foreach($extension in $cert.Extensions)
+            {
+                if($extension.Oid.Value -eq "1.3.6.1.4.1.311.82.1")
+                {
+                    $InstanceID = [guid]$extension.RawData
+                }
+            }
+
+            if([string]::IsNullOrEmpty($FileName))
+            {
+                $FileName = "$($MachineName)_$($tenantId)_$($InstanceID).pfx"
+            }
 
             # Store the private key so that it can be exported
             $cspParameters = [System.Security.Cryptography.CspParameters]::new()
@@ -155,29 +232,27 @@ function Register-ProxyAgent
             $privateKey.PersistKeyInCsp=$false
             $privateKey.Clear()
 
-            # Get the instance Id (=Agent Id)
-            foreach($extension in $cert.Extensions)
+            
+
+            if($UpdateTrust)
             {
-                if($extension.Oid.Value -eq "1.3.6.1.4.1.311.82.1")
-                {
-                    $InstanceID = [guid]$extension.RawData
-                }
+                Write-Host "$AgentType Agent ($InstanceID) registered as $MachineName"
             }
-
-            Write-Host "$AgentType Agent ($InstanceID) registered as $MachineName"
+            else
+            {
+                Write-Host "$AgentType Agent ($InstanceID) certificate renewed for $MachineName"
+            }
             Write-Host "Certificate saved to $FileName"
-        }
-        else
-        {
-            # Something went wrong
-            Write-Error $response.RegistrationResult.ErrorMessage
-        }
 
-        # We need to register the agent to a group 
-        if($AgentType -eq "Sync" -and [string]::IsNullOrEmpty($AgentGroup) -ne $true)
-        {
-            Add-ProxyAgentToGroup -AccessToken $AccessToken -Agent $InstanceID -Group $AgentGroup
+            # We need to register the agent to a group 
+            if($AgentType -eq "Sync" -and [string]::IsNullOrEmpty($AgentGroup) -ne $true)
+            {
+                Add-ProxyAgentToGroup -AccessToken $AccessToken -Agent $InstanceID -Group $AgentGroup
+            }
         }
+        
+
+        
     }
 }
 

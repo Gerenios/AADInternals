@@ -223,6 +223,7 @@ function Sign-JWT
             # Sign the JWT (HS256)
             $hmac = New-Object System.Security.Cryptography.HMACSHA256 -ArgumentList @(,$Key)
             $signature = $hmac.ComputeHash($Data)
+            $hmac.Dispose()
         }
 
         # Return
@@ -357,7 +358,7 @@ function Get-AccessTokenWithPRT
                         }
                         else
                         {
-                            # Invalid PRT, nonce is reuired
+                            # Invalid PRT, nonce is required
                             Write-Warning "Nonce needed. Try New-AADIntUserPRTToken with -GetNonce switch or -Nonce $sso_nonce parameter"
                             break
                         }
@@ -549,19 +550,19 @@ function New-JWT
         [Parameter(ParameterSetName='Key',Mandatory=$True)]
         [Byte[]]$Key,
         [Parameter(Mandatory=$True)]
-        [Hashtable]$Header,
+        [System.Collections.Specialized.OrderedDictionary]$Header,
         [Parameter(Mandatory=$True)]
-        [Hashtable]$Payload
+        [System.Collections.Specialized.OrderedDictionary]$Payload
     )
     Process
     {
         # Construct the header
-        $txtHeader =  ($Header  | ConvertTo-Json -Compress).Replace("/","\/")
-        $txtPayload = ($Payload | ConvertTo-Json -Compress).Replace("/","\/")
+        $txtHeader =  $Header  | ConvertTo-Json -Compress
+        $txtPayload = $Payload | ConvertTo-Json -Compress
 
         # Convert to B64 and strip the padding
-        $b64Header =  (Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.getBytes($txtHeader))).replace("=","")
-        $b64Payload = (Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.getBytes($txtPayload))).replace("=","")
+        $b64Header =  Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.getBytes($txtHeader )) -NoPadding
+        $b64Payload = Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.getBytes($txtPayload)) -NoPadding
 
         # Construct the JWT data to be signed
         $binData = [text.encoding]::UTF8.GetBytes(("{0}.{1}" -f $b64Header,$b64Payload))
@@ -698,6 +699,8 @@ Function Decrypt-JWE
         [String]$JWE,
         [Parameter(Mandatory=$True,ParameterSetName = "RSA")]
         [System.Security.Cryptography.RSA]$PrivateKey,
+        [Parameter(Mandatory=$False,ParameterSetName = "RSA")]
+        [bool]$returnKey = $true,
         [Parameter(Mandatory=$True,ParameterSetName = "Key")]
         [byte[]]$Key,
         [Parameter(Mandatory=$True,ParameterSetName = "SessionKey")]
@@ -714,17 +717,18 @@ Function Decrypt-JWE
             Throw "Unsupported enc: $enc"
         }
 
-        if($alg -eq "dir") # Probably encrypted data
+        # Decrypt data using symmetric key
+        if($alg -eq "dir") 
         {
-            # Calculate key from session key and context
+            # Derive decryption key from the session key and context
             if($SessionKey)
             {
                 if(!$parsedJWE.ctx)
                 {
-                    Throw "JWE is missing ctx, unable to derive encryption key!"
+                    Throw "Missing ctx, unable to derive encryption key!"
                 }
                 $context = Convert-B64ToByteArray -B64 $parsedJWE.ctx
-                $Key = Get-PRTDerivedKey -SessionKey $SessionKey -Context $context
+                $key     = Get-PRTDerivedKey -SessionKey $SessionKey -Context $context
             }
 
             if(!$parsedJWE.Iv -or !$parsedJWE.CipherText)
@@ -735,9 +739,28 @@ Function Decrypt-JWE
             $iv      = Convert-B64ToByteArray -B64 $parsedJWE.Iv
             $encData = Convert-B64ToByteArray -B64 $parsedJWE.CipherText
 
-            Write-Warning "dir alg not supported yet :("
+            # Create the crypto provider. 
+            # The data is always encrypted using A256CBC instead of A256GCM, because AesCryptoServiceProvider does not support GCM mode.
+            $cryptoProvider     = [System.Security.Cryptography.AesCryptoServiceProvider]::new()
+            $cryptoProvider.Key = $Key
+            $cryptoProvider.iv  = $iv
+
+            # Create a crypto stream
+            $buffer = [System.IO.MemoryStream]::new()
+            $cryptoStream = [System.Security.Cryptography.CryptoStream]::new($buffer, $cryptoProvider.CreateDecryptor($Key,$iv),[System.Security.Cryptography.CryptoStreamMode]::Write)
+
+            # Decrypt the data
+            $cryptoStream.Write($encData,0,$encData.Count)
+            $cryptoStream.FlushFinalBlock()
+            $decData = $buffer.ToArray()
+
+            # Clean up
+            $cryptoStream.Dispose()
+            $cryptoProvider.Dispose()
+
+            return $decData
         }
-        elseif($alg -eq "RSA-OAEP") # Key exchange
+        elseif($alg -eq "RSA-OAEP") # Decrypt data using encrypted key
         {
             if(!$PrivateKey)
             {
@@ -746,23 +769,101 @@ Function Decrypt-JWE
 
             try
             {
-                # Do the magic
+                # Decrypt the content encryption key (CEK)
                 $encKey = Convert-B64ToByteArray -B64 $parsedJWE.Key
-                $decKey = [System.Security.Cryptography.RSAOAEPKeyExchangeDeformatter]::new($privateKey).DecryptKeyExchange($encKey)
+                $CEK    = [System.Security.Cryptography.RSAOAEPKeyExchangeDeformatter]::new($privateKey).DecryptKeyExchange($encKey)
 
-                # Return 
-                return $decKey
+                # Extract the parameters
+                $iv      = Convert-B64ToByteArray -B64 $parsedJWE.Iv
+                $encData = Convert-B64ToByteArray -B64 $parsedJWE.CipherText
+                $tag     = Convert-B64ToByteArray -B64 $parsedJWE.Tag
+                $keyParameter = [Org.BouncyCastle.Crypto.Parameters.KeyParameter]::new($CEK)
+
+                # Append Tag to Encrypted data
+                $buffer = New-Object byte[] ($encData.Count + $tag.Count)
+                [Array]::Copy($encData,0,$buffer,0             ,$encData.Count)
+                [Array]::Copy($tag    ,0,$buffer,$encData.Count,$tag.Count)
+                $encData = $buffer
+
+                # Create & init block cipher. This data is correctly encrypted with A256GCM.
+                $AEADParameters = [Org.BouncyCastle.Crypto.Parameters.AeadParameters]::new($keyParameter,128,$iv)
+                $GCMBlockCipher = [Org.BouncyCastle.Crypto.Modes.GcmBlockCipher]::new([Org.BouncyCastle.Crypto.Engines.AesFastEngine]::new())
+                $GCMBlockCipher.init($false, $AEADParameters)
+            
+                # Create an array for the decrypted data
+                $decData = New-Object byte[] $GCMBlockCipher.GetOutputSize($encData.Count)
+
+                # Decrypt the data
+                $res = $GCMBlockCipher.ProcessBytes($encData, 0, $encData.Count, $decData, 0)
+                $res = $GCMBlockCipher.DoFinal($decData, $res)
+                
+                # Return the key instead of data
+                if($returnKey)
+                {
+                    # With session_key_jwe the decrypted data seems always to be one byte: 32
+                    if($decData[0] -ne 32)
+                    {
+                        Write-Warning "Decrypted data was not 32. Key may be invalid."
+                    }
+
+                    $retVal = $CEK
+                }
+                else
+                {
+                    $retVal = $decData
+                }
+
+                # Return
+                return $retVal
             }
             catch
             {
-                throw "Decrypting the key failed: ""$($_.Exception.InnerException.Message)"". Are you using the correct certificate?"
+                throw "Decrypting the key failed: ""$($_.Exception.InnerException.Message)"". Are you using the correct certificate or key?"
             }
         }
         else
         {
             Throw "Unsupported alg: $alg"
         }
-  
+    }
+}
+
+# Derivate KDFv2 context
+# Mar 3rd 2022
+function Get-KDFv2Context
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [Byte[]]$Context,
+        [Parameter(Mandatory=$True)]
+        [System.Collections.Specialized.OrderedDictionary]$Payload
+    )
+    Begin
+    {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    }
+    Process
+    {
+        # KDFv2 (Key Derivation Function v2) uses different context: SHA256(ctx || assertion payload)
+        # We need to compute SHA256 hash from a byte array combined from context and payload.
+        # Ref: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-oapxbc/89dfb8d6-23b8-4963-8908-91b34340e367
+
+        # Get payload bytes
+        $pldBytes = [text.encoding]::UTF8.getBytes(($Payload | ConvertTo-Json -Compress))
+
+        # Create a buffer
+        $buffer = New-Object byte[] ($Context.Count + $pldBytes.Count)
+
+        # Copy context and payload to buffer
+        [array]::Copy($Context ,0,$buffer,0             ,$Context.Count)
+        [array]::Copy($pldBytes,0,$buffer,$Context.Count,$pldBytes.Count)
         
+        # Return SHA256 hash
+        return $sha256.ComputeHash($buffer)
+    }
+    End
+    {
+        $sha256.Dispose()
     }
 }

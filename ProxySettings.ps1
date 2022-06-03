@@ -78,7 +78,7 @@ Function Set-ProxySettings
     \Windows\CurrentVersion\Internet Settings Property: ProxySettingsPerUser".
 
     .EXAMPLE
-    PS\:>Set-AADIntProxySettings -ProxyAddress 10.0.0.10:8080
+    PS\:>Set-AADIntProxySettings -ProxyAddress 10.0.0.10:8080 -TrustFiddler
 
     Setting proxies for x86 & x64 .NET Frameworks:
      C:\Windows\Microsoft.NET\Framework\v4.0.30319\Config\machine.config
@@ -141,7 +141,8 @@ Function Set-ProxySettings
     param(
         [parameter(Mandatory=$true,ValueFromPipeline)]
         [String]$ProxyAddress,
-        [Switch]$TrustFiddler
+        [Switch]$TrustFiddler,
+        [Switch]$TrustBurp
     )
     Process
     {
@@ -227,6 +228,15 @@ Function Set-ProxySettings
             Write-Host "Trusting Fiddler root certificate:" -ForegroundColor Yellow
             $tmpFile = New-TemporaryFile
             Invoke-RestMethod -Uri "http://ipv4.fiddler:$proxyPort/FiddlerRoot.cer" -Proxy "http://$ProxyAddress" -OutFile $tmpFile
+            Import-Certificate -FilePath $tmpFile -CertStoreLocation "Cert:\LocalMachine\Root"            Remove-Item $tmpFile -Force
+        }
+
+        # Trust Burp Suite
+        if($TrustBurp)
+        {
+            Write-Host "Trusting Burp root certificate:" -ForegroundColor Yellow
+            $tmpFile = New-TemporaryFile
+            Invoke-RestMethod -Uri "http://$ProxyAddress/cert" -OutFile $tmpFile
             Import-Certificate -FilePath $tmpFile -CertStoreLocation "Cert:\LocalMachine\Root"            Remove-Item $tmpFile -Force
         }
 

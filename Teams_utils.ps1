@@ -1,6 +1,6 @@
 ﻿# Gets Teams service information
 # Oct 16th 2020
-function Get-TeamsInformation
+function Get-TeamsUserSettings
 {
 
     [cmdletbinding()]
@@ -42,7 +42,7 @@ function Get-TeamsRecipients
         }
         
         # Get the settings
-        $teamsSettings = Get-TeamsInformation -AccessToken $AccessToken
+        $teamsSettings = Get-TeamsUserSettings -AccessToken $AccessToken
         $chatService =   $teamsSettings.regionGtms.chatService
         $apiUrl =        $teamsSettings.regionGtms.middleTier
         $skypeToken =    $teamsSettings.tokens.SkypeToken
