@@ -1,123 +1,8 @@
 ﻿# This script contains functions used in Microsoft Support and Recovery Assistant (SARA)
 
-# Jul 8th 2019
-function Call-AnalysisAPI
-{
-    [cmdletbinding()]
-    Param(
-        [ValidateSet('userInfo','tenantInfo','cloudCheck')]
-        [String]$Command,
-        [Parameter(ParameterSetName='AccessToken', Mandatory=$True)]
-        [String]$AccessToken
-    )
-    Process
-    {
-        $userName = (Read-Accesstoken $AccessToken).upn
 
-        $uri = "https://api.diagnostics.office.com/v1/analysis"
 
-        switch($Command)
-        {
-            "userInfo" 
-            {
-                $body=@"
-                {
-	                "DiagnosisInfo": {
-		                "ARE.ExecutionEnviro": 5,
-		                "ARE.LoginUser": {
-			                "`$type": "Microsoft.Online.CSE.HRC.Analysis.Analyzers.Common.SaraLoginUser, Microsoft.Online.CSE.HRC.Analysis.Analyzers.Common",
-			                "RecipientType": ""
-		                },
-		                "RemoteAnalyzerType": "Microsoft.Online.CSE.HRC.Analysis.Analyzers.ExchangeCmdlets.GetUserAnalyzer",
-		                "AssemblyFile": "Microsoft.Online.CSE.HRC.Analysis.Analyzers.RemoteCmdlets.dll",
-		                "Timeout": 120000,
-		                "SmtpAddress": "$userName"
-	                },
-	                "AnalyzerId": "597b1b90-b4a8-4fa0-9ddb-dcd997f0b8c2"
-                }
-"@
-            }
-            "tenantInfo"
-            {
-                $body=@"
-                {
-	                "DiagnosisInfo": {
-		                "SmtpAddress": "$userName",
-		                "TenantServicePlan": "MicrosoftOffice",
-		                "msauser": false,
-		                "Client": "SARAClient",
-		                "puid": "",
-		                "correlationid": "$(New-Guid)",
-		                "ARE.ExecutionEnviro": 5
-	                },
-	                "AnalyzerId": "64fc98c3-da51-41f0-9051-1fb5921deb95"
-                }
-"@
-            }
-            "cloudCheck"
-            {
-                $encryptedUserName = "" # Base64 encoded encrypted username
-                $encryptedPassword = "" # Base64 encoded encrypted password
-                $body=@"
-                {
-	                "UserSMTPEmail": "$userName",
-	                "Symptom": "AuthEndpointCheck",
-	                "RequestTimeoutInMs": 120000,
-	                "Parameters": [{
-			                "Name": "UserEnvironment",
-			                "Value": "0",
-			                "ComplianceClassification": "Identifiable"
-		                }, {
-			                "Name": "SmtpAddress",
-			                "Value": "$userName",
-			                "ComplianceClassification": "Identifiable"
-		                }, {
-			                "Name": "UserAgent",
-			                "Value": "Microsoft Office/16.0 (Windows NT 10.0; Microsoft Outlook 16.0.11328; Pro; SaRA)",
-			                "ComplianceClassification": "Identifiable"
-		                }, {
-			                "Name": "Cred",
-			                "Value": "{\"UserName\":\"$encryptedUserName\",\"Password\":\"$encryptedPassword\",\"SecurePassword\":{\"Length\":344},\"Domain\":\"\"}",
-			                "ComplianceClassification": "Identifiable"
-		                }
-	                ],
-	                "ProductName": "Outlook",
-	                "ProductVersion": "16.0.11328.20318",
-	                "OperatingSystem": "Windows 10 Enterprise",
-	                "OperatingSystemVersion": "10.0.17134.829",
-	                "IsAuthenticated": false,
-	                "IsInline": null,
-	                "IsTest": null
-                }
-"@
-                $uri = "https://api.diagnostics.office.com/v1/cloudcheck"
-            }
-        }
-        
-        $headers =@{
-                "Content-Type" = "application/json;odata=verbose"
-                "Authorization" = $(Create-AuthorizationHeader -AccessToken $AccessToken)
-        }
-        
-        $reply = Invoke-RestMethod -UseBasicParsing -Uri $uri -Method Post -Body $body -Headers $headers
-        $sessionId = $reply.SessionId
-
-        while($reply.RequestStatus -ne "Completed")
-        {
-            Write-Host "Retrieving information.."
-            sleep -Seconds "2"
-            $reply = Invoke-RestMethod -UseBasicParsing -Uri "$uri/?id=$sessionId" -Method Get -Headers $headers
-        }
-
-        # Get the results
-        $results = $reply.Result.Results[0]
-
-        # Return
-        $results
-    }
-}
-
-# Jul 8th 2019
+# Sep 23rd 2021
 function Get-SARAUserInfo
 {
 <#
@@ -184,156 +69,466 @@ function Get-SARAUserInfo
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='AccessToken', Mandatory=$True)]
-        [String]$AccessToken
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [String]$UserName,
+        [Parameter(Mandatory=$False)]
+        [ValidateSet('NotSet','HrcCloud','HrcCmd','Sara','MsftSupportModeSara','SaraCloud','QTest')]
+        [String]$ExecutionEnvironment='SaraCloud'
     )
+    Begin
+    {
+        
+    }
     Process
     {
-        # Get the results
-        $results = Call-AnalysisAPI -Command userInfo -AccessToken $AccessToken
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://api.diagnostics.office.com"
+        
+        if(!$UserName)
+        {
+            $userName = (Read-Accesstoken $AccessToken).upn
+        }
+
+        $userInformation = [ordered]@{"UserName" = $UserName}
+
+        #
+        # TenantUserInfo
+        #
+
+        Write-Verbose "TenantUserInfo"
+
+        $body=@{
+	        "Symptom"            = "TenantUserInfo"
+	        "RequestTimeoutInMs" =  180000
+	        "Parameters" = @( 
+                @{
+			        "Name"                     = "AffectedUser"
+			        "Value"                    = $UserName #.Split("@")[1]
+			        "ComplianceClassification" = "Identifiable"
+		        }
+ 		        @{
+                    "Name"                     = "Symptom"
+			        "Value"                    = "TenantUserInfo"
+			        "ComplianceClassification" = "Identifiable"
+		        }
+		        @{
+                    "Name"                     = "ScenarioSymptom"
+			        "Value"                    = "TenantUserInfo"
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+@{
+                    "Name"                     = "UserPuid"
+			        "Value"                    = ""
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+@{
+                    "Name"                     = "CorrelationId"
+			        "Value"                    = ""
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+                @{
+                    "Name"                     = "TargetService"
+			        "Value"                    = "Exchange"
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+@{
+                    "Name"                     = "IsMsaUser"
+			        "Value"                    = $False
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+@{
+                    "Name"                     = "MailboxClient"
+			        "Value"                    = "Outlook"
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+@{
+                    "Name"                     = "TestHook"
+			        "Value"                    = ""
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+
+	        )
+        }
+        
+        $response = Call-AnalysisAPI -Body ($body | ConvertTo-Json) -AccessToken $AccessToken -Url "https://api.diagnostics.office.com/v1/cloudcheck"
+
+        if($response.ProcessingStatus -eq "Succeeded")
+        {
+            $additionalInfo = $response.AdditionalInfo | ConvertFrom-Json
+
+            if($additionalInfo.IsSuccess -eq "true")
+            {
+                $item = ([xml]$additionalInfo.TenantUserInfo).TenantUserInfo.FirstChild
+                while($item)
+                {
+                    if($item.name -eq "LicenseInformations")
+                    {
+                        $userInformation[$item.Name] = $item.InnerXml
+                    }
+                    else
+                    {
+                        $userInformation[$item.Name] = $item.InnerText
+                    }
+                    $item = $item.NextSibling
+                }
                 
-        # Extract the user info
-        $userInfo = ([xml]$results.SupportMessage).UserInfo
-        $results.SupportMessage=""
+            }
+
+            
+        }
+
+
+        #
+        # CasMailbox
+        #
+
+        Write-Verbose "CasMailBox"
+
+        $body=@{
+	        "Symptom"            = "CasMailbox"
+	        "RequestTimeoutInMs" =  180000
+	        "Parameters" = @( 
+                @{
+			        "Name"                     = "AffectedUser"
+			        "Value"                    = $UserName 
+			        "ComplianceClassification" = "Identifiable"
+		        }
+@{
+                    "Name"                     = "MailboxClient"
+			        "Value"                    = "Outlook"
+			        "ComplianceClassification" = "Identifiable"
+		        }
+		        @{
+                    "Name"                     = "Symptom"
+			        "Value"                    = "CasMailbox"
+			        "ComplianceClassification" = "Identifiable"
+		        }
+		        @{
+                    "Name"                     = "ScenarioSymptom"
+			        "Value"                    = "CasMailbox"
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+	        )
+        }
         
-        $results
-        $userInfo
+        $response = Call-AnalysisAPI -Body ($body | ConvertTo-Json) -AccessToken $AccessToken -Url "https://api.diagnostics.office.com/v1/cloudcheck"
+
+        if($response.ProcessingStatus -eq "Succeeded")
+        {
+
+            $userInformation["CASInfo"] = $response.MessageToUser
+        }
+
+        #
+        # GetUserDiagnostic
+        #
+
+        Write-Verbose "GetUserDiagnostic"
+
+        $body=@{
+            "UserUpn"            = $parsedToken.upn
+            "UserSMTPEmail"      = $parsedToken.upn
+	        "Symptom"            = "GetUserDiagnostic"
+	        "RequestTimeoutInMs" = 180000
+	        "Parameters" = @( 
+                @{
+			        "Name"                     = "AffectedUser"
+			        "Value"                    = $UserName
+			        "ComplianceClassification" = "Identifiable"
+		        }
+		        @{
+                    "Name"                     = "Symptom"
+			        "Value"                    = "GetUserDiagnostic"
+			        "ComplianceClassification" = "Identifiable"
+		        }
+		        @{
+                    "Name"                     = "ScenarioSymptom"
+			        "Value"                    = "GetUser"
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+	        )
+        }
         
+        $response = Call-AnalysisAPI -Body ($body | ConvertTo-Json) -AccessToken $AccessToken -Url "https://api.diagnostics.office.com/v1/cloudcheck"
+
+        if($response.ProcessingStatus -eq "Succeeded")
+        {
+            
+            $additionalInfo = $response.AdditionalInfo | ConvertFrom-Json
+
+            if($additionalInfo.IsSuccess -eq "true")
+            {
+                $userInfo = [xml]$additionalInfo.UserInfo
+                $item = $userInfo.UserInfo.FirstChild
+                while($item)
+                {
+                
+                    $userInformation[$item.Name] = $item.InnerText
+                
+                    $item = $item.NextSibling
+                }
+                
+            }
+            else
+            {
+                Write-Warning $additionalInfo.ErrorInfo.Split("`n")[0]
+            }
+
+        }
+
+        New-Object psobject -Property $userInformation
     }
 }
 
 
-# Jul 8th 2019
+# Sep 23rd 2021
 function Get-SARATenantInfo
 {
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='AccessToken', Mandatory=$True)]
-        [String]$AccessToken
+        [Parameter(ParameterSetName='AccessToken', Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [String]$UserName,
+        [Parameter(Mandatory=$False)]
+        [ValidateSet('ExchangeHybridTenant','DirSyncCheck')]
+        [String[]]$Tests=@('ExchangeHybridTenant','DirSyncCheck')
     )
+    Begin
+    {
+        
+    }
     Process
     {
-        # Get the results
-        $results = Call-AnalysisAPI -Command tenantInfo -AccessToken $AccessToken
-     
-        $results
-        
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://api.diagnostics.office.com"
+
+        $parsedToken = Read-Accesstoken $AccessToken
+
+        if(!$UserName)
+        {
+            $userName = $parsedToken.upn
+        }
+
+        $tenantInfo = [ordered]@{
+                "Domain" = $UserName.Split("@")[1]
+            }
+
+
+        # 
+        # ExchangeHybridTenant Check
+        #
+
+        if($Tests -contains "ExchangeHybridTenant")
+        {
+            Write-Verbose "ExchangeHybridTenant"
+
+                                                                                                                $body=@{
+	        "Symptom"            = "ExchangeHybridTenant"
+	        "RequestTimeoutInMs" =  180000
+	        "Parameters" = @( 
+                @{
+			        "Name"                     = "AffectedUser"
+			        "Value"                    =  $UserName
+			        "ComplianceClassification" = "Identifiable"
+		        }
+@{
+                    "Name"                     = "ExchangeHybridTenantClient"
+			        "Value"                    = "OutlookFreeBusy"
+			        "ComplianceClassification" = "Identifiable"
+		        }
+		        @{
+                    "Name"                     = "Symptom"
+			        "Value"                    = "ExchangeHybridTenant"
+			        "ComplianceClassification" = "Identifiable"
+		        }
+		        @{
+                    "Name"                     = "ScenarioSymptom"
+			        "Value"                    = "ExchangeHybridTenant"
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+	        )
+        }
+
+            $response = Call-AnalysisAPI -Body ($body | ConvertTo-Json) -AccessToken $AccessToken -Url "https://api.diagnostics.office.com/v1/cloudcheck"
+            if($response.AdditionalInfo)
+                                                                                                                                                        {
+            $additionalInfo = ($response.AdditionalInfo | ConvertFrom-Json)
+            
+            if($additionalInfo.Category -eq "S")
+            {
+                $hybridInfoXML = ([xml]($response.AdditionalInfo | ConvertFrom-Json).OrganizationRelationShipInfo).HybridInfo
+
+                $orgRels = @()
+                $onPrems = @()
+
+                foreach($rel in $hybridInfoXML.OrganizationRelationShips.OrganizationRelationShip)
+                {
+                    $orgRels += New-Object psobject -Property @{
+                        "FreeBusyAccessLevel" = $rel.FreeBusyAccessLevel
+                        "FreeBusyEnabled"     = $rel.FreeBusyEnabled
+                        "Identity"            = $rel.Identity
+                        "IsValid"             = $rel.IsValid
+                    }
+                }
+                foreach($rel in $hybridInfoXML.OnPremOrganizationRelationShips.OnPremOrganizationRelationShip)
+                {
+                    $onPrems += New-Object psobject -Property @{
+                        "FreeBusyAccessLevel"      = $rel.FreeBusyAccessLevel
+                        "OrganizationGuid"         = $rel.OrganizationGuid
+                        "OrganizationName"         = $rel.OrganizationName
+                        "OrganizationRelationship" = $rel.OrganizationRelationship
+                    }
+                }
+                $tenantInfo["IsHybrid"]                        = $additionalInfo.isHybrid
+                $tenantInfo["OrganizationRelationShips"]       = $orgRels
+                $tenantInfo["OnPremOrganizationRelationShips"] = $onPrems
+                
+            }
+            else
+            {
+                Write-Warning "ExchangeHybridTenant error $($additionalInfo.ScenarioResultName)"
+            }
+        }
+        }
+
+
+        # 
+        # DirSyncCheck
+        #
+
+        if($Tests -contains "DirSyncCheck")
+        {
+            Write-Verbose "DirSyncCheck"
+
+                                                                                            $body=@{
+	        "Symptom"            = "DirSyncCheck"
+	        "RequestTimeoutInMs" =  180000
+	        "Parameters" = @( 
+                @{
+			        "Name"                     = "TenantDomain"
+			        "Value"                    = $UserName.Split("@")[1]
+			        "ComplianceClassification" = "Identifiable"
+		        }
+		        @{
+                    "Name"                     = "Symptom"
+			        "Value"                    = "DirSyncCheck"
+			        "ComplianceClassification" = "Identifiable"
+		        }
+		        @{
+                    "Name"                     = "ScenarioSymptom"
+			        "Value"                    = "DirSyncCheck"
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+	        )
+        }
+
+            $response = Call-AnalysisAPI -Body ($body | ConvertTo-Json) -AccessToken $AccessToken -Url "https://api.diagnostics.office.com/v1/cloudcheck"
+
+            $tenantInfo["DirSync"] = $response.MessageToAdmin
+
+        }
+        # Return
+        New-Object psobject -Property $tenantInfo
+
     }
 }
 
-# Jul 8th 2019
-function Get-SARAAuthInfo
+# Sep 23rd 2021
+function Get-SARAFreeBusyInformation
 {
-<#
-    .SYNOPSIS
-    Gets tenant information using SARA API
 
-    .DESCRIPTION
-    Gets tenant information using Microsoft Support and Recovery Assistant (SARA) API
-
-    .Parameter AccessToken
-    Access Token
-
-    .Example
-    $at=Get-AADIntAccessTokenForSARA
-    PS C:\>Get-AADIntSARATenantInfo -AccessToken $at
-
-    AnalyzerName          : AnalysisRule, Microsoft.Online.CSE.HRC.Analysis.Analyzers.TenantInfo.TenantUserInfoAnalyzer, Microsoft.Online.CSE.HRC.Analysis.Analyzers.TenantInfo, Version=16.0.3144.0, Culture=neu
-                            tral, PublicKeyToken=31bf3856ad364e35
-    AnalyzerDesc          : Checking your tenant and account information.
-    StartTime             : 2019-07-08T12:31:06.1602586Z
-    Duration              : 00:00:00.6250818
-    CoreDuration          : 00:00:00.6250818
-    WaitingDuration       : 00:00:00
-    TotalChildrenDuration : 00:00:00
-    TotalWaitingDuration  : 00:00:00
-    ParentId              : 00000000-0000-0000-0000-000000000000
-    Value                 : true
-    ResultTitle           : The licenses of your tenant and account are all good!
-    ResultTitleId         : Microsoft.Online.CSE.HRC.Analysis.Analyzers.TenantInfo.StringsGetTenantInfoSuccess
-    UserMessage           : 
-    UserMessageId         : 
-    AdminMessage          : 
-    SupportMessage        : <Setup><ProductId>O365ProPlusRetail</ProductId><ReleaseTrack>False</ReleaseTrack></Setup>
-    IsMessageShown        : False
-    GenericInfo           : User Puid is not null or empty.OrgIg_User<TenantUserInfo><IsLicensed>True</IsLicensed><ProvisioningStatus>PendingInput</ProvisioningStatus><PreferredLanguage>en</PreferredLanguage/>
-                            <ValidationStatus>Healthy</ValidationStatus><ReleaseTrack>Other</ReleaseTrack><LicenseInformations><LicenseInformation><SKUPartNumber>SPE_E5</SKUPartNumber><ServiceStatus><ServiceTy
-                            pe>Exchange</ServiceType><ServiceName>INFORMATION_BARRIERS</ServiceName><ProvisioningStatus>PendingProvisioning</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Micro
-                            softKaizala</ServiceType><ServiceName>KAIZALA_STANDALONE</ServiceName><ProvisioningStatus>PendingProvisioning</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Bing</S
-                            erviceType><ServiceName>MICROSOFT_SEARCH</ServiceName><ProvisioningStatus>PendingProvisioning</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Exchange</ServiceType><
-                            ServiceName>PREMIUM_ENCRYPTION</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>WhiteboardServices</ServiceType><ServiceName>
-                            WHITEBOARD_PLAN3</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Exchange</ServiceType><ServiceName>MIP_S_CLP2</ServiceName>
-                            <ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Exchange</ServiceType><ServiceName>MIP_S_CLP1</ServiceName><ProvisioningStatus>Success</P
-                            rovisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Exchange</ServiceType><ServiceName>MYANALYTICS_P2</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></Servic
-                            eStatus><ServiceStatus><ServiceType>Exchange</ServiceType><ServiceName>PAM_ENTERPRISE</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><Se
-                            rviceType>AzureAdvancedThreatAnalytics</ServiceType><ServiceName>ATA</ServiceName><ProvisioningStatus>Disabled</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>To-Do<
-                            /ServiceType><ServiceName>BPOS_S_TODO_3</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>ProcessSimple</ServiceType><ServiceN
-                            ame>FLOW_O365_P3</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>PowerAppsService</ServiceType><ServiceName>POWERAPPS_O365_P
-                            3</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>OfficeForms</ServiceType><ServiceName>FORMS_PLAN_E5</ServiceName><Provisio
-                            ningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Adallom</ServiceType><ServiceName>ADALLOM_S_STANDALONE</ServiceName><ProvisioningStatus>Disabled</
-                            ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>MicrosoftStream</ServiceType><ServiceName>STREAM_O365_E5</ServiceName><ProvisioningStatus>Success</ProvisioningStatus>
-                            </ServiceStatus><ServiceStatus><ServiceType>Deskless</ServiceType><ServiceName>Deskless</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><
-                            ServiceType>Exchange</ServiceType><ServiceName>THREAT_INTELLIGENCE</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Teamspace
-                            API</ServiceType><ServiceName>TEAMS1</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>WindowsDefenderATP</ServiceType><Servic
-                            eName>WINDEFATP</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Windows</ServiceType><ServiceName>WIN10_PRO_ENT_SUB</Service
-                            Name><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>RMSOnline</ServiceType><ServiceName>RMS_S_PREMIUM2</ServiceName><ProvisioningStatus>
-                            Disabled</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>AADPremiumService</ServiceType><ServiceName>AAD_PREMIUM_P2</ServiceName><ProvisioningStatus>Disabled</Provis
-                            ioningStatus></ServiceStatus><ServiceStatus><ServiceType>RMSOnline</ServiceType><ServiceName>RMS_S_PREMIUM</ServiceName><ProvisioningStatus>Disabled</ProvisioningStatus></ServiceSta
-                            tus><ServiceStatus><ServiceType>RMSOnline</ServiceType><ServiceName>RMS_S_ENTERPRISE</ServiceName><ProvisioningStatus>Disabled</ProvisioningStatus></ServiceStatus><ServiceStatus><Se
-                            rviceType>MultiFactorService</ServiceType><ServiceName>MFA_PREMIUM</ServiceName><ProvisioningStatus>Disabled</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>SCO</Ser
-                            viceType><ServiceName>INTUNE_A</ServiceName><ProvisioningStatus>Disabled</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>AADPremiumService</ServiceType><ServiceName>
-                            AAD_PREMIUM</ServiceName><ProvisioningStatus>Disabled</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>YammerEnterprise</ServiceType><ServiceName>YAMMER_ENTERPRISE</S
-                            erviceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Sway</ServiceType><ServiceName>SWAY</ServiceName><ProvisioningStatus>Success</
-                            ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>SharePoint</ServiceType><ServiceName>SHAREPOINTWAC</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></Serv
-                            iceStatus><ServiceStatus><ServiceType>SharePoint</ServiceType><ServiceName>SHAREPOINTENTERPRISE</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><Service
-                            Status><ServiceType>ProjectWorkManagement</ServiceType><ServiceName>PROJECTWORKMANAGEMENT</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus
-                            ><ServiceType>MicrosoftOffice</ServiceType><ServiceName>OFFICESUBSCRIPTION</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>M
-                            icrosoftCommunicationsOnline</ServiceType><ServiceName>MCOSTANDARD</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Microsoft
-                            CommunicationsOnline</ServiceType><ServiceName>MCOMEETADV</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>MicrosoftCommunica
-                            tionsOnline</ServiceType><ServiceName>MCOEV</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Exchange</ServiceType><ServiceNa
-                            me>LOCKBOX_ENTERPRISE</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>SCO</ServiceType><ServiceName>INTUNE_O365</ServiceName
-                            ><ProvisioningStatus>PendingActivation</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Exchange</ServiceType><ServiceName>EXCHANGE_S_ENTERPRISE</ServiceName><Provisi
-                            oningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Exchange</ServiceType><ServiceName>EXCHANGE_ANALYTICS</ServiceName><ProvisioningStatus>Success</P
-                            rovisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Exchange</ServiceType><ServiceName>EQUIVIO_ANALYTICS</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></Ser
-                            viceStatus><ServiceStatus><ServiceType>PowerBI</ServiceType><ServiceName>BI_AZURE_P2</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><Ser
-                            viceType>Exchange</ServiceType><ServiceName>ATP_ENTERPRISE</ServiceName><ProvisioningStatus>PendingProvisioning</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>Adall
-                            om</ServiceType><ServiceName>ADALLOM_S_O365</ServiceName><ProvisioningStatus>PendingInput</ProvisioningStatus></ServiceStatus></LicenseInformation><LicenseInformation><SKUPartNumber
-                            >EMSPREMIUM</SKUPartNumber><ServiceStatus><ServiceType>Exchange</ServiceType><ServiceName>EXCHANGE_S_FOUNDATION</ServiceName><ProvisioningStatus>PendingProvisioning</ProvisioningSta
-                            tus></ServiceStatus><ServiceStatus><ServiceType>AzureAdvancedThreatAnalytics</ServiceType><ServiceName>ATA</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStat
-                            us><ServiceStatus><ServiceType>Adallom</ServiceType><ServiceName>ADALLOM_S_STANDALONE</ServiceName><ProvisioningStatus>PendingInput</ProvisioningStatus></ServiceStatus><ServiceStatu
-                            s><ServiceType>RMSOnline</ServiceType><ServiceName>RMS_S_PREMIUM2</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>RMSOnline<
-                            /ServiceType><ServiceName>RMS_S_PREMIUM</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>RMSOnline</ServiceType><ServiceName>
-                            RMS_S_ENTERPRISE</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>SCO</ServiceType><ServiceName>INTUNE_A</ServiceName><Provis
-                            ioningStatus>PendingInput</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>AADPremiumService</ServiceType><ServiceName>AAD_PREMIUM_P2</ServiceName><ProvisioningStatus
-                            >Success</ProvisioningStatus></ServiceStatus><ServiceStatus><ServiceType>MultiFactorService</ServiceType><ServiceName>MFA_PREMIUM</ServiceName><ProvisioningStatus>Success</Provision
-                            ingStatus></ServiceStatus><ServiceStatus><ServiceType>AADPremiumService</ServiceType><ServiceName>AAD_PREMIUM</ServiceName><ProvisioningStatus>Success</ProvisioningStatus></ServiceS
-                            tatus></LicenseInformation></LicenseInformations></TenantUserInfo>
-    Severity              : 2
-    OverridesChildren     : False
-    ProblemId             : 00000000-0000-0000-0000-000000000000
-    TimeCached            : 0001-01-01T00:00:00
-    SaraSymptomId         : 00000000-0000-0000-0000-000000000000
-    SaraWorkflowRunId     : 00000000-0000-0000-0000-000000000000
-    SaraSymptomRunId      : 00000000-0000-0000-0000-000000000000
-    SaraSessionId         : 00000000-0000-0000-0000-000000000000
-    Id                    : 81157ffa-d946-4bf8-8d6e-a391b96e4bf6
-#>
     [cmdletbinding()]
     Param(
-        [Parameter(ParameterSetName='AccessToken', Mandatory=$True)]
-        [String]$AccessToken
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [String]$UserName,
+        [Parameter(Mandatory=$True)]
+        [String]$TargetUser
     )
+    Begin
+    {
+        
+    }
     Process
     {
-        # Get the results
-        $results = Call-AnalysisAPI -Command cloudCheck -AccessToken $AccessToken
-                
-        # Extract the user info
-        #$userInfo = ([xml]$results.SupportMessage).UserInfo
-        #$results.SupportMessage=""
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://api.diagnostics.office.com"
         
-        $results
-        #$userInfo
+        if(!$UserName)
+        {
+            $userName = (Read-Accesstoken $AccessToken).upn
+        }
+
+        #
+        # FreeBusyTenantUserInfo
+        #
+
+        Write-Verbose "FreeBusyTenantUserInfo"
+
+        $body=@{
+	        "Symptom"            = "FreeBusyTenantUserInfo"
+	        "RequestTimeoutInMs" =  180000
+	        "Parameters" = @( 
+@{
+			        "Name"                     = "AffectedUser"
+			        "Value"                    = $UserName
+			        "ComplianceClassification" = "Identifiable"
+		        }
+ 		        @{
+                    "Name"                     = "Symptom"
+			        "Value"                    = "FreeBusyTenantUserInfo"
+			        "ComplianceClassification" = "Identifiable"
+		        }
+		        @{
+                    "Name"                     = "ScenarioSymptom"
+			        "Value"                    = "FreeBusyTenantUserInfo"
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+                @{
+                    "Name"                     = "TargetSmtpAddress"
+			        "Value"                    = $TargetUser
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+
+
+	        )
+        }
         
+        $response = Call-AnalysisAPI -Body ($body | ConvertTo-Json) -AccessToken $AccessToken -Url "https://api.diagnostics.office.com/v1/cloudcheck"
+
+        if($response.ProcessingStatus -eq "Succeeded")
+        {
+            
+            $additionalInfo = $response.AdditionalInfo | ConvertFrom-Json
+
+            if($additionalInfo.IsSuccess -eq "true")
+            {
+                return $response.MessageToUser
+            }
+            else
+            {
+                Write-Error $response.MessageToUser
+            }
+            
+        }
+
+
     }
 }

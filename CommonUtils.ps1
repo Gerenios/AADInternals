@@ -3,8 +3,9 @@
 # Constants
 $const_bom = [byte[]]@(0xEF,0xBB,0xBF)
 
-$DPAPI_ENTROPY_CNG_KEY_PROPERTIES = @(0x36,0x6A,0x6E,0x6B,0x64,0x35,0x4A,0x33,0x5A,0x64,0x51,0x44,0x74,0x72,0x73,0x75,0x00) # "6jnkd5J3ZdQDtrsu" + null terminator 
-$DPAPI_ENTROPY_CNG_KEY_BLOB		  = @(0x78,0x54,0x35,0x72,0x5A,0x57,0x35,0x71,0x56,0x56,0x62,0x72,0x76,0x70,0x75,0x41,0x00) # "xT5rZW5qVVbrvpuA" + null terminator
+$DPAPI_ENTROPY_CNG_KEY_PROPERTIES  = @(0x36,0x6A,0x6E,0x6B,0x64,0x35,0x4A,0x33,0x5A,0x64,0x51,0x44,0x74,0x72,0x73,0x75,0x00) # "6jnkd5J3ZdQDtrsu" + null terminator 
+$DPAPI_ENTROPY_CNG_KEY_BLOB		   = @(0x78,0x54,0x35,0x72,0x5A,0x57,0x35,0x71,0x56,0x56,0x62,0x72,0x76,0x70,0x75,0x41,0x00) # "xT5rZW5qVVbrvpuA" + null terminator
+$DPAPI_ENTROPY_CAPI_KEY_PROPERTIES = @(0x48,0x6a,0x31,0x64,0x69,0x51,0x36,0x6b,0x70,0x55,0x78,0x37,0x56,0x43,0x34,0x6d,0x00) # "Hj1diQ6kpUx7VC4m" + null terminator
 
 # Unix epoch time (1.1.1970)
 $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millisecond 0
@@ -73,15 +74,21 @@ Function Get-ReflectionProperty
 
     param(
         [parameter(Mandatory=$true,ValueFromPipeline)]
-        [psobject]$Object,
+        [psobject]$TypeObject,
+        [parameter(Mandatory=$false)]
+        [psobject]$ValueObject,
         [parameter(Mandatory=$true)]
         [String]$PropertyName
     )
     Process
     {
-        $objectType = $Object.GetType()
-        $propertyInfo = $objectType.GetProperty($PropertyName,[System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
-        return $propertyInfo.GetValue($Object, $null)
+        if(!$ValueObject)
+        {
+            $ValueObject = $TypeObject
+        }
+
+        $propertyInfo = $TypeObject.GetProperty($PropertyName,[System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
+        return $propertyInfo.GetValue($ValueObject, $null)
     }
 }
 
@@ -93,7 +100,9 @@ Function Set-ReflectionProperty
 
     param(
         [parameter(Mandatory=$true,ValueFromPipeline)]
-        [psobject]$Object,
+        [psobject]$TypeObject,
+        [parameter(Mandatory=$false)]
+        [psobject]$ValueObject,
         [parameter(Mandatory=$true)]
         [String]$PropertyName,
         [parameter(Mandatory=$true)]
@@ -101,9 +110,13 @@ Function Set-ReflectionProperty
     )
     Process
     {
-        $objectType = $Object.GetType()
-        $propertyInfo = $objectType.GetProperty($PropertyName,[System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
-        return $propertyInfo.SetValue($Object, $Value,$null)
+        if(!$ValueObject)
+        {
+            $ValueObject = $TypeObject
+        }
+
+        $propertyInfo = $TypeObject.GetProperty($PropertyName,[System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
+        return $propertyInfo.SetValue($ValueObject, $Value,$null)
     }
 }
 
@@ -115,20 +128,127 @@ Function Get-ReflectionProperties
 
     param(
         [parameter(Mandatory=$true,ValueFromPipeline)]
-        [psobject]$Object
+        [psobject]$TypeObject
     )
     Process
     {
-        $objectType = $Object.GetType()
-        $properties = $objectType.GetProperties([System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
+        $properties = $TypeObject.GetProperties([System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
 
         foreach($property in $properties)
         {
-            New-Object psobject -Property @{
+            New-Object psobject -Property ([ordered]@{
                     "Name"  = $property.Name
-                    "Type"  = $property.PropertyType
                     "Write" = $property.CanWrite
-                }
+                    "Type"  = $property.PropertyType
+                })
+        }
+    }
+}
+
+# Gets field value using reflection
+# Feb 24 2022
+Function Get-ReflectionField
+{
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [psobject]$TypeObject,
+        [parameter(Mandatory=$false)]
+        [psobject]$ValueObject,
+        [parameter(Mandatory=$true)]
+        [String]$FieldName
+    )
+    Process
+    {
+        if(!$ValueObject)
+        {
+            $ValueObject = $TypeObject
+        }
+        $fieldInfo = $TypeObject.GetField($FieldName,[System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
+        return $fieldInfo.GetValue($ValueObject)
+    }
+}
+
+# Gets object properties using reflection
+# Feb 24 2022
+Function Get-ReflectionFields
+{
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [psobject]$TypeObject
+    )
+    Process
+    {
+        $fields = $TypeObject.GetFields([System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
+
+        foreach($field in $fields)
+        {
+            New-Object psobject -Property ([ordered]@{
+                    "Name"  = $field.Name
+                    "Type"  = $field.FieldType
+                    "Attributes" = $field.Attributes
+                })
+        }
+    }
+}
+
+# Invokes the given method
+# Feb 24 2022
+Function Invoke-ReflectionMethod
+{
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [psobject]$TypeObject,
+        [parameter(Mandatory=$False)]
+        [psobject]$GenericType,
+        [parameter(Mandatory=$False)]
+        [psobject]$ValueObject,
+        [parameter(Mandatory=$true)]
+        [String]$Method,
+        [parameter(Mandatory=$False)]
+        [Object[]]$Parameters = @()
+    )
+    Process
+    {
+        $methodInfo = $TypeObject.GetMethod($Method, [System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
+        if($methodInfo.IsGenericMethodDefinition)
+        {
+            $genericMethod = $methodInfo.MakeGenericMethod($GenericType)
+            return $genericMethod.Invoke($ValueObject,$Parameters)
+        }
+        else
+        {
+            return $methodInfo.Invoke($ValueObject,$Parameters)
+        }
+    }
+}
+
+# Gets object methods using reflection
+# Feb 24 2022
+Function Get-ReflectionMethods
+{
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [psobject]$TypeObject
+    )
+    Process
+    {
+        $methods = $TypeObject.GetMethods([System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
+
+        foreach($method in $methods)
+        {
+            New-Object psobject -Property ([ordered]@{
+                    "Name"  = $method.Name
+                    "Static" = $method.IsStatic
+                    "Attributes" = $method.Attributes
+                })
         }
     }
 }
@@ -1575,6 +1695,10 @@ function Parse-CngBlob
     {
         # Parse the header
         $version =  [System.BitConverter]::ToInt32($Data,0)
+        if($version -ne 1)
+        {
+            Throw "Unsupported version ($Version), expected 1"
+        }
         $unknown =  [System.BitConverter]::ToInt32($Data,4)
         $nameLen =  [System.BitConverter]::ToInt32($Data,8)
         $type    =  [System.BitConverter]::ToInt32($Data,12)
@@ -1862,7 +1986,7 @@ Function New-PfxFile
 
         # Create a PKCS12 store and add entries
         $pkcsStore = [Org.BouncyCastle.Pkcs.Pkcs12StoreBuilder]::new().Build()
-        $pkcsStore.SetKeyEntry("AADInternals",$privateKeyEntry,$x509entry)
+        $pkcsStore.SetKeyEntry($null,$privateKeyEntry,$x509entry)
 
         # Export as byte array
         $stream = [System.IO.MemoryStream]::new()
@@ -1901,5 +2025,165 @@ function Test-LocalAdministrator
             Throw "The PowerShell session is not elevated, please run as Administrator."
         }
         return $isAdmin
+    }
+}
+
+
+# Parses the given CAPI blob
+# Mar 3th 2022
+function Parse-CapiBlob
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [byte[]]$Data,
+        [Parameter(Mandatory=$false)]
+        [switch]$Decrypt,
+        [Parameter(Mandatory=$false)]
+        [switch]$LocalMachine
+    )
+    Begin
+    {
+        Add-Type -AssemblyName System.Security
+    }
+    Process
+    {
+        # Parse the header
+        $version =  [System.BitConverter]::ToInt32($Data,0)
+        if($version -ne 2)
+        {
+            Throw "Unsupported version ($Version), expected 2"
+        }
+        $unk1          = [System.BitConverter]::ToInt32($Data,4)
+        $nameLen       = [System.BitConverter]::ToInt32($Data,8)
+        $unk2          = [System.BitConverter]::ToInt32($Data,12)
+        $unk3          = [System.BitConverter]::ToInt32($Data,16)
+        $publicKeyLen  = [System.BitConverter]::ToInt32($Data,20)
+        $privateKeyLen = [System.BitConverter]::ToInt32($Data,24)
+        $unk4          = [System.BitConverter]::ToInt32($Data,28)
+        $unk5          = [System.BitConverter]::ToInt32($Data,32)
+        $privatePropertiesLen = [System.BitConverter]::ToInt32($Data,36)
+
+        $name = [text.encoding]::Ascii.GetString($Data, 40, $nameLen-1)
+
+        Write-Verbose "Parsing CAPI key: $name"
+
+        # Set the position
+        $p = 40+$nameLen
+
+        $unkArray = $Data[$p..($p + 20 -1)]; $p += 20
+
+        # Public key CAPI blob
+        $publicKeyBlob = $Data[$p..$($p + $publicKeyLen - 1)]; $p += $publicKeyLen
+        
+        # Get the private key and private properties blobs
+        $privateKeyBlob        = $Data[$p..$($p + $privateKeyLen -1)] ; $p += $privateKeyLen
+        $privatePropertiesBlob = $Data[$p..$($p + $privatePropertiesLen -1)] 
+
+        $attributes = [ordered]@{
+            "Name"           = $name
+            "PrivateKeyBlob" = @()
+            "RSAParameters"  = Parse-CAPIKeyBLOB -Key $publicKeyBlob
+        }
+        if($Decrypt)
+        {
+            $dpapiScope = "CurrentUser"
+            
+            if($LocalMachine)
+            {
+                $CurrentUser = "{0}\{1}" -f $env:USERDOMAIN,$env:USERNAME
+        
+                $dpapiScope = "LocalMachine"
+                # Elevate to get access to the DPAPI keys
+                if([AADInternals.Native]::copyLsassToken())
+                {
+                    Write-Warning "Running as LOCAL SYSTEM. You MUST restart PowerShell to restore $CurrentUser rights."
+                }
+                else
+                {
+                    Write-Error "Could not elevate, unable to decrypt. MUST be run as administrator!"
+                    return
+                }
+            }
+            
+            # Decrypt the private key properties using DPAPI
+            $decPrivateProperties = [Security.Cryptography.ProtectedData]::Unprotect($privatePropertiesBlob, $DPAPI_ENTROPY_CAPI_KEY_PROPERTIES, $dpapiScope)
+            $attributes["PrivateKeyProperties"] = $decPrivateProperties
+
+            # Decrypt the private key blob using DPAPI
+            $decPrivateBlob = [Security.Cryptography.ProtectedData]::Unprotect($privateKeyBlob, $null, $dpapiScope)
+            
+            # Parse the CAPI blob
+            $attributes["RSAParameters"] = Parse-CAPIKeyBLOB -Key $decPrivateBlob
+        }
+
+        return New-Object psobject -Property $attributes
+        
+    }
+}
+
+# Parses the given CAPI Key BLOB and returns RSAParameters
+# Mar 8th 2022
+Function Parse-CAPIKeyBLOB
+{
+    [cmdletbinding()]
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [Byte[]]$Key
+    )
+    process
+    {
+        $magic    = [text.encoding]::ASCII.GetString($Key[0..3])
+        $modlen   = [bitconverter]::ToUInt32($Key,4)
+        $bitlen   = [bitconverter]::ToUInt32($Key,8)
+        $unknown  = [bitconverter]::ToUInt32($Key,12)
+        $publen   = 4
+
+        $headerLen = 4 * [System.Runtime.InteropServices.Marshal]::SizeOf([uint32]::new())
+
+        # Parse RSA1
+        $p = $headerLen
+        $pubexp  = $Key[($p)..($p + $publen -1)]; $p += $publen
+        $modulus = $key[($p)..($p + $modlen -9)]; $p += $modlen
+        
+        # Parse RSA2 (RSAPRIVATEBLOB)
+        if($magic -eq "RSA2") 
+        {
+            $prime1 =           $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
+            $p += 4
+            $prime2 =           $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
+            $p += 4
+            $exponent1 =        $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
+            $p += 4
+            $exponent2 =        $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
+            $p += 4
+            $coefficient =      $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
+            $p += 4
+            $privateExponent =  $key[($p)..($p-1 + $bitlen/8)] 
+        }
+        
+        $attributes=@{
+            "D" =        $privateExponent
+            "DP" =       $exponent1
+            "DQ" =       $exponent2
+            "Exponent" = $pubexp
+            "InverseQ" = $coefficient
+            "Modulus" =  $modulus
+            "P" =        $prime1
+            "Q"=         $prime2
+        }
+
+        # Reverse
+        foreach($name in $attributes.Keys)
+        {
+            if($attributes[$name])
+            {
+                [Array]::Reverse($attributes[$name])
+            }
+        }
+
+        [System.Security.Cryptography.RSAParameters]$RSAParameters = New-Object psobject -Property $attributes
+
+        return $RSAParameters
     }
 }

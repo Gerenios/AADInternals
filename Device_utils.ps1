@@ -126,7 +126,24 @@ function Parse-CertificateOIDs
                "1.2.840.113556.1.5.284.5" {
                     $retVal | Add-Member -NotePropertyName "TenantId" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
                 
-               }  
+               }
+               "1.2.840.113556.1.5.284.8" {
+                    # Tenant region
+                    # AF = Africa
+                    # AS = Asia
+                    # AP = Australia/Pasific
+                    # EU = Europe
+                    # ME = Middle East
+                    # NA = North America
+                    # SA = South America
+                    $retVal | Add-Member -NotePropertyName "Region"   -NotePropertyValue ([text.encoding]::UTF8.getString([byte[]](Get-OidRawValue -RawValue $ext.RawData)))
+               }
+               "1.2.840.113556.1.5.284.7" {
+                    # JoinType
+                    # 0 = Registered
+                    # 1 = Joined
+                    $retVal | Add-Member -NotePropertyName "JoinType" -NotePropertyValue ([int]([text.encoding]::UTF8.getString([byte[]](Get-OidRawValue -RawValue $ext.RawData))))
+               }    
             }
         }
 

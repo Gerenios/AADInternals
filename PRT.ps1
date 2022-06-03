@@ -203,7 +203,8 @@ function New-UserPRTToken
         [String]$Nonce,
         [Parameter(ParameterSetName='Settings',Mandatory=$True)]
         $Settings,
-        [switch]$GetNonce
+        [switch]$GetNonce,
+        [bool]$KdfV2 = $true
     )
     Process
     {
@@ -227,12 +228,9 @@ function New-UserPRTToken
         {
             $ctx = Convert-B64ToByteArray -B64 $Context
         }
-
+        
         $sKey = Convert-B64ToByteArray -B64 $SessionKey
         $iat = [int]((Get-Date).ToUniversalTime() - $epoch).TotalSeconds
-
-        # Derived the key from session key and context
-        $key = Get-PRTDerivedKey -Context $ctx -SessionKey $sKey
 
         # Create the header and body
         $hdr = [ordered]@{
@@ -246,6 +244,19 @@ function New-UserPRTToken
             "is_primary" =    "true"
             "iat" =           $iat
         }
+
+        # Derive the key from session key and context
+        if($KdfV2)
+        {
+            $hdr["kdf_ver"] = 2
+            $derivedContext = Get-KDFv2Context -Context $ctx -Payload $pld
+        }
+        else
+        {
+            $derivedContext = $ctx
+        }
+
+        $key = Get-PRTDerivedKey -Context $derivedContext -SessionKey $sKey
 
         # Fetch the nonce!
         if($GetNonce) 
@@ -263,6 +274,13 @@ function New-UserPRTToken
         else
         {
             Write-Warning "No nonce provided so the token is invalid. Use -GetNonce switch or provide the nonce with -Nonce" 
+        }
+
+        # As the payload may have changed due to nonce, derive the key again if needed
+        if($KdfV2)
+        {
+            $derivedContext = Get-KDFv2Context -Context $ctx -Payload $pld
+            $key = Get-PRTDerivedKey -Context $derivedContext -SessionKey $sKey
         }
 
         # Create the JWT
@@ -535,7 +553,7 @@ function New-P2PDeviceCertificate
     PSObject containing refresh_token and session_key attributes.
 
     .EXAMPLE
-    PS C\:>New-AADIntP2PDeviceCertificate -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -TenantId 4169fee0-df47-4e31-b1d7-5d248222b872 -DeviceName "mypc1.company.com"
+    PS C\:>New-AADIntP2PDeviceCertificate -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -DeviceName "mypc1.company.com"
 
     Device P2P certificate successfully created:
       Subject:         "CN=d03994c9-24f8-41ba-a156-1805998d6dc7, DC=4169fee0-df47-4e31-b1d7-5d248222b872"
@@ -640,7 +658,7 @@ function New-P2PDeviceCertificate
             $DNSNames = @($DeviceName)
         }
 
-        if(!$Certificate)
+        if($Certificate)
         {
             $TenantId = (Parse-CertificateOIDs -Certificate $Certificate).TenantId
         }
@@ -702,6 +720,16 @@ function New-P2PDeviceCertificate
         {
             # Create a private key and do something with it to get it stored
             $rsa=[System.Security.Cryptography.RSA]::Create(2048)
+
+            # Store the private key to so that it can be exported
+            $cspParameters = [System.Security.Cryptography.CspParameters]::new()
+            $cspParameters.ProviderName =    "Microsoft Enhanced RSA and AES Cryptographic Provider"
+            $cspParameters.ProviderType =    24
+            $cspParameters.KeyContainerName ="AADInternals"
+            
+            # Set the private key
+            $privateKey = [System.Security.Cryptography.RSACryptoServiceProvider]::new(2048,$cspParameters)
+            $privateKey.ImportParameters($rsa.ExportParameters($true))
                 
             # Initialize the Certificate Signing Request object
             $req = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new("CN=", $rsa, [System.Security.Cryptography.HashAlgorithmName]::SHA256,[System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
@@ -736,11 +764,21 @@ function New-P2PDeviceCertificate
             $body = @{
                 "grant_type"          = "urn:ietf:params:oauth:grant-type:jwt-bearer"
                 "request"             = "$jwt"
+                "windows_api_version" = "1.0"
             }
         }
 
-        # Make the request to get the P2P certificate
-        $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/$tenantId/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body
+        try
+        {
+            # Make the request to get the P2P certificate
+            $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/$tenantId/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body
+        }
+        catch
+        {
+            $errorMessage = $_.ErrorDetails.Message | ConvertFrom-Json 
+            Write-Error $errorMessage.error_description
+            return
+        }
 
         # Get the certificate
         $binCert = [byte[]](Convert-B64ToByteArray -B64 $response.x5c)

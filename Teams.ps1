@@ -28,7 +28,7 @@ function Get-SkypeToken
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" 
 
-        $response = Get-TeamsInformation -AccessToken $AccessToken
+        $response = Get-TeamsUserSettings -AccessToken $AccessToken
 
         $response.tokens.SkypeToken
     }
@@ -281,8 +281,8 @@ function Send-TeamsMessage
         [String]$ClientMessageId,
         [Parameter(ParameterSetName = "Thread", Mandatory=$True)]
         [String]$Thread,
-        [switch]$External,
-        [switch]$FakeInternal
+        [bool]$External = $false,
+        [bool]$FakeInternal = $false
     )
     Process
     {
@@ -301,7 +301,7 @@ function Send-TeamsMessage
         }
 
         # Get the settings
-        $teamsSettings = Get-TeamsInformation -AccessToken $AccessToken
+        $teamsSettings = Get-TeamsUserSettings -AccessToken $AccessToken
         $chatService =   $teamsSettings.regionGtms.chatService
         $apiUrl =        $teamsSettings.regionGtms.middleTier
         $skypeToken =    $teamsSettings.tokens.SkypeToken
@@ -386,7 +386,7 @@ function Send-TeamsMessage
                 }
             }
 
-            if($External)
+            if($External -and !$FakeInternal)
             {
                 $threadBody = @{
                     "members" =    $members
@@ -466,7 +466,7 @@ function Send-TeamsMessage
                     "links" = $links
                     }
         }
-        if($External)
+        if($External -and !$FakeInternal)
         {
             $messageBody["properties"]["interopType"]="receiverSfB"
             $messageBody["fromSipUri"] = $parsedToken.upn
@@ -540,7 +540,7 @@ function Get-TeamsMessages
         $endPoint = (New-Guid).ToString()
 
         # Get the settings
-        $teamsSettings = Get-TeamsInformation -AccessToken $AccessToken
+        $teamsSettings = Get-TeamsUserSettings -AccessToken $AccessToken
         $chatService =   $teamsSettings.regionGtms.chatService
         $skypeToken =    $teamsSettings.tokens.SkypeToken
 
@@ -659,7 +659,7 @@ function Remove-TeamsMessages
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264"
 
         # Get the settings
-        $teamsSettings = Get-TeamsInformation -AccessToken $AccessToken
+        $teamsSettings = Get-TeamsUserSettings -AccessToken $AccessToken
         $chatService =   $teamsSettings.regionGtms.chatService
         $skypeToken =    $teamsSettings.tokens.SkypeToken
 
@@ -750,6 +750,8 @@ function Set-TeamsMessageEmotion
         [String]$MessageID,
         [Parameter(Mandatory=$False)]
         [String]$ConversationID,
+        [Parameter(Mandatory=$False)]
+        [psobject]$TeamsSettings,
         [Parameter(Mandatory=$True)]
         [ValidateSet("like","heart","laugh","surprised","sad","angry")]
         [String]$Emotion,
@@ -761,9 +763,12 @@ function Set-TeamsMessageEmotion
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264"
 
         # Get the settings
-        $teamsSettings = Get-TeamsInformation -AccessToken $AccessToken
-        $chatService =   $teamsSettings.regionGtms.chatService
-        $skypeToken =    $teamsSettings.tokens.SkypeToken
+        if(!$TeamsSettings)
+        {
+            $TeamsSettings = Get-TeamsUserSettings -AccessToken $AccessToken
+        }
+        $chatService =   $TeamsSettings.regionGtms.chatService
+        $skypeToken =    $TeamsSettings.tokens.SkypeToken
 
         # Construct the headers
         $headers = @{
@@ -796,13 +801,43 @@ function Set-TeamsMessageEmotion
             {
                 $headers["x-ms-client-caller"] = "updateMessageReactionRemove"
                 $body = "{""emotions"":""{\""key\"":\""$Emotion\""}""}"
-                $response = Invoke-RestMethod -UseBasicParsing -Method Delete -Uri "$chatService/v1/users/ME/conversations/$ConversationID/messages/$MessageID/properties?name=emotions" -Headers $headers -ErrorAction SilentlyContinue -Body $body
+                $method = "Delete"
             }
             else
             {
                 $headers["x-ms-client-caller"] = "updateMessageReactionAdd"
                 $body = "{""emotions"":""{\""key\"":\""$Emotion\"",\""value\"":$([long]((Get-Date)-$epoch).TotalMilliseconds)}""}"
-                $response = Invoke-RestMethod -UseBasicParsing -Method Put -Uri "$chatService/v1/users/ME/conversations/$ConversationID/messages/$MessageID/properties?name=emotions" -Headers $headers -ErrorAction SilentlyContinue -Body $body
+                $method = "Put"
+            }
+
+            $continue = $true
+            while($continue)
+            {
+                try
+                {
+                    $response = Invoke-RestMethod -UseBasicParsing -Method $method -Uri "$chatService/v1/users/ME/conversations/$ConversationID/messages/$MessageID/properties?name=emotions" -Headers $headers -Body $body
+                    $continue = $false
+                }
+                catch
+                {
+                    if($_.Exception.Response.StatusCode -eq 429)
+                    {
+                        if($_.Exception.Response.Headers["Retry-After"])
+                        {
+                            $retryAfter = ([datetime]$_.Exception.Response.Headers["Retry-After"]).Second
+                            Write-Warning "Retrying after $($retryAfter)s"
+                            Start-Sleep -Seconds $retryAfter
+                        }
+                        else
+                        {
+                            throw $_
+                        }
+                    }
+                    else
+                    {
+                        throw $_
+                    }
+                }
             }
 
         }
@@ -861,7 +896,7 @@ function Get-TeamsMemberships
         $AccessToken2 = Get-AccessTokenWithRefreshToken -Resource "https://chatsvcagg.teams.microsoft.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -RefreshToken $refreshToken -TenantId (Read-Accesstoken $AccessToken).tid
 
         # Get the settings
-        $teamsSettings = Get-TeamsInformation -AccessToken $AccessToken
+        $teamsSettings = Get-TeamsUserSettings -AccessToken $AccessToken
         $skypeToken =    $teamsSettings.tokens.SkypeToken
 
         # Construct the headers
@@ -897,7 +932,7 @@ function Remove-TeamsMember
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264"
 
         # Get the settings
-        $teamsSettings =            Get-TeamsInformation -AccessToken $AccessToken
+        $teamsSettings =            Get-TeamsUserSettings -AccessToken $AccessToken
         $teamsAndChannelsService =  $teamsSettings.regionGtms.teamsAndChannelsService
         $skypeToken =               $teamsSettings.tokens.SkypeToken
 
@@ -941,7 +976,7 @@ function Add-TeamsMember
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264"
 
         # Get the settings
-        $teamsSettings =            Get-TeamsInformation -AccessToken $AccessToken
+        $teamsSettings =            Get-TeamsUserSettings -AccessToken $AccessToken
         $teamsAndChannelsService =  $teamsSettings.regionGtms.teamsAndChannelsService
         $skypeToken =               $teamsSettings.tokens.SkypeToken
 
@@ -968,5 +1003,234 @@ function Add-TeamsMember
             Write-Error $response.value.updatedUsers[0].errorType
         }
         
+    }
+}
+
+
+# Finds the external Teams user
+# Feb 2nd 2022
+function Find-TeamsExternalUser
+{
+<#
+    .SYNOPSIS
+    Finds the given external Teams user.
+
+    .DESCRIPTION
+    Finds the given external Teams user.
+
+
+    .Parameter AccessToken
+    The access token used to get user information
+
+    .EXAMPLE
+    PS\:>Get-AADIntAccessTokenForTeams -SaveToCache
+    PS\:>Find-AADIntTeamsExternalUser -UserPrincipalName JohnD@company.com
+
+    tenantId          : dcc7d7bf-e3f5-4778-b6e0-aa7207bdb033
+    isShortProfile    : False
+    accountEnabled    : True
+    featureSettings   : @{coExistenceMode=TeamsOnly}
+    userPrincipalName : johnd@company.com
+    givenName         : JohnD@company.com
+    surname           : 
+    email             : JohnD@company.com
+    displayName       : John Doe
+    type              : Federated
+    mri               : 8:orgid:84bdccdb-eaba-4545-9729-4eff71b76841
+    objectId          : fe401a12-879c-4e5b-8b51-03e1985fa62f
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$UserPrincipalName
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" 
+
+        # Get the API url
+        $url=(Get-TeamsUserSettings -AccessToken $AccessToken).regionGtms.appService
+
+        $headers = @{
+            "Authorization" = "Bearer $AccessToken"
+            "User-Agent" =    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Teams/1.3.00.24755 Chrome/69.0.3497.128 Electron/4.2.12 Safari/537.36"
+            "x-ms-client-version" = 666
+        }
+
+        try
+        {
+            Invoke-RestMethod -UseBasicParsing -Method Get -Uri "$url/beta/users/$UserPrincipalName/externalsearchv3?includeTFLUsers=true" -Headers $headers -ContentType "application/json"
+        }
+        catch
+        {
+            Write-Error $_.Exception.Message
+        }
+
+    }
+}
+
+
+# Get the availability of the user
+# Feb 2nd 2022
+function Get-TeamsAvailability
+{
+<#
+    .SYNOPSIS
+    Shows the availability of the given user.
+
+    .DESCRIPTION
+    Shows the availability of the given user.
+
+
+    .Parameter AccessToken
+    The access token used to get the availability
+    
+    .Parameter ObjectId
+    The Azure AD Object ID of the target user.
+
+    .EXAMPLE
+    PS\:>Get-AADIntAccessTokenForTeams -SaveToCache
+
+    .EXAMPLE
+    PS\:>Get-AADIntAccessTokenForTeams -SaveToCache
+    PS\:>Find-AADIntTeamsExternalUser -UserPrincipalName JohnD@company.com
+
+    tenantId          : dcc7d7bf-e3f5-4778-b6e0-aa7207bdb033
+    isShortProfile    : False
+    accountEnabled    : True
+    featureSettings   : @{coExistenceMode=TeamsOnly}
+    userPrincipalName : johnd@company.com
+    givenName         : JohnD@company.com
+    surname           : 
+    email             : JohnD@company.com
+    displayName       : John Doe
+    type              : Federated
+    mri               : 8:orgid:84bdccdb-eaba-4545-9729-4eff71b76841
+    objectId          : fe401a12-879c-4e5b-8b51-03e1985fa62f
+
+    PS\:>Get-AADIntTeamsAvailability -ObjectId "fe401a12-879c-4e5b-8b51-03e1985fa62f"
+
+    sourceNetwork : Federated
+    capabilities  : {Audio, Video}
+    availability  : Away
+    activity      : Away
+    deviceType    : Desktop
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(ParameterSetName='ObjectId',Mandatory=$True)]
+        [Guid]$ObjectId,
+        [Parameter(ParameterSetName='UserPrincipalName',Mandatory=$True)]
+        [String]$UserPrincipalName
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" 
+
+        if($UserPrincipalName)
+        {
+            $ObjectId = (Find-TeamsExternalUser -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName).objectId
+        }
+
+        $headers = @{
+            "Authorization" = "Bearer $AccessToken"
+        }
+
+        $body = "[{""mri"":""8:orgid:$ObjectId""}]"
+
+        try
+        {
+            $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://presence.teams.microsoft.com/v1/presence/getpresence/ " -Headers $headers -ContentType "application/json" -Body $body
+        }
+        catch
+        {
+            Write-Error $_.Exception.Message
+        }
+
+        $response.presence
+    }
+}
+
+
+
+# Translate the given text to given language
+# Mar 21st 2022
+function Get-Translation
+{
+<#
+    .SYNOPSIS
+    Translate the given text to the given language.
+
+    .DESCRIPTION
+    Translate the given text to the given language using Teams internal API.
+
+
+    .Parameter AccessToken
+    The access token used to get the availability
+    
+    .Parameter Language
+    The language code. Defaults to "en-US"
+
+    .EXAMPLE
+    PS\:>Get-AADIntAccessTokenForTeams -SaveToCache
+    PS\:>Get-AADIntTranslation -Text "Terve Maailma!" -Language "en-US"
+    Hello World!
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$Text,
+        [Parameter(Mandatory=$False)]
+        [String]$Language = "en-US"
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" 
+
+        # Get the settings
+        try
+        {
+            $teamsSettings = Get-TeamsUserSettings -AccessToken $AccessToken
+            $apiUrl =        $teamsSettings.regionGtms.middleTier
+        }
+        catch
+        {
+            $apiUrl = "https://teams.microsoft.com/api/mt/part/amer-01"
+        }
+
+        $body = @{
+            "texts" = @($Text)
+            "toLanguage" = $Language
+        }
+
+        $headers = @{
+            "Authorization" = "Bearer $AccessToken"
+        }
+        
+        try
+        {
+            $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$apiUrl/beta/translate" -Headers $headers -ContentType "application/json; charset=utf-8" -Body ($body | ConvertTo-Json -Compress)
+
+            $lang = $response[0].detectedLanguage.language
+            $score = [int](([double]$response[0].detectedLanguage.score)*100)
+
+            Write-Verbose "Detected language: $lang ($score %)"
+
+            $response[0].text
+        }
+        catch
+        {
+            Throw $_.Exception.Message
+        }
     }
 }
