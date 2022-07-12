@@ -10,8 +10,9 @@ function HasCloudMX
     Process
     {
         $results=Resolve-DnsName -Name $Domain -Type MX -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | select nameexchange | select -ExpandProperty nameexchange
+        $filteredResults=$results -like "*.mail.protection.outlook.com"
 
-        return ($results -like "*.mail.protection.outlook.com").Count -gt 0
+        return ($filteredResults -eq $true) -and ($filteredResults.Count -gt 0)
     }
 }
 
