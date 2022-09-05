@@ -158,6 +158,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-ADFSConfiguration"
     
     # AccessToken.ps1
+    "Get-AccessToken"
+    "Get-AccessTokenWithRefreshToken"
     "Get-AccessTokenForAADGraph"
     "Get-AccessTokenForMSGraph"
     "Get-AccessTokenForPTA"

@@ -749,17 +749,22 @@ function Get-AccessTokenForMySignins
 
     .DESCRIPTION
     Gets OAuth Access Token for My Signins, which is used for example when registering MFA.
+    
+    .Parameter Credentials
+    Credentials of the user.
    
     .Example
     PS C:\>Get-AADIntAccessTokenForMySignins
 #>
     [cmdletbinding()]
     Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
         [switch]$SaveToCache
     )
     Process
     {
-        return Get-AccessToken -ClientId 1b730954-1685-4b74-9bfd-dac224a7b894 -Resource "0000000c-0000-0000-c000-000000000000" -ForceMFA $true -SaveToCache $SaveToCache
+        return Get-AccessToken -ClientId 1b730954-1685-4b74-9bfd-dac224a7b894 -Resource "0000000c-0000-0000-c000-000000000000" -ForceMFA $true -Credentials $Credentials -SaveToCache $SaveToCache
     }
 }
 
