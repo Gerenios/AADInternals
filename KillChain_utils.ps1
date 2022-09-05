@@ -1,5 +1,6 @@
 ﻿# Checks whether the domain has MX records pointing to MS cloud
 # Jun 16th 2020
+# Aug 30th 2022: Fixed by maxgrim
 function HasCloudMX
 {
     [cmdletbinding()]
@@ -10,8 +11,9 @@ function HasCloudMX
     Process
     {
         $results=Resolve-DnsName -Name $Domain -Type MX -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | select nameexchange | select -ExpandProperty nameexchange
+        $filteredResults=$results -like "*.mail.protection.outlook.com"
 
-        return ($results -like "*.mail.protection.outlook.com").Count -gt 0
+        return ($filteredResults -eq $true) -and ($filteredResults.Count -gt 0)
     }
 }
 
@@ -64,6 +66,21 @@ function HasDesktopSSO
     Process
     {
         (Get-CredentialType -UserName "nn@$domain").EstsProperties.DesktopSsoEnabled -eq "True"
+    }
+}
+
+# Checks whether the domain has CBA enabled
+# Jun 17th 2022
+function HasCBA
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$UserName
+    )
+    Process
+    {
+        (Get-CredentialType -UserName $UserName).Credentials.HasCertAuth -eq "True"
     }
 }
 

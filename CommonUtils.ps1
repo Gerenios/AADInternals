@@ -2187,3 +2187,32 @@ Function Parse-CAPIKeyBLOB
         return $RSAParameters
     }
 }
+
+# Gets a substring from a string between given "tags"
+# May 23rd 2022
+Function Get-Substring
+{
+    [cmdletbinding()]
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [string]$String,
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [string]$Start,
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [string]$End
+    )
+    process
+    {
+        $s = $String.IndexOf($Start) + $Start.Length
+        if($s -lt 0)
+        {
+            return
+        }
+        $e = $String.IndexOf($End,$s)
+        if($e -lt 0)
+        {
+            return
+        }
+        return $String.Substring($s,$e-$s)
+    }
+}

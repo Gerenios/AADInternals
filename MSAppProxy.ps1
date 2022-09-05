@@ -524,3 +524,180 @@ function Add-ProxyAgentToGroup
         Write-Host "Agent ($($Agent.toString())) added to group ($($Group.toString()))"
     }
 }
+
+# Export proxy agent certificates from the local computer
+# Mar 8th 2022
+# Aug 17th 2022: Added support for exporting from NETWORK SERVICE personal store
+function Export-ProxyAgentCertificates
+{
+    <#
+    .SYNOPSIS
+    Export certificates of all MS App Proxy agents from the local computer.
+
+    .DESCRIPTION
+    Export certificates of all MS App Proxy agents from the local computer.
+    The filename of the certificate is <tenant id>_<agent id>.pfx
+
+    .Example
+    Export-AADIntProxyAgentCertificates
+
+    Certificate saved to: ea664074-37dd-4797-a676-b0cf6fdafcd4_4b6ffe82-bfe2-4357-814c-09da95399da7.pfx
+ 
+    #>
+    [cmdletbinding()]
+    Param(
+        [Switch]$GetBootstrap
+    )
+
+    Process
+    {
+        # Get all certificates from LocalMachine Personal store
+        $certificates = @(Get-Item Cert:\LocalMachine\My\*)
+
+        # Internal function to parse PTA & Provisioning agent configs
+        function Parse-ConfigCert
+        {
+            [cmdletbinding()]
+            Param(
+                [String]$ConfigPath
+            )
+            Process
+            {
+                # Check if we have a PTA or provisioning agent configuration and get the certificate if stored in NETWORK SERVICE personal store
+                [xml]$trustConfig = Get-Content "$env:ProgramData\Microsoft\$ConfigPath\Config\TrustSettings.xml" -ErrorAction SilentlyContinue
+        
+                if($trustConfig)
+                {
+                    $thumbPrint = $trustConfig.ConnectorTrustSettingsFile.CloudProxyTrust.Thumbprint
+
+                    # Check where the certificate is stored
+                    if($trustConfig.ConnectorTrustSettingsFile.CloudProxyTrust.IsInUserStore.ToLower().equals("true"))
+                    {
+                        # Certificate is stored in NETWORK SERVICE personal store so we need to parse it from there
+                        Write-Verbose "Parsing certificate: $($thumbPrint)"
+
+                        Parse-CertBlob -Data (Get-Content "$env:windir\ServiceProfiles\NetworkService\AppData\Roaming\Microsoft\SystemCertificates\My\Certificates\$thumbPrint" -Encoding byte)
+                    }
+
+                } 
+            }
+        }
+        
+        if($PTACert = Parse-ConfigCert -ConfigPath "Azure AD Connect Authentication Agent")
+        {
+            $binCert = $PTACert.DER
+            $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new([byte[]]$binCert)
+            $PTAKeyName = $PTACert.KeyName
+            $certificates += $certificate
+        }
+
+        if($ProvCert = Parse-ConfigCert -ConfigPath "Azure AD Connect Provisioning Agent")
+        {
+            $binCert = $ProvCert.DER
+            $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new([byte[]]$binCert)
+            $ProvKeyName = $ProvCert.KeyName
+            $certificates += $certificate
+        }
+        
+
+        $CurrentUser = "{0}\{1}" -f $env:USERDOMAIN,$env:USERNAME
+        Write-Warning "Elevating to LOCAL SYSTEM. You MUST restart PowerShell to restore $CurrentUser rights."
+
+        foreach($certificate in $certificates)
+        {
+            Write-Verbose "Reading certificate: $($certificate.Thumbprint)"
+
+            foreach($ext in $Certificate.Extensions)
+            {
+                # Check the agent Id OID exist
+                if($ext.Oid.Value -eq "1.3.6.1.4.1.311.82.1")
+                {
+                    # Extract agent and tenant IDs
+                    $agentId  = [guid] $ext.RawData
+                    $tenantId = [guid] $certificate.Subject.Split("=")[1]
+
+                    Write-Verbose " Tenant Id: $tenantId, Agent Id: $agentId"
+
+                    # Get the certificate
+                    $binCert = $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+
+                    # Get the key blob and decrypt the keys
+                    if($PTACert)
+                    {
+                        # If stored in NETWORK SERVICE store, PTA Agent's key name can't be readed from the certificate
+                        $keyName = $PTAKeyName
+                    }
+                    elseif($ProvCert)
+                    {
+                        # If stored in NETWORK SERVICE store, Provisioning Agent's key name can't be readed from the certificate
+                        $keyName = $ProvKeyName
+                    }
+                    else
+                    {
+                        # Read the key name from the certificate
+                        $keyName = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($certificate).key.uniquename
+                    }
+
+                    $paths = @(
+                        "$env:ALLUSERSPROFILE\Microsoft\Crypto\RSA\MachineKeys\$keyName"
+                        "$env:ALLUSERSPROFILE\Microsoft\Crypto\Keys\$keyName"
+                        "$env:windir\ServiceProfiles\NetworkService\AppData\Roaming\Microsoft\Crypto\RSA\S-1-5-20\$keyName"
+                        )
+                    foreach($path in $paths)
+                    {
+                        $keyBlob = Get-Content $path -Encoding byte -ErrorAction SilentlyContinue
+                        if($keyBlob)
+                        {
+                            Write-Verbose "Key loaded from $path"
+                            break
+                        }
+                    }
+                    if(!$keyBlob)
+                    {
+                        if($keyName.EndsWith(".PCPKEY"))
+                        {
+                            # This machine has a TPM
+                            Throw "PCP keys are not supported, unable to export private key!"
+                        }
+                        else
+                        {
+                            Throw "Error accessing key. If you are already elevated to LOCAL SYSTEM, restart PowerShell and try again."
+                        }
+                        return
+                    }
+                    $blobType = [System.BitConverter]::ToInt32($keyBlob,0)
+                    switch($blobType)
+                    {
+                        1 { $privateKey = Parse-CngBlob  -Data $keyBlob -Decrypt -LocalMachine}
+                        2 { $privateKey = Parse-CapiBlob -Data $keyBlob -Decrypt -LocalMachine}
+                        default { throw "Unsupported key blob type" }
+                    } 
+
+                    # Save to pfx file
+                    $fileName = "$(Get-ComputerName -FQDN)_$($tenantId)_$($agentId)_$($certificate.Thumbprint).pfx"
+                    Set-Content $fileName -Value (New-PfxFile -RSAParameters ($privateKey.RSAParameters) -X509Certificate $binCert) -Encoding Byte
+
+                    Write-Host "Certificate saved to: $fileName"
+
+                    if($GetBootstrap)
+                    {
+                        try
+                        {
+                            $bootStrap = Get-BootstrapConfiguration -MachineName (Get-ComputerName -FQDN) -Certificate (Load-Certificate -FileName $fileName)
+                            $bootStrapFileName = "$(Get-ComputerName -FQDN)_$($tenantId)_$($agentId)_$($certificate.Thumbprint).xml"
+                            Set-Content $bootStrapFileName -Value $bootStrap
+                            Write-Host "Bootstrap saved to:   $bootStrapFileName"
+                        }
+                        catch
+                        {
+                            Write-Warning "Could not get bootstrap using certificate $($certificate.Thumbprint)!"
+                        }
+                    }
+
+                    break
+                }
+            }
+        }
+
+    }
+}

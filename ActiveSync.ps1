@@ -1,4 +1,8 @@
-﻿<#
+﻿# Performs EAS autodiscover
+# Aug 30th 2022: Updated protocols, credits to celsogbezerra
+function Get-EASAutoDiscover
+{
+<#
     .SYNOPSIS
     Performs autodiscover for the given user and protocol
 
@@ -30,20 +34,18 @@
     outlookpay                   https://outlook.office.com/opay
     
 #>
-function Get-EASAutoDiscover
-{
     Param(
             
             [Parameter(Mandatory=$True)]
             [String]$Email,
-            [ValidateSet('All','Rest','ActiveSync','Ews','Substrate','SubstrateSearchService','AutodiscoverV1','SubstrateNotificationService','OutlookMeetingScheduler','OutlookPay','Actions','Connectors','ConnectorsProcessors','ConnectorsWebhook','NotesClient','OwaPoweredExperience','ToDo','Weve','OutlookLocationsService','OutlookCloudSettingsService','OutlookTailoredExperiences','OwaPoweredExperienceV2')]
+            [ValidateSet('All','Actions','ActiveSync','AutodiscoverV1','CompliancePolicyService','Connectors','ConnectorsProcessors','ConnectorsWebhook','Ews','NotesClient','OutlookCloudSettingsService','OutlookLocationsService','OutlookMeetingScheduler','OutlookPay','OutlookTailoredExperiences','OwaPoweredExperience','OwaPoweredExperienceV2','Rest','SpeechAndLanguagePersonalization','Speedway','Substrate','SubstrateNotificationService','SubstrateSearchService','SubstrateSignalService','ToDo','Weve')]
             [String]$Protocol="All"
         )
     Process
     {
         if($Protocol -eq "All")
         {
-            $Protocols = @('Rest','ActiveSync','Ews','Substrate','SubstrateSearchService','AutodiscoverV1','SubstrateNotificationService','OutlookMeetingScheduler','OutlookPay','Actions','Connectors','ConnectorsProcessors','ConnectorsWebhook','NotesClient','OwaPoweredExperience','ToDo','Weve','OutlookLocationsService','OutlookCloudSettingsService','OutlookTailoredExperiences','OwaPoweredExperienceV2')
+            $Protocols = @('Actions','ActiveSync','AutodiscoverV1','CompliancePolicyService','Connectors','ConnectorsProcessors','ConnectorsWebhook','Ews','NotesClient','OutlookCloudSettingsService','OutlookLocationsService','OutlookMeetingScheduler','OutlookPay','OutlookTailoredExperiences','OwaPoweredExperience','OwaPoweredExperienceV2','Rest','SpeechAndLanguagePersonalization','Speedway','Substrate','SubstrateNotificationService','SubstrateSearchService','SubstrateSignalService','ToDo','Weve')
             $Response = @()
             foreach($p in $Protocols)
             {

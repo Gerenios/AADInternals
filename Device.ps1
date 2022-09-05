@@ -257,6 +257,11 @@ function Join-LocalDeviceToAzureAD
         $P2P = Import-PfxCertificate -FilePath ".\$($deviceId)-P2P.pfx" -CertStoreLocation "Cert:\LocalMachine\My" -Exportable
         Write-Verbose "Certificate ($($P2P.Subject)) imported to CERT:\LocalMachine\My\$($P2P.Thumbprint)"
 
+        if(-not (Test-Path "Cert:\LocalMachine\AAD Token Issuer"))
+        {
+            New-Item -Path "Cert:\LocalMachine" -Name "AAD Token Issuer" -ItemType "directory" -Force 
+        }
+
         $P2PCA = Import-Certificate -FilePath ".\$($deviceId)-P2P-CA.der" -CertStoreLocation "Cert:\LocalMachine\AAD Token Issuer"
         Write-Verbose "Certificate ($($P2PCA.Subject)) imported to CERT:\LocalMachine\AAD Token Issuer\$($P2PCA.Thumbprint)"
 

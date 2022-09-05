@@ -150,3 +150,24 @@ function Parse-CertificateOIDs
         return $retVal
     }
 }
+
+# Gets service account names for all services 
+# Aug 29th 2022
+function Get-ServiceAccountNames
+{
+    [cmdletbinding()]
+
+    Param()
+    Process
+    {
+        foreach($service in Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\")
+        {
+            $svcName    = $service.PSChildName
+            $svcAccount = $service.GetValue("ObjectName")
+
+            Write-Debug "Service: '$svcName', AccountName: '$svcAccount'"
+
+            New-Object psobject -Property ([ordered]@{"Service" = $svcName; "AccountName" = $svcAccount})
+        }
+    }
+}

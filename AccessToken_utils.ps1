@@ -1127,6 +1127,10 @@ function Prompt-Credentials
         # Create the form
         $form = Create-LoginForm -Url $url -auth_redirect $auth_redirect
 
+        if(!$form)
+        {
+            return $null
+        }
 
         # Show the form and wait for the return value
         if($form.ShowDialog() -ne "OK") {
@@ -1196,6 +1200,11 @@ function Clear-LiveIdSession
         # Create the form
         $form=Create-LoginForm -Url $url -auth_redirect $auth_redirect
 
+        if(!$form)
+        {
+            return $null
+        }
+
         # Show the form and wait for the return value
         $form.ShowDialog()
 
@@ -1220,13 +1229,15 @@ function Create-LoginForm
     Process
     {
         # Check does the registry key exists
+        $regModified = $false
         $regPath="HKCU:\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION"
         if(!(Test-Path -Path $regPath )){
             Write-Warning "WebBrowser control emulation registry key not found!"
             $answer = Read-Host -Prompt "Would you like to create the registry key? (Y/N)"
             if($answer -eq "Y")
             {
-                New-Item -ItemType directory -Path $regPath -Force
+                New-Item -ItemType directory -Path $regPath -Force | Out-Null
+                $regModified = $true
             }
         }
 
@@ -1239,11 +1250,16 @@ function Create-LoginForm
             $answer = Read-Host -Prompt "Would you like set the emulation to IE 11? Otherwise the login form may not work! (Y/N)"
             if($answer -eq "Y")
             {
-                Set-ItemProperty -Path $regPath -Name "powershell_ise.exe" -Value 0x00002af9
-                Set-ItemProperty -Path $regPath -Name "powershell.exe" -Value 0x00002af9
-                Write-Host "Emulation set. Restart PowerShell/ISE!"
-                return
+                Set-ItemProperty -Path $regPath -Name "powershell_ise.exe" -Value 0x00002af9 | Out-Null
+                Set-ItemProperty -Path $regPath -Name "powershell.exe"     -Value 0x00002af9 | Out-Null
+                $regModified = $true
             }
+        }
+
+        if($regModified)
+        {
+            Write-Host "Emulation set. Restart PowerShell/ISE!"
+            return $null
         }
 
         # Create the form and add a WebBrowser control to it
@@ -1677,6 +1693,63 @@ function Clear-Cache
     {
         $script:tokens =         @{}
         $script:refresh_tokens = @{}
+    }
+}
+
+# Adds an access and refresh token to cache
+# Aug 30th 2022
+function Add-AccessTokenToCache
+{
+<#
+    .SYNOPSIS
+    Adds the given access token to AADInternals credentials cache
+
+    .DESCRIPTION
+    Adds the given access token to AADInternals credentials cache
+    
+    .PARAMETER AccessToken
+    The access token to add
+
+    .PARAMETER RefreshToken
+    The refresh token to add
+
+    .EXAMPLE
+    Add-AADIntAccessTokenToCache -AccessToken "eyJ0eXAiOiJKV..." 
+
+    Name              ClientId                             Audience                             Tenant                               IsExpired HasRefreshToken
+    ----              --------                             --------                             ------                               --------- ---------------
+    admin@company.com 1b730954-1685-4b74-9bfd-dac224a7b894 https://graph.windows.net            82205ae4-4c4e-4db5-890c-cb5e5a98d7a3     False            False
+
+    .EXAMPLE
+    Add-AADIntAccessTokenToCache -AccessToken "eyJ0eXAiOiJKV..." -RefreshToken "0.AXkAnZT_xZYmaEueEwVfGe..."
+
+    Name              ClientId                             Audience                             Tenant                               IsExpired HasRefreshToken
+    ----              --------                             --------                             ------                               --------- ---------------
+    admin@company.com 1b730954-1685-4b74-9bfd-dac224a7b894 https://graph.windows.net            82205ae4-4c4e-4db5-890c-cb5e5a98d7a3     False            True
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [String]$RefreshToken
+    )
+    Process
+    {
+        # Parse the token
+        $parsedToken = Read-Accesstoken -AccessToken $accessToken
+        $clientId = $parsedToken.appid
+        $resource = $parsedToken.aud
+
+        # Add to cache
+        $Script:tokens["$clientId-$resource"] = $AccessToken
+        if(![string]::IsNullOrEmpty($RefreshToken))
+        {
+            $script:refresh_tokens["$ClientId-$Resource"] = $RefreshToken
+        }
+        
+        # Dump the cache
+        Get-Cache
     }
 }
 
