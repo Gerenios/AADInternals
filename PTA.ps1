@@ -90,6 +90,7 @@ function Register-PTAAgent
 
 # Sets the certificate used by Azure AD Authentication Agent
 # Mar 3rd 2020
+# May 18th 2022: Fixed
 function Set-PTACertificate
 {
 <#
@@ -97,7 +98,8 @@ function Set-PTACertificate
     Sets the certificate used by Azure AD Authentication Agent
 
     .DESCRIPTION
-    Sets the certificate used by Azure AD Authentication Agent. The certificate must be created with Register-AADIntPTAAgent function.
+    Sets the certificate used by Azure AD Authentication Agent. 
+    The certificate must be created with Register-AADIntPTAAgent function or exported with Export-AADIntProxyAgentCertificates.
 
     .Example
     Set-AADIntPTACertificate -PfxFileName server1.pfx -PfxPassword "password"
@@ -112,20 +114,25 @@ function Set-PTACertificate
     Process
     {
         # Check if the file exists
-        if(($PfxFile=Get-Item $PfxFileName -ErrorAction SilentlyContinue) -eq $null)
+        if(Test-Path $PfxFileName -ne $True)
         {
-            Write-Error "The file ($PfxFile.FullName) does not exist!"
+            Write-Error "The file $PfxFileName does not exist!"
             return
         }
 
-        # Load the certificate
-        [System.Security.Cryptography.X509Certificates.X509Certificate2]$cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromCertFile($PfxFile)
+        # Import the certificate to LocalMachine's Personal store
+        if($PfxPassword)
+        {
+            $cert = Import-PfxCertificate -FilePath $PfxFileName -Password ($PfxPassword | ConvertTo-SecureString -AsPlainText -Force) -CertStoreLocation Cert:\LocalMachine\My -Exportable
+        }
+        else
+        {
+            $cert = Import-PfxCertificate -FilePath $PfxFileName -CertStoreLocation Cert:\LocalMachine\My -Exportable
+        }
 
         # Get the Tenant Id and Instance Id
         $TenantId = $cert.Subject.Split("=")[1]
-        $InstanceID = [guid]$cert.GetSerialNumberString()
-
-        # Actually, it is not the serial number but this oid for Private Enterprise Number. Microsoft = 1.3.6.1.4.1.311
+        
         foreach($extension in $cert.Extensions)
         {
             if($extension.Oid.Value -eq "1.3.6.1.4.1.311.82.1")
@@ -133,12 +140,6 @@ function Set-PTACertificate
                 $InstanceID = [guid]$extension.RawData
             }
         }
-
-        # Import the certificate to Local Machine\My
-        $store = [System.Security.Cryptography.X509Certificates.X509Store]::new([System.Security.Cryptography.X509Certificates.StoreName]::My, [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
-        $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-        $store.Add($cert)
-        $store.Close()
 
         # Set the registry value (the registy entry should already exists)
         Write-Verbose "Setting HKLM:\SOFTWARE\Microsoft\Azure AD Connect Agents\Azure AD Connect Authentication Agent\InstanceID to $InstanceID"
@@ -150,26 +151,27 @@ function Set-PTACertificate
             Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Azure AD Connect Agents\Azure AD Connect Authentication Agent" -Name "TenantID" -Value $TenantId
         }
 
-        # Set the certificate thumb print to config file
+        # Set the certificate thumbprint to config file
         $configFile = "$env:ProgramData\Microsoft\Azure AD Connect Authentication Agent\Config\TrustSettings.xml"
+        
         Write-Verbose "Setting the certificate thumb print to $configFile"
+        
         [xml]$TrustConfig = Get-Content $configFile
         $TrustConfig.ConnectorTrustSettingsFile.CloudProxyTrust.Thumbprint = $cert.Thumbprint
         $TrustConfig.OuterXml | Set-Content $configFile
 
         # Set the read access to private key
-        # Get the service information
-        $Service=Get-WMIObject -namespace "root\cimv2" -class Win32_Service -Filter 'Name="AzureADConnectAuthenticationAgent"'
+        $ServiceUser="NT SERVICE\AzureADConnectAuthenticationAgent"
 
         # Create an accessrule for private key
-        $AccessRule = New-Object Security.AccessControl.FileSystemAccessrule $service.StartName, "read", allow
-        $Root = "C:\ProgramData\Microsoft\Crypto\RSA\MachineKeys"
-
+        $AccessRule = New-Object Security.AccessControl.FileSystemAccessrule $ServiceUser, "read", allow
+        
         # Give read permissions to the private key
         $rsaCert = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($cert)
-        $fileName = $rsaCert.key.UniqueName
-        $path="$Root\$fileName"
-        Write-Verbose "Setting read access for ($($service.StartName)) to the private key ($path)"
+
+        $path = "$env:ALLUSERSPROFILE\Microsoft\Crypto\RSA\MachineKeys\$($rsaCert.key.UniqueName)"
+        
+        Write-Verbose "Setting read access for ($ServiceUser) to the private key ($path)"
         
         try
         {
@@ -179,7 +181,7 @@ function Set-PTACertificate
         }
         catch
         {
-            Write-Warning "Could not give read access for ($($service.StartName)) to the private key ($path) but this is propably okay."
+            Write-Warning "Could not give read access for ($ServiceUser) to the private key ($path) but this is propably okay."
         }
 
         Write-Host "`nCertification information set, remember to (re)start the service."

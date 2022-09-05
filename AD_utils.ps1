@@ -160,15 +160,59 @@ function Get-Bootkey
 function Get-ComputerName
 {
     [cmdletbinding()]
-    Param()
+    Param(
+        [Switch]$FQDN
+    )
     Process
     {
-        # Construct the bootkey
+        # Get the server name from the registry
         $computer = Get-ItemPropertyValue "HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName" -Name "ComputerName"
+
+        if($FQDN)
+        {
+            # Get the domain part
+            $domain = Get-ComputerDomainName
+        }
 
         Write-Verbose "ComputerName: $computer"
         
         return $computer
+    }
+}
+
+# Gets the domain of the computer
+# Aug 28th 2022
+function Get-ComputerDomainName
+{
+    [cmdletbinding()]
+    Param(
+        [Switch]$NetBIOS
+    )
+    Process
+    {
+        # Get the FQDN from the registry
+        
+        $domainName = Get-ItemPropertyValue "HKLM:\System\CurrentControlSet\Services\Tcpip\Parameters" -Name "Domain"
+        if(!$domainName)
+        {
+            throw "Could not get FQDN from registry."
+        }
+        Write-Verbose "Domain name: $domainName"
+
+        # Get NetBIOS using WMIC
+        if($NetBIOS)
+        {
+            Write-Verbose "Getting NetBIOS domain name for $domainName using WMIC"
+            $wmiDomain = Get-WmiObject Win32_NTDomain -Filter "DnsForestName = '$($domainName)'"
+            if(!$wmiDomain)
+            {
+                throw "Could not get NetBIOS domain for $FQDN using WMIC"
+            }
+            $DomainName = $wmiDomain.DomainName
+            Write-Verbose "NetBIOS domain: $domainName"
+        }
+
+        return $domainName
     }
 }
 
@@ -385,58 +429,153 @@ function Parse-LSAKeyStream
 
 # Gets LSA secrets
 # Apr 24th 2020
+# Aug 29th 2022: Added support for Group Managed Service Accounts (GMSA)
 function Get-LSASecrets
 {
 <#
     .SYNOPSIS
-    Gets computer's LSA Secrets
+    Gets computer's LSA Secrets from registry.
 
     .DESCRIPTION
-    Gets computer's Local Security Authority (LSA) secrets. MUST be run as an administrator.
+    Gets computer's Local Security Authority (LSA) secrets from registry. MUST be run as an administrator.
+
+    .PARAMETER AccountName
+    The account name of a service
+
+    .PARAMETER Users
+    List of users
 
     .Example
     Get-AADIntLSASecrets
 
     Name        : $MACHINE.ACC
-    Password    : {1, 2, 3, 4...}
-    PasswordHex : 01020304..
-    PasswordTxt : 컓噖덭а劈－⌋결
-    MD4         : {1, 2, 3, 4...}
-    SHA1        : {1, 2, 3, 4...}
-    MD4Txt      : aabbccdd..
-    SHA1Txt     : aabbccdd..
+    Account     : 
+    Password    : {131, 100, 104, 117...}
+    PasswordHex : 836468758afd792..
+    PasswordTxt : 撃畨ﶊ⵹脅䰐血⺹颶姾..
+    Credentials : 
+    MD4         : {219, 201, 145, 228...}
+    SHA1        : {216, 95, 90, 3...}
+    MD4Txt      : dbc991e4e611cf4dbd0d853f54489caf
+    SHA1Txt     : d85f5a030b06061329ba93ac7da2f446981a02b6
 
     Name        : DPAPI_SYSTEM
+    Account     : 
     Password    : {1, 0, 0, 0...}
-    PasswordHex : 0100000001082277ac85a532018930b782c30b7f2f91f7677e258665f0a016a7c215ceaf29ee1ae17b9f017b9
-    PasswordTxt : 挌榵
-    MD4         : {1, 2, 3, 4...}
-    SHA1        : {1, 2, 3, 4...}
-    MD4Txt      : aabbccdd..
-    SHA1Txt     : aabbccdd..
+    PasswordHex : 010000000c63b569390..
+    PasswordTxt :  挌榵9႘ૂਧ绣똚鲐쒽뾮㌡懅..
+    Credentials : 
+    MD4         : {85, 41, 246, 248...}
+    SHA1        : {32, 31, 39, 107...}
+    MD4Txt      : 5529f6f89c797f7d95224a554f460ea5
+    SHA1Txt     : 201f276b05fa087a0b7e37f7052d581813d52b46
 
     Name        : NL$KM
-    Password    : {1, 2, 3, 4...}
-    PasswordHex : 01020304..
-    PasswordTxt : ⬡ꎛ
-    MD4         : {1, 2, 3, 4...}
-    SHA1        : {1, 2, 3, 4...}
-    MD4Txt      : aabbccdd..
-    SHA1Txt     : aabbccdd..
+    Account     : 
+    Password    : {209, 118, 66, 10...}
+    PasswordHex : d176420abde330d3e443212b...
+    PasswordTxt : 监ੂ팰䏤⬡ꎛ녀䚃劤⪠钤␎／뜕ະ׏...
+    Credentials : 
+    MD4         : {157, 45, 19, 202...}
+    SHA1        : {197, 144, 115, 117...}
+    MD4Txt      : 9d2d13cac899b491114129e5ebe00939
+    SHA1Txt     : c590737514c8f22607fc79d771b61b1a1505c3ee
+
+    Name        : _SC_AADConnectProvisioningAgent
+    Account     : COMPANY\provAgentgMSA
+    Password    : {176, 38, 6, 7...}
+    PasswordHex : b02606075f962ab4474bd570dc..
+    PasswordTxt : ⚰܆陟됪䭇...
+    Credentials : System.Management.Automation.PSCredential
+    MD4         : {123, 211, 194, 182...}
+    SHA1        : {193, 238, 187, 166...}
+    MD4Txt      : 7bd3c2b62b66024e4e066a1f4902221e
+    SHA1Txt     : c1eebba61a72d8a4e78b1cefd27c555b83a39cb4
 
     Name        : _SC_ADSync
-    Password    : {1, 2, 3, 4...}
-    PasswordHex : 01020304..
-    PasswordTxt : a5bTiGcvC8fr=E;MQ331IOt/&RP,!m:qjiRXaS;xr4V#6t74;&7mXWoOoz"57K/kKTz#xdBBqb.GDKly
-    MD4         : {1, 2, 3, 4...}
-    SHA1        : {1, 2, 3, 4...}
-    MD4Txt      : aabbccdd..
-    SHA1Txt     : aabbccdd..
+    Account     : COMPANY\AAD_5baf82738e9c
+    Password    : {41, 0, 45, 0...}
+    PasswordHex : 29002d004e0024002a00...
+    PasswordTxt : )-N$*s=322jSQnm-YG#z2z...
+    Credentials : System.Management.Automation.PSCredential
+    MD4         : {81, 210, 222, 155...}
+    SHA1        : {94, 74, 122, 142...}
+    MD4Txt      : 51d2de9b89b81d0cb371a829a2d19fe2
+    SHA1Txt     : 5e4a7a8e220652c11cf64d25b1dcf63da7ce4bf1
+
+    Name        : _SC_GMSA_DPAPI_{C6810348-4834-4a1e-817D-5838604E6004}_15030c93b7affb1fe7dc418b9dab42addf5
+                  74c56b3e7a83450fc4f3f8a382028
+    Account     : 
+    Password    : {131, 250, 57, 146...}
+    PasswordHex : 83fa3992cd076f3476e8be7e04...
+    PasswordTxt : 廙鈹ߍ㑯纾�≦瀛･௰镭꾔浪�ꨲ컸Ｏ⩂�..
+    Credentials : 
+    MD4         : {198, 74, 199, 231...}
+    SHA1        : {78, 213, 16, 126...}
+    MD4Txt      : c64ac7e7d2defe99afdf0026b79bbab9
+    SHA1Txt     : 4ed5107ee08123635f08390e106ed000f96273fd
+
+    Name        : _SC_GMSA_{84A78B8C-56EE-465b-8496-FFB35A1B52A7}_15030c93b7affb1fe7dc418b9dab42addf574c56b
+                  3e7a83450fc4f3f8a382028
+    Account     : COMPANY\sv_ADFS
+    Password    : {213, 89, 245, 60...}
+    PasswordHex : d559f53cdc2aa6dffe32d6b23...
+    PasswordTxt : 姕㳵⫝̸�㋾닖�स䥥⫮Ꭸ베꺻ᢆ㒍梩神蔼廄...
+    Credentials : System.Management.Automation.PSCredential
+    MD4         : {223, 4, 60, 193...}
+    SHA1        : {86, 201, 125, 70...}
+    MD4Txt      : df043cc10709bd9f94aa273ec7a54b68
+    SHA1Txt     : 56c97d46b5072ebb8c5c7bfad4b8c1c18f3b48d0
+
+    .Example
+    Get-AADIntLSASecrets -AccountName COMPANY\AAD_5baf82738e9c
+
+    Name        : _SC_ADSync
+    Account     : COMPANY\AAD_5baf82738e9c
+    Password    : {41, 0, 45, 0...}
+    PasswordHex : 29002d004e0024002a00...
+    PasswordTxt : )-N$*s=322jSQnm-YG#z2z...
+    Credentials : System.Management.Automation.PSCredential
+    MD4         : {81, 210, 222, 155...}
+    SHA1        : {94, 74, 122, 142...}
+    MD4Txt      : 51d2de9b89b81d0cb371a829a2d19fe2
+    SHA1Txt     : 5e4a7a8e220652c11cf64d25b1dcf63da7ce4bf1
+
+    .Example
+    Get-AADIntLSASecrets -AccountName COMPANY\sv_ADFS
+
+    Name        : _SC_GMSA_{84A78B8C-56EE-465b-8496-FFB35A1B52A7}_15030c93b7affb1fe7dc418b9dab42addf574c56b
+                  3e7a83450fc4f3f8a382028
+    Account     : COMPANY\sv_ADFS
+    Password    : {213, 89, 245, 60...}
+    PasswordHex : d559f53cdc2aa6dffe32d6b23...
+    PasswordTxt : 姕㳵⫝̸�㋾닖�स䥥⫮Ꭸ베꺻ᢆ㒍梩神蔼廄...
+    Credentials : System.Management.Automation.PSCredential
+    MD4         : {223, 4, 60, 193...}
+    SHA1        : {86, 201, 125, 70...}
+    MD4Txt      : df043cc10709bd9f94aa273ec7a54b68
+    SHA1Txt     : 56c97d46b5072ebb8c5c7bfad4b8c1c18f3b48d0
+
+    .Example
+    Get-AADIntLSASecrets -Users DPAPI_SYSTEM
+
+    Name        : DPAPI_SYSTEM
+    Account     : 
+    Password    : {1, 0, 0, 0...}
+    PasswordHex : 010000000c63b569390..
+    PasswordTxt :  挌榵9႘ૂਧ绣똚鲐쒽뾮㌡懅..
+    Credentials : 
+    MD4         : {85, 41, 246, 248...}
+    SHA1        : {32, 31, 39, 107...}
+    MD4Txt      : 5529f6f89c797f7d95224a554f460ea5
+    SHA1Txt     : 201f276b05fa087a0b7e37f7052d581813d52b46
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
-        [String[]]$Users
+        [String[]]$Users,
+        [Parameter(ParameterSetName='Account',Mandatory=$False)]
+        [String]$AccountName
         )
     Begin
     {
@@ -445,6 +584,9 @@ function Get-LSASecrets
     Process
     {
         # First elevate the current thread by copying the token from LSASS.EXE
+        $CurrentUser = "{0}\{1}" -f $env:USERDOMAIN,$env:USERNAME
+        Write-Warning "Elevating to LOCAL SYSTEM. You MUST restart PowerShell to restore $CurrentUser rights."
+        
         if([AADInternals.Native]::copyLsassToken())
         {
             # 
@@ -464,7 +606,7 @@ function Get-LSASecrets
 
             # Get the domain name and sid
             $dnameBytes = Get-ItemPropertyValue "HKLM:\SECURITY\Policy\PolPrDmN" -Name "(default)"
-            $DomainName = [text.encoding]::Unicode.GetString($dnameBytes[8..$($dnameBytes.Length)])
+            $DomainName = [text.encoding]::Unicode.GetString($dnameBytes[8..$($dnameBytes.Length)]).Trim(0x00)
             $dsidBytes = Get-ItemPropertyValue "HKLM:\SECURITY\Policy\PolPrDmS" -Name "(default)"
             if($dsidBytes)
             {
@@ -473,7 +615,7 @@ function Get-LSASecrets
 
             # Get the domain FQDN
             $fqdnBytes = Get-ItemPropertyValue "HKLM:\SECURITY\Policy\PolDnDDN" -Name "(default)"
-            $DomainFQDN = [text.encoding]::Unicode.GetString($fqdnBytes[8..$($fqdnBytes.Length)])
+            $DomainFQDN = [text.encoding]::Unicode.GetString($fqdnBytes[8..$($fqdnBytes.Length)]).Trim(0x00)
             
             Write-Verbose "Local: $LocalName ($LocalSid)"
             Write-Verbose "Domain: $DomainName ($DomainSid)"
@@ -497,6 +639,56 @@ function Get-LSASecrets
             # Get the password Blobs for each system account
             #
 
+            # Get service account names and gMSA names
+            $gmsaNames = @{}
+            $serviceAccounts = @{}
+            foreach($service in Get-ServiceAccountNames)
+            {
+                $svcAccount = $service.AccountName
+                if(![string]::IsNullOrEmpty($svcAccount) -and !$svcAccount.ToUpper().StartsWith("NT AUTHORITY\") -and !$svcAccount.ToUpper().StartsWith("NT SERVICE\") -and !$svcAccount.ToUpper().StartsWith("\DRIVER\") -and !$svcAccount.ToUpper().Equals("LOCALSYSTEM") )
+                {
+                    if($svcAccount.EndsWith('$'))
+                    {
+                        $svcAccount = $svcAccount.Substring(0,$svcAccount.Length-1)
+                    }
+                    $serviceAccounts[$service.Service] = $svcAccount
+                    $parts = $svcAccount.Split('\')
+
+                    $gmsaName = Get-GMSASecretName -Type GMSA -AccountName $parts[1] -DomainName $parts[0] 
+                    $gmsaNames[$gmsaName] = $svcAccount
+                }
+            }
+
+            # Create a user list for gMSA and SAs if AccountName was provided
+            if(![string]::IsNullOrEmpty($AccountName))
+            {
+                Write-Verbose "Trying to find secret for account: $AccountName"
+                if($AccountName.IndexOf("\") -lt 0)
+                {
+                    $AccountName = "$DomainName\$AccountName"
+                }
+                if($AccountName.EndsWith('$'))
+                {
+                    $AccountName = $AccountName.Substring(0,$AccountName.Length-1)
+                }
+
+                $parts = $AccountName.Split('\')
+                $gmsaName = Get-GMSASecretName -Type GMSA -AccountName $parts[1] -DomainName $parts[0]
+                $smsaName = "_SC_{262E99C9-6160-4871-ACEC-4E61736B6F21}_$($parts[1])$('$')"
+
+                foreach($service in $serviceAccounts.Keys)
+                {
+                    if($serviceAccounts[$service] -eq $AccountName)
+                    {
+                        $saName = $service
+                        break
+                    }
+                }
+
+
+                $Users = @($gmsaName, $smsaName, "_SC_$saName")
+            }
+
             # If users list not provided, retrieve all secrets
             if([string]::IsNullOrEmpty($Users))
             {
@@ -511,23 +703,55 @@ function Get-LSASecrets
                 $sha1=$null
                 $Md4txt=$null
                 $Sha1txt=$null
+                $account=$null
 
                 # Create the registry key
                 $regKey = "HKLM:\SECURITY\Policy\Secrets\$user\CurrVal"
 
                 if(Test-Path $regKey)
                 {
-
                     # Get the secret Blob from registry
                     $pwdBlob = Parse-LSASecretBlob -Data (Get-ItemPropertyValue $regKey -Name "(default)")
                 
-
                     # Decrypt the password Blob using the correct encryption key
                     $decPwdBlob = Decrypt-LSASecretData -Data ($pwdBlob.Data) -Key $encKeys[$($pwdBlob.GUID.ToString())] -InitialVector ($pwdBlob.IV)
 
                     # Parse the Blob
-                    if($user.StartsWith("_SC_")) # Service accounts doesn't have password Blob - just dump the data after the header
+                    if($user.StartsWith("_SC_GMSA_")) # Group Managed Service Account or GMSA DPAPI
                     {
+                        # Strip the header
+                        $pwdb = $decPwdBlob[16..$($decPwdBlob.length-1)] 
+
+                        # Replace the user name
+                        if($gmsaNames.ContainsKey($user))
+                        {
+                            $account = $gmsaNames[$user]
+                        }
+
+                        # Parse managed password blob for GMSA accounts
+                        if($user.StartsWith("_SC_GMSA_{84A78B8C-56EE-465b-8496-FFB35A1B52A7}_"))
+                        {
+                            $gmsa = Parse-ManagedPasswordBlob -PasswordBlob $pwdb
+                            $pwdb = $gmsa.CurrentPassword
+                        }
+                    }
+                    elseif($user.StartsWith("_SC_{262E99C9-6160-4871-ACEC-4E61736B6F21}_")) # standalone Managed Service Account sMSA
+                    {
+                        # Strip the header
+                        $pwdb = $decPwdBlob[16..$($decPwdBlob.length-1)] 
+                        
+                        $account = "$DomainName\$($user.SubString(43))" # "_SC_{262E99C9-6160-4871-ACEC-4E61736B6F21}_"
+                        
+                        # Strip the dollar sign
+                        if($account.EndsWith('$'))
+                        {
+                            $account = $account.Substring(0,$account.Length-1)
+                        }
+                    }
+                    elseif($user.StartsWith("_SC_")) # Service accounts doesn't have password Blob - just dump the data after the header
+                    {
+                        $serviceName = $user.SubString(4)
+                        $account = $serviceAccounts[$serviceName]
                         $pwdb = $decPwdBlob[16..$($decPwdBlob.length-1)] 
                     }
                     else
@@ -544,22 +768,31 @@ function Get-LSASecrets
                     }
                     else
                     {
-                        $md4=Get-MD4 -bArray $pwdb -AsByteArray
-                        $sha1 = $sha1Prov.ComputeHash($pwdb)
+                        if($pwdb -ne $null)
+                        {
+                            $md4=Get-MD4 -bArray $pwdb -AsByteArray
+                            $sha1 = $sha1Prov.ComputeHash($pwdb)
 
-                        $md4txt =  Convert-ByteArrayToHex -Bytes $md4
-                        $sha1txt = Convert-ByteArrayToHex -Bytes $sha1
-                        Write-Verbose "MD4: $md4txt"
-                        Write-Verbose "SHA1: $sha1txt"
+                            $md4txt =  Convert-ByteArrayToHex -Bytes $md4
+                            $sha1txt = Convert-ByteArrayToHex -Bytes $sha1
+                            Write-Verbose "MD4: $md4txt"
+                            Write-Verbose "SHA1: $sha1txt"
+                        }
                     }
 
                     # Add to return value
                     $attributes["Name"] =     $user
+                    $attributes["Account"] =  $account
                     $attributes["Password"] = $pwdb
                     $attributes["PasswordHex"] = Convert-ByteArrayToHex -Bytes $pwdb
                     $attributes["PasswordTxt"] = ""
                     try{
                         $attributes["PasswordTxt"] = ([text.encoding]::Unicode.getString($pwdb)).trimend(@(0x00,0x0a,0x0d))
+                    }
+                    catch{}
+                    $attributes["Credentials"] = $null
+                    try{
+                        $attributes["Credentials"] = [pscredential]::new($account,($attributes["PasswordTxt"] | ConvertTo-SecureString -AsPlainText -Force))
                     }
                     catch{}
                     $attributes["MD4"] =      $md4
@@ -573,7 +806,7 @@ function Get-LSASecrets
                 }
                 else
                 {
-                    Write-Error "No secrets found for user $user"
+                    Write-Verbose "No secrets found for user $user"
                 }
             }
 
@@ -1329,3 +1562,148 @@ function Get-SystemMasterkeys
 
     }
 }
+
+# Parse ManagedPassword blob
+# Aug 23rd 2022
+function Parse-ManagedPasswordBlob
+{
+    [cmdletbinding()]
+    Param(
+    [Parameter(Mandatory=$True)]
+        [byte[]]$PasswordBlob
+    )
+    Process
+    {
+        $properties = [ordered]@{}
+        $p = 0
+
+        # Get version
+        $version = [System.BitConverter]::ToInt32($PasswordBlob,$p); $p += 4
+        if($version -ne 1)
+        {
+            Write-Error "Invalid version: $version, was expecting 1"
+            return $null
+        }
+
+        # Get blob size
+        $blobSize = [System.BitConverter]::ToInt32($PasswordBlob,$p); $p += 4
+        if($blobSize -ne $PasswordBlob.Length)
+        {
+            # Blob may have null byte padding - then okay!
+            if($PasswordBlob.Length % 16 -ne 0)
+            {
+                Write-Warning "ManagedPasswordBlob length $($PasswordBlob.Length) bytes, was expecting $blobSize"
+            }
+        }
+
+        # Get the current password
+        $curPwdOffset = [System.BitConverter]::ToInt16($PasswordBlob,$p); $p += 2
+        if($curPwdOffset -eq 0)
+        {
+            Write-Error "Invalid current password offset: 0"
+            return $null
+        }
+        else
+        {
+            $properties["CurrentPassword"] = $PasswordBlob[$curPwdOffset..$($curPwdOffset+255)]
+        }
+
+        # Get the previous password 
+        $prevPwdOffset = [System.BitConverter]::ToInt16($PasswordBlob,$p); $p += 2
+        if($prevPwdOffset -ne 0)
+        {
+            $properties["PreviousPassword"] = $PasswordBlob[$prevPwdOffset..$($prevPwdOffset+255)]
+        }
+
+        # Get the QueryPasswordInterval
+        $queryPwdIntervalOffset = [System.BitConverter]::ToInt16($PasswordBlob,$p); $p += 2
+        $properties["QueryPasswordInterval"] = [timespan]::FromTicks([System.BitConverter]::ToInt64($PasswordBlob,$queryPwdIntervalOffset))
+        
+        # Get the UnchangedPasswordInterval 
+        $unchangedPwdIntervalOffset = [System.BitConverter]::ToInt16($PasswordBlob,$p); 
+        $properties["UnchangedPasswordInterval"] = [timespan]::FromTicks([System.BitConverter]::ToInt64($PasswordBlob,$unchangedPwdIntervalOffset))
+        
+
+        return New-Object psobject -Property $properties
+    }
+}
+
+# Returns the GMSA secret name for the given username
+# Aug 28th 2022
+function Get-GMSASecretName
+{
+[cmdletbinding()]
+
+    Param(
+        [Parameter(Mandatory=$true,ValueFromPipeline)]
+        [String]$AccountName,
+        [Parameter(Mandatory=$False)]
+        [String]$DomainName,
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("GMSA","DPAPI")]
+        [String]$Type="GMSA"
+        )
+    Process
+    {
+        # Get the domain name from registry & wmic if not provided
+        if([string]::IsNullOrEmpty($DomainName))
+        {
+            $DomainName = Get-ComputerDomainName -NetBIOS
+        }
+
+        # Strip the dollar sign if present
+        if($AccountName.EndsWith('$'))
+        {
+            $AccountName = $AccountName.SubString(0,$AccountName.Length - 1)
+        }
+
+        # Concatenate domain and account name + make upper case
+        $GMSAAccountName = "$DomainName$AccountName".ToUpper()
+
+        Write-Verbose "Calculating GMSA name for $GMSAAccountName"
+
+        # Get the SHA256 hash with HMAC flag. Microsoft <3
+        $binAccountName = [text.encoding]::Unicode.getBytes($GMSAAccountName)
+        Write-Debug "Encoded account name: $(Convert-ByteArrayToHex $binAccountName)"
+        $binHash = [AADInternals.Native]::GetSHA256withHMACFlag($binAccountName)
+
+        if(!$binHash)
+        {
+            throw "Unable to get SHA256 hash with HMAC flag for $GMSAAccountName"
+        }
+
+        Write-Debug "Hash1: $(Convert-ByteArrayToHex $binHash)"
+
+        # The hex string is calculated by switching the hi/low bits of each byte. Microsoft <3
+        $hexLetters = "0123456789abcdef"
+        $strHash=""
+        $pos = 0
+        do{
+    
+            $strHash += $hexLetters[($binHash[$pos] -band 0x0f)]
+            $strHash += $hexLetters[($binHash[$pos] -shr  0x04)]
+            $pos+=1
+        }while($pos -lt $binHash.Length)
+
+        Write-Debug "Hash2: $strHash"
+
+        # Prefix is hard coded
+        $preFix=""
+        if($Type -eq "GMSA")
+        {
+            $preFix = "_SC_GMSA_{84A78B8C-56EE-465b-8496-FFB35A1B52A7}_"
+        }
+        else
+        {
+            $preFix = "_SC_GMSA_DPAPI_{C6810348-4834-4a1e-817D-5838604E6004}_"
+        }
+
+        $GMSASecretName = "$preFix$strHash"
+
+        Write-Verbose "GMSA secret name for $($GMSAAccountName): $GMSASecretName"
+
+        # Return
+        return $GMSASecretName
+    }
+}
+

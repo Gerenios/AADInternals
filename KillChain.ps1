@@ -42,15 +42,40 @@ function Invoke-ReconAsOutsider
     company.mail.onmicrosoft.com  True  True  True   True  Managed
     company.onmicrosoft.com       True  True  True  False  Managed
     int.company.com              False False False  False  Managed 
+
+    .Example
+    Invoke-AADIntReconAsOutsider -UserName user@company.com | Format-Table
+
+    Tenant brand:       Company Ltd
+    Tenant name:        company
+    Tenant id:          05aea22e-32f3-4c35-831b-52735704feb3
+    DesktopSSO enabled: False
+    CBA enabled:        True
+
+    Name                           DNS   MX    SPF  DMARC  Type      STS
+    ----                           ---   --    ---  -----  ----      ---
+    company.com                   True  True  True   True  Federated sts.company.com
+    company.mail.onmicrosoft.com  True  True  True   True  Managed
+    company.onmicrosoft.com       True  True  True  False  Managed
+    int.company.com              False False False  False  Managed 
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(ParameterSetName="domain",Mandatory=$True)]
         [String]$DomainName,
+        [Parameter(ParameterSetName="user",Mandatory=$True)]
+        [String]$UserName,
         [Switch]$Single
     )
     Process
     {
+        if([string]::IsNullOrEmpty($DomainName))
+        {
+            $DomainName = $UserName.Split("@")[1]
+
+            Write-Verbose "Checking CBA status."
+            $tenantCBA = HasCBA -UserName $UserName
+        }
         Write-Verbose "Checking if the domain $DomainName is registered to Azure AD"
         $tenantId =    Get-TenantID -Domain $DomainName
         $tenantName =  ""
@@ -154,6 +179,12 @@ function Invoke-ReconAsOutsider
         if(!$Single -or $tenantSSO -eq $true)
         {
             Write-Host "DesktopSSO enabled: $tenantSSO"
+        }
+
+        # CBA status definitive if username was provided
+        if($tenantCBA)
+        {
+            Write-Host "CBA enabled:        $tenantCBA"
         }
         
         return $domainInformation

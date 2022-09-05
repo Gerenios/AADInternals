@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.6.8'
+	ModuleVersion = '0.6.9'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -81,6 +81,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\AzureCoreManagement.ps1"
         ".\AzureManagementAPI.ps1"
         ".\AzureManagementAPI_utils.ps1"
+        ".\CBA.ps1"
         ".\ClientTools.ps1"
         ".\CloudShell.ps1"
         ".\CloudShell_utils.ps1"
@@ -161,7 +162,6 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AccessTokenForMSGraph"
     "Get-AccessTokenForPTA"
     "Get-AccessTokenForEXO"
-    "Get-AccessTokenForEXOPS"
     "Get-AccessTokenForSARA"
     "Get-AccessTokenForOneDrive"
     "Get-AccessTokenForOfficeApps"
@@ -188,6 +188,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-TenantDomains"
     "Get-Cache"
     "Clear-Cache"
+    "Add-AccessTokenToCache"
 
     # GraphAPI.ps1
     "Get-TenantDetails"
@@ -473,6 +474,10 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
 
     # OneNote.ps1
     "Start-Speech"
+
+    # CBA.ps1
+    "Get-AdminPortalAccessTokenUsingCBA"
+    "Get-PortalAccessTokenUsingCBA"
 )
 
 	# Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.

@@ -12,7 +12,7 @@ function Get-AzureClassicAdministrators
     Returns classic administrators of the given Azure subscription
 
     .Example
-    Get-AADIntAzureClassicAdministrators
+    Get-AADIntAzureClassicAdministrators -Subscription "4f9fe2bc-71b3-429f-8a63-5957f1582144"
 
     emailAddress                  role                                     
     ------------                  ----                                     
@@ -21,7 +21,7 @@ function Get-AzureClassicAdministrators
 
     .Example
     C:\PS>Get-AADIntAccessTokenForAzureCoreManagement -SaveToCache
-    C:\PS>Get-AADIntAzureClassicAdministrators
+    C:\PS>Get-AADIntAzureClassicAdministrators -Subscription "4f9fe2bc-71b3-429f-8a63-5957f1582144"
 
     emailAddress                  role                                     
     ------------                  ----                                     

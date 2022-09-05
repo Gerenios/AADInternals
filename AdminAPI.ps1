@@ -167,11 +167,13 @@ function Get-AccessTokenUsingAdminAPI
         [ValidateSet('PortalAT','BusinessStoreAT')]
         [String]$TokenType="PortalAT",
         [Parameter(Mandatory=$False)]
-        [String]$AccessToken
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [Microsoft.PowerShell.Commands.WebRequestSession]$WebSession
     )
     Process
     {
-        Invoke-AdminAPI -AccessToken $AccessToken -Url "admin/api/users/getuseraccesstoken?tokenType=$TokenType" -Method Get 
+        Invoke-AdminAPI -AccessToken $AccessToken -Url "admin/api/users/getuseraccesstoken?tokenType=$TokenType" -Method Get -WebSession $WebSession
     }
 }
 
