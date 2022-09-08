@@ -45,27 +45,37 @@ $SEC_E_SMARTCARD_LOGON_REQUIRED = -2146892994
 
 # Registers PTAAgent to the Azure AD
 # Nov 10th 2019
+# Sep 7th 2022: Added UpdateTrust
 function Register-PTAAgent
 {
 <#
     .SYNOPSIS
-    Registers the PTA agent to Azure AD and creates a client certificate
+    Registers the PTA agent to Azure AD and creates a client certificate or renews existing certificate.
 
     .DESCRIPTION
-    Registers the PTA agent to Azure AD with given machine name and creates a client certificate
+    Registers the PTA agent to Azure AD with given machine name and creates a client certificate or renews existing certificate.
+
+    The filename of the certificate is <server FQDN>_<tenant id>_<agent id>_<cert thumbprint>.pfx
 
     .Example
+    Get-AADIntAccessTokenForPTA -SaveToCache
     Register-AADIntPTAAgent -MachineName "server1.company.com"
 
     PTA Agent (005b136f-db3e-4b54-9d8b-8994f7717de6) registered as server1.company.com
-    Certificate saved to PTA_client_certificate.pfx
+    Certificate saved to server1.company.com_513d8d3d-7498-4d8c-85ed-b485ed5c39a9_005b136f-db3e-4b54-9d8b-8994f7717de6_6464A8C05194B416B347D65F01F89FCCE66292FB.pfx
 
     .Example
     $pt=Get-AADIntAccessTokenForPTA
-    PS C:\>Register-AADIntPTAAgent -AccessToken $pt -MachineName "server1.company.com" -FileName server1.pfx
+    PS C:\>Register-AADIntPTAAgent -AccessToken $pt -MachineName "server1.company.com" 
 
     PTA Agent (005b136f-db3e-4b54-9d8b-8994f7717de6) registered as server1.company.com
-    Certificate saved to server1.pfx
+    Certificate saved to server1.company.com_513d8d3d-7498-4d8c-85ed-b485ed5c39a9_005b136f-db3e-4b54-9d8b-8994f7717de6_6464A8C05194B416B347D65F01F89FCCE66292FB.pfx
+
+    .Example
+    PS C:\>Register-AADIntPTAAgent -MachineName "server1.company.com" -UpdateTrust -PfxFileName .\server1.company.com_513d8d3d-7498-4d8c-85ed-b485ed5c39a9_005b136f-db3e-4b54-9d8b-8994f7717de6_6464A8C05194B416B347D65F01F89FCCE66292FB.pfx
+
+    PTA Agent (005b136f-db3e-4b54-9d8b-8994f7717de6) certificate renewed for server1.company.com
+    Certificate saved to server1.company.com_513d8d3d-7498-4d8c-85ed-b485ed5c39a9_005b136f-db3e-4b54-9d8b-8994f7717de6_449D42C1BA32B23A621EBE62329AE460FE68924B.pfx
    
 #>
     [cmdletbinding()]
@@ -75,14 +85,18 @@ function Register-PTAAgent
         [Parameter(Mandatory=$True)]
         [String]$MachineName,
         [Parameter(Mandatory=$False)]
-        [String]$FileName="PTA_client_certificate.pfx"
+        [String]$FileName,
+        [Parameter(ParameterSetName='normal',Mandatory=$False)]
+        [Parameter(ParameterSetName='update',Mandatory=$True)]
+        [switch]$UpdateTrust,
+        [Parameter(ParameterSetName='update',Mandatory=$True)]
+        [String]$PfxFileName,
+        [Parameter(ParameterSetName='update',Mandatory=$False)]
+        [String]$PfxPassword
     )
     Process
     {
-        # Get access token from cache
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8"
-
-        return Register-ProxyAgent -AccessToken $AccessToken -MachineName $MachineName -FileName $FileName -AgentType PTA
+        return Register-ProxyAgent -AccessToken $AccessToken -MachineName $MachineName -FileName $FileName -AgentType PTA -UpdateTrust $UpdateTrust -PfxFileName $PfxFileName -PfxPassword $PfxPassword
     }
 }
 
@@ -158,6 +172,7 @@ function Set-PTACertificate
         
         [xml]$TrustConfig = Get-Content $configFile
         $TrustConfig.ConnectorTrustSettingsFile.CloudProxyTrust.Thumbprint = $cert.Thumbprint
+        $TrustConfig.ConnectorTrustSettingsFile.CloudProxyTrust.IsInUserStore = "false"
         $TrustConfig.OuterXml | Set-Content $configFile
 
         # Set the read access to private key

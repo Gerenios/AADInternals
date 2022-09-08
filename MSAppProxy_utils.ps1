@@ -67,7 +67,15 @@ function Get-BootstrapConfiguration
 
         $url="https://$TenantId.bootstrap.msappproxy.net/ConnectorBootstrap"
         
-        $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Post -Certificate $Certificate -Body $body -ContentType "application/xml; charset=utf-8"
+        try
+        {
+            $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Post -Certificate $Certificate -Body $body -ContentType "application/xml; charset=utf-8"
+        }
+        catch
+        {
+            Write-Error "Could not get bootstrap. Expired certificate ($($Certificate.Thumbprint)) or invalid agent ($InstanceID)?"
+            return $null
+        }
         
         [xml]$xmlResponse = $response.Content
 

@@ -35,10 +35,12 @@ function Register-ProxyAgent
         [String]$AgentType,
         [Parameter(Mandatory=$False)]
         $AgentGroup,
-        [Parameter(ParameterSetName='update',Mandatory=$False)]
-        [switch]$UpdateTrust,
-        [Parameter(ParameterSetName='update',Mandatory=$False)]
-        [String]$PfxFileName
+        [Parameter(Mandatory=$False)]
+        [bool]$UpdateTrust,
+        [Parameter(Mandatory=$False)]
+        [String]$PfxFileName,
+        [Parameter(Mandatory=$False)]
+        [string]$PfxPassword
         
     )
     Begin
@@ -61,7 +63,7 @@ function Register-ProxyAgent
         if($UpdateTrust)
         {
             # Load the old certificate
-            $cert = Load-Certificate -FileName $PfxFileName
+            $cert = Load-Certificate -FileName $PfxFileName -Password $PfxPassword
 
             $tenantId = $cert.Subject.Split("=")[1]
         }
@@ -114,6 +116,13 @@ function Register-ProxyAgent
         if($UpdateTrust)
         {
             [xml]$config=Get-BootstrapConfiguration -Certificate $cert -MachineName $MachineName
+            if(!$config)
+            {
+                # Couldn't get bootrap so cert doesn't work :(
+                return
+            }
+            $trustEndpoint = $config.BootstrapResponse.TrustRenewEndpoint
+            
             $body=@"
             <TrustRenewalRequest xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Registration.TrustRenewal" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
                 <Base64Csr xmlns="http://schemas.datacontract.org/2004/07/Microsoft.ApplicationProxy.Common.Registration">$b64Csr
@@ -131,7 +140,7 @@ function Register-ProxyAgent
             </TrustRenewalRequest>
 "@
             # Renew trust and get the certificate
-            $response = Invoke-RestMethod -UseBasicParsing -Uri "$($config.BootstrapResponse.TrustRenewEndpoint)/RenewTrustCertificate" -Method Post -Body $body -Headers @{"Content-Type"="application/xml; charset=utf-8"} -Certificate $cert
+            $response = Invoke-RestMethod -UseBasicParsing -Uri "$trustEndPoint/RenewTrustCertificate" -Method Post -Body $body -Headers @{"Content-Type"="application/xml; charset=utf-8"} -Certificate $cert
 
             if($response.TrustRenewalResult.IsSuccessful.'#text' -eq "true")
             {
@@ -210,7 +219,7 @@ function Register-ProxyAgent
 
             if([string]::IsNullOrEmpty($FileName))
             {
-                $FileName = "$($MachineName)_$($tenantId)_$($InstanceID).pfx"
+                $FileName = "$($MachineName)_$($tenantId)_$($InstanceID)_$($cert.Thumbprint).pfx"
             }
 
             # Store the private key so that it can be exported
@@ -236,11 +245,11 @@ function Register-ProxyAgent
 
             if($UpdateTrust)
             {
-                Write-Host "$AgentType Agent ($InstanceID) registered as $MachineName"
+                Write-Host "$AgentType Agent ($InstanceID) certificate renewed for $MachineName"
             }
             else
             {
-                Write-Host "$AgentType Agent ($InstanceID) certificate renewed for $MachineName"
+                Write-Host "$AgentType Agent ($InstanceID) registered as $MachineName"
             }
             Write-Host "Certificate saved to $FileName"
 
@@ -536,12 +545,18 @@ function Export-ProxyAgentCertificates
 
     .DESCRIPTION
     Export certificates of all MS App Proxy agents from the local computer.
-    The filename of the certificate is <tenant id>_<agent id>.pfx
+    The filename of the certificate is <server FQDN>_<tenant id>_<agent id>_<cert thumbprint>.pfx
 
     .Example
     Export-AADIntProxyAgentCertificates
 
-    Certificate saved to: ea664074-37dd-4797-a676-b0cf6fdafcd4_4b6ffe82-bfe2-4357-814c-09da95399da7.pfx
+    Certificate saved to: PTA01.company.com_ea664074-37dd-4797-a676-b0cf6fdafcd4_4b6ffe82-bfe2-4357-814c-09da95399da7_A3457AEAE25D4C513BCF37CB138628772BE1B52.pfx
+    
+    .Example
+    Export-AADIntProxyAgentCertificates -GetBootstrap
+
+    Certificate saved to: PTA01.company.com_ea664074-37dd-4797-a676-b0cf6fdafcd4_4b6ffe82-bfe2-4357-814c-09da95399da7_A3457AEAE25D4C513BCF37CB138628772BE1B52.pfx
+	Bootstrap saved to:   PTA01.company.com_ea664074-37dd-4797-a676-b0cf6fdafcd4_4b6ffe82-bfe2-4357-814c-09da95399da7_A3457AEAE25D4C513BCF37CB138628772BE1B52.xml
  
     #>
     [cmdletbinding()]
