@@ -1609,7 +1609,7 @@ function Export-ADFSEncryptionKeyUsingService
             }
         }
 
-        Write-Verbose " Message: $message"
+        Write-Debug " Message: $message"
         return $message 
     }
     End

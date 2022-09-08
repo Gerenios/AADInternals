@@ -1389,6 +1389,25 @@ function Get-AccessTokenForOneNote
 # Refactored Jun 8th 2020
 function Get-AccessToken
 {
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for the given client and resource. Using the given authentication method. If not provided, uses interactive logon.
+
+    .DESCRIPTION
+    Gets OAuth Access Token for the given client and resource. Using the given authentication method. If not provided, uses interactive logon.
+    
+    .Example
+    $at=Get-AADIntAccessToken -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://graph.microsoft.com" 
+    
+    .Example
+    Get-AADIntAccessToken -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://graph.microsoft.com" -SaveToCache $true -IncludeRefreshToken $true
+    AccessToken saved to cache.
+
+    Tenant   : 9779e97e-de19-45be-87ab-a7ed3e86fa62
+    User     : user@company.com
+    Resource : https://graph.microsoft.com
+    Client   : d3590ed6-52b3-4102-aeff-aad2292ab01c
+#>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
@@ -1621,6 +1640,18 @@ function Get-AccessToken
 # Jun 8th 2020
 function Get-AccessTokenWithRefreshToken
 {
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for the given client and resource using the given refresh token.
+
+    .DESCRIPTION
+    Gets OAuth Access Token for the given client and resource using the given refresh token.
+    For FOCI refresh tokens, i.e.,Family Refresh Tokens (FRTs), you can use any FOCI client id.
+    
+    .Example
+    PS:\>$tokens=Get-AADIntAccessToken -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://graph.microsoft.com" -IncludeRefreshToken $true
+    PS:\>$at=Get-AADIntAccessTokenWithRefreshToken -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -Resource "https://graph.windows.net" -TenantId "company.com" -RefreshToken $tokens[1] 
+#>
     [cmdletbinding()]
     Param(
         [String]$Resource,
