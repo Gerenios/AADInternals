@@ -2216,3 +2216,109 @@ Function Get-Substring
         return $String.Substring($s,$e-$s)
     }
 }
+
+# Parses the given Cert BLOB and returns the parsed attributes
+# Aug 17th 2022
+function Parse-CertBlob
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [byte[]]$Data
+    )
+    
+    Process
+    {
+        # Parse the header
+        $p = 0;
+        $version =  [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        if($version -ne 3)
+        {
+            Throw "Unsupported version ($Version), expected 3"
+        }
+        $unk1     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $tpLen    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $tpBin    = $Data[$p..($p+$tpLen-1)]; $p += $tpLen
+
+        $unk3     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk4     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk5Len  = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk5     = $Data[$p..($p+$unk5Len-1)]; $p += $unk5Len
+
+        $unk6     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk7     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk8Len  = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk8     = $Data[$p..($p+$unk8Len-1)]; $p += $unk8Len
+
+        $unk9     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk10    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $keyFileLen  = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $keyFile  = $Data[$p..($p+$keyFileLen-1)]; $p += $keyFileLen
+
+        $unk12    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk13    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk14Len = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk14    = $Data[$p..($p+$unk14Len-1)]; $p += $unk14Len
+
+        $unk15    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk16    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk17    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk18    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk19    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk20    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk21    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk22    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk23    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk24    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk25    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk26    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk27    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk28    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+
+        # Read the key name
+        $s = $p
+        while($Data[$p] -ne 0 -and $Data[$p+1] -eq 0)
+        {
+            $p+=2
+        }
+        $p+=2
+        $keyName = [System.Text.Encoding]::Unicode.GetString($Data,$s,$p-$s)
+
+        $unk29    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+
+        # Read the provider
+        $s = $p
+        while($Data[$p] -ne 0 -and $Data[$p+1] -eq 0)
+        {
+            $p+=2
+        }
+        $p+=2
+        $provider = [System.Text.Encoding]::Unicode.GetString($Data,$s,$p-$s)
+
+        $unk30    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk31    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk32    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk33Len = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk33    = $Data[$p..($p+$unk33Len-1)]; $p += $unk33Len
+        $domain   = [System.Text.Encoding]::Unicode.GetString($unk33)
+
+        $unk34    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $unk35    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+
+        # Read the der
+        $derLen   = [System.BitConverter]::ToInt32($Data,$p); $p += 4
+        $der      = $Data[$p..($p+$derLen-1)]; $p += $derLen
+
+        $attributes=[ordered]@{
+            "KeyFileName" = (Convert-ByteArrayToHex -Bytes $keyFile).ToUpper()
+            "KeyName"     = $keyName
+            "Provider"    = $provider
+            "Domain"      = $domain
+            "DER"         = $der
+            "Thumbprint"  = (Convert-ByteArrayToHex -Bytes $tpBin).ToUpper()
+        }
+
+        return New-Object psobject -Property $attributes
+        
+    }
+}
