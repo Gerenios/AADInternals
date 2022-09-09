@@ -291,6 +291,10 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
 
     # SPO_utils.ps1
     "Get-SPOAuthenticationHeader"
+    "Create-ListFromCollection"
+    "Get-IDCRLToken"
+    "Get-IDCRLCookie"
+    "Get-SPODigest"
 
     # SPO.ps1
     "Get-SPOSiteUsers"
