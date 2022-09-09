@@ -418,6 +418,7 @@ function Get-SPODigest
         # Return the digest
         Write-Host $Cookie
         Write-Host $webCookie
+        Write-Host $AccessToken
         return $digest
     }
 }
