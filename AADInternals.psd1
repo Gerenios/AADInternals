@@ -179,6 +179,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AccessTokenForAdmin"
     "Get-AccessTokenForOneNote"
     "Unprotect-EstsAuthPersistentCookie"
+    "Get-UserRealmV2"
     
     # AccessToken_utils.ps1
     "Get-LoginInformation"
