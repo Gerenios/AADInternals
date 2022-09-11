@@ -240,6 +240,8 @@ function Get-SPOUserProperties
 
         if($response.StatusCode -eq 200)
         {
+            Write-Host $siteSession
+            Write-Host $authHeader
             [xml]$response=$response.Content
             $entry=$response.entry
 
@@ -344,7 +346,6 @@ function Get-SPOSiteUserProperties
             $headers=@{
                 "Authorization" = "Bearer $AccessToken"
             }
-            Write-Host $AccessToken
         }
 
         # Invoke the request
