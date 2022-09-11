@@ -249,7 +249,7 @@ function Get-IDCRLToken
             # Oops, got an error?
             if([string]::IsNullOrEmpty($samlToken))
             {
-                if($error=$response.Envelope.Body.Fault.Detail.error.internalerror.text)
+                if($error -eq $response.Envelope.Body.Fault.Detail.error.internalerror.text)
                 {
                     Throw $error
                 }
