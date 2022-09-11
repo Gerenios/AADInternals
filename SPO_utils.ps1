@@ -416,9 +416,6 @@ function Get-SPODigest
         $digest=$xmlContent.Envelope.Body.GetUpdatedFormDigestInformationResponse.GetUpdatedFormDigestInformationResult.DigestValue
         
         # Return the digest
-        Write-Host $Cookie
-        Write-Host $webCookie
-        Write-Host $AccessToken
         return $digest
     }
 }
