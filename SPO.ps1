@@ -608,36 +608,26 @@ function Get-SPOTest
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
+        [String]$Site,
+        [Parameter(Mandatory=$True)]
         [String]$Tenant
     )
     Process
     {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant-admin.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
 
-       <# $body=@"
-<Request xmlns="http://schemas.microsoft.com/sharepoint/clientquery/2009" SchemaVersion="15.0.0.0" LibraryVersion="16.0.0.0" ApplicationName="Javascript Library">
-	<Actions>
-		<ObjectPath Id="1" ObjectPathId="0" />
-		<Query Id="2" ObjectPathId="0">
-			<Query SelectAllProperties="true">
-				<Properties />
-			</Query>
-		</Query>
-	</Actions>
-	<ObjectPaths>
-		<Constructor Id="0" TypeId="{268004ae-ef6b-4e9b-8425-127220d84719}" />
-	</ObjectPaths>
-</Request>
-"@#>
-        $headers=@{
-            "Authorization" = "Bearer $AccessToken"
-        }
+         # Check the site url
+         if($Site.EndsWith("/"))
+         {
+             $Site=$Site.Substring(0,$Site.Length-1)
+         }
+ 
+        $siteDomain=$Site.Split("/")[2]
+        # Create a WebSession object
+        $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
 
-        
         # Invoke the request
-        $response=Invoke-RestMethod -UseBasicParsing -Uri "https://$Tenant-admin.sharepoint.com/sites/myg" -Method Post -Headers $headers
-
+        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue 
+        
         <#if($response.count -gt 4)
         {
             $response[4]
