@@ -606,7 +606,7 @@ function Get-SPOTest
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
-        [String]$AccessToken,
+        [String]$AuthHeader,
         [Parameter(Mandatory=$True)]
         [String]$Site,
         [Parameter(Mandatory=$True)]
