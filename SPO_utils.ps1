@@ -313,7 +313,7 @@ function Get-IDCRLToken
         # Ooops, got an error?
         if([string]::IsNullOrEmpty($token))
         {
-            if($error=$response.Envelope.Body.Fault.Detail.error.internalerror.text)
+            if($error -eq $response.Envelope.Body.Fault.Detail.error.internalerror.text)
             {
                 Throw $error
             }
