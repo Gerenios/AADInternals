@@ -344,6 +344,7 @@ function Get-SPOSiteUserProperties
             $headers=@{
                 "Authorization" = "Bearer $AccessToken"
             }
+            Write-Host $AccessToken
         }
 
         # Invoke the request
