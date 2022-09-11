@@ -189,7 +189,7 @@ function Get-IDCRLToken
     Process
     {
         # Get the authentication realm info
-        [xml]$realmInfo = Get-UserRealmV2 -UserName $Credentials.UserName -SPO
+        [xml]$realmInfo = Get-UserRealmV2 -UserName $Credentials.UserName
 
         # Create the date strings
         $now=Get-Date
