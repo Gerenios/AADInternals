@@ -637,7 +637,7 @@ function Get-SPOTest
         #$ck = Get-IDCRLCookie -Token $t -Tenant $Tenant
         #$siteSession = Create-WebSession -SetCookieHeader $ah -Domain $siteDomain
         # Invoke the request
-        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/contextinfo" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue 
+        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue 
         #$response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/SP.Directory.DirectorySession/Group('18fec963-bea7-469e-a6d7-ab69aa7de58b')/Members/Add(objectId='00000000-0000-0000-0000-000000000000', principalName='testa%4054824v%2Eonmicrosoft%2Ecom')" -Method Post -WebSession $siteSession -ContentType "application/json;odata=verbose" -ErrorAction SilentlyContinue  -Headers $headers 
         <#if($response.count -gt 4)
         {
