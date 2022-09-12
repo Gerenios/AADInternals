@@ -623,6 +623,7 @@ function Get-SPOTest
  
         $siteDomain=$Site.Split("/")[2]
         # Create a WebSession object
+        Write-Host $siteDomain
         $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
         #$digest = Get-SPODigest -Site $Site
         # Set the headers
