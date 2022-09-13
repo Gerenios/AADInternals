@@ -301,7 +301,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-SPOSiteUsers"
     "Get-SPOSiteGroups"
     "Get-SPOUserProperties"
-    "Get-SPOTest"
+    "Set-SPOSiteMembers"
 
     # Kerberos.ps1
     "New-KerberosTicket"
