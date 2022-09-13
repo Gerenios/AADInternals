@@ -564,94 +564,92 @@ function Get-SPOSettings
     }
 }
 
-function Get-SPOTest
+function Set-SPOSiteMembers
 {
-<#
-    .SYNOPSIS
-    Gets SharePoint Online settings
+    <#
+        .SYNOPSIS
+        Add a member into a site (also adding the member to the correlated AzureAD group)
+    
+        .DESCRIPTION
+        Add a member into a site (also adding the member to the correlated AzureAD group)
+    
+        .Parameter Site
+        Url of the SharePoint site
+    
+        .Parameter AuthHeader
+        SharePoint Online authentication header
 
-    .DESCRIPTION
-    Gets SharePoint Online settings
+        .Parameter siteName
+        Name of the specific site on SharePoint
 
-    .Parameter AccessToken
-    SharePoint Online Access Token
-
-    .Parameter Tenant
-    The tenant name of the organization, ie. company.onmicrosoft.com -> "company"
-
-    .Example
-    PS C:\>Get-AADIntAccessTokenForSPO -Admin -SaveToCache -Tenant company
-    PS C:\>Get-AADIntSPOSettings -Tenant Company
-
-    _ObjectType_                                          : Microsoft.Online.SharePoint.TenantAdministration.Tenant
-    _ObjectIdentity_                                      : 4b09819f-80c3-b000-9cfe-8c850fbea6d5|908bed80-a04a-4433-b4a0-883d9847d110:908c17b8-5ebe-450c-9073-15e52aa1739b
-                                                            Tenant
-    AIBuilderEnabled                                      : False
-    AIBuilderSiteInfoList                                 : {}
-    AIBuilderSiteList                                     : {}
-    AIBuilderSiteListFileName                             : 
-    AllowCommentsTextOnEmailEnabled                       : True
-    AllowDownloadingNonWebViewableFiles                   : True
-    AllowedDomainListForSyncClient                        : {}
-    AllowEditing                                          : True
-    AllowGuestUserShareToUsersNotInSiteCollection         : False
-    AllowLimitedAccessOnUnmanagedDevices                  : False
-    AllowSelectSGsInODBListInTenant                       : 
-    AnyoneLinkTrackUsers                                  : False
-    ApplyAppEnforcedRestrictionsToAdHocRecipients         : True
-    BccExternalSharingInvitations                         : False
-    ...
-
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
-        [String]$Site,
-        [Parameter(Mandatory=$True)]
-        [String]$Tenant
-    )
-    Process
-    {
-
-         # Check the site url
-         if($Site.EndsWith("/"))
-         {
-             $Site=$Site.Substring(0,$Site.Length-1)
-         }
- 
-        #$siteDomain=$Site.Split("/")[2]
-        # Create a WebSession object
-        #$siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
-        #$digest = Get-SPODigest -Site $Site
-        # Set the headers
-        <#$headers=@{
-                "X-RequestDigest" = $digest
-            }
-        Write-Host $digest#>
-        #$c = Get-Credential
+        .Parameter principalName
+        UserPrincipalName of the AzureAD user you wish to add to the site
         
-        #$t = Get-IDCRLToken 
-        #$ck = Get-IDCRLCookie -Token $t -Tenant $Tenant
-        #$siteSession = Create-WebSession -SetCookieHeader $ah -Domain $siteDomain
-        # Invoke the request
-        $headers=@{
-            #    "X-RequestDigest" = $digest
-            }
-        $body=@{
-            "resource" = "https://loki.delve.office.com"
-        }
-        $at = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant-admin.sharepoint.com/" 
-        #$AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
-        $headers["Authorization"] = "Bearer $at"
-        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/SP.OAuth.Token/Acquire" -Method Post -Headers $headers  -ErrorAction SilentlyContinue -ContentType "application/json" -Body ($body | ConvertTo-Json)
-        #$response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/SP.Directory.DirectorySession/Group('18fec963-bea7-469e-a6d7-ab69aa7de58b')/Members/Add(objectId='00000000-0000-0000-0000-000000000000', principalName='testa%4054824v%2Eonmicrosoft%2Ecom')" -Method Post -WebSession $siteSession -ContentType "application/json;odata=verbose" -ErrorAction SilentlyContinue  -Headers $headers 
-        <#if($response.count -gt 4)
+        .Example
+        PS C:\>$auth=Get-AADIntSPOAuthenticationHeader -Site https://company.sharepoint.com
+        PS C:\>Set-SPOSiteMembers -Site https://company.sharepoint.com -AuthHeader $auth -siteName siteName -principalName user@company.com
+    #>
+        [cmdletbinding()]
+        Param(
+            [Parameter(Mandatory=$True)]
+            [String]$Site,
+            [Parameter(Mandatory=$True)]
+            [String]$AuthHeader,
+            [Parameter(Mandatory=$True)]
+            [String]$siteName,
+            [Parameter(Mandatory=$True)]
+            [String]$principalName
+        )
+        Process
         {
-            $response[4]
-        }#>
-        return $response
+            # Check the site url
+            if($Site.EndsWith("/"))
+            {
+                $Site=$Site.Substring(0,$Site.Length-1)
+            }            
+            $siteDomain=$Site.Split("/")[2]
 
+            # Create a WebSession object
+            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
+            
+            # Invoke the request tp get groupId and digest
+            $response=Invoke-WebRequest -UseBasicParsing -Uri "$($Site)/sites/$($siteName)?sw=auth" -Method GET -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
+            
+            # Validate response
+            $baseContent = $response.BaseResponse
+            if($baseContent.StatusCode -eq "OK" -and $baseContent.ResponseUri -eq "$($Site)/sites/$($siteName)?sw=auth")
+            {
+                $requestContent = $response.Content
+                
+                # Parse digest
+                $tempValue = $requestContent -match 'formDigestValue":"(.*?")'
+                $digestTemp = $Matches[1]
+                $digest = $digestTemp.Split('"')[0]
+                $newheaders=@{
+                        "X-RequestDigest" = $digest
+                    }
+
+                # Parse groupId
+                $tempValue = $requestContent -match 'groupId":"(.*?")'
+                $groupidTemp = $Matches[1]
+                $groupid = $groupidTemp.Split('"')[0]
+
+                # Invoke the request to add a member to the SharePoint site
+                $newresponse=Invoke-WebRequest -UseBasicParsing -Uri "$($Site)/sites/$($siteName)/_api/SP.Directory.DirectorySession/Group('$($groupid)')/Members/Add(objectId='00000000-0000-0000-0000-000000000000', principalName='$($principalName)')" -Method POST -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $newheaders -ContentType "application/json"
+                
+                # Validate response
+                if($newresponse.StatusCode -eq 201 -and $newresponse.StatusDescription -eq "Created")
+                {
+                    Write-Host "User $($principalName) was added to group $($siteName)!"
+                }
+                else
+                {
+                    Write-Error "Cannot Add user to the group."
+                }
+            }
+            else
+            {
+                Write-Error "An error occurred while executing the request to the site."
+            }
+        }
     }
-}
