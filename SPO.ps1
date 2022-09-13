@@ -240,8 +240,6 @@ function Get-SPOUserProperties
 
         if($response.StatusCode -eq 200)
         {
-            Write-Host $siteSession
-            Write-Host $authHeader
             [xml]$response=$response.Content
             $entry=$response.entry
 
