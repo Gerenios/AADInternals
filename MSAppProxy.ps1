@@ -653,6 +653,9 @@ function Export-ProxyAgentCertificates
                         $keyName = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($certificate).key.uniquename
                     }
 
+                    # Discard trailing null, cr, lf
+                    $keyName = $keyName.trimEnd(@(0x00,0x0a,0x0d))
+
                     $paths = @(
                         "$env:ALLUSERSPROFILE\Microsoft\Crypto\RSA\MachineKeys\$keyName"
                         "$env:ALLUSERSPROFILE\Microsoft\Crypto\Keys\$keyName"

@@ -134,15 +134,15 @@ function Set-PTACertificate
             return
         }
 
-        # Import the certificate to LocalMachine's Personal store
-        if($PfxPassword)
-        {
-            $cert = Import-PfxCertificate -FilePath $PfxFileName -Password ($PfxPassword | ConvertTo-SecureString -AsPlainText -Force) -CertStoreLocation Cert:\LocalMachine\My -Exportable
-        }
-        else
-        {
-            $cert = Import-PfxCertificate -FilePath $PfxFileName -CertStoreLocation Cert:\LocalMachine\My -Exportable
-        }
+        # Import the certificate twice, otherwise PTAAgent has issues to access private keys
+        $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new((Get-Item $PfxFileName).FullName, $PfxPassword, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::MachineKeySet -bor [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet -bor [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+        $cert.Import((Get-Item $PfxFileName).FullName, $PfxPassword, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::MachineKeySet -bor [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet -bor [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+
+        # Add certificate to Local Computer Personal store
+        $myStore = Get-Item -Path "Cert:\LocalMachine\My"
+        $myStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+        $myStore.Add($cert)
+        $myStore.Close()
 
         # Get the Tenant Id and Instance Id
         $TenantId = $cert.Subject.Split("=")[1]
@@ -152,6 +152,7 @@ function Set-PTACertificate
             if($extension.Oid.Value -eq "1.3.6.1.4.1.311.82.1")
             {
                 $InstanceID = [guid]$extension.RawData
+                break
             }
         }
 
@@ -168,7 +169,7 @@ function Set-PTACertificate
         # Set the certificate thumbprint to config file
         $configFile = "$env:ProgramData\Microsoft\Azure AD Connect Authentication Agent\Config\TrustSettings.xml"
         
-        Write-Verbose "Setting the certificate thumb print to $configFile"
+        Write-Verbose "Setting the certificate thumbprint $($cert.Thumbprint) to $configFile"
         
         [xml]$TrustConfig = Get-Content $configFile
         $TrustConfig.ConnectorTrustSettingsFile.CloudProxyTrust.Thumbprint = $cert.Thumbprint
@@ -182,21 +183,31 @@ function Set-PTACertificate
         $AccessRule = New-Object Security.AccessControl.FileSystemAccessrule $ServiceUser, "read", allow
         
         # Give read permissions to the private key
-        $rsaCert = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($cert)
+        $keyName = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($cert).Key.UniqueName
+        Write-Verbose "Private key: $keyName"
 
-        $path = "$env:ALLUSERSPROFILE\Microsoft\Crypto\RSA\MachineKeys\$($rsaCert.key.UniqueName)"
-        
-        Write-Verbose "Setting read access for ($ServiceUser) to the private key ($path)"
-        
-        try
+        $paths = @(
+            "$env:ALLUSERSPROFILE\Microsoft\Crypto\RSA\MachineKeys\$keyName"
+            "$env:ALLUSERSPROFILE\Microsoft\Crypto\Keys\$keyName"
+        )
+        foreach($path in $paths)
         {
-            $permissions = Get-Acl -Path $path -ErrorAction SilentlyContinue
-            $permissions.AddAccessRule($AccessRule)
-            Set-Acl -Path $path -AclObject $permissions -ErrorAction SilentlyContinue
-        }
-        catch
-        {
-            Write-Warning "Could not give read access for ($ServiceUser) to the private key ($path) but this is propably okay."
+            if(Test-Path $path)
+            {       
+                Write-Verbose "Setting read access for ($ServiceUser) to the private key ($path)"
+        
+                try
+                {
+                    $permissions = Get-Acl -Path $path -ErrorAction SilentlyContinue
+                    $permissions.AddAccessRule($AccessRule)
+                    Set-Acl -Path $path -AclObject $permissions -ErrorAction SilentlyContinue
+                }
+                catch
+                {
+                    Write-Error "Could not give read access for ($ServiceUser) to the private key ($path)!"
+                }
+                break
+            }
         }
 
         Write-Host "`nCertification information set, remember to (re)start the service."
