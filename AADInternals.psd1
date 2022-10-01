@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.7.1'
+	ModuleVersion = '0.7.2'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -133,6 +133,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\SARA_utils.ps1"
         ".\SPO.ps1"
         ".\SPO_utils.ps1"
+        ".\SQLite.ps1"
         ".\SyncAgent.ps1"
         ".\Teams.ps1"
         ".\Teams_utils.ps1"
@@ -191,6 +192,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-Cache"
     "Clear-Cache"
     "Add-AccessTokenToCache"
+    "Export-TeamsTokens"
+    "Export-AzureCliTokens"
 
     # GraphAPI.ps1
     "Get-TenantDetails"
@@ -296,6 +299,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-SPOSiteUsers"
     "Get-SPOSiteGroups"
     "Get-SPOUserProperties"
+    "Set-SPOSiteMembers"
 
     # Kerberos.ps1
     "New-KerberosTicket"
@@ -366,6 +370,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Remove-RolloutPolicyGroups"
     "Remove-RolloutPolicy"
     "Set-RolloutPolicy"
+    "Get-TenantDomain"
 
     # KillChain.ps1
     "Invoke-UserEnumerationAsOutsider"

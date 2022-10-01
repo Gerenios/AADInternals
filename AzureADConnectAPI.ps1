@@ -2156,7 +2156,7 @@ function Join-OnPremDeviceToAzureAD
         {
             Write-Verbose "No Certificate given, creating a new self-signed certificate"
             $Certificate = New-Certificate -SubjectName "CN=$($DeviceId.ToString())"
-            $Certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-Content "$($DeviceId.ToString())-user.pfx" -Encoding byte
+            $Certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-BinaryContent "$($DeviceId.ToString())-user.pfx"
             $certExported = $true
         }
 

@@ -61,7 +61,7 @@ function Get-LocalDeviceTransportKeys
         foreach($systemKey in $systemKeys)
         {
             Write-Verbose "Parsing $($systemKey.FullName)"
-            $keyBlob = Get-Content $systemKey.FullName -Encoding byte
+            $keyBlob = Get-BinaryContent $systemKey.FullName
 
             # Parse the blob to get the name
             $key = Parse-CngBlob -Data $keyBlob

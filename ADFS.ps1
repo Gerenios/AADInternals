@@ -111,7 +111,7 @@ function Export-ADFSCertificates
                     )
                 foreach($path in $paths)
                 {
-                    $keyBlob = Get-Content $path -Encoding byte -ErrorAction SilentlyContinue
+                    $keyBlob = Get-BinaryContent $path -ErrorAction SilentlyContinue
                     if($keyBlob)
                     {
                         Write-Verbose "Key loaded from $path"
@@ -195,7 +195,7 @@ function Export-ADFSCertificates
                 $ms.Dispose()
             }
 
-            $pfx |  Set-Content "ADFS_$certName.pfx" -Encoding Byte
+            $pfx |  Set-BinaryContent "ADFS_$certName.pfx"
         }
         
         

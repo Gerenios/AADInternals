@@ -21,12 +21,16 @@ function Invoke-ReconAsOutsider
     Type:  Federated or Managed
     DMARC: Is the DMARC record configured?
     STS:   The FQDN of the federated IdP's (Identity Provider) STS (Security Token Service) server
+    RPS:   Relaying parties of STS (AD FS)
 
     .Parameter DomainName
     Any domain name of the Azure AD tenant.
 
     .Parameter Single
     If the switch is used, doesn't get other domains of the tenant.
+
+    .Parameter GetRelayingParties
+    Tries to get relaying parties from STS. Returned if STS is AD FS and idpinitiatedsignon.aspx is enabled.
 
     .Example
     Invoke-AADIntReconAsOutsider -Domain company.com | Format-Table
@@ -42,6 +46,21 @@ function Invoke-ReconAsOutsider
     company.mail.onmicrosoft.com  True  True  True   True  Managed
     company.onmicrosoft.com       True  True  True  False  Managed
     int.company.com              False False False  False  Managed 
+
+    .Example
+    Invoke-AADIntReconAsOutsider -Domain company.com -GetRelayingParties | Format-Table
+
+    Tenant brand:       Company Ltd
+    Tenant name:        company
+    Tenant id:          05aea22e-32f3-4c35-831b-52735704feb3
+    DesktopSSO enabled: False
+
+    Name                           DNS   MX    SPF  DMARC  Type      STS             RPS
+    ----                           ---   --    ---  -----  ----      ---             ---
+    company.com                   True  True  True   True  Federated sts.company.com {adatum.com, salesforce.com}
+    company.mail.onmicrosoft.com  True  True  True   True  Managed
+    company.onmicrosoft.com       True  True  True  False  Managed
+    int.company.com              False False False  False  Managed
 
     .Example
     Invoke-AADIntReconAsOutsider -UserName user@company.com | Format-Table
@@ -65,7 +84,8 @@ function Invoke-ReconAsOutsider
         [String]$DomainName,
         [Parameter(ParameterSetName="user",Mandatory=$True)]
         [String]$UserName,
-        [Switch]$Single
+        [Switch]$Single,
+        [Switch]$GetRelayingParties
     )
     Process
     {
@@ -154,6 +174,28 @@ function Invoke-ReconAsOutsider
             }
             if($authUrl = $realmInfo.AuthUrl)
             {
+                # Try to read relaying parties
+                if($GetRelayingParties)
+                {
+                    try
+                    {
+                        
+                        $idpUrl = $realmInfo.AuthUrl.Substring(0,$realmInfo.AuthUrl.LastIndexOf("/")+1)
+                        $idpUrl += "idpinitiatedsignon.aspx"
+                        Write-Verbose "Getting relaying parties for $domain from $idpUrl"
+                        [xml]$page = Invoke-RestMethod -Uri $idpUrl -TimeoutSec 3
+
+                        $selectElement = $page.html.body.div.div[2].div.div.div.form.div[1].div[1].select.option
+                        $relayingParties = New-Object string[] $selectElement.Count
+                        Write-Verbose "Got $relayingParties relaying parties from $idpUrl"
+                        for($o = 0; $o -lt $selectElement.Count; $o++)
+                        {
+                            $relayingParties[$o] = $selectElement[$o].'#text'
+                        }
+                    
+                    }
+                    catch{} # Okay
+                }
                 # Get just the server name
                 $authUrl = $authUrl.split("/")[2]
             }
@@ -166,8 +208,13 @@ function Invoke-ReconAsOutsider
                 "SPF" =   $hasCloudSPF
                 "DMARC" = $hasDMARC
                 "Type" =  $realmInfo.NameSpaceType
-                "STS" =   $authUrl                    
+                "STS" =   $authUrl 
             }
+            if($GetRelayingParties)
+            {
+                $attributes["RPS"] =   $relayingParties 
+            }
+            Remove-Variable "relayingParties" -ErrorAction SilentlyContinue
             $domainInformation += New-Object psobject -Property $attributes
         }
 

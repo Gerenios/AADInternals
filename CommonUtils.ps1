@@ -949,8 +949,8 @@ function New-Certificate
 
         if($Export)
         {
-            $selfSigned.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)  | Set-Content "$SubjectName.pfx" -Encoding Byte
-            $selfSigned.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert) | Set-Content "$SubjectName.cer" -Encoding Byte
+            $selfSigned.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)  | Set-BinaryContent "$SubjectName.pfx"
+            $selfSigned.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert) | Set-BinaryContent "$SubjectName.cer"
 
             # Print out information
             Write-Host "Certificate successfully exported:"
@@ -2320,5 +2320,160 @@ function Parse-CertBlob
 
         return New-Object psobject -Property $attributes
         
+    }
+}
+
+# Checks whether the multi-byte integer has more bytes
+function Check-ContinuationBit
+{
+    Param(
+        [Parameter(Mandatory=$True)]
+        [byte]$byteVal
+    )
+
+    [byte] $continuationBitmask = 0x80;
+    return ($continuationBitmask -band $byteval) -ne 0
+}
+
+# Encodes integer as multi-byte integer
+function Encode-MultiByteInteger
+{
+    param(
+        [parameter(Mandatory=$true)]
+        [int]$value
+    )
+    Process
+    {
+        # If integer is 0, just return that
+        if($value -eq 0)
+        {
+            return 0
+        }
+
+        $byteList = @()
+
+        $shiftedValue = $value;
+
+        while ($value -gt 0)
+        {
+            $addByte = [byte]($value -band 0x7F)
+
+            if ($byteList.Count -gt 0)
+            {
+                    $addByte = $addByte -bor 0x80
+            }
+            $newList = @()
+            $newList += $addByte
+            $newList += $byteList
+            $byteList = $newList
+       
+
+            $value = $value -shr 7;
+        }
+
+        return $byteList
+    }
+}
+
+# Decodes multi-byte integer from the given byte array
+# Sep 29th 2022
+function Decode-MultiByteInteger
+{
+    param(
+        [parameter(Mandatory=$true)]
+        [byte[]]$Data,
+        [parameter(Mandatory=$true)]
+        [ref]$Position,
+        [parameter(Mandatory=$false)]
+        [switch]$Reverse
+    )
+    Process
+    {
+        $p = $Position.Value
+
+        $nBytes = 1
+        $bytes = New-Object Byte[] 8
+
+        # Loop until all bytes are handled
+        while((Check-ContinuationBit($Data[$p])) -and $nBytes -lt 8)
+        {
+            # Strip the continuation bit (not really needed as shifting to left)
+            [byte]$byte = $Data[$p] -band 0x7F
+
+            # Shift bits to left 8-$nBytes times
+            [byte]$shiftedToNext = $byte -shl (8-$nBytes)
+
+            # Shift bits to right $nBytes times
+            $byte = $byte -shr $nBytes
+
+            # Add to byte array by binary or as there might be shifted bits
+            $bytes[$nBytes-1] = $bytes[$nBytes-1] -bor $byte
+
+            # Add shifted bits
+            $bytes[$nBytes]   = $shiftedToNext
+            $nBytes++
+            $p++
+        }
+        # Add to byte array by binary or as there might be shifted bits
+        $bytes[$nBytes-1] = $bytes[$nBytes-1] -bor $Data[$p]
+        $p++
+
+        # Reverse as needed
+        if($Reverse)
+        {
+            $reversedBytes = New-Object Byte[] 8
+            [Array]::Copy($bytes,0,$reversedBytes,8-$nBytes,$nBytes)
+            [Array]::Reverse($reversedBytes)
+            $bytes = $reversedBytes
+        }
+
+        $Position.Value = $p
+
+        return [bitconverter]::ToInt64($bytes,0)
+    }
+}
+
+# Gets the content of the given file as byte array
+# Sep 30th 2022
+function Get-BinaryContent
+{
+    param(
+        [parameter(Mandatory=$true, ValueFromPipeline, Position=0)]
+        [string]$Path
+    )
+    Process
+    {
+        #return [System.IO.File]::ReadAllBytes([System.IO.Path]::GetFullPath($Path))
+        if($PSVersionTable.PSVersion.Major -ge 6)
+        {
+            Get-Content -Path $Path -AsByteStream -Raw
+        }
+        else
+        {
+            Get-Content -Path $Path -Encoding Byte
+        }
+    }
+}
+
+# Sets the content of the given file with given byte array
+# Sep 30th 2022
+function Set-BinaryContent
+{
+    param(
+        [parameter(Mandatory=$true, ValueFromPipeline, Position=0)]
+        [string]$Path,
+        [parameter(Mandatory=$true, ValueFromPipeline, Position=1)]
+        [byte[]]$Value
+    )
+    Process
+    {
+        if($PSVersionTable.PSVersion.Major -ge 6)
+        {
+            Set-Content -Path $Path -Value $Value -AsByteStream
+        }
+        else
+        {
+            Set-Content -Path $Path -Value $Value -Encoding Byte
+        }
     }
 }

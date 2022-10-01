@@ -305,7 +305,7 @@ function Send-OneDriveFile
         
         # Get the file and information
         $file = Get-Item $FileName
-        [byte[]]$fileBytes=Get-Content $FileName -Encoding byte
+        [byte[]]$fileBytes=Get-BinaryContent $FileName
         $created=$file.CreationTimeUtc.toString("yyyy-MM-ddTHH:mm:ss.0000000Z").Replace(".",":")
         $modified=$file.LastWriteTimeUtc.toString("yyyy-MM-ddTHH:mm:ss.0000000Z").Replace(".",":")
 

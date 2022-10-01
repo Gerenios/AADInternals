@@ -113,7 +113,7 @@ function Start-Speech
         
         try
         {
-            [byte[]](Convert-B64ToByteArray -B64 $mp3B64) | Set-Content $mp3 -Encoding byte
+            [byte[]](Convert-B64ToByteArray -B64 $mp3B64) | Set-BinaryContent $mp3
 
             $player = [System.Windows.Media.MediaPlayer]::new()
             $player.Open($mp3)

@@ -1135,3 +1135,40 @@ function Set-RolloutPolicy
         $response
     }
 }
+
+
+# Return the default domain for the given tenantid
+# Sep 28th 2022
+function Get-TenantDomain
+{
+    <#
+    .SYNOPSIS
+    Returns the default domain for the given tenant id
+
+    .DESCRIPTION
+    Returns the default domain for the given tenant id
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph -SaveToCache
+    PS C:\>Get-AADIntTenantDomain -TenantId 72f988bf-86f1-41af-91ab-2d7cd011db47
+    microsoft.onmicrosoft.com
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$TenantId
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        $results=Call-MSGraphAPI -AccessToken $AccessToken -API "tenantRelationships/findTenantInformationByTenantId(tenantId='$TenantId')" 
+        
+        Write-Verbose $results
+
+        return $results.defaultDomainName
+    }
+}

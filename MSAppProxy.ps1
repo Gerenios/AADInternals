@@ -235,7 +235,7 @@ function Register-ProxyAgent
 
             # Export the certificate to pfx
             $binCert = $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)
-            $binCert | Set-Content $fileName -Encoding Byte
+            $binCert | Set-BinaryContent $fileName
 
             # Remove the private key from the store
             $privateKey.PersistKeyInCsp=$false
@@ -591,7 +591,7 @@ function Export-ProxyAgentCertificates
                         # Certificate is stored in NETWORK SERVICE personal store so we need to parse it from there
                         Write-Verbose "Parsing certificate: $($thumbPrint)"
 
-                        Parse-CertBlob -Data (Get-Content "$env:windir\ServiceProfiles\NetworkService\AppData\Roaming\Microsoft\SystemCertificates\My\Certificates\$thumbPrint" -Encoding byte)
+                        Parse-CertBlob -Data (Get-BinaryContent "$env:windir\ServiceProfiles\NetworkService\AppData\Roaming\Microsoft\SystemCertificates\My\Certificates\$thumbPrint")
                     }
 
                 } 
@@ -663,7 +663,7 @@ function Export-ProxyAgentCertificates
                         )
                     foreach($path in $paths)
                     {
-                        $keyBlob = Get-Content $path -Encoding byte -ErrorAction SilentlyContinue
+                        $keyBlob = Get-BinaryContent $path -ErrorAction SilentlyContinue
                         if($keyBlob)
                         {
                             Write-Verbose "Key loaded from $path"
@@ -693,7 +693,7 @@ function Export-ProxyAgentCertificates
 
                     # Save to pfx file
                     $fileName = "$(Get-ComputerName -FQDN)_$($tenantId)_$($agentId)_$($certificate.Thumbprint).pfx"
-                    Set-Content $fileName -Value (New-PfxFile -RSAParameters ($privateKey.RSAParameters) -X509Certificate $binCert) -Encoding Byte
+                    Set-BinaryContent $fileName -Value (New-PfxFile -RSAParameters ($privateKey.RSAParameters) -X509Certificate $binCert)
 
                     Write-Host "Certificate saved to: $fileName"
 

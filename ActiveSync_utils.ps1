@@ -297,7 +297,7 @@ function XML2WBXML
                 $stringBytes = [system.Text.Encoding]::UTF8.GetBytes($Element.InnerText)
                 # 0D 0A -> 0D
                 $stringBytes = LF2CRLF -bytes $stringBytes
-                $retVal += EncodeMultiByteInteger -value  $stringBytes.Length
+                $retVal += Encode-MultiByteInteger -value  $stringBytes.Length
                 $retVal += $stringBytes
                 $retVal += 0x00 # End of the string
             }
@@ -306,7 +306,7 @@ function XML2WBXML
                 # EXT_2 is used as an integer (normally). But here the integers can be veeeery long (more than 64bits), so this is not working properly.
                 $retVal += 0xC2 # EXT_2
                 $retVal += Encode-EXT2 -Bytes (Convert-HexToByteArray -HexString $Element.InnerText)
-                #$retVal += EncodeMultiByteInteger -value $Element.InnerText
+                #$retVal += Encode-MultiByteInteger -value $Element.InnerText
             }
             elseif($Element.HasChildNodes)
             {
@@ -378,7 +378,7 @@ function XML2WBXML
             $UTFBytes = [text.encoding]::UTF8.GetBytes($CData.Data)
             #$UTFBytes = [convert]::FromBase64String($CData.Data)
             #$UTFBytes = LF2CRLF -bytes $UTFBytes
-            $retVal += EncodeMultiByteInteger -Value $UTFBytes.Count
+            $retVal += Encode-MultiByteInteger -Value $UTFBytes.Count
             $retVal += $UTFBytes
 
             return $retVal
@@ -488,7 +488,7 @@ function WBXML2XML
                 # After the token, the length of the string as multi-byte value
                 $byteValue = $wbxml[$Script:WBXML_position]
 
-                if(CheckContinuationBit -byteVal $byteValue)
+                if(Check-ContinuationBit -byteVal $byteValue)
                 {
                     $intValue = Get-CDATALength -wbxml $wbxml
                 }
@@ -517,7 +517,7 @@ function WBXML2XML
                 $hexString = Convert-ByteArrayToHex -Bytes (Decode-EXT2 -wbxml $wbxml)
 
                 <#
-                if(CheckContinuationBit -byteVal $byteValue)
+                if(Check-ContinuationBit -byteVal $byteValue)
                 {
                     # EXT_2 is used as an integer (normally). But here the integers can be veeeery long (more than 64bits), so this is not working properly.
                     $intValue = Get-CDATALength -wbxml $wbxml
@@ -649,7 +649,7 @@ function WBXML2XML
               
                 $length += [int]($singleByte -band 0x7f)
             }
-            while (CheckContinuationBit($singleByte))
+            while (Check-ContinuationBit($singleByte))
                 
             return $length
         }
@@ -658,58 +658,6 @@ function WBXML2XML
 
         #return ([xml]$retVal).InnerXml
         return $retVal
-    }
-}
-
-# Checks whether the multi-byte integer has more bytes
-function CheckContinuationBit
-{
-    Param(
-        [Parameter(Mandatory=$True)]
-        [byte]$byteVal
-    )
-
-    [byte] $continuationBitmask = 0x80;
-    return ($continuationBitmask -band $byteval) -ne 0
-}
-
-# Encodes integer as multi-byte integer
-function EncodeMultiByteInteger
-{
-    param(
-        [parameter(Mandatory=$true)]
-        [int]$value
-    )
-    Process
-    {
-        # If integer is 0, just return that
-        if($value -eq 0)
-        {
-            return 0
-        }
-
-        $byteList = @()
-
-        $shiftedValue = $value;
-
-        while ($value -gt 0)
-        {
-            $addByte = [byte]($value -band 0x7F)
-
-            if ($byteList.Count -gt 0)
-            {
-                    $addByte = $addByte -bor 0x80
-            }
-            $newList = @()
-            $newList += $addByte
-            $newList += $byteList
-            $byteList = $newList
-       
-
-            $value = $value -shr 7;
-        }
-
-        return $byteList
     }
 }
 
@@ -1029,7 +977,7 @@ function Decode-EXT2
 
             Write-Verbose (ByteArrayToBinary -Bytes $retVal)
         }
-        while (CheckContinuationBit($singleByte))
+        while (Check-ContinuationBit($singleByte))
 
         if($pos -gt 8)
         {
