@@ -480,8 +480,6 @@ function Set-SPOSiteUserProperty
     }
 }
 
-
-# Sep 6th 2020
 function Get-SPOSettings
 {
 <#
@@ -564,15 +562,25 @@ function Get-SPOSettings
     }
 }
 
+<<<<<<< HEAD
 # Oct 1st 2022 by Sapir Fed
+=======
+>>>>>>> 45fecd56ea52c88c208b2e90a94d8fb666641f01
 function Set-SPOSiteMembers
 {
     <#
         .SYNOPSIS
+<<<<<<< HEAD
         Add a member into a site (also adding the member to the correlated Azure AD group)
     
         .DESCRIPTION
         Add a member into a site (also adding the member to the correlated Azure AD group)
+=======
+        Add a member into a site (also adding the member to the correlated AzureAD group)
+    
+        .DESCRIPTION
+        Add a member into a site (also adding the member to the correlated AzureAD group)
+>>>>>>> 45fecd56ea52c88c208b2e90a94d8fb666641f01
     
         .Parameter Site
         Url of the SharePoint site
@@ -580,15 +588,26 @@ function Set-SPOSiteMembers
         .Parameter AuthHeader
         SharePoint Online authentication header
 
+<<<<<<< HEAD
         .Parameter SiteName
         Name of the specific site on SharePoint
 
         .Parameter UserPrincipalName
+=======
+        .Parameter siteName
+        Name of the specific site on SharePoint
+
+        .Parameter principalName
+>>>>>>> 45fecd56ea52c88c208b2e90a94d8fb666641f01
         UserPrincipalName of the AzureAD user you wish to add to the site
         
         .Example
         PS C:\>$auth=Get-AADIntSPOAuthenticationHeader -Site https://company.sharepoint.com
+<<<<<<< HEAD
         PS C:\>Set-AADIntSPOSiteMembers -Site https://company.sharepoint.com -AuthHeader $auth -SiteName siteName -UserPrincipalName user@company.com
+=======
+        PS C:\>Set-SPOSiteMembers -Site https://company.sharepoint.com -AuthHeader $auth -siteName siteName -principalName user@company.com
+>>>>>>> 45fecd56ea52c88c208b2e90a94d8fb666641f01
     #>
         [cmdletbinding()]
         Param(
@@ -597,9 +616,15 @@ function Set-SPOSiteMembers
             [Parameter(Mandatory=$True)]
             [String]$AuthHeader,
             [Parameter(Mandatory=$True)]
+<<<<<<< HEAD
             [String]$SiteName,
             [Parameter(Mandatory=$True)]
             [String]$UserPrincipalName
+=======
+            [String]$siteName,
+            [Parameter(Mandatory=$True)]
+            [String]$principalName
+>>>>>>> 45fecd56ea52c88c208b2e90a94d8fb666641f01
         )
         Process
         {
@@ -636,12 +661,20 @@ function Set-SPOSiteMembers
                 $groupid = $groupidTemp.Split('"')[0]
 
                 # Invoke the request to add a member to the SharePoint site
+<<<<<<< HEAD
                 $newresponse=Invoke-WebRequest -UseBasicParsing -Uri "$($Site)/sites/$($siteName)/_api/SP.Directory.DirectorySession/Group('$($groupid)')/Members/Add(objectId='00000000-0000-0000-0000-000000000000', principalName='$($UserPrincipalName)')" -Method POST -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $newheaders -ContentType "application/json"
+=======
+                $newresponse=Invoke-WebRequest -UseBasicParsing -Uri "$($Site)/sites/$($siteName)/_api/SP.Directory.DirectorySession/Group('$($groupid)')/Members/Add(objectId='00000000-0000-0000-0000-000000000000', principalName='$($principalName)')" -Method POST -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $newheaders -ContentType "application/json"
+>>>>>>> 45fecd56ea52c88c208b2e90a94d8fb666641f01
                 
                 # Validate response
                 if($newresponse.StatusCode -eq 201 -and $newresponse.StatusDescription -eq "Created")
                 {
+<<<<<<< HEAD
                     Write-Host "User $($UserPrincipalName) was added to group $($siteName)!"
+=======
+                    Write-Host "User $($principalName) was added to group $($siteName)!"
+>>>>>>> 45fecd56ea52c88c208b2e90a94d8fb666641f01
                 }
                 else
                 {
