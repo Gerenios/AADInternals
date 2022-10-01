@@ -981,7 +981,7 @@ function Get-UserMasterkeys
             if($guid -ne $null)
             {
                 Write-Verbose "Found masterkey file: $("$keysPath\$fileName")`n`n"
-                $binMasterKey = Get-Content "$keysPath\$fileName" -Encoding Byte
+                $binMasterKey = Get-BinaryContent "$keysPath\$fileName" 
 
                 $mk = Parse-MasterkeyBlob -Data $binMasterKey
 
@@ -1269,7 +1269,7 @@ function Get-LocalUserCredentials
         {
             
             Write-Verbose "Found credentials file: $("$localPath\$fileName")`n`n"
-            $binCredentials = Get-Content "$localPath\$fileName" -Encoding Byte
+            $binCredentials = Get-BinaryContent "$localPath\$fileName" 
 
             $retVal += Parse-CredentialsBlob -Data $binCredentials -MasterKeys $MasterKeys
         }
@@ -1279,7 +1279,7 @@ function Get-LocalUserCredentials
         {
             
             Write-Verbose "Found credentials file: $("$roamingPath\$fileName")`n`n"
-            $binCredentials = Get-Content "$roamingPath\$fileName" -Encoding Byte
+            $binCredentials = Get-BinaryContent "$roamingPath\$fileName"
 
             $retVal += Parse-CredentialsBlob -Data $binCredentials -MasterKeys $MasterKeys
         }
@@ -1540,7 +1540,7 @@ function Get-SystemMasterkeys
         $keysPath="$env:windir\System32\Microsoft\Protect\S-1-5-18"
 
         # Get the preferred masterkey guid
-        $preferredFile = Get-Content "$keysPath\Preferred" -Encoding Byte
+        $preferredFile = Get-BinaryContent "$keysPath\Preferred"
         $masterKeyGuid = ([guid][byte[]]$preferredFile[0..15]).ToString()
         $TimeStamp =     [datetime]::FromFileTimeUtc([System.BitConverter]::ToInt64($preferredFile,16))
         Write-Verbose "Preferred key: $masterKeyGuid, valid until: $TimeStamp"
@@ -1549,7 +1549,7 @@ function Get-SystemMasterkeys
         # Get the preferred masterkey
         $fileName = "$keysPath\$($masterKeyGuid.ToString())"
         Write-Verbose "Opening masterkey file: $fileName`n`n"
-        $binMasterKey = Get-Content $fileName -Encoding Byte
+        $binMasterKey = Get-BinaryContent $fileName
 
         # Parse the masterkey blob
         $mk = Parse-MasterkeyBlob -Data $binMasterKey

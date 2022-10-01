@@ -799,7 +799,7 @@ function Register-HybridHealthServiceAgent
 
         # Save agent info and certificates to disk
         $fileName = "$($ServiceName)_$($TenantId.toString())_$($MachineId.toString())_$MachineName"
-        $bCert | Set-Content "$fileName.pfx" -Encoding Byte
+        $bCert | Set-BinaryContent "$fileName.pfx"
         $agentInfo | ConvertTo-Json | Set-Content "$fileName.json" -Encoding UTF8
         
         Write-Host "Agent info saved to         ""$fileName.json"""

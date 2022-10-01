@@ -563,3 +563,94 @@ function Get-SPOSettings
 
     }
 }
+
+# Oct 1st 2022 by Sapir Fed
+function Set-SPOSiteMembers
+{
+    <#
+        .SYNOPSIS
+        Add a member into a site (also adding the member to the correlated Azure AD group)
+    
+        .DESCRIPTION
+        Add a member into a site (also adding the member to the correlated Azure AD group)
+    
+        .Parameter Site
+        Url of the SharePoint site
+    
+        .Parameter AuthHeader
+        SharePoint Online authentication header
+
+        .Parameter SiteName
+        Name of the specific site on SharePoint
+
+        .Parameter UserPrincipalName
+        UserPrincipalName of the AzureAD user you wish to add to the site
+        
+        .Example
+        PS C:\>$auth=Get-AADIntSPOAuthenticationHeader -Site https://company.sharepoint.com
+        PS C:\>Set-AADIntSPOSiteMembers -Site https://company.sharepoint.com -AuthHeader $auth -SiteName siteName -UserPrincipalName user@company.com
+    #>
+        [cmdletbinding()]
+        Param(
+            [Parameter(Mandatory=$True)]
+            [String]$Site,
+            [Parameter(Mandatory=$True)]
+            [String]$AuthHeader,
+            [Parameter(Mandatory=$True)]
+            [String]$SiteName,
+            [Parameter(Mandatory=$True)]
+            [String]$UserPrincipalName
+        )
+        Process
+        {
+            # Check the site url
+            if($Site.EndsWith("/"))
+            {
+                $Site=$Site.Substring(0,$Site.Length-1)
+            }            
+            $siteDomain=$Site.Split("/")[2]
+
+            # Create a WebSession object
+            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
+            
+            # Invoke the request tp get groupId and digest
+            $response=Invoke-WebRequest -UseBasicParsing -Uri "$($Site)/sites/$($siteName)?sw=auth" -Method GET -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
+            
+            # Validate response
+            $baseContent = $response.BaseResponse
+            if($baseContent.StatusCode -eq "OK" -and $baseContent.ResponseUri -eq "$($Site)/sites/$($siteName)?sw=auth")
+            {
+                $requestContent = $response.Content
+                
+                # Parse digest
+                $tempValue = $requestContent -match 'formDigestValue":"(.*?")'
+                $digestTemp = $Matches[1]
+                $digest = $digestTemp.Split('"')[0]
+                $newheaders=@{
+                        "X-RequestDigest" = $digest
+                    }
+
+                # Parse groupId
+                $tempValue = $requestContent -match 'groupId":"(.*?")'
+                $groupidTemp = $Matches[1]
+                $groupid = $groupidTemp.Split('"')[0]
+
+                # Invoke the request to add a member to the SharePoint site
+                $newresponse=Invoke-WebRequest -UseBasicParsing -Uri "$($Site)/sites/$($siteName)/_api/SP.Directory.DirectorySession/Group('$($groupid)')/Members/Add(objectId='00000000-0000-0000-0000-000000000000', principalName='$($UserPrincipalName)')" -Method POST -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $newheaders -ContentType "application/json"
+                
+                # Validate response
+                if($newresponse.StatusCode -eq 201 -and $newresponse.StatusDescription -eq "Created")
+                {
+                    Write-Host "User $($UserPrincipalName) was added to group $($siteName)!"
+                }
+                else
+                {
+                    Write-Error "Cannot Add user to the group."
+                }
+            }
+            else
+            {
+                Write-Error "An error occurred while executing the request to the site."
+            }
+        }
+    }

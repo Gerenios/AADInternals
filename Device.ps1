@@ -57,7 +57,7 @@ function Export-LocalDeviceCertificate
             )
         foreach($path in $paths)
         {
-            $keyBlob = Get-Content $path -Encoding byte -ErrorAction SilentlyContinue
+            $keyBlob = Get-BinaryContent $path -ErrorAction SilentlyContinue
             if($keyBlob)
             {
                 Write-Verbose "Key loaded from $path"
@@ -89,7 +89,7 @@ function Export-LocalDeviceCertificate
         }
 
         $fileName = "$($joinInfo.deviceId).pfx"
-        Set-Content $fileName -Value (New-PfxFile -RSAParameters $deviceKey.RSAParameters -X509Certificate $binCert) -Encoding Byte
+        Set-BinaryContent $fileName -Value (New-PfxFile -RSAParameters $deviceKey.RSAParameters -X509Certificate $binCert)
         Write-Host "Device certificate exported to $fileName"
     }
 }

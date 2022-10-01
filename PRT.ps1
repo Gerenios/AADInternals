@@ -479,7 +479,7 @@ function Join-DeviceToAzureAD
         $objectId = $oids.ObjectId.ToString()
 
         # Write the device certificate to disk
-        $deviceCert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-Content "$deviceId.pfx" -Encoding Byte
+        $deviceCert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-BinaryContent "$deviceId.pfx"
 
         # Remove the private key from the store
         Unload-PrivateKey -PrivateKey $deviceCert.PrivateKey
@@ -789,7 +789,7 @@ function New-P2PDeviceCertificate
 
         # Write the device P2P certificate to disk
         $certName = $P2PCert.Subject.Split(",")[0].Split("=")[1]
-        $P2PCert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-Content "$certName-P2P.pfx" -Encoding Byte
+        $P2PCert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-BinaryContent "$certName-P2P.pfx"
 
         # Write the P2P certificate CA to disk
         $CA = @"

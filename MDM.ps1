@@ -74,7 +74,7 @@ function Join-DeviceToIntune
         $IntMedCA =          $joinInfo[1]
         $clientCertificate = $joinInfo[2]
         
-        $clientCertificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-Content "$($claims.deviceid)-MDM.pfx" -Encoding Byte
+        $clientCertificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-BinaryContent "$($claims.deviceid)-MDM.pfx"
         
         $CA       | Set-Content "$($claims.deviceid)-MDM-CA.der"
         $IntMedCA | Set-Content "$($claims.deviceid)-MDM-INTMED-CA.der"

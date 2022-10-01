@@ -189,7 +189,7 @@ function Get-IDCRLToken
     Process
     {
         # Get the authentication realm info
-        [xml]$realmInfo = Get-UserRealmV2 -UserName $Credentials.UserName -SPO
+        $realmInfo = Get-UserRealmV2 -UserName $Credentials.UserName
 
         # Create the date strings
         $now=Get-Date
@@ -197,9 +197,9 @@ function Get-IDCRLToken
         $expires = $now.AddDays(1).ToUniversalTime().ToString("o")
 
         # Check the realm type. If federated, we must first get the SAML token
-        if($realmInfo.RealmInfo.NameSpaceType -eq "Federated")
+        if($realmInfo.NameSpaceType -eq "Federated")
         {
-            $url = $realmInfo.RealmInfo.STSAuthURL
+            $url = $realmInfo.STSAuthURL
 
             # Create the body
             $body=@"
@@ -249,7 +249,7 @@ function Get-IDCRLToken
             # Oops, got an error?
             if([string]::IsNullOrEmpty($samlToken))
             {
-                if($error=$response.Envelope.Body.Fault.Detail.error.internalerror.text)
+                if($error -eq $response.Envelope.Body.Fault.Detail.error.internalerror.text)
                 {
                     Throw $error
                 }
@@ -313,7 +313,7 @@ function Get-IDCRLToken
         # Ooops, got an error?
         if([string]::IsNullOrEmpty($token))
         {
-            if($error=$response.Envelope.Body.Fault.Detail.error.internalerror.text)
+            if($error -eq $response.Envelope.Body.Fault.Detail.error.internalerror.text)
             {
                 Throw $error
             }
