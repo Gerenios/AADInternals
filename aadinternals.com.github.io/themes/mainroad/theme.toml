@@ -1,0 +1,18 @@
+name = "Mainroad"
+license = "GPLv2"
+licenselink = "https://github.com/vimux/mainroad/blob/master/LICENSE.md"
+description = "Mainroad is a responsive, clean and content-focused Hugo theme."
+homepage = "https://github.com/vimux/mainroad/"
+tags = ["blog", "responsive", "widgets", "rss", "disqus", "google analytics", "wordpress"]
+features = ["blog", "responsive", "widgets", "rss", "disqus", "wordpress"]
+min_version = 0.20
+
+[author]
+  name = "Vimux"
+  homepage = "https://github.com/vimux"
+
+# If porting an existing theme
+[original]
+  name = "MH Magazine lite"
+  homepage = "https://wordpress.org/themes/mh-magazine-lite/"
+  repo = "https://themes.trac.wordpress.org/browser/mh-magazine-lite/2.5.6"

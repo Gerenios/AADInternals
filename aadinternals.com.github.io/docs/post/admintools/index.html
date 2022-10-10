@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="cache-control" content="no-cache"> 
+<meta http-equiv="expires" content="0"> 
+<meta http-equiv="pragma" content="no-cache">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AADInternals admin and blue team tools</title>
+<meta name="description" content="The site for Microsoft 365 and Azure AD administrators">
+<meta name="generator" content="Hugo 0.39" />
+<meta property="og:title" content="AADInternals admin and blue team tools" />
+<meta property="og:description" content="AADInternals toolkit is best known of its offensive or red teams tools. Its origins, however, is in administration - especially for tasks not supported by official tools.
+
+In this blog, I&rsquo;ll introduce recent additions to the admin &amp; blue team tools and also some old goodies!
+
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://o365blog.com/post/admintools/" />
+
+
+
+<meta property="article:published_time" content="2021-09-07T00:00:00&#43;00:00"/>
+
+<meta property="article:modified_time" content="2021-12-22T00:00:00&#43;00:00"/>
+
+
+
+
+
+
+
+
+
+
+
+<link rel="dns-prefetch" href="//fonts.googleapis.com" />
+<link rel="dns-prefetch" href="//fonts.gstatic.com" />
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:400,400italic,700" type="text/css" media="all" />
+<link href="//maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css" type="text/css" media="all" />
+<script type="text/javascript" src="/js/scripts.js"></script>
+<script type="text/javascript" src="/js/tools.js"></script>
+
+<link rel="apple-touch-icon-precomposed" sizes="57x57" href="/images/apple-touch-icon-57x57.png" />
+<link rel="apple-touch-icon-precomposed" sizes="114x114" href="/images/apple-touch-icon-114x114.png" />
+<link rel="apple-touch-icon-precomposed" sizes="72x72" href="/images/apple-touch-icon-72x72.png" />
+<link rel="apple-touch-icon-precomposed" sizes="144x144" href="/images/apple-touch-icon-144x144.png" />
+<link rel="apple-touch-icon-precomposed" sizes="60x60" href="/images/apple-touch-icon-60x60.png" />
+<link rel="apple-touch-icon-precomposed" sizes="120x120" href="/images/apple-touch-icon-120x120.png" />
+<link rel="apple-touch-icon-precomposed" sizes="76x76" href="/images/apple-touch-icon-76x76.png" />
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/images/apple-touch-icon-152x152.png" />
+<link rel="icon" type="image/png" href="/images/favicon-196x196.png" sizes="196x196" />
+<link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32" />
+<link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16" />
+<link rel="icon" type="image/png" href="/images/favicon-128.png" sizes="128x128" />
+<meta name="application-name" content="&nbsp;"/>
+<meta name="msapplication-TileColor" content="#FFFFFF" />
+<meta name="msapplication-TileImage" content="/images/mstile-144x144.png" />
+<meta name="msapplication-square70x70logo" content="/images/mstile-70x70.png" />
+<meta name="msapplication-square150x150logo" content="/images/mstile-150x150.png" />
+<meta name="msapplication-wide310x150logo" content="/images/mstile-310x150.png" />
+<meta name="msapplication-square310x310logo" content="/images/mstile-310x310.png" />
+
+
+<script>
+window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+ga('create', 'UA-61454000-4', 'auto');
+ga('send', 'pageview');
+</script>
+<script async src='//www.google-analytics.com/analytics.js'></script>
+
+</head>
+<body class="body body-right-sidebar mobile" itemscope="itemscope" itemtype="http://schema.org/WebPage">
+	<div class="container container-outer">
+		<header class="header" itemscope="itemscope" itemtype="http://schema.org/WPHeader">
+		
+			<div class="container container-inner clearfix">
+			
+				<div class="logo" role="banner" itemscope="itemscope" itemtype="http://schema.org/Brand">
+				
+					<a class="logo__link" href="/" title="Office 365 blog" rel="home">
+						<img src="/images/favicon-96x96.png"><h1 class="logo__title">Office 365 blog</h1>
+						<h2 class="logo__tagline">Everything about Microsoft 365 security</h2>
+					</a>
+				</div>
+			</div>
+			
+<nav class="menu" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<ul class="menu__list">
+		<li class="menu__item "><a class="menu__link" href="/aadkillchain/">AAD &amp; M365 KILL CHAIN</a></li>
+		<li class="menu__item "><a class="menu__link" href="/aadinternals/">AAD INTERNALS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/links/">LINKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/powershell/">POWERSHELL</a></li>
+		<li class="menu__item "><a class="menu__link" href="/talks/">TALKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/tools/">TOOLS</a></li>
+	</ul>
+</nav>
+
+		</header>
+		<div class="wrapper clearfix">
+
+<main class="main-content content" role="main" itemprop="mainContentOfPage">
+	<article class="post">
+		<header class="post__header clearfix">
+			<h1 class="post__title">AADInternals admin and blue team tools</h1>
+			<p class="post__meta meta">
+				<svg class="icon icon-time" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg"><path d="m8-.0000003c-4.4 0-8 3.6-8 8 0 4.4000003 3.6 8.0000003 8 8.0000003 4.4 0 8-3.6 8-8.0000003 0-4.4-3.6-8-8-8zm0 14.4000003c-3.52 0-6.4-2.88-6.4-6.4000003 0-3.52 2.88-6.4 6.4-6.4 3.52 0 6.4 2.88 6.4 6.4 0 3.5200003-2.88 6.4000003-6.4 6.4000003zm.4-10.4000003h-1.2v4.8l4.16 2.5600003.64-1.04-3.6-2.1600003z"/></svg>
+				<time class="post__meta-date" datetime="2021-09-07T00:00:00">September 07, 2021</time>
+					<time class="post__meta-lastmod" datetime="2021-12-22T00:00:00"> (Last Modified: December 22, 2021)</time>
+				<span class="post__meta-categories meta-categories">
+					<svg class="icon icon-category" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg"><path d="m7 2l1 2h8v11h-16v-13z"/></svg>
+					<a class="meta-categories__link" href="/categories/blog" rel="category">blog</a></span>
+			</p>
+			<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2fadmintools%2f&text=AADInternals%20admin%20and%20blue%20team%20tools&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2fadmintools%2f&mini=true&title=AADInternals%20admin%20and%20blue%20team%20tools&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+		</header>
+		<div class="post__content clearfix">
+			<figure class="post__thumbnail">
+				<img src="/images/posts/admintools.png" alt="AADInternals admin and blue team tools">
+			</figure>
+				<nav id="TableOfContents">
+<ul>
+<li><a href="#tenant-settings">Tenant settings</a>
+<ul>
+<li><a href="#guest-access">Guest Access</a></li>
+<li><a href="#azure-ad-graph-api-access">Azure AD Graph API access</a></li>
+<li><a href="#self-service-purchase-products">Self-service purchase products</a></li>
+<li><a href="#unified-audit-log">Unified Audit log</a></li>
+</ul></li>
+<li><a href="#logging">Logging</a>
+<ul>
+<li><a href="#diagnostic-settings">Diagnostic settings</a></li>
+<li><a href="#sign-ins-log">Sign-ins log</a></li>
+<li><a href="#audit-log">Audit log</a></li>
+<li><a href="#azure-directory-activity-log">Azure Directory Activity Log</a></li>
+<li><a href="#unified-audit-log-1">Unified Audit log</a></li>
+</ul></li>
+<li><a href="#troubleshooting">Troubleshooting</a>
+<ul>
+<li><a href="#open-source-intelligence-osint">Open-Source Intelligence (OSINT)</a></li>
+</ul></li>
+<li><a href="#references">References</a></li>
+</ul>
+</nav>
+			<p>AADInternals toolkit is best known of its offensive or red teams tools. Its origins, however, is in administration - especially for tasks not supported by official tools.</p>
+
+<p>In this blog, I&rsquo;ll introduce recent additions to the admin &amp; blue team tools and also some old goodies!</p>
+
+<p></p>
+
+<h1 id="tenant-settings">Tenant settings</h1>
+
+<p>There are a lot of settings available in the admin portals affecting the security of your tenant. I&rsquo;ve selected the following functions to help you to protect your tenant and to easily move to modern authentication.</p>
+
+<h2 id="guest-access">Guest Access</h2>
+
+<p>As I&rsquo;ve demonstrated <a href="/post/quest_for_guest/" target=_blank>earlier</a>, by default, guest users have way too much permissions and can effectively export the users and groups of your tenant.</p>
+
+<p>To protect your tenant from the guest users, the <a href="https://portal.azure.com/#blade/Microsoft_AAD_IAM/AllowlistPolicyBlade" target="_blank">External collaboration settings</a> should be set to <strong>most restrictive</strong>:</p>
+
+<p><img src="/images/posts/quest4guest_4.png" alt="blaa" /></p>
+
+<p>The status of this setting can easily be checked with AADInternals:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the access token</span>
+<span class="nb">Get-AADIntAccessTokenForMSGraph</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Get the tenant guest access</span>
+<span class="nb">Get-AADIntTenantGuestAccess</span></code></pre></div>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>Access Description                                                                        RoleId                              
+------ -----------                                                                        ------                              
+Normal Guest users have limited access to properties and memberships of directory objects 10dae51f-b6af-4016-8d66-8c2a99b929b3
+</code></pre>
+
+<p>There are three different access levels:</p>
+
+<table>
+<thead>
+<tr>
+<th>Access level</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Inclusive</td>
+<td>Guest users have the same access as members</td>
+</tr>
+
+<tr>
+<td>Normal</td>
+<td>Guest users have limited access to properties and memberships of directory objects</td>
+</tr>
+
+<tr>
+<td>Restricted</td>
+<td>Guest user access is restricted to properties and memberships of their own directory objects (most restrictive)</td>
+</tr>
+</tbody>
+</table>
+
+<p>To change the settings using AADInternals (requires Global Administrator role):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the access token</span>
+<span class="nb">Get-AADIntAccessTokenForMSGraph</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Get the tenant guest access</span>
+<span class="nb">Set-AADIntTenantGuestAccess</span> <span class="n">-Level</span> <span class="n">Restricted</span></code></pre></div>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>Access Description                                                                                               RoleId                              
+------ -----------                                                                                               ------                              
+ Guest user access is restricted to properties and memberships of their own directory objects (most restrictive) 2af84b1e-32c8-42b7-82bc-daa82404023b
+</code></pre>
+
+<h2 id="azure-ad-graph-api-access">Azure AD Graph API access</h2>
+
+<p>Azure AD is seems to built with the principle than on-premises AD that effectively gives read-only permissions to the whole content of Azure AD, including tenant-level settings.</p>
+
+<p>I&rsquo;ve earlier discussed about the ways to <a href="/post/limit-user-access/" target="_blank">restrict users&rsquo;s access</a> to Azure AD data.</p>
+
+<p>The both currently used PowerShell modules (<a href="https://docs.microsoft.com/en-us/powershell/module/msonline" target="_blank">MSOnline</a> and <a href="https://docs.microsoft.com/en-us/powershell/azure/active-directory/overview" target="_blank">AzureAD</a>) are both utilising Azure AD Graph endpoint.
+Microsoft <a href="https://techcommunity.microsoft.com/t5/azure-active-directory-identity/update-your-applications-to-use-microsoft-authentication-library/ba-p/1257363" target="_blank">announced</a> in June 2020 that the end-of-support for AAD Graph API will be June 30th 2022.</p>
+
+<p>In the meantime, to disable access to Azure AD Graph using AADInternals:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the access token</span>
+<span class="nb">Get-AADIntAccessTokenForMSGraph</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Disable access to AAD Graph API</span>
+<span class="nb">Disable-AADIntTenantMsolAccess</span>
+
+<span class="c"># Check the settings after 10 seconds or so.</span>
+<span class="nb">Get-AADIntTenantAuthPolicy</span> <span class="p">|</span> <span class="n">Select</span> <span class="n">block</span><span class="p">*</span></code></pre></div>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>blockMsolPowerShell
+-------------------
+              True
+</code></pre>
+
+<h2 id="self-service-purchase-products">Self-service purchase products</h2>
+
+<p>Self-service purchase products are, as the name suggests, products that tenant users can purchase by themselves. While the products do not generate any billing for the organisation, they can introduce security issues as they may allow access to the organisation data.</p>
+
+<p>I recently read a great <a href="https://office365itpros.com/2021/07/20/block-self-service-purchases-of-windows-365-licenses/" target="_blank">article</a> by <strong>Tony Redmond</strong> (<a href="https://twitter.com/12Knocksinna" target="_blank">@12Knockssinna</a>) on how to block the self-service purchases per product.
+This involved installing <a href="https://www.powershellgallery.com/packages/MSCommerce/1.6" target="_blank">MS Commerce PowerShell module</a> and playing around with product IDs which I felt a bit too complicated.</p>
+
+<p>To block self-service purchase for all products a bit easier with AADInternals:</p>
+
+<p><div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Disable self-service purchase for all products</span>
+<span class="nb">Get-AADIntSelfServicePurchaseProducts</span> <span class="p">|</span> <span class="nb">Set-AADIntSelfServicePurchaseProduct</span> <span class="n">-Enabled</span> <span class="nv">$false</span></code></pre></div>
+<strong>Output:</strong></p>
+
+<pre><code>Product                                          Id           Status  
+-------                                          --           ------  
+Windows 365 Enterprise                           CFQ7TTC0HHS9 Disabled
+Windows 365 Business with Windows Hybrid Benefit CFQ7TTC0HX99 Disabled
+Windows 365 Business                             CFQ7TTC0J203 Disabled
+Power Automate per user                          CFQ7TTC0KP0N Disabled
+Power Apps per user                              CFQ7TTC0KP0P Disabled
+Power Automate RPA                               CFQ7TTC0KXG6 Disabled
+Power BI Premium (standalone)                    CFQ7TTC0KXG7 Disabled
+Visio Plan 2                                     CFQ7TTC0KXN8 Disabled
+Visio Plan 1                                     CFQ7TTC0KXN9 Disabled
+Project Plan 3                                   CFQ7TTC0KXNC Disabled
+Project Plan 1                                   CFQ7TTC0KXND Disabled
+Power BI Pro                                     CFQ7TTC0L3PB Disabled
+</code></pre>
+
+<p><strong>Note:</strong> New self-service purchase products are introduced on regular basis, so don&rsquo;t forget to check the products at least once a month!</p>
+
+<h2 id="unified-audit-log">Unified Audit log</h2>
+
+<p>The <a href="https://docs.microsoft.com/en-us/microsoft-365/compliance/search-the-audit-log-in-security-and-compliance?view=o365-worldwide" target="_blank">Unified Audit Log</a> contains the following user and admin activity in Microsoft 365 and Azure AD:</p>
+
+<ul>
+<li>User activity in SharePoint Online and OneDrive for Business</li>
+<li>User activity in Exchange Online (Exchange mailbox audit logging)</li>
+<li>Admin activity in SharePoint Online</li>
+<li>Admin activity in Azure Active Directory (the directory service for Microsoft 365)</li>
+<li>Admin activity in Exchange Online (Exchange admin audit logging)</li>
+<li>eDiscovery activities in the security and compliance center</li>
+<li>User and admin activity in Power BI</li>
+<li>User and admin activity in Microsoft Teams</li>
+<li>User and admin activity in Dynamics 365</li>
+<li>User and admin activity in Yammer</li>
+<li>User and admin activity in Microsoft Power Automate</li>
+<li>User and admin activity in Microsoft Stream</li>
+<li>Analyst and admin activity in Microsoft Workplace Analytics</li>
+<li>User and admin activity in Microsoft Power Apps</li>
+<li>User and admin activity in Microsoft Forms</li>
+<li>User and admin activity for sensitivity labels for sites that use SharePoint Online or Microsoft Teams</li>
+<li>Admin activity in Briefing email and MyAnalytics</li>
+</ul>
+
+<p>As such, the Unified Audit Log is a main source or forensic data for any Incident Response (IR) engagement.</p>
+
+<p>You can turn on the Unified Audit Log with AADInternals:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the access token</span>
+<span class="nb">Get-AADIntAccessTokenForEXO</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Disable the unified audit log</span>
+<span class="nb">Set-AADIntUnifiedAuditLogSettings</span> <span class="n">-Enabled</span> <span class="n">true</span></code></pre></div>
+
+<p><strong>Note!</strong> It will take hours for the changes to take effect!</p>
+
+<h1 id="logging">Logging</h1>
+
+<p>As mentioned above, the Unified Audit log contains forensic data for Azure AD and Office/Microsoft 365. There are also other logs containing valuable forensic data.</p>
+
+<h2 id="diagnostic-settings">Diagnostic settings</h2>
+
+<blockquote>
+<p>Diagnostic settings are used to configure streaming export of platform logs and metrics for a resource to the destination of your choice. You may create up to five different diagnostic settings to send different logs and metrics to independent destinations.</p>
+</blockquote>
+
+<p>Diagnostic settings can be set in the Azure Admin Portal but the functionality is also added to AADInternals.</p>
+
+<p>To view the current settings:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the access token</span>
+<span class="nv">$at</span><span class="p">=</span><span class="nb">Get-AADIntAccessTokenForAzureCoreManagement</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># List diagnostic settings</span>
+<span class="nb">Get-AADIntAzureDiagnosticSettings</span></code></pre></div></p>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>Name                        : Audit and SignIn to Sentinel
+WorkspaceId                 : /subscriptions/a04293e7-46c8-4bf4-bc6d-1bc1f41afae0/resourcegroups/sentinel/providers/microsoft.operationalinsights/workspaces/MySentinel
+StorageAccountId            : 
+EventHubAuthorizationRuleId : 
+EventHubName                : 
+ServiceBusRuleId            : 
+
+Name                        : Service Principal to Sentinel
+WorkspaceId                 : /subscriptions/a04293e7-46c8-4bf4-bc6d-1bc1f41afae0/resourcegroups/sentinel/providers/microsoft.operationalinsights/workspaces/MySentinel
+StorageAccountId            : 
+EventHubAuthorizationRuleId : 
+EventHubName                : 
+ServiceBusRuleId            :
+</code></pre>
+
+<p>To get details of a specific settings:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># List diagnostic settings for the given workspace</span>
+<span class="nb">Get-AADAzureIntDiagnosticSettingsDetails</span> <span class="n">-Name</span> <span class="s2">&#34;Audit and SignIn to Sentinel&#34;</span></code></pre></div></p>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>Log                          Enabled Retention Enabled Retention Days
+---                          ------- ----------------- --------------
+ProvisioningLogs               False             False              0
+AuditLogs                      False             False              0
+SignInLogs                     False             False              0
+NonInteractiveUserSignInLogs   False             False              0
+ServicePrincipalSignInLogs     False             False              0
+ManagedIdentitySignInLogs       True              True            365
+</code></pre>
+
+<p>To change the settings:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Set the diagnostic log settings for the given workspace</span>
+<span class="nb">Set-AADIntDiagnosticSettingsDetails</span> <span class="n">-Name</span> <span class="s2">&#34;Audit and SignIn to Sentinel&#34;</span> <span class="n">-Log</span> <span class="n">ManagedIdentitySignInLogs</span><span class="p">,</span><span class="n">AuditLogs</span><span class="p">,</span><span class="n">SignInLogs</span> <span class="n">-Enabled</span> <span class="nv">$true</span> <span class="n">-RetentionEnabled</span> <span class="nv">$true</span> <span class="n">-RetentionDays</span> <span class="n">365</span></code></pre></div>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>Log                          Enabled Retention Enabled Retention Days
+---                          ------- ----------------- --------------
+ProvisioningLogs               False             False              0
+AuditLogs                       True              True            365
+SignInLogs                      True              True            365
+NonInteractiveUserSignInLogs   False             False              0
+ServicePrincipalSignInLogs     False             False              0
+ManagedIdentitySignInLogs       True              True            365
+</code></pre>
+
+<h2 id="sign-ins-log">Sign-ins log</h2>
+
+<p>The sign-ins log is the source of (almost) all sign-in events.</p>
+
+<p>To get the entries with AADInternals:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the Access Token and save to cache</span>
+<span class="nb">Get-AADIntAccessTokenForMSGraph</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Show the log</span>
+<span class="nb">Get-AADIntAzureSignInLog</span></code></pre></div>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>createdDateTime              id                                   ipAddress      userPrincipalName             appDisplayName                   
+---------------              --                                   ---------      -----------------             --------------                   
+2020-05-25T05:54:28.5131075Z b223590e-8ba1-4d54-be54-03071659f900 199.11.103.31  admin@company.onmicrosoft.com Azure Portal                     
+2020-05-29T07:56:50.2565658Z f6151a97-98cc-444e-a79f-a80b54490b00 139.93.35.110  user@company.com              Azure Portal                     
+2020-05-29T08:02:24.8788565Z ad2cfeff-52f2-442a-b8fc-1e951b480b00 11.146.246.254 user2@company.com             Microsoft Docs                   
+2020-05-29T08:56:48.7857468Z e0f8e629-863f-43f5-a956-a4046a100d00 1.239.249.24   admin@company.onmicrosoft.com Azure Active Directory PowerShell
+</code></pre>
+
+<p>To see the details of a specific entry:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Show the information for a single entry </span>
+<span class="nb">Get-AADIntAzureSignInLog</span> <span class="n">-EntryId</span> <span class="n">b223590e</span><span class="p">-</span><span class="n">8ba1</span><span class="p">-</span><span class="n">4d54-be54</span><span class="p">-</span><span class="n">03071659f900</span></code></pre></div>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>id                                : b223590e-8ba1-4d54-be54-03071659f900
+createdDateTime                   : 2020-05-25T05:54:28.5131075Z
+userDisplayName                   : admin company
+userPrincipalName                 : admin@company.onmicrosoft.com
+userId                            : 289fcdf8-af4e-40eb-a363-0430bc98d4d1
+appId                             : c44b4083-3bb0-49c1-b47d-974e53cbdf3c
+appDisplayName                    : Azure Portal
+ipAddress                         : 199.11.103.31
+clientAppUsed                     : Browser
+userAgent                         : Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36
+...
+</code></pre>
+
+<h2 id="audit-log">Audit log</h2>
+
+<p>The audit log is the source of (almost) all Azure AD related audit events.</p>
+
+<p>To get the audit log with AADInternals:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the Access Token and save to cache</span>
+<span class="nb">Get-AADIntAccessTokenForMSGraph</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Show the log</span>
+<span class="nb">Get-AADIntAzureAuditLog</span></code></pre></div>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>id                                                            activityDateTime             activityDisplayName   operationType result  initiatedBy   
+--                                                            ----------------             -------------------   ------------- ------  -----------   
+Directory_9af6aff3-dc09-4ac1-a1d3-143e80977b3e_EZPWC_41985545 2020-05-29T07:57:51.4037921Z Add service principal Add           success @{user=; app=}
+Directory_f830a9d4-e746-48dc-944c-eb093364c011_1ZJAE_22273050 2020-05-29T07:57:51.6245497Z Add service principal Add           failure @{user=; app=}
+Directory_a813bc02-5d7a-4a40-9d37-7d4081d42b42_RKRRS_12877155 2020-06-02T12:49:38.5177891Z Add user              Add           success @{app=; user=}
+</code></pre>
+
+<p>To see the details of a specific entry:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Show the information for a single entry </span>
+<span class="nb">Get-AADIntAzureAuditLog</span> <span class="n">-EntryId</span> <span class="n">Directory_9af6aff3-dc09</span><span class="p">-</span><span class="n">4ac1-a1d3</span><span class="p">-</span><span class="n">143e80977b3e_EZPWC_41985545</span></code></pre></div></p>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>id                  : Directory_9af6aff3-dc09-4ac1-a1d3-143e80977b3e_EZPWC_41985545
+category            : ApplicationManagement
+correlationId       : 9af6aff3-dc09-4ac1-a1d3-143e80977b3e
+result              : success
+resultReason        : 
+activityDisplayName : Add service principal
+activityDateTime    : 2020-05-29T07:57:51.4037921Z
+loggedByService     : Core Directory
+operationType       : Add
+initiatedBy         : @{user=; app=}
+targetResources     : {@{id=66ce0b00-92ee-4851-8495-7c144b77601f; displayName=Azure Credential Configuration Endpoint Service; type=ServicePrincipal; userPrincipalName=; 
+					  groupType=; modifiedProperties=System.Object[]}}
+additionalDetails   : {}
+</code></pre>
+
+<h2 id="azure-directory-activity-log">Azure Directory Activity Log</h2>
+
+<p>I was recently introduced an Azure log I wasn&rsquo;t aware of; <strong>Azure Directory Activity Log</strong>:</p>
+
+<p><img src="/images/posts/hhealth_17.png" alt="Azure Directory Activity Log" /></p>
+
+<p>This log contains events that are not available in other logs. For instance, the log has events for <a href="/post/hybridhealthagent/#registering-fake-agents-with-aadinternals-v0-5-0-and-later" target="_blank">registering</a> fake AD FS healt agents and Global Administrators <a href="/post/azurevms/#getting-access-to-azure" target="_blank">elevating</a> themselves to Azure admins.</p>
+
+<p>The only caveat is that this log is accessed via <strong>Azure subscription</strong>, so at least one subscription is required. As the directory for all subscriptions is the same, also the content of the log is same for all subscriptions. How about organisations without an Azure subscriptions?
+No worries, the log can be accesses as long as &ldquo;Access management for Azure resources&rdquo; is switched on:</p>
+
+<p><img src="/images/posts/hhealth_18.png" alt="Access management for Azure resources" /></p>
+
+<p>To change the setting with AADInternals (requires Global Administrator role):
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the Access Token</span>
+<span class="nb">Get-AADIntAccessTokenForAzureCoreManagement</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Grant Azure User Access Administrator role </span>
+<span class="n">Grant-AADIntAzureUserAccessAdminRole</span></code></pre></div></p>
+
+<p>Now we can get the Directory Audit Log events (up to 90 days):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the access token and save to cache</span>
+<span class="nb">Get-AADIntAccessTokenForAzureCoreManagement</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Optional: grant Azure User Access Administrator role </span>
+<span class="n">Grant-AADIntAzureUserAccessAdminRole</span>
+
+<span class="c"># Get the events for the last month</span>
+<span class="nv">$events</span> <span class="p">=</span> <span class="nb">Get-AADIntAzureDirectoryActivityLog</span> <span class="n">-Start</span> <span class="p">(</span><span class="nb">Get-Date</span><span class="p">).</span><span class="n">AddDays</span><span class="p">(-</span><span class="n">31</span><span class="p">)</span>
+
+<span class="c"># Select ADHybridHealthService related events and extract relevant information</span>
+<span class="nv">$events</span> <span class="p">|</span> <span class="n">where</span> <span class="p">{</span><span class="nv">$_</span><span class="p">.</span><span class="n">authorization</span><span class="p">.</span><span class="n">action</span> <span class="o">-like</span> <span class="s2">&#34;Microsoft.ADHybrid*&#34;</span><span class="p">}</span> <span class="p">|</span> <span class="p">%{</span><span class="nb">New-Object</span> <span class="n">psobject</span> <span class="n">-Property</span> <span class="p">(</span><span class="no">[ordered]</span><span class="p">@{</span><span class="s2">&#34;Scope&#34;</span><span class="p">=</span><span class="nv">$_</span><span class="p">.</span><span class="n">authorization</span><span class="p">.</span><span class="n">scope</span><span class="p">;</span><span class="s2">&#34;Operation&#34;</span><span class="p">=</span><span class="nv">$_</span><span class="p">.</span><span class="n">operationName</span><span class="p">.</span><span class="n">localizedValue</span><span class="p">;</span><span class="s2">&#34;Caller&#34;</span><span class="p">=</span><span class="nv">$_</span><span class="p">.</span><span class="n">caller</span><span class="p">;</span><span class="s2">&#34;TimeStamp&#34;</span><span class="p">=</span><span class="nv">$_</span><span class="p">.</span><span class="n">eventTimeStamp</span><span class="p">;</span><span class="s2">&#34;IpAddress&#34;</span><span class="p">=</span><span class="nv">$_</span><span class="p">.</span><span class="n">httpRequest</span><span class="p">.</span><span class="n">clientIpAddress</span><span class="p">})}</span> <span class="p">|</span> <span class="n">ft</span></code></pre></div>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>Scope                                                                                    Operation          Caller                               TimeStamp IpAddress                  
+-----                                                                                    ---------          ------                               --------- ---------         
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:10:59.0148112Z 51.65.246.212
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:10:58.3348792Z 51.65.246.212
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:10:16.2093169Z 51.65.246.212
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:10:15.5693784Z 51.65.246.212
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:07:11.3219081Z 51.65.246.212
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:07:10.5819036Z 51.65.246.212
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:04:18.1500781Z 51.65.246.212
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:04:17.7750301Z 51.65.246.212
+/providers/Microsoft.ADHybridHealthService                                               Updates a service. admin@company.com 2021-08-25T15:02:33.2797177Z 51.65.246.212
+/providers/Microsoft.ADHybridHealthService                                               Updates a service. admin@company.com 2021-08-25T15:02:33.0297112Z 51.65.246.212
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com  Deletes service.   admin@company.com 2021-08-25T15:01:26.9612649Z 152.219.25.6
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com  Deletes service.   admin@company.com 2021-08-25T15:01:26.7262514Z 152.219.25.6
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com  Deletes service.   admin@company.com 2021-08-25T15:01:18.4399245Z 152.219.25.6
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com  Deletes service.   admin@company.com 2021-08-25T15:01:18.2599207Z 152.219.25.6
+/providers/Microsoft.ADHybridHealthService                                               Updates a service. admin@company.com 2021-08-25T15:00:00.5760736Z 152.219.25.6
+/providers/Microsoft.ADHybridHealthService                                               Updates a service. admin@company.com 2021-08-25T14:59:53.6402357Z 152.219.25.6
+</code></pre>
+
+<h2 id="unified-audit-log-1">Unified Audit log</h2>
+
+<p>As mentioned earlier, the Unified Audit Log is the main source of forensic events of Azure AD and Microsoft/Office 365. However, the current tools for searching and exporting the log are slow and difficult to use.
+Therefore, I decided to implement the search in AADInternals (technicalyy uses compliance API).</p>
+
+<p>To search the log for the first 150 entries:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get compliance API cookies</span>
+<span class="nv">$cookies</span> <span class="p">=</span> <span class="nb">Get-AADIntComplianceAPICookies</span>
+
+<span class="c"># Dump the first 150 entries from the last 90 days to json file</span>
+<span class="n">Search-AADIntUnifiedAuditLog</span> <span class="n">-Cookies</span> <span class="nv">$cookies</span> <span class="n">-Verbose</span> <span class="n">-Start</span> <span class="p">(</span><span class="nb">get-date</span><span class="p">).</span><span class="n">AddDays</span><span class="p">(-</span><span class="n">90</span><span class="p">)</span> <span class="p">|</span> <span class="nb">Set-Content</span> <span class="n">auditlog</span><span class="p">.</span><span class="n">json</span></code></pre></div></p>
+
+<p>To search the log for up to 50100 entries and dump them to json file:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Dump the whole log (max 50100) from the last 90 days to csv file</span>
+<span class="n">Search-AADIntUnifiedAuditLog</span> <span class="n">-Cookies</span> <span class="nv">$cookies</span> <span class="n">-Verbose</span> <span class="n">-Start</span> <span class="p">(</span><span class="nb">get-date</span><span class="p">).</span><span class="n">AddDays</span><span class="p">(-</span><span class="n">90</span><span class="p">)</span> <span class="n">-All</span> <span class="p">|</span> <span class="nb">Set-Content</span> <span class="n">auditlog</span><span class="p">.</span><span class="n">json</span></code></pre></div></p>
+
+<p>To search the log for up to 50100 entries and dump them to csv file:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Dump the whole log (max 50100) from the last 90 days to csv file</span>
+<span class="n">Search-AADIntUnifiedAuditLog</span> <span class="n">-Cookies</span> <span class="nv">$cookies</span> <span class="n">-Verbose</span> <span class="n">-Start</span> <span class="p">(</span><span class="nb">get-date</span><span class="p">).</span><span class="n">AddDays</span><span class="p">(-</span><span class="n">90</span><span class="p">)</span> <span class="n">-All</span> <span class="p">|</span> <span class="nb">ConvertTo-Csv</span> <span class="p">|</span> <span class="nb">Set-Content</span> <span class="n">auditlog</span><span class="p">.</span><span class="n">csv</span></code></pre></div></p>
+
+<h1 id="troubleshooting">Troubleshooting</h1>
+
+<h2 id="open-source-intelligence-osint">Open-Source Intelligence (OSINT)</h2>
+
+<p>OSINT refers to the information publicly available, in this case, about tenants and its domains.</p>
+
+<p>Easies way to quickly check the status of the domains of the tenant with AADInternals is:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Show the basic information of the tenant and domains</span>
+<span class="nb">Invoke-AADIntReconAsOutsider</span> <span class="n">-Domain</span> <span class="n">company</span><span class="p">.</span><span class="n">com</span> <span class="p">|</span> <span class="nb">Format-Table</span></code></pre></div></p>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>Tenant brand:       Company Ltd
+Tenant name:        company
+Tenant id:          05aea22e-32f3-4c35-831b-52735704feb3
+DesktopSSO enabled: False
+
+Name                           DNS   MX    SPF  DMARC Type      STS
+----                           ---   --    ---  ----- ----      ---
+company.com                   True  True  True   True Federated sts.company.com
+company.mail.onmicrosoft.com  True  True  True  False Managed
+company.onmicrosoft.com       True  True  True  False Managed
+int.company.com              False False False  False Managed
+</code></pre>
+
+<p>This helps in troubleshooting for instance mailrouting and spam problems, such as, are MX records pointing to the cloud or are SPF &amp; DMARC records configured?</p>
+
+<h1 id="references">References</h1>
+
+<ul>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/powershell/module/msonline" target="_blank">MSOnline</a> V1 PowerShell module for Azure Active Directory</li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/powershell/azure/active-directory/overview" target="_blank">AzureAD</a> Azure Active Directory V2 PowerShell</li>
+<li>Microsoft: <a href="https://techcommunity.microsoft.com/t5/azure-active-directory-identity/update-your-applications-to-use-microsoft-authentication-library/ba-p/1257363" target="_blank">Update your applications to use Microsoft Authentication Library and Microsoft Graph API</a></li>
+<li>Tony Redmond: <a href="https://office365itpros.com/2021/07/20/block-self-service-purchases-of-windows-365-licenses/" target="_blank">How to Block Self-Service Purchases of Windows 365 Licenses</a></li>
+<li>Microsoft: <a href="https://www.powershellgallery.com/packages/MSCommerce/1.6" target="_blank">MS Commerce PowerShell module</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/microsoft-365/compliance/search-the-audit-log-in-security-and-compliance?view=o365-worldwide" target="_blank">Search the audit log in the compliance center</a></li>
+</ul>
+		</div>
+		
+<div class="post__tags tags clearfix">
+	<img class="icon icon-tag" src="/images/tags.png" width="16" height="16" viewBox="0 0 16 16">
+	
+	<ul class="tags__list">
+		<li class="tags__item"><a class="tags__link" href="/tags/administration/" rel="tag">administration</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/blue-team/" rel="tag">blue team</a></li>
+	</ul>
+</div>
+
+		<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2fadmintools%2f&text=AADInternals%20admin%20and%20blue%20team%20tools&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2fadmintools%2f&mini=true&title=AADInternals%20admin%20and%20blue%20team%20tools&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+	</article>
+	
+<div class="authorbox clearfix">
+	<figure class="authorbox__avatar">
+		<img alt="Dr Nestori Syynimaa (@DrAzureAD) avatar" src="/images/nestori.jpg" class="avatar" height="90" width="90">
+	</figure>
+	<div class="authorbox__header">
+		<span class="authorbox__name">About Dr Nestori Syynimaa (@DrAzureAD)</span>
+	</div>
+	<div class="authorbox__description">
+		Dr Syynimaa works as Senior Principal Information Security Researcher at Secureworks CTU (Counter Threat Unit). <br> Before moving to his current position, Dr Syynimaa worked as a CIO, consultant, trainer, and university lecturer for over 20 years. He is a regular speaker in scientific and professional conferences related to Microsoft 365 and Azure AD security. <br><br>Dr Syynimaa is Microsoft Certified Expert (Microsoft 365), Microsoft Certified Azure Solutions Architect Expert, Microsoft Certified Trainer, Microsoft MVP (Enterprise Mobility, Identity and Access &amp; Intune), and Microsoft Most Valuable Security Researcher (MVR).
+	</div>
+</div>
+	
+<nav class="post-nav row clearfix" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<div class="post-nav__item post-nav__item--prev col-1-2">
+		<a class="post-nav__link" href="/post/hybridhealthagent/" rel="prev"><span class="post-nav__caption">«Previous</span><p class="post-nav__post-title">Spoofing Azure AD sign-ins logs by imitating AD FS Hybrid Health Agent</p></a>
+	</div>
+	<div class="post-nav__item post-nav__item--next col-1-2">
+		<a class="post-nav__link" href="/post/partners/" rel="next"><span class="post-nav__caption">Next»</span><p class="post-nav__post-title">Microsoft partners: The Good, The Bad, or The Ugly?</p></a>
+	</div>
+</nav>
+
+	
+<div class="comments">
+	<div id="disqus_thread"></div>
+<script>
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "o365blog-com" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+</main>
+
+<aside class="sidebar" itemscope="itemscope" itemtype="http://schema.org/WPSideBar">
+	
+<div class="widget-search widget">
+	<form class="widget-search__form" role="search" method="get" action="//google.com/search">
+		<label>
+			<span class="screen-reader-text">Search for:</span>
+			<input class="widget-search__field" type="search" placeholder="SEARCH..." value="" name="q">
+		</label>
+		<input class="widget-search__submit" type="submit" value="Search">
+		<input type="hidden" name="sitesearch" value="http://o365blog.com" />
+	</form>
+</div>
+	
+<div class="widget-recent widget">
+	<h4 class="widget__title">Recent Posts</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/post/pta/">Exploiting Azure AD PTA vulnerabilities: Creating backdoor and harvesting credentials</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/gmsa/">Hunt for the gMSA secrets</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/august_2022/">AADInternals World Tour August 2022: USA</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/deviceidentity/">Stealing and faking Azure AD device identities</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/partners/">Microsoft partners: The Good, The Bad, or The Ugly?</a></li>
+		</ul>
+	</div>
+</div>
+
+	
+<div class="widget-categories widget">
+	<h4 class="widget__title">Categories</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/categories/"></a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/article">Article</a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/blog">Blog</a></li>
+		</ul>
+	</div>
+</div>
+	
+<div class="widget-social widget">
+	<h4 class="widget-social__title widget__title">Social</h4>
+	<div class="widget-social__content widget__content">
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Twitter" rel="noopener noreferrer" href="https://twitter.com/DrAzureAD" target="_blank">
+				<svg class="widget-social__link-icon icon-twitter" viewBox="0 0 384 312" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5 0-78.8 35.3-78.8 78.8 0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3-6.7 11.6-10.6 25.2-10.6 39.6 0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1 0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4 0-12.6-.4-18.8-1.1 34.9 22.4 76.3 35.4 120.8 35.4 144.9 0 224.1-120 224.1-224.1 0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg>
+				<span>Twitter</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="" rel="noopener noreferrer" href="https://linkedin.com/in/nestori" target="_blank">
+				<svg class="widget-social__link-icon icon-linkedin" viewBox="0 0 352 352" width="24" height="24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M0,40v272c0,21.9,18.1,40,40,40h272c21.9,0,40-18.1,40-40V40c0-21.9-18.1-40-40-40H40C18.1,0,0,18.1,0,40z M312,32 c4.6,0,8,3.4,8,8v272c0,4.6-3.4,8-8,8H40c-4.6,0-8-3.4-8-8V40c0-4.6,3.4-8,8-8H312z M59.5,87c0,15.2,12.3,27.5,27.5,27.5 c15.2,0,27.5-12.3,27.5-27.5c0-15.2-12.3-27.5-27.5-27.5C71.8,59.5,59.5,71.8,59.5,87z M187,157h-1v-21h-45v152h47v-75 c0-19.8,3.9-39,28.5-39c24.2,0,24.5,22.4,24.5,40v74h47v-83.5c0-40.9-8.7-72-56.5-72C208.5,132.5,193.3,145.1,187,157z M64,288h47.5 V136H64V288z"/></svg>
+				<span>LinkedIn</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Email" href="mailto:nestori.syynimaa@gerenios.com">
+				<svg class="widget-social__link-icon icon-mail" viewBox="0 0 416 288" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m0 16v256 16h16 384 16v-16-256-16h-16-384-16zm347 16-139 92.5-139-92.5zm-148 125.5 9 5.5 9-5.5 167-111.5v210h-352v-210z"/></svg>
+				<span>nestori.syynimaa@gerenios.com</span>
+			</a>
+		</div>
+	</div>
+</div>
+
+	
+<div class="widget-taglist widget">
+	<h4 class="widget__title">Tags</h4>
+	<div class="widget__content">
+		<a class="widget__link widget__link--taglist" href="/tags/aadconnect" title="aadconnect">aadconnect (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/aadinternals" title="aadinternals">aadinternals (10)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/abusing" title="abusing">abusing (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/active-directory" title="active-directory">active-directory (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/adfs" title="adfs">adfs (5)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/admin" title="admin">admin (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/administration" title="administration">administration (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/authentication" title="authentication">authentication (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure" title="azure">azure (20)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure-active-directory" title="azure-active-directory">azure-active-directory (27)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azuread" title="azuread">azuread (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/backdoor" title="backdoor">backdoor (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blackhat" title="blackhat">blackhat (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blue-team" title="blue-team">blue-team (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/bprt" title="bprt">bprt (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/browser" title="browser">browser (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/compromise" title="compromise">compromise (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/conferences" title="conferences">conferences (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/defcon" title="defcon">defcon (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/desktop-sso" title="desktop-sso">desktop-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/device" title="device">device (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/dns" title="dns">dns (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/email" title="email">email (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/encryption" title="encryption">encryption (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/exchange" title="exchange">exchange (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/federation" title="federation">federation (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/forensics" title="forensics">forensics (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/gdpr" title="gdpr">gdpr (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/global-administrator" title="global-administrator">global-administrator (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/graph" title="graph">graph (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/groups" title="groups">groups (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/guest" title="guest">guest (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/hybrid-join" title="hybrid-join">hybrid-join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/identity" title="identity">identity (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/inactive" title="inactive">inactive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/insider" title="insider">insider (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/intune" title="intune">intune (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/join" title="join">join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/logs" title="logs">logs (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mailbox" title="mailbox">mailbox (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mdm" title="mdm">mdm (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mfa" title="mfa">mfa (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office-365" title="office-365">office-365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office365" title="office365">office365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/on-prem" title="on-prem">on-prem (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/onedrive" title="onedrive">onedrive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/outsider" title="outsider">outsider (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/partner" title="partner">partner (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/password" title="password">password (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/persistence" title="persistence">persistence (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/phishing" title="phishing">phishing (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/planner" title="planner">planner (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/powershell" title="powershell">powershell (13)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/prt" title="prt">prt (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/pta" title="pta">pta (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/recon" title="recon">recon (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/reconnaissance" title="reconnaissance">reconnaissance (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/seamless-sso" title="seamless-sso">seamless-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/security" title="security">security (31)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sso" title="sso">sso (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sync" title="sync">sync (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/synchronisation" title="synchronisation">synchronisation (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/t2" title="t2">t2 (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/talks" title="talks">talks (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/teams" title="teams">teams (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/user" title="user">user (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/virtual-machine" title="virtual-machine">virtual-machine (1)</a>
+	</div>
+</div>
+</aside>
+
+	</div>
+		<footer class="footer" itemscope="itemscope" itemtype="http://schema.org/WPFooter">
+			<div class="container container-inner">
+				<p class="footer__copyright"><span><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img src="/images/CC-BY.png"></a> </span></p>
+			</div>
+		</footer>
+	</div>
+
+<script>
+	var navigation = responsiveNav(".menu", {
+		navClass: "menu--collapse",
+	});
+</script>
+</body>
+</html>

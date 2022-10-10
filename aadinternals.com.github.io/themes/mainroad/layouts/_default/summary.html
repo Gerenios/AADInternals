@@ -1,0 +1,35 @@
+<article class="list__item post clearfix">
+	{{- if .Params.thumbnail }}
+	<figure class="list__thumbnail">
+		<a href="{{ .Permalink }}">
+			<img src="{{ .Params.thumbnail | relURL }}" alt="{{ .Title }}" />
+		</a>
+	</figure>
+	{{- end }}
+	<div class="list__content clearfix">
+		<header class="list__header">
+			<h3 class="list__title post__title ">
+				<a href="{{ .RelPermalink }}" rel="bookmark">{{ .Title }}</a>
+			</h3>
+			{{- if not .Date.IsZero }}
+			<div class="list__meta meta">
+				<svg class="icon icon-time" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg"><path d="m8-.0000003c-4.4 0-8 3.6-8 8 0 4.4000003 3.6 8.0000003 8 8.0000003 4.4 0 8-3.6 8-8.0000003 0-4.4-3.6-8-8-8zm0 14.4000003c-3.52 0-6.4-2.88-6.4-6.4000003 0-3.52 2.88-6.4 6.4-6.4 3.52 0 6.4 2.88 6.4 6.4 0 3.5200003-2.88 6.4000003-6.4 6.4000003zm.4-10.4000003h-1.2v4.8l4.16 2.5600003.64-1.04-3.6-2.1600003z"/></svg>
+				<time class="list__meta-date" datetime="{{ .Date.Format "2006-01-02T15:04:05" }}">{{.Date.Format ( .Site.Params.dateformat | default "January 02, 2006")}}</time>
+				{{- if ne .Date .Lastmod }}
+					<time class="list__meta-lastmod" datetime="{{ .Lastmod.Format "2006-01-02T15:04:05" }}"> (Last Modified: {{.Lastmod.Format ( .Site.Params.dateformat | default "January 02, 2006")}})</time>
+				{{- end }}
+			</div>
+			{{- end }}
+		</header>
+		<div class="list__excerpt">
+			{{ .Summary }}
+		</div>
+		{{- if .Site.Params.readmore }}
+		{{- if .Truncated }}
+		<div class="list__footer">
+			<a class="list__footer-readmore btn" href="{{ .RelPermalink }}">Read more…</a>
+		</div>
+		{{- end }}
+		{{- end }}
+	</div>
+</article>

@@ -1,0 +1,747 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Office 365 blog</title>
+    <link>http://o365blog.com/</link>
+    <description>Recent content on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Tue, 20 Sep 2022 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Exploiting Azure AD PTA vulnerabilities: Creating backdoor and harvesting credentials</title>
+      <link>http://o365blog.com/post/pta/</link>
+      <pubDate>Tue, 20 Sep 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/pta/</guid>
+      <description>&lt;p&gt;In 13 September 2022, &lt;a href=&#34;https://www.secureworks.com/&#34;&gt;Secureworks&lt;/a&gt; published a Threat Analysis: &lt;a href=&#34;https://www.secureworks.com/research/azure-active-directory-pass-through-authentication-flaws&#34; target=&#34;_blank&#34;&gt;Azure Active Directory Pass-Through Authentication Flaws&lt;/a&gt;.
+The vulnerabilities discovered by our team allows threat actors to gain persistent and undetected access to the target Azure AD tenant.&lt;br&gt;&lt;br&gt;
+In this blog post, I&amp;rsquo;ll show how the attack can be conducted using &lt;a href=&#34;http://o365blog.com/aadinternals&#34; target=&#34;_blank&#34;&gt;AADInternals&lt;/a&gt; and standalone Windows server.
+&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Hunt for the gMSA secrets</title>
+      <link>http://o365blog.com/post/gmsa/</link>
+      <pubDate>Mon, 29 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/gmsa/</guid>
+      <description>&lt;p&gt;Group Managed Service Accounts (gMSA&amp;rsquo;s) can be used to run Windows services over multiple servers within the Windows domain.
+&lt;br&gt;
+&lt;br&gt;
+Since the launch of Windows Server 2012 R2, gMSA has been the recommended service account option for AD FS.
+As abusing AD FS is one of my favourite hobbies, I wanted to learn how gMSAs work.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>AADInternals World Tour August 2022: USA</title>
+      <link>http://o365blog.com/post/august_2022/</link>
+      <pubDate>Mon, 01 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/august_2022/</guid>
+      <description>&lt;p&gt;In August 2022, I&amp;rsquo;ll have several presentations regarding Azure AD security, open-source tools, and bug bounties.&lt;/p&gt;
+
+&lt;p&gt;I&amp;rsquo;ll be presenting at &lt;a href=&#34;https://techmentorevents.com/events/redmond-2022/home.aspx&#34; target=&#34;_blank&#34;&gt;TECHMENTOR&lt;/a&gt;, Black Hat &lt;a href=&#34;https://www.blackhat.com/us-22/arsenal-overview.html&#34; target=&#34;_blank&#34;&gt;Arsenal&lt;/a&gt;, DEF CON &lt;a href=&#34;https://forum.defcon.org/node/239774&#34; target=&#34;_blank&#34;&gt;demo labs&lt;/a&gt;, and &lt;a href=&#34;https://cloud-village.org/&#34; target=&#34;_blank&#34;&gt;Cloud Village&lt;/a&gt;.
+&lt;br&gt;&lt;br&gt;
+If you like to have a chat on anything Azure AD related, want to say hi or get AADInternals sticker, check my schedule!&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Stealing and faking Azure AD device identities</title>
+      <link>http://o365blog.com/post/deviceidentity/</link>
+      <pubDate>Tue, 15 Feb 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/deviceidentity/</guid>
+      <description>&lt;p&gt;In my previous blog posts I&amp;rsquo;ve covered details on &lt;a href=&#34;http://o365blog.com/post/prt&#34; target=&#34;_blank&#34;&gt; PRTs&lt;/a&gt;, &lt;a href=&#34;http://o365blog.com/post/bprt&#34; target=&#34;_blank&#34;&gt;BPRTs&lt;/a&gt;, &lt;a href=&#34;http://o365blog.com/post/mdm&#34; target=&#34;_blank&#34;&gt;device compliance&lt;/a&gt;, and Azure AD &lt;a href=&#34;http://o365blog.com/post/devices&#34; target=&#34;_blank&#34;&gt;device join&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll show how to &lt;strong&gt;steal identities of existing Azure AD joined devices&lt;/strong&gt;, and how to &lt;strong&gt;fake identies&lt;/strong&gt; of non-AAD joined &lt;strong&gt;Windows devices&lt;/strong&gt; with &lt;a href=&#34;http://o365blog.com/aadinternals/&#34; target=&#34;_blank&#34;&gt;AADInternals&lt;/a&gt; &lt;strong&gt;v0.6.6&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Microsoft partners: The Good, The Bad, or The Ugly?</title>
+      <link>http://o365blog.com/post/partners/</link>
+      <pubDate>Sat, 11 Dec 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/partners/</guid>
+      <description>&lt;p&gt;In 2018, I &lt;a href=&#34;http://o365blog.com/post/o365-gdpr/#delegated-administration&#34; target=&#34;_blank&#34;&gt;blogged&lt;/a&gt; first time about risks related to Delegated Administrative Privileges (DAP) given to Microsoft partners.
+Now, in 2021, Microsoft &lt;a href=&#34;https://www.microsoft.com/security/blog/2021/10/25/nobelium-targeting-delegated-administrative-privileges-to-facilitate-broader-attacks/&#34; target=&#34;_blank&#34;&gt;blogged&lt;/a&gt; how NOBELIUM exploited DAP to compromise
+customers of some Microsoft partners.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll explain why DAP is so dangerous, how to exploit it, how to detect exploitation, and how to view partner related information with &lt;strong&gt;AADInternals v0.6.5&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Talks</title>
+      <link>http://o365blog.com/talks/</link>
+      <pubDate>Thu, 11 Nov 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/talks/</guid>
+      <description>&lt;p&gt;On this page you&amp;rsquo;ll find recordings and slides from my conference talks. Enjoy!
+ &lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>AADInternals admin and blue team tools</title>
+      <link>http://o365blog.com/post/admintools/</link>
+      <pubDate>Tue, 07 Sep 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/admintools/</guid>
+      <description>&lt;p&gt;AADInternals toolkit is best known of its offensive or red teams tools. Its origins, however, is in administration - especially for tasks not supported by official tools.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll introduce recent additions to the admin &amp;amp; blue team tools and also some old goodies!&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Spoofing Azure AD sign-ins logs by imitating AD FS Hybrid Health Agent</title>
+      <link>http://o365blog.com/post/hybridhealthagent/</link>
+      <pubDate>Thu, 08 Jul 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/hybridhealthagent/</guid>
+      <description>&lt;p&gt;&lt;strong&gt;Azure AD Connect Health&lt;/strong&gt; is a feature that allows viewing the health of on-prem hybrid infrastructure components, including Azure AD Connect and AD FS servers.
+Health information is gathered by agents installed on each on-prem hybrid server. Since March 2021, also AD FS sign-in events are gathered and sent to Azure AD.&lt;/p&gt;
+
+&lt;p&gt;In this write-up (based on a Threat Analysis &lt;a href=&#34;https://www.secureworks.com/research/azure-active-directory-sign-ins-log-tampering&#34; target=&#34;_blank&#34;&gt;report&lt;/a&gt; by Secureworks), I&amp;rsquo;ll explain how anyone with a local administrator access to AD FS server (or proxy), can create arbitrary sign-ins events to Azure AD sign-ins log.
+Moreover, I&amp;rsquo;ll show how Global Administrators can register fake agents to Azure AD - even for tenants not using AD FS at all.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Exporting AD FS certificates revisited: Tactics, Techniques and Procedures</title>
+      <link>http://o365blog.com/post/adfs/</link>
+      <pubDate>Tue, 27 Apr 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/adfs/</guid>
+      <description>&lt;p&gt;I&amp;rsquo;ve talked about AD FS issues for a couple years now, and finally, after the Solorigate/Sunburst, the world is finally listening 😉&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll explain the currently known TTPs to exploit AD FS certificates, and introduce a totally new technique to export the configuration data remotely.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Deep-dive to Azure AD device join</title>
+      <link>http://o365blog.com/post/devices/</link>
+      <pubDate>Wed, 03 Mar 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/devices/</guid>
+      <description>&lt;p&gt;Devices (endpoints) are a crucial part of Microsoft&amp;rsquo;s Zero Trust concept. Devices can be Registered, Joined, or Hybrid Joined to Azure AD.
+Conditional Access uses the device information as one of the decisions criteria to allow or block access to services.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll explain what these different registration types are, what happens under-the-hood during the registration, and how to register devices with &lt;a href=&#34;http://o365blog.com/aadinternals/#hack-functions-azure-ad-join-mdm-prt&#34; target=&#34;_blank&#34;&gt;AADInternals&lt;/a&gt; &lt;strong&gt;v0.4.6&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>BPRT unleashed: Joining multiple devices to Azure AD and Intune</title>
+      <link>http://o365blog.com/post/bprt/</link>
+      <pubDate>Sun, 31 Jan 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/bprt/</guid>
+      <description>&lt;p&gt;In October 2020, someone contacted me and asked whether it would be possible
+to create BPRTs using AADInternals. I hadn&amp;rsquo;t even heard of BPRTs, but was eventually able to help him to create BPRTs. Now this
+functionality is included in &lt;strong&gt;&lt;a href=&#34;http://o365blog.com/aadinternals/&#34; target=&#34;_blank&#34;&gt;AADInternals&lt;/a&gt; v0.4.5&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll explain what BPRTs are and how they can be used to join multiple devices to both Azure AD and Intune.
+I&amp;rsquo;ll also show the dark side of BPRTs: how they can be used to conduct DOS attacks against Azure AD, and how to detect and prevent this.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Abusing Teams client protocol to bypass Teams security policies</title>
+      <link>http://o365blog.com/post/teams-policies/</link>
+      <pubDate>Tue, 27 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/teams-policies/</guid>
+      <description>&lt;p&gt;Administrators can use teams policies for controlling what users can do in Microsoft Teams.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll show that these policies are applied only in client and thus can be easily bypassed.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>AADInternals Cloud Identity Summit 2020 edition</title>
+      <link>http://o365blog.com/post/cloudidentitysummit2020/</link>
+      <pubDate>Mon, 19 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/cloudidentitysummit2020/</guid>
+      <description>&lt;p&gt;The new AADInternals release v0.4.4 &lt;strong&gt;AADInternals Cloud Identity Summit 2020 edition&lt;/strong&gt; is now released! Read on to see the list of updates and new features.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Introducing a new phishing technique for compromising Office 365 accounts</title>
+      <link>http://o365blog.com/post/phishing/</link>
+      <pubDate>Tue, 13 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/phishing/</guid>
+      <description>&lt;p&gt;The &lt;a href=&#34;https://threatpost.com/microsoft-seizes-domains-office-365-phishing-scam/157261&#34; target=&#34;_blank&#34;&gt;ongoing global phishing campaings&lt;/a&gt; againts Microsoft 365 have used various phishing techniques.
+Currently attackers are utilising forged login sites and OAuth app consents.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll introduce a new phishing technique based on Azure AD device code authentication flow.
+I&amp;rsquo;ll also provide instructions on how to detect usage of compromised credentials and what to do to prevent phishing using the new technique.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Using Azure Cloud Shell from PowerShell</title>
+      <link>http://o365blog.com/post/cloudshell/</link>
+      <pubDate>Wed, 30 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/cloudshell/</guid>
+      <description>&lt;p&gt;Azure Cloud Shell is a browser-based shell for managing Azure resources using your favourite shell, Bash or PowerShell.
+Cloud Shell is typically used from Azure Portal. It provides an easy access to Azure CLI, Azure PowerShell and Azure AD PowerShell.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll introduce a new way to access Cloud Shell from PowerShell (requires &lt;strong&gt;AADInternals v0.4.3&lt;/strong&gt; or newer).&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Bypassing conditional access by faking device compliance.</title>
+      <link>http://o365blog.com/post/mdm/</link>
+      <pubDate>Sun, 06 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/mdm/</guid>
+      <description>&lt;p&gt;In my previous &lt;a href=&#34;http://o365blog.com/post/prt/#creating-your-own-prt&#34; target=&#34;_blank&#34;&gt;blog&lt;/a&gt; I demonstrated how to create
+a Persistent Refresh Token (PRT) by joining imaginary device to Azure AD.&lt;/p&gt;
+
+&lt;p&gt;In this blog, with &lt;strong&gt;AADInternals v0.4.2&lt;/strong&gt;, I&amp;rsquo;ll show how to make those devices compliant, allowing bypassing compliance related conditional access (CA) policies.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Journey to Azure AD PRT: Getting access with pass-the-token and pass-the-cert</title>
+      <link>http://o365blog.com/post/prt/</link>
+      <pubDate>Tue, 01 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/prt/</guid>
+      <description>&lt;p&gt;Lately we have seen great articles by &lt;a href=&#34;https://twitter.com/_dirkjan&#34; target=&#34;_blank&#34;&gt;@_dirkjan&lt;/a&gt;,
+&lt;a href=&#34;https://twitter.com/tifkin%5F&#34; target=&#34;_blank&#34;&gt;@tifkin_&lt;/a&gt;,
+&lt;a href=&#34;https://twitter.com/rubin_mor&#34; target=&#34;_blank&#34;&gt;@rubin_mor&lt;/a&gt;,
+ and &lt;a href=&#34;https://twitter.com/gentilkiwi&#34; target=&#34;_blank&#34;&gt;@gentilkiwi&lt;/a&gt;
+about utilising Primary Refresh Token (PRT) to get access to Azure AD and Azure AD joined computers.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll report my own findings regarding to PRT and introduce the new functionality added to &lt;strong&gt;AADInternals v0.4.1&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Deep-dive to Azure AD MFA: Creating a custom authenticator app</title>
+      <link>http://o365blog.com/post/mfa/</link>
+      <pubDate>Thu, 06 Aug 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/mfa/</guid>
+      <description>&lt;p&gt;Multi-factor Authentication (MFA) is nowadays a recommended method for providing extra protection for users.
+In most cases, it protects users from phishing attacks as the attackers can&amp;rsquo;t log in even they have user&amp;rsquo;s credentials.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll report my findings on how the Azure AD MFA works under-the-hood, and how I built a &lt;a href=&#34;https://github.com/Gerenios/Authenticator&#34; target=&#34;_blank&#34;&gt;custom authenticator app for Android&lt;/a&gt;.
+I also introduce some methods how the rogue administrator can bypass MFA when using user&amp;rsquo;s compromised credentials.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Unnoticed sidekick: Getting access to cloud as an on-prem admin</title>
+      <link>http://o365blog.com/post/on-prem_admin/</link>
+      <pubDate>Mon, 13 Jul 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/on-prem_admin/</guid>
+      <description>&lt;p&gt;This post is part &lt;sup&gt;5&lt;/sup&gt;&amp;frasl;&lt;sub&gt;5&lt;/sub&gt; of &lt;a href=&#34;http://o365blog.com/aadkillchain/&#34; target=&#34;_blank&#34;&gt;Azure AD and Microsoft 365 kill chain&lt;/a&gt; blog series.&lt;/p&gt;
+
+&lt;p&gt;Although on-prem administrators doesn&amp;rsquo;t usually have admin rights to Azure AD, they can have access to crucial information, such as Azure AD Connect, ADFS, and Active Directory.
+Administrators of these services can easily get admin rights to Azure AD to manipulate and impersonate users.&lt;/p&gt;
+
+&lt;p&gt;In this blog, using &lt;strong&gt;AADInternals v0.4.0&lt;/strong&gt;, I&amp;rsquo;ll show how to get Global Admin access and how to impersonate users as an on-prem administrator.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Keys of the kingdom: Playing God as Global Admin</title>
+      <link>http://o365blog.com/post/admin/</link>
+      <pubDate>Tue, 16 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/admin/</guid>
+      <description>&lt;p&gt;This post is part &lt;sup&gt;4&lt;/sup&gt;&amp;frasl;&lt;sub&gt;5&lt;/sub&gt; of &lt;a href=&#34;http://o365blog.com/aadkillchain/&#34; target=&#34;_blank&#34;&gt;Azure AD and Microsoft 365 kill chain&lt;/a&gt; blog series.&lt;/p&gt;
+
+&lt;p&gt;Global Admin role is the most powerfull administrator role in Azure AD. It is (almost) equivalent to the local system rigths in traditional Windows environment: &lt;strong&gt;If you are a Global Admin, there is no security!&lt;/strong&gt;
+As a Global Admin, there are no limits what you are allowed to do. For instance, one can easily access others&amp;rsquo; data. But why bother, if you can as easily impersonate users?&lt;/p&gt;
+
+&lt;p&gt;In this blog, using &lt;strong&gt;AADInternals v0.4.0&lt;/strong&gt;, I&amp;rsquo;ll show how (as an Global Administrator) to gather information of Azure subscriptions, gather users&amp;rsquo; credentials, get system level access to Azure VMs, and how to impersonate users.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Wolf in sheep&#39;s clothing: Azure Active Directory reconnaissance as an insider</title>
+      <link>http://o365blog.com/post/insider/</link>
+      <pubDate>Mon, 15 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/insider/</guid>
+      <description>&lt;p&gt;This post is part &lt;sup&gt;3&lt;/sup&gt;&amp;frasl;&lt;sub&gt;5&lt;/sub&gt; of &lt;a href=&#34;http://o365blog.com/aadkillchain/&#34; target=&#34;_blank&#34;&gt;Azure AD and Microsoft 365 kill chain&lt;/a&gt; blog series.&lt;/p&gt;
+
+&lt;p&gt;Azure AD and Office 365 are cloud services and most information is hidden to the members (or guests) of the tenant.
+However, there are plenty of information publicly available to anyone.&lt;/p&gt;
+
+&lt;p&gt;In this blog, using &lt;strong&gt;AADInternals v0.4.5&lt;/strong&gt;, I&amp;rsquo;ll show how to gather information of any Azure AD tenant as an insider.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>AAD &amp; M365 kill chain</title>
+      <link>http://o365blog.com/aadkillchain/</link>
+      <pubDate>Sun, 14 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/aadkillchain/</guid>
+      <description>imageMapResize();  Introduction According to Verizon&amp;rsquo;s Data Breach Investigations Report 2020, externals attackers are considerable more common than internal attackers. In the cloud era, attacking the organisation from the outside is much more difficult, if not impossible. Therefore, to be able to access organisation&amp;rsquo;s data, one must gain some level of legitimate access to the organisation.
+The Azure AD and Microsoft 365 kill chain is a collection of recon techniques and hacking tools I&amp;rsquo;ve discovered and built during the last 10+ years while working with Microsoft cloud services.</description>
+    </item>
+    
+    <item>
+      <title>Quest for guest access: Azure Active Directory reconnaissance as a guest</title>
+      <link>http://o365blog.com/post/quest_for_guest/</link>
+      <pubDate>Sun, 14 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/quest_for_guest/</guid>
+      <description>&lt;p&gt;This post is part &lt;sup&gt;2&lt;/sup&gt;&amp;frasl;&lt;sub&gt;5&lt;/sub&gt; of &lt;a href=&#34;http://o365blog.com/aadkillchain/&#34; target=&#34;_blank&#34;&gt;Azure AD and Microsoft 365 kill chain&lt;/a&gt; blog series.&lt;/p&gt;
+
+&lt;p&gt;When sharing SharePoint to people outside the organisations or inviting them to Teams, a corresponding guest account is created to Azure AD.
+Although the created guest account is not a pure insider, it has wide read-only access to organisation&amp;rsquo;s Azure AD information.&lt;/p&gt;
+
+&lt;p&gt;In this blog, using &lt;strong&gt;AADInternals v0.4.0&lt;/strong&gt;, I&amp;rsquo;ll show how to gather information from Azure AD tenant as a guest user.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Just looking: Azure Active Directory reconnaissance as an outsider</title>
+      <link>http://o365blog.com/post/just-looking/</link>
+      <pubDate>Sat, 13 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/just-looking/</guid>
+      <description>&lt;p&gt;This post is part &lt;sup&gt;1&lt;/sup&gt;&amp;frasl;&lt;sub&gt;5&lt;/sub&gt; of &lt;a href=&#34;http://o365blog.com/aadkillchain/&#34; target=&#34;_blank&#34;&gt;Azure AD and Microsoft 365 kill chain&lt;/a&gt; blog series.&lt;/p&gt;
+
+&lt;p&gt;Azure AD and Office 365 are cloud services and most information is available only to the members (or guests) of the tenant.
+However, there are plenty of information publicly available to anyone.&lt;/p&gt;
+
+&lt;p&gt;In this blog, using &lt;strong&gt;AADInternals v0.4.0&lt;/strong&gt;, I&amp;rsquo;ll show how to gather information of any Azure AD tenant as an outsider.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Getting root access to Azure VMs as a Azure AD Global Administrator</title>
+      <link>http://o365blog.com/post/azurevms/</link>
+      <pubDate>Thu, 04 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/azurevms/</guid>
+      <description>&lt;p&gt;Sean Metcalf (&lt;a href=&#34;https://twitter.com/PyroTek3&#34; target=&#34;_blank&#34;&gt;@Pyrotek3&lt;/a&gt;) organised a great &lt;a href=&#34;https://www.trimarcsecurity.com/event-details/securing-office-365-azure-active-directory-defend-your-tenant&#34; target=&#34;_blank&#34;&gt;webcast&lt;/a&gt; at the end of the May 2020.
+Among other things, Sean introduced a new (to me, at least) attack-vector where an Azure AD administrator can easily get a system level access to any Azure virtual machine of the organisation.
+Naturally, I had to implement this functionality to &lt;a href=&#34;http://o365blog.com/aadinternals target=&#34;_blank&#34;&gt;AADInternals&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;In this blog, using &lt;strong&gt;AADInternals v0.3.3&lt;/strong&gt;, I&amp;rsquo;ll show how a Global Administator can gain access to any Azure VM of the organisation.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Decrypting ADSync passwords - my journey into DPAPI</title>
+      <link>http://o365blog.com/post/adsync/</link>
+      <pubDate>Fri, 08 May 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/adsync/</guid>
+      <description>&lt;p&gt;Microsoft changed the location of ADSync encryption keys in Azure AD Connect version 1.4.x. These keys are used to encrypt and decrypt the passwords of &amp;ldquo;service accounts&amp;rdquo; used for syncing
+data from AD to Azure AD. Earlier versions saved the keys in the registry, but currently, it is using DPAPI. Thus, AADInternals couldn&amp;rsquo;t decrypt the passwords anymore.
+Luckily, Dirk-jan Mollema described in his great &lt;a href=&#34;https://dirkjanm.io/updating-adconnectdump-a-journey-into-dpapi/&#34; target=&#34;_blank&#34;&gt;article&lt;/a&gt; how the encryption keys
+could be extracted and used to decrypt the passwords. Using Dirk-jan&amp;rsquo;s article as a starting point, I decided to implement this to AADInternals.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Deep-dive to Azure AD Pass-Through Authentication</title>
+      <link>http://o365blog.com/post/pta-deepdive/</link>
+      <pubDate>Mon, 30 Mar 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/pta-deepdive/</guid>
+      <description>&lt;p&gt;In my earlier &lt;a href=&#34;http://o365blog.com/post/aad-deepdive/&#34; target=&#34;_blank&#34;&gt;blog&lt;/a&gt;, I explained how Azure AD identity federation works under-the-hood.
+In this post, I&amp;rsquo;ll be doing the same with Azure AD pass-through authentication (PTA).&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Partner Center PowerShell module sends telemetry data to Microsoft</title>
+      <link>http://o365blog.com/post/partnercenter/</link>
+      <pubDate>Sun, 19 Jan 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/partnercenter/</guid>
+      <description>&lt;p&gt;Microsoft has published a PowerShell module for their partners to ease and automate operations with their customers.
+This module is (quite intuitively) called &lt;a href=&#34;https://docs.microsoft.com/en-us/powershell/partnercenter/overview&#34; target=&#34;_blank&#34;&gt;Partner Center&lt;/a&gt;.
+While the module does well what it&amp;rsquo;s meant to do, it also tells Microsoft what the partners are doing.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Bypassing OneDrive sync domain restrictions</title>
+      <link>http://o365blog.com/post/onedrive/</link>
+      <pubDate>Wed, 11 Dec 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/onedrive/</guid>
+      <description>&lt;p&gt;OneDrive has a &lt;a href=&#34;https://docs.microsoft.com/en-us/onedrive/allow-syncing-only-on-specific-domains&#34; target=&#34;_blank&#34;&gt;security option&lt;/a&gt; to allow syncing only from PCs joined to specific domains.
+In this blog, using the latest &lt;a href=&#34;http://o365blog.com/aadinternals/#onedrive-for-business-functions&#34;&gt;AADInternals&lt;/a&gt; toolkit (announced at &lt;a href=&#34;https://www.blackhat.com/eu-19/arsenal/schedule/index.html#aadinternals-powershell-module-for-administering-azure-ad-and-office--18117&#34; target =&#34;_blank&#34;&gt;Black Hat Europe&lt;/a&gt; 2019),  I&amp;rsquo;ll show how the domain restrictions can be easily bypassed.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to create a backdoor to Azure AD - part 2: Seamless SSO and Kerberos</title>
+      <link>http://o365blog.com/post/kerberos/</link>
+      <pubDate>Wed, 30 Oct 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/kerberos/</guid>
+      <description>&lt;p&gt;In my earlier &lt;a href=&#34;http://o365blog.com/post/aadbackdoor/&#34; target=&#34;_blank&#34;&gt;blog post&lt;/a&gt; I explained how to create a backdoor to Azure AD using an identity federation &lt;a href=&#34;http://o365blog.com/post/federation-vulnerability/&#34; target=&#34;_blank&#34;&gt;&lt;del&gt;vulnerability&lt;/del&gt; feature&lt;/a&gt; I discovered in 2017.
+In this blog post, I&amp;rsquo;ll explain how to create a backdoor using Seamless SSO and how to exploit it using forged Kerberos tickets.&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Abusing Azure Active Directory at t2.fi 2019</title>
+      <link>http://o365blog.com/post/t2fi2019/</link>
+      <pubDate>Fri, 18 Oct 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/t2fi2019/</guid>
+      <description>&lt;p&gt;On October 25th, I&amp;rsquo;ll be talking at &lt;a href=&#34;https://t2.fi&#34; target=&#34;_blank&#34;&gt;t2.fi infosec conference&lt;/a&gt; in Helsinki.
+In this blog, I’ll tell what to expect in my &lt;a href=&#34;https://t2.fi/schedule/2019/#speech12&#34; target=&#34;_blank&#34;&gt;&lt;strong&gt;Abusing Azure Active Directory: Who would you like to be today?&lt;/strong&gt;&lt;/a&gt; presentation.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Azure AD Seamless SSO allows enumerating tenant users</title>
+      <link>http://o365blog.com/post/desktopsso/</link>
+      <pubDate>Thu, 03 Oct 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/desktopsso/</guid>
+      <description>&lt;p&gt;In 2017, Oliver Morton &lt;a href=&#34;https://grimhacker.com/2017/07/24/office365-activesync-username-enumeration/&#34; target=&#34;_new&#34;&gt;introduced&lt;/a&gt; a feature he found in Office 365 Active Sync,
+allowing enumerating the existence of the users based on http status codes. (Update: The &amp;ldquo;feature&amp;rdquo; was fixed by Microsoft on mid November 2019).
+In this blog, I&amp;rsquo;ll introduce my similar findings on using Microsoft API to enumerate users when &lt;a href=&#34;https://docs.microsoft.com/en-us/azure/active-directory/hybrid/how-to-connect-sso&#34; target=&#34;_new&#34;&gt;Seamless SSO&lt;/a&gt; is enabled in Azure AD tenant.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>AADInternals at Black Hat USA 2019 Arsenal!</title>
+      <link>http://o365blog.com/post/bharsenal2019/</link>
+      <pubDate>Wed, 10 Jul 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/bharsenal2019/</guid>
+      <description>&lt;p&gt;I was honoured to hear that I was accepted to present my &lt;strong&gt;&lt;a href=&#34;http://o365blog.com/aadinternals&#34; target=&#34;_new&#34;&gt;AADInternals&lt;/a&gt;&lt;/strong&gt; toolkit at the most respected information security event in the world: &lt;a href=&#34;https://www.blackhat.com/us-19/&#34; target=&#34;_blank&#34;&gt;Black Hat USA 2019&lt;/a&gt;.
+This is clearly one of my greatest professional achievements so far!
+In this blog, I’ll briefly introduce what to expect in &lt;a href=&#34;https://www.blackhat.com/us-19/arsenal/schedule/#aadinternals-powershell-module-for-administering-azure-ad-and-office---16930&#34; target=&#34;_blank&#34;&gt;my demo at Black Hat Arsenal&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Deep-dive to Azure Active Directory Identity Federation</title>
+      <link>http://o365blog.com/post/aad-deepdive/</link>
+      <pubDate>Wed, 12 Jun 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/aad-deepdive/</guid>
+      <description>&lt;p&gt;Identity federation is regarded as the most secure way to authenticate users to Azure AD. In this blog, I’ll deep-dive to identity federation implementation of Azure AD and point out some serious security issues.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to create over 256 character long passwords for cloud-only users</title>
+      <link>http://o365blog.com/post/long-passwords/</link>
+      <pubDate>Fri, 10 May 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/long-passwords/</guid>
+      <description>&lt;p&gt;Microsoft (finally!) announced in April 2019 the support for 8-256 character passwords in Azure AD/Office 365.
+This limit does not apply to users whose passwords are synced from the on-prem Active Directory (or for federated users).
+In this blog, I tell how to set insanely long passwords (64K+) also for cloud-only users!&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to create a backdoor to Azure AD - part 1: Identity federation</title>
+      <link>http://o365blog.com/post/aadbackdoor/</link>
+      <pubDate>Wed, 21 Nov 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/aadbackdoor/</guid>
+      <description>&lt;p&gt;On November 2018 Azure AD MFA was down over 12 hours preventing users from logging in to Office 365. Same happened in October 2019 in US data centers.
+As MFA is usually mandatory for administrators by company policy, they couldn’t log in either.
+In this blog, I’ll show how to create a backdoor to Azure AD so you can log in and bypass MFA.&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>AAD Internals</title>
+      <link>http://o365blog.com/aadinternals/</link>
+      <pubDate>Thu, 25 Oct 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/aadinternals/</guid>
+      <description>&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>AADInternals published!</title>
+      <link>http://o365blog.com/post/aadinternals/</link>
+      <pubDate>Thu, 25 Oct 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/aadinternals/</guid>
+      <description>&lt;p&gt;For the last couple months I&amp;rsquo;ve used most of my free time on studying and hacking Azure AD admin APIs. As a result, I&amp;rsquo;m finally
+publishing the first (beta) version of the AADInternals PowerShell module.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Block user access to Azure AD PowerShell and Graph API Explorer</title>
+      <link>http://o365blog.com/post/limit-user-access/</link>
+      <pubDate>Mon, 27 Aug 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/limit-user-access/</guid>
+      <description>&lt;p&gt;By default, any user of Office 365 or Azure AD tenant can read the content of Azure AD using PowerShell and Graph API Explorer.
+This is a serious security issue because users have undetectable access to other users&amp;rsquo; personal data,
+which violates for instance GDPR. In this blog, I&amp;rsquo;ll tell how to prevent the access.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Technical deep dive to Microsoft Teams (free)</title>
+      <link>http://o365blog.com/post/teams-free/</link>
+      <pubDate>Wed, 25 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/teams-free/</guid>
+      <description>&lt;p&gt;Microsoft Teams has been available for free since July 2018. In this blog, I&amp;rsquo;ll deep dive to its technical details.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to use a non-routable on-premises UPN with Office 365 and Azure AD</title>
+      <link>http://o365blog.com/post/non-routable-upn/</link>
+      <pubDate>Tue, 24 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/non-routable-upn/</guid>
+      <description>&lt;p&gt;I&amp;rsquo;ve recently noticed that many organisations moving to Office 365 are struggling with their current on-premises non-routable UPNs. In this blog, I&amp;rsquo;ll show how to use Office 365 without altering on-premises UPNs.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Chasing the Unicorn: PowerShell module for &#39;The Secret Office 365 Forensics Tool&#39;</title>
+      <link>http://o365blog.com/post/exomailactivity/</link>
+      <pubDate>Mon, 02 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/exomailactivity/</guid>
+      <description>&lt;p&gt;In June 2018 the existence of secret Office 365 forensics tool was confirmed.
+The tool refers to Microsoft&amp;rsquo;s undocumented Exchange Online Activities API.
+The API provides access to a granular mail activity events for up to six months old data!&lt;/p&gt;
+
+&lt;p&gt;To provide administrators with easy access to the API, I created a PowerShell module (EXOMailActivity).
+In this blog, I&amp;rsquo;ll show you how to use the module to get access to mail activity data.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Admin: Take back control of Office 365 Groups, Teams, and Planner!</title>
+      <link>http://o365blog.com/post/limit-o365-groups/</link>
+      <pubDate>Thu, 31 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/limit-o365-groups/</guid>
+      <description>&lt;p&gt;Office 365 groups is a great way to promote collaboration between people inside and outside organisations.
+By default, users are able to create groups freely, making their use easy. However, in many organisations, this has led to chaos.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I show how you can get back the control of Office 365 groups, Teams and Planner.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to preserve user&#39;s mailbox during the long leave</title>
+      <link>http://o365blog.com/post/inactive-mailboxes/</link>
+      <pubDate>Tue, 29 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/inactive-mailboxes/</guid>
+      <description>&lt;p&gt;Have you ever faced a situation, where a user takes a longer than 30-day leave, and you would like to
+save money spent on Office 365 licenses but still preserve user&amp;rsquo;s mailbox?&lt;/p&gt;
+
+&lt;p&gt;In this blog, I tell you how!&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Office 365 email encryption</title>
+      <link>http://o365blog.com/post/encrypt-email/</link>
+      <pubDate>Wed, 16 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/encrypt-email/</guid>
+      <description>&lt;p&gt;It still surprises me how few know that Office 365 includes a full-fledged email encryption solution, Office Message Encryption (OME).
+A &amp;ldquo;new OME&amp;rdquo;, built on top of Azure Information Protection, has been available for some time now. In this blog, I&amp;rsquo;ll tell you how to setup and customise the new OME.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Is my Office 365 GDPR compliant?</title>
+      <link>http://o365blog.com/post/o365-gdpr/</link>
+      <pubDate>Wed, 25 Apr 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/o365-gdpr/</guid>
+      <description>&lt;p&gt;In short, no it&amp;rsquo;s not. In this blog, I’ll tell you three reasons why.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Get a free custom domain for Office 365/Azure AD from www.myo365.site!</title>
+      <link>http://o365blog.com/post/my-o365-site/</link>
+      <pubDate>Tue, 20 Feb 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/my-o365-site/</guid>
+      <description>&lt;p&gt;Did you know that you could get a free custom domain for your Office 365 or Azure AD tenant?&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Azure AD PowerShell module installation got easier</title>
+      <link>http://o365blog.com/post/ps-module/</link>
+      <pubDate>Fri, 09 Feb 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/ps-module/</guid>
+      <description>&lt;p&gt;Azure AD PowerShell module was earlier installed by a standard .msi package. Now you can install it using one PowerShell command. However, installation requires PowerShell 5 or newer.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Security vulnerability in Azure AD &amp; Office 365 identity federation</title>
+      <link>http://o365blog.com/post/federation-vulnerability/</link>
+      <pubDate>Thu, 16 Nov 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/federation-vulnerability/</guid>
+      <description>&lt;p&gt;In this blog, I will describe a security vulnerability I discovered and reported to Microsoft in October. The vulnerability was disclosed in LIVE!360 &lt;a href=&#34;https://techmentorevents.com/ecg/live360events/events/orlando-2017/techmentor.aspx&#34; target=”_blank”&gt;TECHMENTOR&lt;/a&gt; event in Orlando on Nov 16th 2017.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>LIVE!360 event started today</title>
+      <link>http://o365blog.com/post/live360_2017/</link>
+      <pubDate>Sun, 12 Nov 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/live360_2017/</guid>
+      <description>&lt;p&gt;&lt;a href=https://live360events.com/events/orlando-2017 target=”_blank”&gt;LIVE!360 event&lt;/a&gt; started today at Loews Royal Pacific Resort in Orlando.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Tools</title>
+      <link>http://o365blog.com/tools/</link>
+      <pubDate>Wed, 08 Nov 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tools/</guid>
+      <description>&lt;p&gt;This page has some tools to make your life as an Office 365 administrator easier
+ &lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Links</title>
+      <link>http://o365blog.com/links/</link>
+      <pubDate>Thu, 12 Oct 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/links/</guid>
+      <description>&lt;p&gt;This article have all the important links you need to administer Office 365
+ &lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Create DNS records for Office 365 using PowerShell</title>
+      <link>http://o365blog.com/post/dns-records/</link>
+      <pubDate>Wed, 11 Oct 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/dns-records/</guid>
+      <description>&lt;p&gt;If you are using Microsoft DNS for Office 365 DNS records, you can create the required records easily with PowerShell.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Using PowerShell profile to connect to Office 365</title>
+      <link>http://o365blog.com/post/ps-profile/</link>
+      <pubDate>Tue, 10 Oct 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/ps-profile/</guid>
+      <description>&lt;p&gt;PowerShell profile makes connecting to Office 365 a lot easier!&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to enable SSO for all browsers</title>
+      <link>http://o365blog.com/post/sso-for-non-ie-browsers/</link>
+      <pubDate>Thu, 28 Sep 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/sso-for-non-ie-browsers/</guid>
+      <description>&lt;p&gt;By default, AD FS only supports SSO with Internet Explorer. However, you can easily enable support for Google Chrome, Firefox, and Edge.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Welcome to Office 365 blog</title>
+      <link>http://o365blog.com/post/welcome/</link>
+      <pubDate>Wed, 27 Sep 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/welcome/</guid>
+      <description>&lt;p&gt;&lt;strong&gt;Welcome to my Office 365 blog!&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;In this blog I&amp;rsquo;ll discuss about various aspects of administering Office 365 suite.
+&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>PowerShell</title>
+      <link>http://o365blog.com/powershell/</link>
+      <pubDate>Tue, 05 Sep 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/powershell/</guid>
+      <description>&lt;p&gt;This article explains how to connect Office 365 using PowerShell and more!
+ 
+&lt;script src=&#34;myscripts.js&#34;&gt;&lt;/script&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

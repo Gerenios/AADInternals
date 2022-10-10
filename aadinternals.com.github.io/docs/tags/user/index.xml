@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>User on Office 365 blog</title>
+    <link>http://o365blog.com/tags/user/</link>
+    <description>Recent content in User on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Sun, 14 Jun 2020 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/user/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>AAD &amp; M365 kill chain</title>
+      <link>http://o365blog.com/aadkillchain/</link>
+      <pubDate>Sun, 14 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/aadkillchain/</guid>
+      <description>imageMapResize();  Introduction According to Verizon&amp;rsquo;s Data Breach Investigations Report 2020, externals attackers are considerable more common than internal attackers. In the cloud era, attacking the organisation from the outside is much more difficult, if not impossible. Therefore, to be able to access organisation&amp;rsquo;s data, one must gain some level of legitimate access to the organisation.
+The Azure AD and Microsoft 365 kill chain is a collection of recon techniques and hacking tools I&amp;rsquo;ve discovered and built during the last 10+ years while working with Microsoft cloud services.</description>
+    </item>
+    
+  </channel>
+</rss>

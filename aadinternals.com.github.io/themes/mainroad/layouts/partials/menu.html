@@ -1,0 +1,14 @@
+{{- if .Site.Menus.main }}
+<nav class="menu" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<ul class="menu__list">
+		{{- $currentNode := . }}
+		{{- range sort .Site.Menus.main }}
+		{{- if .Name}}
+		<li class="menu__item {{if or ($currentNode.IsMenuCurrent "main" .) ($currentNode.HasMenuCurrent "main" .) }}menu__item--active{{end}}"><a class="menu__link" href="{{ .URL }}">{{ .Name | upper }}</a></li>
+		{{- end }}
+		{{- end }}
+	</ul>
+</nav>
+{{ else -}}
+<hr class="divider">
+{{- end }}

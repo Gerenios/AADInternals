@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Defcon on Office 365 blog</title>
+    <link>http://o365blog.com/tags/defcon/</link>
+    <description>Recent content in Defcon on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Mon, 01 Aug 2022 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/defcon/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>AADInternals World Tour August 2022: USA</title>
+      <link>http://o365blog.com/post/august_2022/</link>
+      <pubDate>Mon, 01 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/august_2022/</guid>
+      <description>&lt;p&gt;In August 2022, I&amp;rsquo;ll have several presentations regarding Azure AD security, open-source tools, and bug bounties.&lt;/p&gt;
+
+&lt;p&gt;I&amp;rsquo;ll be presenting at &lt;a href=&#34;https://techmentorevents.com/events/redmond-2022/home.aspx&#34; target=&#34;_blank&#34;&gt;TECHMENTOR&lt;/a&gt;, Black Hat &lt;a href=&#34;https://www.blackhat.com/us-22/arsenal-overview.html&#34; target=&#34;_blank&#34;&gt;Arsenal&lt;/a&gt;, DEF CON &lt;a href=&#34;https://forum.defcon.org/node/239774&#34; target=&#34;_blank&#34;&gt;demo labs&lt;/a&gt;, and &lt;a href=&#34;https://cloud-village.org/&#34; target=&#34;_blank&#34;&gt;Cloud Village&lt;/a&gt;.
+&lt;br&gt;&lt;br&gt;
+If you like to have a chat on anything Azure AD related, want to say hi or get AADInternals sticker, check my schedule!&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

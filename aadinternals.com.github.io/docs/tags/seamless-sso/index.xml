@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Seamless Sso on Office 365 blog</title>
+    <link>http://o365blog.com/tags/seamless-sso/</link>
+    <description>Recent content in Seamless Sso on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Thu, 03 Oct 2019 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/seamless-sso/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Azure AD Seamless SSO allows enumerating tenant users</title>
+      <link>http://o365blog.com/post/desktopsso/</link>
+      <pubDate>Thu, 03 Oct 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/desktopsso/</guid>
+      <description>&lt;p&gt;In 2017, Oliver Morton &lt;a href=&#34;https://grimhacker.com/2017/07/24/office365-activesync-username-enumeration/&#34; target=&#34;_new&#34;&gt;introduced&lt;/a&gt; a feature he found in Office 365 Active Sync,
+allowing enumerating the existence of the users based on http status codes. (Update: The &amp;ldquo;feature&amp;rdquo; was fixed by Microsoft on mid November 2019).
+In this blog, I&amp;rsquo;ll introduce my similar findings on using Microsoft API to enumerate users when &lt;a href=&#34;https://docs.microsoft.com/en-us/azure/active-directory/hybrid/how-to-connect-sso&#34; target=&#34;_new&#34;&gt;Seamless SSO&lt;/a&gt; is enabled in Azure AD tenant.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>
