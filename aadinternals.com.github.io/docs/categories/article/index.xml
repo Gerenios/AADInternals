@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Article on Office 365 blog</title>
+    <link>http://o365blog.com/categories/article/</link>
+    <description>Recent content in Article on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Sun, 14 Jun 2020 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/categories/article/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>AAD &amp; M365 kill chain</title>
+      <link>http://o365blog.com/aadkillchain/</link>
+      <pubDate>Sun, 14 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/aadkillchain/</guid>
+      <description>imageMapResize();  Introduction According to Verizon&amp;rsquo;s Data Breach Investigations Report 2020, externals attackers are considerable more common than internal attackers. In the cloud era, attacking the organisation from the outside is much more difficult, if not impossible. Therefore, to be able to access organisation&amp;rsquo;s data, one must gain some level of legitimate access to the organisation.
+The Azure AD and Microsoft 365 kill chain is a collection of recon techniques and hacking tools I&amp;rsquo;ve discovered and built during the last 10+ years while working with Microsoft cloud services.</description>
+    </item>
+    
+    <item>
+      <title>AAD Internals</title>
+      <link>http://o365blog.com/aadinternals/</link>
+      <pubDate>Thu, 25 Oct 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/aadinternals/</guid>
+      <description>&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Links</title>
+      <link>http://o365blog.com/links/</link>
+      <pubDate>Thu, 12 Oct 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/links/</guid>
+      <description>&lt;p&gt;This article have all the important links you need to administer Office 365
+ &lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>PowerShell</title>
+      <link>http://o365blog.com/powershell/</link>
+      <pubDate>Tue, 05 Sep 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/powershell/</guid>
+      <description>&lt;p&gt;This article explains how to connect Office 365 using PowerShell and more!
+ 
+&lt;script src=&#34;myscripts.js&#34;&gt;&lt;/script&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

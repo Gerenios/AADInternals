@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Powershell on Office 365 blog</title>
+    <link>http://o365blog.com/tags/powershell/</link>
+    <description>Recent content in Powershell on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Mon, 30 Mar 2020 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/powershell/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Deep-dive to Azure AD Pass-Through Authentication</title>
+      <link>http://o365blog.com/post/pta-deepdive/</link>
+      <pubDate>Mon, 30 Mar 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/pta-deepdive/</guid>
+      <description>&lt;p&gt;In my earlier &lt;a href=&#34;http://o365blog.com/post/aad-deepdive/&#34; target=&#34;_blank&#34;&gt;blog&lt;/a&gt;, I explained how Azure AD identity federation works under-the-hood.
+In this post, I&amp;rsquo;ll be doing the same with Azure AD pass-through authentication (PTA).&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to create a backdoor to Azure AD - part 2: Seamless SSO and Kerberos</title>
+      <link>http://o365blog.com/post/kerberos/</link>
+      <pubDate>Wed, 30 Oct 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/kerberos/</guid>
+      <description>&lt;p&gt;In my earlier &lt;a href=&#34;http://o365blog.com/post/aadbackdoor/&#34; target=&#34;_blank&#34;&gt;blog post&lt;/a&gt; I explained how to create a backdoor to Azure AD using an identity federation &lt;a href=&#34;http://o365blog.com/post/federation-vulnerability/&#34; target=&#34;_blank&#34;&gt;&lt;del&gt;vulnerability&lt;/del&gt; feature&lt;/a&gt; I discovered in 2017.
+In this blog post, I&amp;rsquo;ll explain how to create a backdoor using Seamless SSO and how to exploit it using forged Kerberos tickets.&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Abusing Azure Active Directory at t2.fi 2019</title>
+      <link>http://o365blog.com/post/t2fi2019/</link>
+      <pubDate>Fri, 18 Oct 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/t2fi2019/</guid>
+      <description>&lt;p&gt;On October 25th, I&amp;rsquo;ll be talking at &lt;a href=&#34;https://t2.fi&#34; target=&#34;_blank&#34;&gt;t2.fi infosec conference&lt;/a&gt; in Helsinki.
+In this blog, I’ll tell what to expect in my &lt;a href=&#34;https://t2.fi/schedule/2019/#speech12&#34; target=&#34;_blank&#34;&gt;&lt;strong&gt;Abusing Azure Active Directory: Who would you like to be today?&lt;/strong&gt;&lt;/a&gt; presentation.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>AADInternals at Black Hat USA 2019 Arsenal!</title>
+      <link>http://o365blog.com/post/bharsenal2019/</link>
+      <pubDate>Wed, 10 Jul 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/bharsenal2019/</guid>
+      <description>&lt;p&gt;I was honoured to hear that I was accepted to present my &lt;strong&gt;&lt;a href=&#34;http://o365blog.com/aadinternals&#34; target=&#34;_new&#34;&gt;AADInternals&lt;/a&gt;&lt;/strong&gt; toolkit at the most respected information security event in the world: &lt;a href=&#34;https://www.blackhat.com/us-19/&#34; target=&#34;_blank&#34;&gt;Black Hat USA 2019&lt;/a&gt;.
+This is clearly one of my greatest professional achievements so far!
+In this blog, I’ll briefly introduce what to expect in &lt;a href=&#34;https://www.blackhat.com/us-19/arsenal/schedule/#aadinternals-powershell-module-for-administering-azure-ad-and-office---16930&#34; target=&#34;_blank&#34;&gt;my demo at Black Hat Arsenal&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to create a backdoor to Azure AD - part 1: Identity federation</title>
+      <link>http://o365blog.com/post/aadbackdoor/</link>
+      <pubDate>Wed, 21 Nov 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/aadbackdoor/</guid>
+      <description>&lt;p&gt;On November 2018 Azure AD MFA was down over 12 hours preventing users from logging in to Office 365. Same happened in October 2019 in US data centers.
+As MFA is usually mandatory for administrators by company policy, they couldn’t log in either.
+In this blog, I’ll show how to create a backdoor to Azure AD so you can log in and bypass MFA.&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>AAD Internals</title>
+      <link>http://o365blog.com/aadinternals/</link>
+      <pubDate>Thu, 25 Oct 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/aadinternals/</guid>
+      <description>&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>AADInternals published!</title>
+      <link>http://o365blog.com/post/aadinternals/</link>
+      <pubDate>Thu, 25 Oct 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/aadinternals/</guid>
+      <description>&lt;p&gt;For the last couple months I&amp;rsquo;ve used most of my free time on studying and hacking Azure AD admin APIs. As a result, I&amp;rsquo;m finally
+publishing the first (beta) version of the AADInternals PowerShell module.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Block user access to Azure AD PowerShell and Graph API Explorer</title>
+      <link>http://o365blog.com/post/limit-user-access/</link>
+      <pubDate>Mon, 27 Aug 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/limit-user-access/</guid>
+      <description>&lt;p&gt;By default, any user of Office 365 or Azure AD tenant can read the content of Azure AD using PowerShell and Graph API Explorer.
+This is a serious security issue because users have undetectable access to other users&amp;rsquo; personal data,
+which violates for instance GDPR. In this blog, I&amp;rsquo;ll tell how to prevent the access.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Azure AD PowerShell module installation got easier</title>
+      <link>http://o365blog.com/post/ps-module/</link>
+      <pubDate>Fri, 09 Feb 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/ps-module/</guid>
+      <description>&lt;p&gt;Azure AD PowerShell module was earlier installed by a standard .msi package. Now you can install it using one PowerShell command. However, installation requires PowerShell 5 or newer.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Create DNS records for Office 365 using PowerShell</title>
+      <link>http://o365blog.com/post/dns-records/</link>
+      <pubDate>Wed, 11 Oct 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/dns-records/</guid>
+      <description>&lt;p&gt;If you are using Microsoft DNS for Office 365 DNS records, you can create the required records easily with PowerShell.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Using PowerShell profile to connect to Office 365</title>
+      <link>http://o365blog.com/post/ps-profile/</link>
+      <pubDate>Tue, 10 Oct 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/ps-profile/</guid>
+      <description>&lt;p&gt;PowerShell profile makes connecting to Office 365 a lot easier!&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to enable SSO for all browsers</title>
+      <link>http://o365blog.com/post/sso-for-non-ie-browsers/</link>
+      <pubDate>Thu, 28 Sep 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/sso-for-non-ie-browsers/</guid>
+      <description>&lt;p&gt;By default, AD FS only supports SSO with Internet Explorer. However, you can easily enable support for Google Chrome, Firefox, and Edge.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>PowerShell</title>
+      <link>http://o365blog.com/powershell/</link>
+      <pubDate>Tue, 05 Sep 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/powershell/</guid>
+      <description>&lt;p&gt;This article explains how to connect Office 365 using PowerShell and more!
+ 
+&lt;script src=&#34;myscripts.js&#34;&gt;&lt;/script&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

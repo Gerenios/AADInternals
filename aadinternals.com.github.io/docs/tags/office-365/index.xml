@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Office 365 on Office 365 blog</title>
+    <link>http://o365blog.com/tags/office-365/</link>
+    <description>Recent content in Office 365 on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Wed, 12 Jun 2019 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/office-365/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Deep-dive to Azure Active Directory Identity Federation</title>
+      <link>http://o365blog.com/post/aad-deepdive/</link>
+      <pubDate>Wed, 12 Jun 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/aad-deepdive/</guid>
+      <description>&lt;p&gt;Identity federation is regarded as the most secure way to authenticate users to Azure AD. In this blog, I’ll deep-dive to identity federation implementation of Azure AD and point out some serious security issues.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to create over 256 character long passwords for cloud-only users</title>
+      <link>http://o365blog.com/post/long-passwords/</link>
+      <pubDate>Fri, 10 May 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/long-passwords/</guid>
+      <description>&lt;p&gt;Microsoft (finally!) announced in April 2019 the support for 8-256 character passwords in Azure AD/Office 365.
+This limit does not apply to users whose passwords are synced from the on-prem Active Directory (or for federated users).
+In this blog, I tell how to set insanely long passwords (64K+) also for cloud-only users!&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Technical deep dive to Microsoft Teams (free)</title>
+      <link>http://o365blog.com/post/teams-free/</link>
+      <pubDate>Wed, 25 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/teams-free/</guid>
+      <description>&lt;p&gt;Microsoft Teams has been available for free since July 2018. In this blog, I&amp;rsquo;ll deep dive to its technical details.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to use a non-routable on-premises UPN with Office 365 and Azure AD</title>
+      <link>http://o365blog.com/post/non-routable-upn/</link>
+      <pubDate>Tue, 24 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/non-routable-upn/</guid>
+      <description>&lt;p&gt;I&amp;rsquo;ve recently noticed that many organisations moving to Office 365 are struggling with their current on-premises non-routable UPNs. In this blog, I&amp;rsquo;ll show how to use Office 365 without altering on-premises UPNs.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Chasing the Unicorn: PowerShell module for &#39;The Secret Office 365 Forensics Tool&#39;</title>
+      <link>http://o365blog.com/post/exomailactivity/</link>
+      <pubDate>Mon, 02 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/exomailactivity/</guid>
+      <description>&lt;p&gt;In June 2018 the existence of secret Office 365 forensics tool was confirmed.
+The tool refers to Microsoft&amp;rsquo;s undocumented Exchange Online Activities API.
+The API provides access to a granular mail activity events for up to six months old data!&lt;/p&gt;
+
+&lt;p&gt;To provide administrators with easy access to the API, I created a PowerShell module (EXOMailActivity).
+In this blog, I&amp;rsquo;ll show you how to use the module to get access to mail activity data.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Admin: Take back control of Office 365 Groups, Teams, and Planner!</title>
+      <link>http://o365blog.com/post/limit-o365-groups/</link>
+      <pubDate>Thu, 31 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/limit-o365-groups/</guid>
+      <description>&lt;p&gt;Office 365 groups is a great way to promote collaboration between people inside and outside organisations.
+By default, users are able to create groups freely, making their use easy. However, in many organisations, this has led to chaos.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I show how you can get back the control of Office 365 groups, Teams and Planner.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to preserve user&#39;s mailbox during the long leave</title>
+      <link>http://o365blog.com/post/inactive-mailboxes/</link>
+      <pubDate>Tue, 29 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/inactive-mailboxes/</guid>
+      <description>&lt;p&gt;Have you ever faced a situation, where a user takes a longer than 30-day leave, and you would like to
+save money spent on Office 365 licenses but still preserve user&amp;rsquo;s mailbox?&lt;/p&gt;
+
+&lt;p&gt;In this blog, I tell you how!&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Office 365 email encryption</title>
+      <link>http://o365blog.com/post/encrypt-email/</link>
+      <pubDate>Wed, 16 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/encrypt-email/</guid>
+      <description>&lt;p&gt;It still surprises me how few know that Office 365 includes a full-fledged email encryption solution, Office Message Encryption (OME).
+A &amp;ldquo;new OME&amp;rdquo;, built on top of Azure Information Protection, has been available for some time now. In this blog, I&amp;rsquo;ll tell you how to setup and customise the new OME.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Is my Office 365 GDPR compliant?</title>
+      <link>http://o365blog.com/post/o365-gdpr/</link>
+      <pubDate>Wed, 25 Apr 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/o365-gdpr/</guid>
+      <description>&lt;p&gt;In short, no it&amp;rsquo;s not. In this blog, I’ll tell you three reasons why.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

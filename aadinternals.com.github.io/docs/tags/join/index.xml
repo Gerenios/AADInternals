@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Join on Office 365 blog</title>
+    <link>http://o365blog.com/tags/join/</link>
+    <description>Recent content in Join on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Mon, 29 Aug 2022 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/join/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Hunt for the gMSA secrets</title>
+      <link>http://o365blog.com/post/gmsa/</link>
+      <pubDate>Mon, 29 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/gmsa/</guid>
+      <description>&lt;p&gt;Group Managed Service Accounts (gMSA&amp;rsquo;s) can be used to run Windows services over multiple servers within the Windows domain.
+&lt;br&gt;
+&lt;br&gt;
+Since the launch of Windows Server 2012 R2, gMSA has been the recommended service account option for AD FS.
+As abusing AD FS is one of my favourite hobbies, I wanted to learn how gMSAs work.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Stealing and faking Azure AD device identities</title>
+      <link>http://o365blog.com/post/deviceidentity/</link>
+      <pubDate>Tue, 15 Feb 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/deviceidentity/</guid>
+      <description>&lt;p&gt;In my previous blog posts I&amp;rsquo;ve covered details on &lt;a href=&#34;http://o365blog.com/post/prt&#34; target=&#34;_blank&#34;&gt; PRTs&lt;/a&gt;, &lt;a href=&#34;http://o365blog.com/post/bprt&#34; target=&#34;_blank&#34;&gt;BPRTs&lt;/a&gt;, &lt;a href=&#34;http://o365blog.com/post/mdm&#34; target=&#34;_blank&#34;&gt;device compliance&lt;/a&gt;, and Azure AD &lt;a href=&#34;http://o365blog.com/post/devices&#34; target=&#34;_blank&#34;&gt;device join&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll show how to &lt;strong&gt;steal identities of existing Azure AD joined devices&lt;/strong&gt;, and how to &lt;strong&gt;fake identies&lt;/strong&gt; of non-AAD joined &lt;strong&gt;Windows devices&lt;/strong&gt; with &lt;a href=&#34;http://o365blog.com/aadinternals/&#34; target=&#34;_blank&#34;&gt;AADInternals&lt;/a&gt; &lt;strong&gt;v0.6.6&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Deep-dive to Azure AD device join</title>
+      <link>http://o365blog.com/post/devices/</link>
+      <pubDate>Wed, 03 Mar 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/devices/</guid>
+      <description>&lt;p&gt;Devices (endpoints) are a crucial part of Microsoft&amp;rsquo;s Zero Trust concept. Devices can be Registered, Joined, or Hybrid Joined to Azure AD.
+Conditional Access uses the device information as one of the decisions criteria to allow or block access to services.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll explain what these different registration types are, what happens under-the-hood during the registration, and how to register devices with &lt;a href=&#34;http://o365blog.com/aadinternals/#hack-functions-azure-ad-join-mdm-prt&#34; target=&#34;_blank&#34;&gt;AADInternals&lt;/a&gt; &lt;strong&gt;v0.4.6&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

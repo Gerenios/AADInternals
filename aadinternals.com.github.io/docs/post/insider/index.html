@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="cache-control" content="no-cache"> 
+<meta http-equiv="expires" content="0"> 
+<meta http-equiv="pragma" content="no-cache">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wolf in sheep&#39;s clothing: Azure Active Directory reconnaissance as an insider</title>
+<meta name="description" content="The site for Microsoft 365 and Azure AD administrators">
+<meta name="generator" content="Hugo 0.39" />
+<meta property="og:title" content="Wolf in sheep&#39;s clothing: Azure Active Directory reconnaissance as an insider" />
+<meta property="og:description" content="This post is part 3&frasl;5 of Azure AD and Microsoft 365 kill chain blog series.
+
+Azure AD and Office 365 are cloud services and most information is hidden to the members (or guests) of the tenant.
+However, there are plenty of information publicly available to anyone.
+
+In this blog, using AADInternals v0.4.5, I&rsquo;ll show how to gather information of any Azure AD tenant as an insider.
+
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://o365blog.com/post/insider/" />
+
+
+
+<meta property="article:published_time" content="2020-06-15T00:00:00&#43;00:00"/>
+
+<meta property="article:modified_time" content="2021-12-11T00:00:00&#43;00:00"/>
+
+
+
+
+
+
+
+
+
+
+
+<link rel="dns-prefetch" href="//fonts.googleapis.com" />
+<link rel="dns-prefetch" href="//fonts.gstatic.com" />
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:400,400italic,700" type="text/css" media="all" />
+<link href="//maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css" type="text/css" media="all" />
+<script type="text/javascript" src="/js/scripts.js"></script>
+<script type="text/javascript" src="/js/tools.js"></script>
+
+<link rel="apple-touch-icon-precomposed" sizes="57x57" href="/images/apple-touch-icon-57x57.png" />
+<link rel="apple-touch-icon-precomposed" sizes="114x114" href="/images/apple-touch-icon-114x114.png" />
+<link rel="apple-touch-icon-precomposed" sizes="72x72" href="/images/apple-touch-icon-72x72.png" />
+<link rel="apple-touch-icon-precomposed" sizes="144x144" href="/images/apple-touch-icon-144x144.png" />
+<link rel="apple-touch-icon-precomposed" sizes="60x60" href="/images/apple-touch-icon-60x60.png" />
+<link rel="apple-touch-icon-precomposed" sizes="120x120" href="/images/apple-touch-icon-120x120.png" />
+<link rel="apple-touch-icon-precomposed" sizes="76x76" href="/images/apple-touch-icon-76x76.png" />
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/images/apple-touch-icon-152x152.png" />
+<link rel="icon" type="image/png" href="/images/favicon-196x196.png" sizes="196x196" />
+<link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32" />
+<link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16" />
+<link rel="icon" type="image/png" href="/images/favicon-128.png" sizes="128x128" />
+<meta name="application-name" content="&nbsp;"/>
+<meta name="msapplication-TileColor" content="#FFFFFF" />
+<meta name="msapplication-TileImage" content="/images/mstile-144x144.png" />
+<meta name="msapplication-square70x70logo" content="/images/mstile-70x70.png" />
+<meta name="msapplication-square150x150logo" content="/images/mstile-150x150.png" />
+<meta name="msapplication-wide310x150logo" content="/images/mstile-310x150.png" />
+<meta name="msapplication-square310x310logo" content="/images/mstile-310x310.png" />
+
+
+<script>
+window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+ga('create', 'UA-61454000-4', 'auto');
+ga('send', 'pageview');
+</script>
+<script async src='//www.google-analytics.com/analytics.js'></script>
+
+</head>
+<body class="body body-right-sidebar mobile" itemscope="itemscope" itemtype="http://schema.org/WebPage">
+	<div class="container container-outer">
+		<header class="header" itemscope="itemscope" itemtype="http://schema.org/WPHeader">
+		
+			<div class="container container-inner clearfix">
+			
+				<div class="logo" role="banner" itemscope="itemscope" itemtype="http://schema.org/Brand">
+				
+					<a class="logo__link" href="/" title="Office 365 blog" rel="home">
+						<img src="/images/favicon-96x96.png"><h1 class="logo__title">Office 365 blog</h1>
+						<h2 class="logo__tagline">Everything about Microsoft 365 security</h2>
+					</a>
+				</div>
+			</div>
+			
+<nav class="menu" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<ul class="menu__list">
+		<li class="menu__item "><a class="menu__link" href="/aadkillchain/">AAD &amp; M365 KILL CHAIN</a></li>
+		<li class="menu__item "><a class="menu__link" href="/aadinternals/">AAD INTERNALS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/links/">LINKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/powershell/">POWERSHELL</a></li>
+		<li class="menu__item "><a class="menu__link" href="/talks/">TALKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/tools/">TOOLS</a></li>
+	</ul>
+</nav>
+
+		</header>
+		<div class="wrapper clearfix">
+
+<main class="main-content content" role="main" itemprop="mainContentOfPage">
+	<article class="post">
+		<header class="post__header clearfix">
+			<h1 class="post__title">Wolf in sheep&#39;s clothing: Azure Active Directory reconnaissance as an insider</h1>
+			<p class="post__meta meta">
+				<svg class="icon icon-time" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg"><path d="m8-.0000003c-4.4 0-8 3.6-8 8 0 4.4000003 3.6 8.0000003 8 8.0000003 4.4 0 8-3.6 8-8.0000003 0-4.4-3.6-8-8-8zm0 14.4000003c-3.52 0-6.4-2.88-6.4-6.4000003 0-3.52 2.88-6.4 6.4-6.4 3.52 0 6.4 2.88 6.4 6.4 0 3.5200003-2.88 6.4000003-6.4 6.4000003zm.4-10.4000003h-1.2v4.8l4.16 2.5600003.64-1.04-3.6-2.1600003z"/></svg>
+				<time class="post__meta-date" datetime="2020-06-15T00:00:00">June 15, 2020</time>
+					<time class="post__meta-lastmod" datetime="2021-12-11T00:00:00"> (Last Modified: December 11, 2021)</time>
+				<span class="post__meta-categories meta-categories">
+					<svg class="icon icon-category" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg"><path d="m7 2l1 2h8v11h-16v-13z"/></svg>
+					<a class="meta-categories__link" href="/categories/blog" rel="category">blog</a></span>
+			</p>
+			<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2finsider%2f&text=Wolf%20in%20sheep%27s%20clothing%3a%20Azure%20Active%20Directory%20reconnaissance%20as%20an%20insider&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2finsider%2f&mini=true&title=Wolf%20in%20sheep%27s%20clothing%3a%20Azure%20Active%20Directory%20reconnaissance%20as%20an%20insider&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+		</header>
+		<div class="post__content clearfix">
+			<figure class="post__thumbnail">
+				<img src="/images/posts/insider.png" alt="Wolf in sheep&#39;s clothing: Azure Active Directory reconnaissance as an insider">
+			</figure>
+				<nav id="TableOfContents">
+<ul>
+<li><a href="#azure-ad-reconnaissance">Azure AD reconnaissance</a>
+<ul>
+<li><a href="#azure-ad-tenant-information">Azure AD tenant information</a></li>
+<li><a href="#user-enumeration">User enumeration</a></li>
+<li><a href="#detecting">Detecting</a></li>
+</ul></li>
+<li><a href="#denial-of-service-attacks">Denial-of-Service attacks</a>
+<ul>
+<li><a href="#filling-azure-ad-with-user-objects">Filling Azure AD with user objects</a></li>
+<li><a href="#filling-azure-ad-with-device-objects">Filling Azure AD with device objects</a></li>
+<li><a href="#detecting-1">Detecting</a></li>
+<li><a href="#preventing">Preventing</a></li>
+</ul></li>
+<li><a href="#summary">Summary</a></li>
+</ul>
+</nav>
+			<p>This post is part <sup>3</sup>&frasl;<sub>5</sub> of <a href="/aadkillchain/" target="_blank">Azure AD and Microsoft 365 kill chain</a> blog series.</p>
+
+<p>Azure AD and Office 365 are cloud services and most information is hidden to the members (or guests) of the tenant.
+However, there are plenty of information publicly available to anyone.</p>
+
+<p>In this blog, using <strong>AADInternals v0.4.5</strong>, I&rsquo;ll show how to gather information of any Azure AD tenant as an insider.</p>
+
+<p></p>
+
+<h1 id="azure-ad-reconnaissance">Azure AD reconnaissance</h1>
+
+<h2 id="azure-ad-tenant-information">Azure AD tenant information</h2>
+
+<p>An insider can retrieve the same information than a <a href="/post/quest_for_guest#azure-ad-tenant-information" target="_blank">guest</a> can.</p>
+
+<p>So, first step is to get a access token for the target tenant and
+invoke the reconnaissance. The function will ask you to choose the target tenant:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Prompt for credentials for tenant and save the token to cache</span>
+<span class="nb">Get-AADIntAccessTokenForAzureCoreManagement</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Invoke the reconnaissance and save results to a variable</span>
+<span class="nv">$results</span> <span class="p">=</span> <span class="nb">Invoke-AADIntReconAsInsider</span></code></pre></div>
+Output:</p>
+
+<pre><code>Tenant brand:                Company Ltd
+Tenant name:                 company.onmicrosoft.com
+Tenant id:                   6e3846ee-e8ca-4609-a3ab-f405cfbd02cd
+Azure AD objects:            520/500000
+Domains:                     6 (4 verified)
+Non-admin users restricted?  True
+Users can register apps?     True
+Directory access restricted? False
+Directory sync enabled?      true
+CA policies:                 8
+MS Partner IDs:              8559542,8559543
+MS Partner DAP enabled?      False
+MS Partner contracts:        5
+MS Partners:                 1
+</code></pre>
+
+<p>When compared to what a <a href="/post/quest_for_guest#azure-ad-tenant-information" target="_blank">guest</a> can see, here are some extra information.
+The status of directory synchronization is shown along with the number of global admins.</p>
+
+<p>To list all admin roles and their &ldquo;members&rdquo;:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># List all admin roles that have members</span>
+<span class="nv">$results</span><span class="p">.</span><span class="n">roleInformation</span> <span class="p">|</span> <span class="n">Where</span> <span class="n">Members</span> <span class="o">-ne</span> <span class="nv">$null</span> <span class="p">|</span> <span class="n">select</span> <span class="n">Name</span><span class="p">,</span><span class="n">Members</span></code></pre></div>
+Output is similar to this:</p>
+
+<pre><code>Name                               Members                                                                                       
+----                               -------                                                                                       
+Company Administrator              {@{DisplayName=MOD Administrator; UserPrincipalName=admin@company.onmicrosoft.com}, @{D...
+User Account Administrator         @{DisplayName=User Admin; UserPrincipalName=useradmin@company.com}                   
+Directory Readers                  {@{DisplayName=Microsoft.Azure.SyncFabric; UserPrincipalName=}, @{DisplayName=MicrosoftAzur...
+Directory Synchronization Accounts {@{DisplayName=On-Premises Directory Synchronization Service Account; UserPrincipalName=Syn...
+</code></pre>
+
+<p>With this information, we can focus to certain targets, such as Global Administrators. Also Directory Synchronization Accounts are
+interesting targets, as they can <a href="/post/on-prem_admin/#getting-global-admin-rights" target="_blank">easily get Global Admin rights</a>.</p>
+
+<p><strong>Note!</strong> Global admins can also be listed with:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="nb">Get-AADIntGlobalAdmins</span></code></pre></div></p>
+
+<p>Directory synchronization settings are also extremely valuable information.</p>
+
+<p>To list synchronization information:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># List synchronization information</span>
+<span class="nv">$results</span><span class="p">.</span><span class="n">companyInformation</span> <span class="p">|</span> <span class="n">Select</span> <span class="p">*</span><span class="n">Sync</span><span class="p">*</span></code></pre></div>
+Output:</p>
+
+<pre><code>DirSyncAnchorAttribute          : mS-DS-ConsistencyGuid
+DirSyncApplicationType          : 1651564e-7ce4-4d99-88be-0a65050d8dc3
+DirSyncClientMachineName        : SERVER1
+DirSyncClientVersion            : 1.5.30.0
+DirSyncServiceAccount           : Sync_SERVER1_abc123456@company.onmicrosoft.com
+DirectorySynchronizationEnabled : true
+DirectorySynchronizationStatus  : Enabled
+LastDirSyncTime                 : 2020-08-03T15:29:34Z
+LastPasswordSyncTime            : 2020-08-03T15:09:07Z
+PasswordSynchronizationEnabled  : true
+</code></pre>
+
+<p>The output shows the name of the synchronization server (SERVER1) and the service user name (Sync_SERVER1_abc123456@company.onmicrosoft.com).</p>
+
+<p>With this information, we can target the synchronization server to extract credentials used in synchronization.</p>
+
+<p><strong>Note!</strong> Synchronization configuration can also be shown with:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="nb">Get-AADIntSyncConfiguration</span></code></pre></div></p>
+
+<h2 id="user-enumeration">User enumeration</h2>
+
+<p>As an insider, you have a read-only access to all users of Azure AD and to most of the attributes.</p>
+
+<p>Lets start by running the user and groups enumeration. By default, the 1000 first users and groups are returned.
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Invoke the user enumeration</span>
+<span class="nv">$results</span> <span class="p">=</span> <span class="nb">Invoke-AADIntUserEnumerationAsInsider</span> <span class="n">-Groups</span></code></pre></div>
+Output:</p>
+
+<pre><code>Users:        5
+Groups:       2
+</code></pre>
+
+<p>Now you have a exported all users and groups (including Teams) from the Azure AD!</p>
+
+<p>You have the following information about all users, including identity information for both Azure AD and on-prem (if synced). Similar information is also available for the groups.
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># List the first user&#39;s information</span>
+<span class="nv">$results</span><span class="p">.</span><span class="n">Users</span><span class="p">[</span><span class="n">0</span><span class="p">]</span></code></pre></div>
+Output:</p>
+
+<pre><code>displayName                     : User Demo
+userPrincipalName               : User@company.com
+onPremisesImmutableId           : UQ989+t6fEq9/0ogYtt1pA==
+onPremisesLastSyncDateTime      : 2020-07-14T08:18:47Z
+onPremisesSamAccountName        : UserD
+onPremisesSecurityIdentifier    : S-1-5-21-854168551-3279074086-2022502410-1104
+refreshTokensValidFromDateTime  : 2019-07-14T08:21:35Z
+signInSessionsValidFromDateTime : 2019-07-14T08:21:35Z
+proxyAddresses                  : {smtp:User@company.onmicrosoft.com, SMTP:User@company.com}
+businessPhones                  : {+1234567890}
+identities                      : {@{signInType=userPrincipalName; issuer=company.onmicrosoft.com; issuerAssignedId=User@company.com}} 
+</code></pre>
+
+<h2 id="detecting">Detecting</h2>
+
+<p>Azure AD <a href="https://docs.microsoft.com/en-us/azure/active-directory/reports-monitoring/reference-reports-data-retention#how-long-does-azure-ad-store-the-data" target="_blank">sign-in log</a>
+is now available for all Azure AD editions. So, this would be an obvious place to start with. However, the AADInternals functions are using the application id of Microsoft Office (d3590ed6-52b3-4102-aeff-aad2292ab01c).
+This means that getting a new access token seems to be a legit login event.</p>
+
+<p>The API calls to Azure AD are not logged and therefore the users&rsquo; actions can not be detected.</p>
+
+<h1 id="denial-of-service-attacks">Denial-of-Service attacks</h1>
+
+<h2 id="filling-azure-ad-with-user-objects">Filling Azure AD with user objects</h2>
+
+<p>As explained in the blog <a href="/post/bprt" target="_blank">post</a>, if users are allowed to join devices to Azure AD, they can create so called Bulk PRT (BPRT) tokens.
+Technically, BPRTs are user objects named as &ldquo;Package_<guid>@<default domain>&rdquo; and stored to Azure AD. All Azure AD tenants has a object limit (50 000, 300 000, or 500 000) depending on the Azure AD edition and some other factors.
+Non-admin users are not allowed to create more than 250 Azure AD objects. However, creating a BPRT does not count towards this limit. This allows users to create as any number of user objects until the tenant&rsquo;s object limit is reached.</p>
+
+<h2 id="filling-azure-ad-with-device-objects">Filling Azure AD with device objects</h2>
+
+<p>The number of devices users can join to Azure AD can also be limited. Typically, this limit is less than 20 devices per user. However, using a BPRT allows users to create any number of device objects until the tenant&rsquo;s object limit is reached.</p>
+
+<h2 id="detecting-1">Detecting</h2>
+
+<p>There are various events that can be used to detect rogue behaviour (see <a href="/post/bprt/#detecting" target="_blank">blog</a> for details):</p>
+
+<ul>
+<li>Review <strong>Audit Log</strong> for &ldquo;Windows Confieguration Designer (WCD)&rdquo; consent</li>
+<li>Review <strong>Audit Log</strong> for users created by &ldquo;Microsoft.Azure.SyncFabric&rdquo;</li>
+<li>Review <strong>Sign-ins log</strong> for sign-ins using non-WCD clients for &ldquo;Device Registration Service (DSR)&rdquo; resource</li>
+<li>Review <strong>Sign-ins log</strong> for sign-ins using &ldquo;AADJ CSP&rdquo; client id with out resource</li>
+<li>Review <strong>Sign-ins log</strong> for sign-ins using &ldquo;AADJ CSP&rdquo; client id for DSR resource</li>
+<li>Review <strong>Audit Log</strong> for events of type &ldquo;Add registered owner to device&rdquo; where targe user&rsquo;s upn starts with &ldquo;package_&rdquo;</li>
+</ul>
+
+<h2 id="preventing">Preventing</h2>
+
+<p>Only way to prevent users to create BPRTs is to prevent users to join devices to Azure AD:</p>
+
+<p><img src="/images/posts/bprt_17.png" alt="preventing BPRT" /></p>
+
+<h1 id="summary">Summary</h1>
+
+<p>As a regular user, you can read all the users and groups without any fear of getting caught!</p>
+
+<p>Exporting the whole AzureAD took only a few minutes for organisation having 50 000 users and 15 000 groups.</p>
+
+<p>Users are also able to fill the Azure AD with user or device objects. Luckily, this behaviour can be detected and the process is slow (20 users per minute and 90 devices per minute) so it can be mitigated quite easily.
+Only way to prevent this is to prevent users to join devices to Azure AD.</p>
+		</div>
+		
+<div class="post__tags tags clearfix">
+	<img class="icon icon-tag" src="/images/tags.png" width="16" height="16" viewBox="0 0 16 16">
+	
+	<ul class="tags__list">
+		<li class="tags__item"><a class="tags__link" href="/tags/azure-active-directory/" rel="tag">Azure Active Directory</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/azure/" rel="tag">Azure</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/reconnaissance/" rel="tag">reconnaissance</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/security/" rel="tag">security</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/insider/" rel="tag">insider</a></li>
+	</ul>
+</div>
+
+		<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2finsider%2f&text=Wolf%20in%20sheep%27s%20clothing%3a%20Azure%20Active%20Directory%20reconnaissance%20as%20an%20insider&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2finsider%2f&mini=true&title=Wolf%20in%20sheep%27s%20clothing%3a%20Azure%20Active%20Directory%20reconnaissance%20as%20an%20insider&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+	</article>
+	
+<div class="authorbox clearfix">
+	<figure class="authorbox__avatar">
+		<img alt="Dr Nestori Syynimaa (@DrAzureAD) avatar" src="/images/nestori.jpg" class="avatar" height="90" width="90">
+	</figure>
+	<div class="authorbox__header">
+		<span class="authorbox__name">About Dr Nestori Syynimaa (@DrAzureAD)</span>
+	</div>
+	<div class="authorbox__description">
+		Dr Syynimaa works as Senior Principal Information Security Researcher at Secureworks CTU (Counter Threat Unit). <br> Before moving to his current position, Dr Syynimaa worked as a CIO, consultant, trainer, and university lecturer for over 20 years. He is a regular speaker in scientific and professional conferences related to Microsoft 365 and Azure AD security. <br><br>Dr Syynimaa is Microsoft Certified Expert (Microsoft 365), Microsoft Certified Azure Solutions Architect Expert, Microsoft Certified Trainer, Microsoft MVP (Enterprise Mobility, Identity and Access &amp; Intune), and Microsoft Most Valuable Security Researcher (MVR).
+	</div>
+</div>
+	
+<nav class="post-nav row clearfix" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<div class="post-nav__item post-nav__item--prev col-1-2">
+		<a class="post-nav__link" href="/post/quest_for_guest/" rel="prev"><span class="post-nav__caption">«Previous</span><p class="post-nav__post-title">Quest for guest access: Azure Active Directory reconnaissance as a guest</p></a>
+	</div>
+	<div class="post-nav__item post-nav__item--next col-1-2">
+		<a class="post-nav__link" href="/post/admin/" rel="next"><span class="post-nav__caption">Next»</span><p class="post-nav__post-title">Keys of the kingdom: Playing God as Global Admin</p></a>
+	</div>
+</nav>
+
+	
+<div class="comments">
+	<div id="disqus_thread"></div>
+<script>
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "o365blog-com" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+</main>
+
+<aside class="sidebar" itemscope="itemscope" itemtype="http://schema.org/WPSideBar">
+	
+<div class="widget-search widget">
+	<form class="widget-search__form" role="search" method="get" action="//google.com/search">
+		<label>
+			<span class="screen-reader-text">Search for:</span>
+			<input class="widget-search__field" type="search" placeholder="SEARCH..." value="" name="q">
+		</label>
+		<input class="widget-search__submit" type="submit" value="Search">
+		<input type="hidden" name="sitesearch" value="http://o365blog.com" />
+	</form>
+</div>
+	
+<div class="widget-recent widget">
+	<h4 class="widget__title">Recent Posts</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/post/pta/">Exploiting Azure AD PTA vulnerabilities: Creating backdoor and harvesting credentials</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/gmsa/">Hunt for the gMSA secrets</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/august_2022/">AADInternals World Tour August 2022: USA</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/deviceidentity/">Stealing and faking Azure AD device identities</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/partners/">Microsoft partners: The Good, The Bad, or The Ugly?</a></li>
+		</ul>
+	</div>
+</div>
+
+	
+<div class="widget-categories widget">
+	<h4 class="widget__title">Categories</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/categories/"></a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/article">Article</a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/blog">Blog</a></li>
+		</ul>
+	</div>
+</div>
+	
+<div class="widget-social widget">
+	<h4 class="widget-social__title widget__title">Social</h4>
+	<div class="widget-social__content widget__content">
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Twitter" rel="noopener noreferrer" href="https://twitter.com/DrAzureAD" target="_blank">
+				<svg class="widget-social__link-icon icon-twitter" viewBox="0 0 384 312" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5 0-78.8 35.3-78.8 78.8 0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3-6.7 11.6-10.6 25.2-10.6 39.6 0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1 0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4 0-12.6-.4-18.8-1.1 34.9 22.4 76.3 35.4 120.8 35.4 144.9 0 224.1-120 224.1-224.1 0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg>
+				<span>Twitter</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="" rel="noopener noreferrer" href="https://linkedin.com/in/nestori" target="_blank">
+				<svg class="widget-social__link-icon icon-linkedin" viewBox="0 0 352 352" width="24" height="24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M0,40v272c0,21.9,18.1,40,40,40h272c21.9,0,40-18.1,40-40V40c0-21.9-18.1-40-40-40H40C18.1,0,0,18.1,0,40z M312,32 c4.6,0,8,3.4,8,8v272c0,4.6-3.4,8-8,8H40c-4.6,0-8-3.4-8-8V40c0-4.6,3.4-8,8-8H312z M59.5,87c0,15.2,12.3,27.5,27.5,27.5 c15.2,0,27.5-12.3,27.5-27.5c0-15.2-12.3-27.5-27.5-27.5C71.8,59.5,59.5,71.8,59.5,87z M187,157h-1v-21h-45v152h47v-75 c0-19.8,3.9-39,28.5-39c24.2,0,24.5,22.4,24.5,40v74h47v-83.5c0-40.9-8.7-72-56.5-72C208.5,132.5,193.3,145.1,187,157z M64,288h47.5 V136H64V288z"/></svg>
+				<span>LinkedIn</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Email" href="mailto:nestori.syynimaa@gerenios.com">
+				<svg class="widget-social__link-icon icon-mail" viewBox="0 0 416 288" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m0 16v256 16h16 384 16v-16-256-16h-16-384-16zm347 16-139 92.5-139-92.5zm-148 125.5 9 5.5 9-5.5 167-111.5v210h-352v-210z"/></svg>
+				<span>nestori.syynimaa@gerenios.com</span>
+			</a>
+		</div>
+	</div>
+</div>
+
+	
+<div class="widget-taglist widget">
+	<h4 class="widget__title">Tags</h4>
+	<div class="widget__content">
+		<a class="widget__link widget__link--taglist" href="/tags/aadconnect" title="aadconnect">aadconnect (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/aadinternals" title="aadinternals">aadinternals (10)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/abusing" title="abusing">abusing (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/active-directory" title="active-directory">active-directory (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/adfs" title="adfs">adfs (5)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/admin" title="admin">admin (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/administration" title="administration">administration (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/authentication" title="authentication">authentication (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure" title="azure">azure (20)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure-active-directory" title="azure-active-directory">azure-active-directory (27)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azuread" title="azuread">azuread (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/backdoor" title="backdoor">backdoor (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blackhat" title="blackhat">blackhat (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blue-team" title="blue-team">blue-team (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/bprt" title="bprt">bprt (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/browser" title="browser">browser (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/compromise" title="compromise">compromise (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/conferences" title="conferences">conferences (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/defcon" title="defcon">defcon (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/desktop-sso" title="desktop-sso">desktop-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/device" title="device">device (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/dns" title="dns">dns (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/email" title="email">email (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/encryption" title="encryption">encryption (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/exchange" title="exchange">exchange (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/federation" title="federation">federation (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/forensics" title="forensics">forensics (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/gdpr" title="gdpr">gdpr (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/global-administrator" title="global-administrator">global-administrator (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/graph" title="graph">graph (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/groups" title="groups">groups (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/guest" title="guest">guest (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/hybrid-join" title="hybrid-join">hybrid-join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/identity" title="identity">identity (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/inactive" title="inactive">inactive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/insider" title="insider">insider (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/intune" title="intune">intune (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/join" title="join">join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/logs" title="logs">logs (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mailbox" title="mailbox">mailbox (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mdm" title="mdm">mdm (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mfa" title="mfa">mfa (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office-365" title="office-365">office-365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office365" title="office365">office365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/on-prem" title="on-prem">on-prem (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/onedrive" title="onedrive">onedrive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/outsider" title="outsider">outsider (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/partner" title="partner">partner (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/password" title="password">password (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/persistence" title="persistence">persistence (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/phishing" title="phishing">phishing (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/planner" title="planner">planner (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/powershell" title="powershell">powershell (13)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/prt" title="prt">prt (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/pta" title="pta">pta (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/recon" title="recon">recon (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/reconnaissance" title="reconnaissance">reconnaissance (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/seamless-sso" title="seamless-sso">seamless-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/security" title="security">security (31)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sso" title="sso">sso (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sync" title="sync">sync (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/synchronisation" title="synchronisation">synchronisation (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/t2" title="t2">t2 (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/talks" title="talks">talks (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/teams" title="teams">teams (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/user" title="user">user (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/virtual-machine" title="virtual-machine">virtual-machine (1)</a>
+	</div>
+</div>
+</aside>
+
+	</div>
+		<footer class="footer" itemscope="itemscope" itemtype="http://schema.org/WPFooter">
+			<div class="container container-inner">
+				<p class="footer__copyright"><span><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img src="/images/CC-BY.png"></a> </span></p>
+			</div>
+		</footer>
+	</div>
+
+<script>
+	var navigation = responsiveNav(".menu", {
+		navClass: "menu--collapse",
+	});
+</script>
+</body>
+</html>

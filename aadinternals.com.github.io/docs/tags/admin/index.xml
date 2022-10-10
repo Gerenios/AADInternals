@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Admin on Office 365 blog</title>
+    <link>http://o365blog.com/tags/admin/</link>
+    <description>Recent content in Admin on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Mon, 13 Jul 2020 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/admin/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Unnoticed sidekick: Getting access to cloud as an on-prem admin</title>
+      <link>http://o365blog.com/post/on-prem_admin/</link>
+      <pubDate>Mon, 13 Jul 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/on-prem_admin/</guid>
+      <description>&lt;p&gt;This post is part &lt;sup&gt;5&lt;/sup&gt;&amp;frasl;&lt;sub&gt;5&lt;/sub&gt; of &lt;a href=&#34;http://o365blog.com/aadkillchain/&#34; target=&#34;_blank&#34;&gt;Azure AD and Microsoft 365 kill chain&lt;/a&gt; blog series.&lt;/p&gt;
+
+&lt;p&gt;Although on-prem administrators doesn&amp;rsquo;t usually have admin rights to Azure AD, they can have access to crucial information, such as Azure AD Connect, ADFS, and Active Directory.
+Administrators of these services can easily get admin rights to Azure AD to manipulate and impersonate users.&lt;/p&gt;
+
+&lt;p&gt;In this blog, using &lt;strong&gt;AADInternals v0.4.0&lt;/strong&gt;, I&amp;rsquo;ll show how to get Global Admin access and how to impersonate users as an on-prem administrator.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Keys of the kingdom: Playing God as Global Admin</title>
+      <link>http://o365blog.com/post/admin/</link>
+      <pubDate>Tue, 16 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/admin/</guid>
+      <description>&lt;p&gt;This post is part &lt;sup&gt;4&lt;/sup&gt;&amp;frasl;&lt;sub&gt;5&lt;/sub&gt; of &lt;a href=&#34;http://o365blog.com/aadkillchain/&#34; target=&#34;_blank&#34;&gt;Azure AD and Microsoft 365 kill chain&lt;/a&gt; blog series.&lt;/p&gt;
+
+&lt;p&gt;Global Admin role is the most powerfull administrator role in Azure AD. It is (almost) equivalent to the local system rigths in traditional Windows environment: &lt;strong&gt;If you are a Global Admin, there is no security!&lt;/strong&gt;
+As a Global Admin, there are no limits what you are allowed to do. For instance, one can easily access others&amp;rsquo; data. But why bother, if you can as easily impersonate users?&lt;/p&gt;
+
+&lt;p&gt;In this blog, using &lt;strong&gt;AADInternals v0.4.0&lt;/strong&gt;, I&amp;rsquo;ll show how (as an Global Administrator) to gather information of Azure subscriptions, gather users&amp;rsquo; credentials, get system level access to Azure VMs, and how to impersonate users.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>AAD &amp; M365 kill chain</title>
+      <link>http://o365blog.com/aadkillchain/</link>
+      <pubDate>Sun, 14 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/aadkillchain/</guid>
+      <description>imageMapResize();  Introduction According to Verizon&amp;rsquo;s Data Breach Investigations Report 2020, externals attackers are considerable more common than internal attackers. In the cloud era, attacking the organisation from the outside is much more difficult, if not impossible. Therefore, to be able to access organisation&amp;rsquo;s data, one must gain some level of legitimate access to the organisation.
+The Azure AD and Microsoft 365 kill chain is a collection of recon techniques and hacking tools I&amp;rsquo;ve discovered and built during the last 10+ years while working with Microsoft cloud services.</description>
+    </item>
+    
+  </channel>
+</rss>

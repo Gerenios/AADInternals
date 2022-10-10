@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Adfs on Office 365 blog</title>
+    <link>http://o365blog.com/tags/adfs/</link>
+    <description>Recent content in Adfs on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Thu, 08 Jul 2021 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/adfs/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Spoofing Azure AD sign-ins logs by imitating AD FS Hybrid Health Agent</title>
+      <link>http://o365blog.com/post/hybridhealthagent/</link>
+      <pubDate>Thu, 08 Jul 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/hybridhealthagent/</guid>
+      <description>&lt;p&gt;&lt;strong&gt;Azure AD Connect Health&lt;/strong&gt; is a feature that allows viewing the health of on-prem hybrid infrastructure components, including Azure AD Connect and AD FS servers.
+Health information is gathered by agents installed on each on-prem hybrid server. Since March 2021, also AD FS sign-in events are gathered and sent to Azure AD.&lt;/p&gt;
+
+&lt;p&gt;In this write-up (based on a Threat Analysis &lt;a href=&#34;https://www.secureworks.com/research/azure-active-directory-sign-ins-log-tampering&#34; target=&#34;_blank&#34;&gt;report&lt;/a&gt; by Secureworks), I&amp;rsquo;ll explain how anyone with a local administrator access to AD FS server (or proxy), can create arbitrary sign-ins events to Azure AD sign-ins log.
+Moreover, I&amp;rsquo;ll show how Global Administrators can register fake agents to Azure AD - even for tenants not using AD FS at all.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Exporting AD FS certificates revisited: Tactics, Techniques and Procedures</title>
+      <link>http://o365blog.com/post/adfs/</link>
+      <pubDate>Tue, 27 Apr 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/adfs/</guid>
+      <description>&lt;p&gt;I&amp;rsquo;ve talked about AD FS issues for a couple years now, and finally, after the Solorigate/Sunburst, the world is finally listening 😉&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll explain the currently known TTPs to exploit AD FS certificates, and introduce a totally new technique to export the configuration data remotely.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Deep-dive to Azure Active Directory Identity Federation</title>
+      <link>http://o365blog.com/post/aad-deepdive/</link>
+      <pubDate>Wed, 12 Jun 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/aad-deepdive/</guid>
+      <description>&lt;p&gt;Identity federation is regarded as the most secure way to authenticate users to Azure AD. In this blog, I’ll deep-dive to identity federation implementation of Azure AD and point out some serious security issues.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to use a non-routable on-premises UPN with Office 365 and Azure AD</title>
+      <link>http://o365blog.com/post/non-routable-upn/</link>
+      <pubDate>Tue, 24 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/non-routable-upn/</guid>
+      <description>&lt;p&gt;I&amp;rsquo;ve recently noticed that many organisations moving to Office 365 are struggling with their current on-premises non-routable UPNs. In this blog, I&amp;rsquo;ll show how to use Office 365 without altering on-premises UPNs.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>How to enable SSO for all browsers</title>
+      <link>http://o365blog.com/post/sso-for-non-ie-browsers/</link>
+      <pubDate>Thu, 28 Sep 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/sso-for-non-ie-browsers/</guid>
+      <description>&lt;p&gt;By default, AD FS only supports SSO with Internet Explorer. However, you can easily enable support for Google Chrome, Firefox, and Edge.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

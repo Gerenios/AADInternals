@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Teams on Office 365 blog</title>
+    <link>http://o365blog.com/tags/teams/</link>
+    <description>Recent content in Teams on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Tue, 27 Oct 2020 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/teams/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Abusing Teams client protocol to bypass Teams security policies</title>
+      <link>http://o365blog.com/post/teams-policies/</link>
+      <pubDate>Tue, 27 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/teams-policies/</guid>
+      <description>&lt;p&gt;Administrators can use teams policies for controlling what users can do in Microsoft Teams.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll show that these policies are applied only in client and thus can be easily bypassed.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Technical deep dive to Microsoft Teams (free)</title>
+      <link>http://o365blog.com/post/teams-free/</link>
+      <pubDate>Wed, 25 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/teams-free/</guid>
+      <description>&lt;p&gt;Microsoft Teams has been available for free since July 2018. In this blog, I&amp;rsquo;ll deep dive to its technical details.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Admin: Take back control of Office 365 Groups, Teams, and Planner!</title>
+      <link>http://o365blog.com/post/limit-o365-groups/</link>
+      <pubDate>Thu, 31 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/limit-o365-groups/</guid>
+      <description>&lt;p&gt;Office 365 groups is a great way to promote collaboration between people inside and outside organisations.
+By default, users are able to create groups freely, making their use easy. However, in many organisations, this has led to chaos.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I show how you can get back the control of Office 365 groups, Teams and Planner.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

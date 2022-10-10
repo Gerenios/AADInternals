@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Mailbox on Office 365 blog</title>
+    <link>http://o365blog.com/tags/mailbox/</link>
+    <description>Recent content in Mailbox on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Tue, 29 May 2018 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/mailbox/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>How to preserve user&#39;s mailbox during the long leave</title>
+      <link>http://o365blog.com/post/inactive-mailboxes/</link>
+      <pubDate>Tue, 29 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/inactive-mailboxes/</guid>
+      <description>&lt;p&gt;Have you ever faced a situation, where a user takes a longer than 30-day leave, and you would like to
+save money spent on Office 365 licenses but still preserve user&amp;rsquo;s mailbox?&lt;/p&gt;
+
+&lt;p&gt;In this blog, I tell you how!&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

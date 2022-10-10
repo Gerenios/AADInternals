@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Partner on Office 365 blog</title>
+    <link>http://o365blog.com/tags/partner/</link>
+    <description>Recent content in Partner on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Sat, 11 Dec 2021 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/partner/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Microsoft partners: The Good, The Bad, or The Ugly?</title>
+      <link>http://o365blog.com/post/partners/</link>
+      <pubDate>Sat, 11 Dec 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/partners/</guid>
+      <description>&lt;p&gt;In 2018, I &lt;a href=&#34;http://o365blog.com/post/o365-gdpr/#delegated-administration&#34; target=&#34;_blank&#34;&gt;blogged&lt;/a&gt; first time about risks related to Delegated Administrative Privileges (DAP) given to Microsoft partners.
+Now, in 2021, Microsoft &lt;a href=&#34;https://www.microsoft.com/security/blog/2021/10/25/nobelium-targeting-delegated-administrative-privileges-to-facilitate-broader-attacks/&#34; target=&#34;_blank&#34;&gt;blogged&lt;/a&gt; how NOBELIUM exploited DAP to compromise
+customers of some Microsoft partners.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll explain why DAP is so dangerous, how to exploit it, how to detect exploitation, and how to view partner related information with &lt;strong&gt;AADInternals v0.6.5&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Partner Center PowerShell module sends telemetry data to Microsoft</title>
+      <link>http://o365blog.com/post/partnercenter/</link>
+      <pubDate>Sun, 19 Jan 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/partnercenter/</guid>
+      <description>&lt;p&gt;Microsoft has published a PowerShell module for their partners to ease and automate operations with their customers.
+This module is (quite intuitively) called &lt;a href=&#34;https://docs.microsoft.com/en-us/powershell/partnercenter/overview&#34; target=&#34;_blank&#34;&gt;Partner Center&lt;/a&gt;.
+While the module does well what it&amp;rsquo;s meant to do, it also tells Microsoft what the partners are doing.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

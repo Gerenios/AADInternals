@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="cache-control" content="no-cache"> 
+<meta http-equiv="expires" content="0"> 
+<meta http-equiv="pragma" content="no-cache">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep-dive to Azure AD device join</title>
+<meta name="description" content="The site for Microsoft 365 and Azure AD administrators">
+<meta name="generator" content="Hugo 0.39" />
+<meta property="og:title" content="Deep-dive to Azure AD device join" />
+<meta property="og:description" content="Devices (endpoints) are a crucial part of Microsoft&rsquo;s Zero Trust concept. Devices can be Registered, Joined, or Hybrid Joined to Azure AD.
+Conditional Access uses the device information as one of the decisions criteria to allow or block access to services.
+
+In this blog, I&rsquo;ll explain what these different registration types are, what happens under-the-hood during the registration, and how to register devices with AADInternals v0.4.6.
+
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://o365blog.com/post/devices/" />
+
+
+
+<meta property="article:published_time" content="2021-03-03T00:00:00&#43;00:00"/>
+
+<meta property="article:modified_time" content="2021-09-10T00:00:00&#43;00:00"/>
+
+
+
+
+
+
+
+
+
+
+
+<link rel="dns-prefetch" href="//fonts.googleapis.com" />
+<link rel="dns-prefetch" href="//fonts.gstatic.com" />
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:400,400italic,700" type="text/css" media="all" />
+<link href="//maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css" type="text/css" media="all" />
+<script type="text/javascript" src="/js/scripts.js"></script>
+<script type="text/javascript" src="/js/tools.js"></script>
+
+<link rel="apple-touch-icon-precomposed" sizes="57x57" href="/images/apple-touch-icon-57x57.png" />
+<link rel="apple-touch-icon-precomposed" sizes="114x114" href="/images/apple-touch-icon-114x114.png" />
+<link rel="apple-touch-icon-precomposed" sizes="72x72" href="/images/apple-touch-icon-72x72.png" />
+<link rel="apple-touch-icon-precomposed" sizes="144x144" href="/images/apple-touch-icon-144x144.png" />
+<link rel="apple-touch-icon-precomposed" sizes="60x60" href="/images/apple-touch-icon-60x60.png" />
+<link rel="apple-touch-icon-precomposed" sizes="120x120" href="/images/apple-touch-icon-120x120.png" />
+<link rel="apple-touch-icon-precomposed" sizes="76x76" href="/images/apple-touch-icon-76x76.png" />
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/images/apple-touch-icon-152x152.png" />
+<link rel="icon" type="image/png" href="/images/favicon-196x196.png" sizes="196x196" />
+<link rel="icon" type="image/png" href="/images/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32" />
+<link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16" />
+<link rel="icon" type="image/png" href="/images/favicon-128.png" sizes="128x128" />
+<meta name="application-name" content="&nbsp;"/>
+<meta name="msapplication-TileColor" content="#FFFFFF" />
+<meta name="msapplication-TileImage" content="/images/mstile-144x144.png" />
+<meta name="msapplication-square70x70logo" content="/images/mstile-70x70.png" />
+<meta name="msapplication-square150x150logo" content="/images/mstile-150x150.png" />
+<meta name="msapplication-wide310x150logo" content="/images/mstile-310x150.png" />
+<meta name="msapplication-square310x310logo" content="/images/mstile-310x310.png" />
+
+
+<script>
+window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+ga('create', 'UA-61454000-4', 'auto');
+ga('send', 'pageview');
+</script>
+<script async src='//www.google-analytics.com/analytics.js'></script>
+
+</head>
+<body class="body body-right-sidebar mobile" itemscope="itemscope" itemtype="http://schema.org/WebPage">
+	<div class="container container-outer">
+		<header class="header" itemscope="itemscope" itemtype="http://schema.org/WPHeader">
+		
+			<div class="container container-inner clearfix">
+			
+				<div class="logo" role="banner" itemscope="itemscope" itemtype="http://schema.org/Brand">
+				
+					<a class="logo__link" href="/" title="Office 365 blog" rel="home">
+						<img src="/images/favicon-96x96.png"><h1 class="logo__title">Office 365 blog</h1>
+						<h2 class="logo__tagline">Everything about Microsoft 365 security</h2>
+					</a>
+				</div>
+			</div>
+			
+<nav class="menu" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<ul class="menu__list">
+		<li class="menu__item "><a class="menu__link" href="/aadkillchain/">AAD &amp; M365 KILL CHAIN</a></li>
+		<li class="menu__item "><a class="menu__link" href="/aadinternals/">AAD INTERNALS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/links/">LINKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/powershell/">POWERSHELL</a></li>
+		<li class="menu__item "><a class="menu__link" href="/talks/">TALKS</a></li>
+		<li class="menu__item "><a class="menu__link" href="/tools/">TOOLS</a></li>
+	</ul>
+</nav>
+
+		</header>
+		<div class="wrapper clearfix">
+
+<main class="main-content content" role="main" itemprop="mainContentOfPage">
+	<article class="post">
+		<header class="post__header clearfix">
+			<h1 class="post__title">Deep-dive to Azure AD device join</h1>
+			<p class="post__meta meta">
+				<svg class="icon icon-time" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg"><path d="m8-.0000003c-4.4 0-8 3.6-8 8 0 4.4000003 3.6 8.0000003 8 8.0000003 4.4 0 8-3.6 8-8.0000003 0-4.4-3.6-8-8-8zm0 14.4000003c-3.52 0-6.4-2.88-6.4-6.4000003 0-3.52 2.88-6.4 6.4-6.4 3.52 0 6.4 2.88 6.4 6.4 0 3.5200003-2.88 6.4000003-6.4 6.4000003zm.4-10.4000003h-1.2v4.8l4.16 2.5600003.64-1.04-3.6-2.1600003z"/></svg>
+				<time class="post__meta-date" datetime="2021-03-03T00:00:00">March 03, 2021</time>
+					<time class="post__meta-lastmod" datetime="2021-09-10T00:00:00"> (Last Modified: September 10, 2021)</time>
+				<span class="post__meta-categories meta-categories">
+					<svg class="icon icon-category" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg"><path d="m7 2l1 2h8v11h-16v-13z"/></svg>
+					<a class="meta-categories__link" href="/categories/blog" rel="category">blog</a></span>
+			</p>
+			<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2fdevices%2f&text=Deep-dive%20to%20Azure%20AD%20device%20join&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2fdevices%2f&mini=true&title=Deep-dive%20to%20Azure%20AD%20device%20join&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+		</header>
+		<div class="post__content clearfix">
+			<figure class="post__thumbnail">
+				<img src="/images/posts/devices.png" alt="Deep-dive to Azure AD device join">
+			</figure>
+				<nav id="TableOfContents">
+<ul>
+<li><a href="#what-is-a-device">What is a device?</a></li>
+<li><a href="#join-types">Join Types</a>
+<ul>
+<li><a href="#azure-ad-registered">Azure AD Registered</a></li>
+<li><a href="#azure-ad-joined">Azure AD Joined</a></li>
+<li><a href="#azure-ad-hybrid-joined">Azure AD Hybrid Joined</a></li>
+</ul></li>
+<li><a href="#technical-details">Technical details</a>
+<ul>
+<li><a href="#device-object">Device Object</a>
+<ul>
+<li><a href="#objectid">objectId</a></li>
+<li><a href="#deviceid">deviceId</a></li>
+<li><a href="#devicetrusttype">deviceTrustType</a></li>
+<li><a href="#dirsyncenabled">dirSyncEnabled</a></li>
+<li><a href="#ismanaged">isManaged</a></li>
+<li><a href="#iscompliant">isCompliant</a></li>
+<li><a href="#reserved1">reserved1</a></li>
+<li><a href="#onpremisessecurityidentifier">onPremisesSecurityIdentifier</a></li>
+<li><a href="#profiletype">profileType</a></li>
+<li><a href="#devicesystemmetadata">deviceSystemMetadata</a></li>
+</ul></li>
+<li><a href="#join-process">Join process</a>
+<ul>
+<li><a href="#register">Register</a></li>
+<li><a href="#join">Join</a></li>
+<li><a href="#hybrid-join">Hybrid Join</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#conditional-access">Conditional Access</a></li>
+<li><a href="#single-sign-on">Single-Sign-On</a></li>
+<li><a href="#joining-devices-with-aadinternals">Joining devices with AADInternals</a>
+<ul>
+<li><a href="#registering-devices">Registering devices</a></li>
+<li><a href="#joining-devices">Joining devices</a></li>
+<li><a href="#hybrid-joining-devices">Hybrid joining devices</a>
+<ul>
+<li><a href="#hybrid-joining-to-synced-device-option-1">Hybrid joining to synced device - option 1</a></li>
+<li><a href="#hybrid-joining-to-synced-device-option-2">Hybrid joining to synced device - option 2</a></li>
+<li><a href="#hybrid-joining-by-federation">Hybrid joining by federation</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#summary">Summary</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+</nav>
+			<p>Devices (endpoints) are a crucial part of Microsoft&rsquo;s Zero Trust concept. Devices can be Registered, Joined, or Hybrid Joined to Azure AD.
+Conditional Access uses the device information as one of the decisions criteria to allow or block access to services.</p>
+
+<p>In this blog, I&rsquo;ll explain what these different registration types are, what happens under-the-hood during the registration, and how to register devices with <a href="/aadinternals/#hack-functions-azure-ad-join-mdm-prt" target="_blank">AADInternals</a> <strong>v0.4.6</strong>.</p>
+
+<p></p>
+
+<h1 id="what-is-a-device">What is a device?</h1>
+
+<p>Technically, a device is one of the object types in Azure AD. The device object is sometimes called <a href="https://docs.microsoft.com/en-us/azure/active-directory/devices/overview" target="_blank">device identity</a>.</p>
+
+<p>Where users are identified based on their credentials, <strong>devices are identified by certificates</strong>. In other words, a device certificate represents the device registered to Azure AD.
+These certificates are created during the registration process (this will be explained later).</p>
+
+<h1 id="join-types">Join Types</h1>
+
+<p>There are three different registration types, which are called <strong>Join Types</strong>. According to <a href="https://docs.microsoft.com/en-us/azure/active-directory/devices/overview#getting-devices-in-azure-ad" target="_blank">documentation</a>
+these types are:</p>
+
+<table>
+<thead>
+<tr>
+<th>Join Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Registered</td>
+<td>Devices that are Azure AD registered are <strong>typically personally owned or mobile devices</strong> and are <strong>signed in with a personal</strong> Microsoft account or another local account.</td>
+</tr>
+
+<tr>
+<td>Joined</td>
+<td>Devices that are Azure AD joined are <strong>owned by an organization</strong> and are <strong>signed in with an Azure AD account</strong> belonging to that organization. They exist only in the cloud.</td>
+</tr>
+
+<tr>
+<td>Hybrid Joined</td>
+<td>Devices that are hybrid Azure AD joined are <strong>owned by an organization</strong> and are <strong>signed in with an Active Directory Domain Services account</strong> belonging to that organization. They exist in the cloud and on-premises.</td>
+</tr>
+</tbody>
+</table>
+
+<p>Next, let&rsquo;s view the documentation to see in detail the differences between these join types!</p>
+
+<h2 id="azure-ad-registered">Azure AD Registered</h2>
+
+<p>According to <a href="https://docs.microsoft.com/en-us/azure/active-directory/devices/concept-azure-ad-register" target="_blank">documentation:</a></p>
+
+<blockquote>
+<p>The goal of Azure AD registered devices is to provide your users with support for the Bring Your Own Device (BYOD) or mobile device scenarios. In these scenarios, a user can access your organization’s Azure Active Directory controlled resources using a personal device.</p>
+</blockquote>
+
+<table>
+<thead>
+<tr>
+<th>Azure AD Registered</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Definition</td>
+<td>Registered to Azure AD without requiring organizational account to sign in to the device</td>
+</tr>
+
+<tr>
+<td>Primary audience</td>
+<td>Applicable to all users with the following criteria: <br><ul><li>Bring your own device (BYOD)</li><li>Mobile Devices</li></ul></td>
+</tr>
+
+<tr>
+<td>Device ownership</td>
+<td>User or Organization</td>
+</tr>
+
+<tr>
+<td>Operating Systems</td>
+<td>Windows 10, iOS, Android, and MacOS</td>
+</tr>
+
+<tr>
+<td>Provisioning</td>
+<td>Windows 10 - Settings <br>iOS/Android - Company Portal or Microsoft Authentication app <br>MacOS - Company Portal</td>
+</tr>
+
+<tr>
+<td>Device sign in options</td>
+<td><ul><li>End-user local credentials</li><li>Password</li><li>Windows Hello</li><li>PIN</li><li>Biometrics or Patter for other devices</li></ul></td>
+</tr>
+
+<tr>
+<td>Key capabilities</td>
+<td><ul><li>SSO to cloud resources</li><li>Conditional Access when enrolled into Intune</li><li>Conditional Access via App protection policy</li><li>Enables Phone sign in with Microsoft Authenticator app</li></ul></td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="azure-ad-joined">Azure AD Joined</h2>
+
+<p>According to <a href="https://docs.microsoft.com/en-us/azure/active-directory/devices/concept-azure-ad-join" target="_blank">documentation:</a></p>
+
+<blockquote>
+<p>Azure AD join is intended for organizations that want to be cloud-first or cloud-only. Any organization can deploy Azure AD joined devices no matter the size or industry. Azure AD join works even in a hybrid environment, enabling access to both cloud and on-premises apps and resources.</p>
+</blockquote>
+
+<table>
+<thead>
+<tr>
+<th>Azure AD Joined</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Definition</td>
+<td>Joined only to Azure AD requiring organizational account to sign in to the device</td>
+</tr>
+
+<tr>
+<td>Primary audience</td>
+<td>Suitable for both cloud-only and hybrid organizations.<br>Applicable to all users in an organization</td>
+</tr>
+
+<tr>
+<td>Device ownership</td>
+<td>Organization</td>
+</tr>
+
+<tr>
+<td>Operating Systems</td>
+<td><ul><li>All Windows 10 devices except Windows 10 Home</li><li>Windows Server 2019 Virtual Machines running in Azure (Server core is not supported)</li></ul></td>
+</tr>
+
+<tr>
+<td>Provisioning</td>
+<td><ul><li>Self-service: Windows OOBE or Settings</li><li>Bulk enrollment</li><li>Windows Autopilot</li></ul></td>
+</tr>
+
+<tr>
+<td>Device sign in options</td>
+<td>Organizational accounts using:<br><ul><li>Password</li><li>Windows Hello for Business</li><li>FIDO2.0 security keys</li></ul></td>
+</tr>
+
+<tr>
+<td>Device management</td>
+<td><ul><li>Mobile Device Management (example: Microsoft Intune)</li><li>Co-management with Microsoft Intune and Microsoft Endpoint Configuration Manager</li></ul></td>
+</tr>
+
+<tr>
+<td>Key capabilities</td>
+<td><ul><li>SSO to both cloud and on-premises resources</li><li>Conditional Access through MDM enrollment and MDM compliance evaluation</li><li>Self-service Password Reset and Windows Hello PIN reset on lock screen</li><li>Enterprise State Roaming across devices</li></ul></td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="azure-ad-hybrid-joined">Azure AD Hybrid Joined</h2>
+
+<p>According to <a href="https://docs.microsoft.com/en-us/azure/active-directory/devices/concept-azure-ad-join-hybrid" target="_blank">documentation:</a></p>
+
+<blockquote>
+<p>Typically, organizations with an on-premises footprint rely on imaging methods to provision devices, and they often use Configuration Manager or group policy (GP) to manage them.</p>
+
+<p>If your environment has an on-premises AD footprint and you also want benefit from the capabilities provided by Azure Active Directory, you can implement hybrid Azure AD joined devices. These devices, are devices that are joined to your on-premises Active Directory and registered with your Azure Active Directory.</p>
+</blockquote>
+
+<table>
+<thead>
+<tr>
+<th>Azure AD Joined</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Definition</td>
+<td>Joined to on-premises AD and Azure AD requiring organizational account to sign in to the device</td>
+</tr>
+
+<tr>
+<td>Primary audience</td>
+<td>Suitable for hybrid organizations with existing on-premises AD infrastructure.<br>Applicable to all users in an organization</td>
+</tr>
+
+<tr>
+<td>Device ownership</td>
+<td>Organization</td>
+</tr>
+
+<tr>
+<td>Operating Systems</td>
+<td><ul><li>Windows 10, 8.1, and 7</li><li>Windows Server 2008/R2, 2012/R2, 2016, and 2019</li></ul></td>
+</tr>
+
+<tr>
+<td>Provisioning</td>
+<td>Windows 10, Windows Server <sup>2016</sup>&frasl;<sub>2019</sub><br><ul><li>Domain join by IT and autojoin via Azure AD Connect or ADFS config</li><li>Domain join by Windows Autopilot and autojoin via Azure AD Connect or ADFS config</li></ul>Windows 8.1, Windows 7, Windows Server 2012 R2, Windows Server 2012, and Windows Server 2008 R2 - Require MSI</td>
+</tr>
+
+<tr>
+<td>Device sign in options</td>
+<td>Organizational accounts using:<br><ul><li>Password</li><li>Windows Hello for Business for Win10</li></ul></td>
+</tr>
+
+<tr>
+<td>Device management</td>
+<td><ul><li>Group Policy</li><li>Configuration Manager standalone or co-management with Microsoft Intune</li></ul></td>
+</tr>
+
+<tr>
+<td>Key capabilities</td>
+<td><ul><li>SSO to both cloud and on-premises resources</li><li>Conditional Access through Domain join or through Intune if co-managed</li><li>Self-service Password Reset and Windows Hello PIN reset on lock screen</li><li>Enterprise State Roaming across devices</li></ul></td>
+</tr>
+</tbody>
+</table>
+
+<h1 id="technical-details">Technical details</h1>
+
+<p>Now that we know the purpose of different join types let&rsquo;s dive into technical details!</p>
+
+<h2 id="device-object">Device Object</h2>
+
+<p>Device objects are stored to Azure AD. Based on my research, here are the relevant attributes and their values related to different join types.</p>
+
+<p><strong>Note!</strong> The attribute names presented here are those exposed by <a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/active-directory-graph-api" target="_blank">Azure Active Directory Graph API</a> with
+<strong>api-version=1.61-internal</strong> query parameter.</p>
+
+<h3 id="objectid">objectId</h3>
+
+<p>The id of the Azure AD device object.</p>
+
+<h3 id="deviceid">deviceId</h3>
+
+<p>The device id attribute of the Azure AD device object. For Hybrid Joined devices, equals to equals to <strong>objectGuid</strong> of the on-prem AD device object.</p>
+
+<h3 id="devicetrusttype">deviceTrustType</h3>
+
+<p>Indicates the join type.</p>
+
+<table>
+<thead>
+<tr>
+<th>Join Type</th>
+<th>Value</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Registered</td>
+<td>Workplace</td>
+</tr>
+
+<tr>
+<td>Joined</td>
+<td>AzureAd</td>
+</tr>
+
+<tr>
+<td>Hybrid Joined</td>
+<td>ServerAd</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="dirsyncenabled">dirSyncEnabled</h3>
+
+<p>Indicates whether the device is synchronised from the on-prem AD or not. <strong>True</strong> for Hybrid Joined devices.</p>
+
+<h3 id="ismanaged">isManaged</h3>
+
+<p>Indicates whether the device is managed or not. Always <strong>True</strong> for Hybrid Joined devices. For Registered and Joined devices, the attribute needs to be set by device management application
+or <strong>AADInternals</strong> <a href="/aadinternals/#set-aadintdevicecompliant-a" target="_blank">Set&#8209;AADIntDeviceCompliant</a> function.</p>
+
+<h3 id="iscompliant">isCompliant</h3>
+
+<p>Indicates whether the device is compliant or not. Attribute needs to be set by device management application
+or <strong>AADInternals</strong> <a href="/aadinternals/#set-aadintdevicecompliant-a" target="_blank">Set&#8209;AADIntDeviceCompliant</a> function.</p>
+
+<h3 id="reserved1">reserved1</h3>
+
+<p>The <strong>userCertificate</strong> attribute of the device from the on-prem AD object for Hybrid Joined devices. Public key with a subject name that equals to <strong>objectGuid</strong> of the on-prem AD device object.</p>
+
+<h3 id="onpremisessecurityidentifier">onPremisesSecurityIdentifier</h3>
+
+<p>The security identifier (<strong>SID</strong>) of the on-prem AD device object. Only set for Hybrid Joined devices.</p>
+
+<h3 id="profiletype">profileType</h3>
+
+<p>Always <strong>RegisteredDevice</strong> for Registered and Joined devices. For Hybrid Joined devices initially empty after synced from on-prem AD, set to registered after the actual join.</p>
+
+<h3 id="devicesystemmetadata">deviceSystemMetadata</h3>
+
+<p>Metadata about the device registration.</p>
+
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>CreationTime</td>
+<td>Time the device object was created. <br>Example: &ldquo;2/20/2021 8:52:52 AM&rdquo;</td>
+</tr>
+
+<tr>
+<td>RegistrationAuthority</td>
+<td>Always set to &ldquo;ADRS&rdquo;</td>
+</tr>
+
+<tr>
+<td>RegistrationAuthTime</td>
+<td>For Registered and Joined devices, the epoch timestamp when the user who registered/joined the device was authenticated.  <br>Example: &ldquo;1613810824&rdquo; <br>Note: The timestamp comes from user&rsquo;s access token (nbf claim), which is always 5 minutes earlier than the actual login.</td>
+</tr>
+
+<tr>
+<td>RegistrationAuthMethods</td>
+<td>For Registered and Joined devices, the list of authentication methods used by the user who registered/joined the device. Can be any combination of &ldquo;pwd&rdquo;,&ldquo;rsa&rdquo;,&ldquo;otp&rdquo;,&ldquo;fed&rdquo;,&ldquo;wia&rdquo;,&ldquo;mfa&rdquo;,&ldquo;mngcmfa&rdquo;,&ldquo;wiaormfa&rdquo;,&ldquo;none&rdquo;. The PRT token created using this device will inherit this value.<br>Can be changed with <strong>AADInternals</strong> <a href="/aadinternals/#set-aadintdeviceregauthmethods-a" target="_blank">Set&#8209;AADIntDeviceRegAuthMethods</a> function.</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="join-process">Join process</h2>
+
+<p>Now that we know the three different join types let&rsquo;s dive to process how each of these join types are performed.</p>
+
+<p>Devices with different Join Type as seen in Azure AD portal:
+<img src="/images/posts/devices_4.png" alt="Device join types" /></p>
+
+<h3 id="register">Register</h3>
+
+<p>Registering devices to Azure AD has five steps:</p>
+
+<p><img src="/images/posts/device_register_flow.png" alt="Register flow" /></p>
+
+<ol>
+<li>Generate <strong>Device key</strong> and <strong>Transport key</strong>. <br><br>
+The registration software (depends on the device) generates two keysets called <strong>Device key</strong> (dkpub/dkpriv) and <strong>Transport key</strong> (tkpub/tkpriv). The private keys are stored in the device.<br><br>
+The <strong>Device key</strong> is used to identify the device, whereas the <strong>Transport key</strong> is used to decrypt the session key when requesting the PRT (see this <a href="/post/prt" target="_blank">blog</a> for details).<br><br>
+A certificate signing request (SCR) for &ldquo;CN=7E980AD9-B86D-4306-9425-9AC066FB014A&rdquo; (dkpub) is generated with dkpriv.<br><br></li>
+<li>Request access token for Azure AD Join<br><br>
+The registration software request access token for appid <strong>1b730954-1685-4b74-9bfd-dac224a7b894</strong> with <strong>01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9</strong> audience.<br><br></li>
+<li>Return <strong>access token</strong></li>
+
+<li><p>Enroll device <br><br>
+A http POST request is made to &ldquo;https[:]//enterpriseregistration.windows.net/EnrollmentServer/device/?api-version=1.0&rdquo; to register the device to Azure AD:
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json"><span class="ln"> 1</span><span class="p">{</span>
+<span class="hl"><span class="ln"> 2</span>    <span class="nt">&#34;TransportKey&#34;</span><span class="p">:</span>  <span class="s2">&#34;UlNBMQAIAAADA[redacted]+Ht0sYG4vPqK1B2wQcnkO4cZhJ2Q==&#34;</span><span class="p">,</span>
+</span><span class="hl"><span class="ln"> 3</span>    <span class="nt">&#34;JoinType&#34;</span><span class="p">:</span>  <span class="mi">4</span><span class="p">,</span>
+</span><span class="ln"> 4</span>    <span class="nt">&#34;DeviceDisplayName&#34;</span><span class="p">:</span>  <span class="s2">&#34;Registered Device&#34;</span><span class="p">,</span>
+<span class="ln"> 5</span>    <span class="nt">&#34;OSVersion&#34;</span><span class="p">:</span>  <span class="s2">&#34;C64&#34;</span><span class="p">,</span>
+<span class="ln"> 6</span>    <span class="nt">&#34;CertificateRequest&#34;</span><span class="p">:</span>  <span class="p">{</span>
+<span class="ln"> 7</span>                               <span class="nt">&#34;Type&#34;</span><span class="p">:</span>  <span class="s2">&#34;pkcs10&#34;</span><span class="p">,</span>
+<span class="hl"><span class="ln"> 8</span>                               <span class="nt">&#34;Data&#34;</span><span class="p">:</span>  <span class="s2">&#34;MIICdDCCAVwCAQAwLzE[redacted]n/rOiQamubMpzL1eaEhWLH8v9hkxZic=&#34;</span>
+</span><span class="ln"> 9</span>                           <span class="p">},</span>
+<span class="ln">10</span>    <span class="nt">&#34;TargetDomain&#34;</span><span class="p">:</span>  <span class="s2">&#34;contoso.com&#34;</span><span class="p">,</span>
+<span class="ln">11</span>    <span class="nt">&#34;DeviceType&#34;</span><span class="p">:</span>  <span class="s2">&#34;Commodore&#34;</span><span class="p">,</span>
+<span class="ln">12</span>    <span class="nt">&#34;Attributes&#34;</span><span class="p">:</span>  <span class="p">{</span>
+<span class="ln">13</span>                       <span class="nt">&#34;ReuseDevice&#34;</span><span class="p">:</span>  <span class="kc">true</span><span class="p">,</span>
+<span class="ln">14</span>                       <span class="nt">&#34;ReturnClientSid&#34;</span><span class="p">:</span>  <span class="kc">true</span><span class="p">,</span>
+<span class="ln">15</span>                       <span class="nt">&#34;SharedDevice&#34;</span><span class="p">:</span>  <span class="kc">false</span>
+<span class="ln">16</span>                   <span class="p">}</span>
+<span class="ln">17</span><span class="p">}</span></code></pre></div><br>
+The dkpub (row 8) and tkpriv (row 2) are Base64 encoded. The join type (row 3) indicates device registration.</p></li>
+
+<li><p>Return <strong>device certificate</strong><br><br>
+The return value contains the signed (dkpub) of the <strong>Device key</strong> (row 4) and its thumbprint (row 3). The owner of the device is also returned (row 7).
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json"><span class="ln"> 1</span><span class="p">{</span>
+<span class="ln"> 2</span>    <span class="nt">&#34;Certificate&#34;</span><span class="p">:</span> <span class="p">{</span>
+<span class="hl"><span class="ln"> 3</span>        <span class="nt">&#34;Thumbprint&#34;</span><span class="p">:</span> <span class="s2">&#34;EA9CE04D0FCFB4AB382E253B7F1BC48CBC60010B&#34;</span><span class="p">,</span>
+</span><span class="hl"><span class="ln"> 4</span>        <span class="nt">&#34;RawBody&#34;</span><span class="p">:</span> <span class="s2">&#34;MIID8jCC[redacted]IE34ylUixWmNVJj39HQ5ky4+0cY6JR1JovPLaCQ&#34;</span>
+</span><span class="ln"> 5</span>    <span class="p">},</span>
+<span class="ln"> 6</span>    <span class="nt">&#34;User&#34;</span><span class="p">:</span> <span class="p">{</span>
+<span class="hl"><span class="ln"> 7</span>        <span class="nt">&#34;Upn&#34;</span><span class="p">:</span> <span class="s2">&#34;AllanD@contoso.com&#34;</span>
+</span><span class="ln"> 8</span>    <span class="p">},</span>
+<span class="ln"> 9</span>    <span class="nt">&#34;MembershipChanges&#34;</span><span class="p">:</span> <span class="p">[{</span>
+<span class="ln">10</span>            <span class="nt">&#34;LocalSID&#34;</span><span class="p">:</span> <span class="s2">&#34;S-1-5-32-544&#34;</span><span class="p">,</span>
+<span class="ln">11</span>            <span class="nt">&#34;AddSIDs&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;S-1-12-1-4209995732-1115842628-132208791-3473393508&#34;</span><span class="p">,</span> <span class="s2">&#34;S-1-12-1-1284395347-1172857899-2838897599-3439875365&#34;</span><span class="p">]</span>
+<span class="ln">12</span>        <span class="p">}</span>
+<span class="ln">13</span>    <span class="p">]</span>
+<span class="ln">14</span><span class="p">}</span></code></pre></div></p></li>
+</ol>
+
+<h3 id="join">Join</h3>
+
+<p>The process joining devices to Azure AD is identical to registering devices:</p>
+
+<p><img src="/images/posts/device_register_flow.png" alt="Join flow" /></p>
+
+<ol>
+<li>Generate <strong>Device key</strong> and <strong>Transport key</strong>.</li>
+<li>Request access token for Azure AD Join</li>
+<li>Return <strong>access token</strong></li>
+<li>Enroll device <br><br>
+Only difference to the Registration is the <strong>JoinType</strong> (row 3):
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json"><span class="ln"> 1</span><span class="p">{</span>
+<span class="ln"> 2</span>    <span class="nt">&#34;TransportKey&#34;</span><span class="p">:</span>  <span class="s2">&#34;UlNBMQAIAA[redacted]QkSnl0b8xkWqv5CKfBp8RQ==&#34;</span><span class="p">,</span>
+<span class="hl"><span class="ln"> 3</span>    <span class="nt">&#34;JoinType&#34;</span><span class="p">:</span>  <span class="mi">0</span><span class="p">,</span>
+</span><span class="ln"> 4</span>    <span class="nt">&#34;DeviceDisplayName&#34;</span><span class="p">:</span>  <span class="s2">&#34;Joined Device&#34;</span><span class="p">,</span>
+<span class="ln"> 5</span>    <span class="nt">&#34;OSVersion&#34;</span><span class="p">:</span>  <span class="s2">&#34;Vic20&#34;</span><span class="p">,</span>
+<span class="ln"> 6</span>    <span class="nt">&#34;CertificateRequest&#34;</span><span class="p">:</span>  <span class="p">{</span>
+<span class="ln"> 7</span>                               <span class="nt">&#34;Type&#34;</span><span class="p">:</span>  <span class="s2">&#34;pkcs10&#34;</span><span class="p">,</span>
+<span class="ln"> 8</span>                               <span class="nt">&#34;Data&#34;</span><span class="p">:</span>  <span class="s2">&#34;MIICdDCCAVwCAQAwLz[redacted]2003EixNAH3U7ggIXgXBWwtVbs=&#34;</span>
+<span class="ln"> 9</span>                           <span class="p">},</span>
+<span class="ln">10</span>    <span class="nt">&#34;TargetDomain&#34;</span><span class="p">:</span>  <span class="s2">&#34;contoso.com&#34;</span><span class="p">,</span>
+<span class="ln">11</span>    <span class="nt">&#34;DeviceType&#34;</span><span class="p">:</span>  <span class="s2">&#34;Commodore&#34;</span><span class="p">,</span>
+<span class="ln">12</span>    <span class="nt">&#34;Attributes&#34;</span><span class="p">:</span>  <span class="p">{</span>
+<span class="ln">13</span>                       <span class="nt">&#34;ReuseDevice&#34;</span><span class="p">:</span>  <span class="kc">true</span><span class="p">,</span>
+<span class="ln">14</span>                       <span class="nt">&#34;ReturnClientSid&#34;</span><span class="p">:</span>  <span class="kc">true</span><span class="p">,</span>
+<span class="ln">15</span>                       <span class="nt">&#34;SharedDevice&#34;</span><span class="p">:</span>  <span class="kc">false</span>
+<span class="ln">16</span>                   <span class="p">}</span>
+<span class="ln">17</span><span class="p">}</span></code></pre></div></li>
+<li>Return <strong>device certificate</strong></li>
+</ol>
+
+<h3 id="hybrid-join">Hybrid Join</h3>
+
+<p>As mentioned earlier, hybrid joined devices are joined to both on-prem AD and Azure AD. <strong>Hybrid Joining</strong> is similar to Registering and Joining, but there are some big differences.</p>
+
+<p>First, the device object has to exist in Azure AD before the join can be performed. There are two ways to create the hybrid device object to Azure AD: it can be <strong>synced from on-prem AD
+with Azure AD Connect</strong>, or it can be <strong>generated via identity federation</strong>. With the latter way, the device object is created immediately to Azure AD, whereas the former method creates the object during the next synchronisation cycle.</p>
+
+<p>Second, the device is <strong>joined by the system</strong>, not the user. The authentication method used during the joining depends on how the device object is created to Azure AD:</p>
+
+<ul>
+<li><p>For the Azure AD Connect synchronisation, the authentication is performed by signing a part of the enrollment request with the private key of the computer&rsquo;s machine certificate.
+Azure AD can verify the computer&rsquo;s identity by validating the signature with the public key of the machine certificate. The public key is saved in Azure AD in the <strong>reserved1</strong> attribute of the device object.</p></li>
+
+<li><p>For the identity federation, the authentication is performed by requesting a SAML token from AD FS and requesting an access token from Azure AD with that SAML token. The resulting access token is then used for the enrollment request.</p></li>
+</ul>
+
+<p>Let&rsquo;s start with the <strong>Azure AD Connect synchronisation flow</strong>:</p>
+
+<p><img src="/images/posts/device_hybrid_flow1.png" alt="Hybrid flow 1" /></p>
+
+<ol>
+<li>Generate <strong>Machine certificate</strong></li>
+<li>Set the value of <strong>userCertificate</strong> attribute of the device&rsquo;s on-prem AD object to match the public key of the <strong>Machine certificate</strong>.</li>
+<li>Synchronise the device object to Azure AD. <br>The <strong>Device Id</strong> attribute of the device&rsquo;s Azure AD object is set to <strong>ObjectGuid</strong> of the device&rsquo;s on-prem AD object.<br></li>
+<li>Generate <strong>Device key</strong> and <strong>Transport key</strong>.</li>
+<li>Enroll device <br><br>
+The http POST request is a bit different than with Register and Join:
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json"><span class="ln"> 1</span><span class="p">{</span>
+<span class="ln"> 2</span>    <span class="nt">&#34;ServerAdJoinData&#34;</span><span class="p">:</span>  <span class="p">{</span>
+<span class="ln"> 3</span>                             <span class="nt">&#34;DeviceType&#34;</span><span class="p">:</span>  <span class="s2">&#34;Windows&#34;</span><span class="p">,</span>
+<span class="ln"> 4</span>                             <span class="nt">&#34;TransportKey&#34;</span><span class="p">:</span>  <span class="s2">&#34;UlNBMQAIAAA[redacted]eXG2wVZ/D6/VtQZCgxrq0uOEdGvJ+Gwwez6GQ==&#34;</span><span class="p">,</span>
+<span class="ln"> 5</span>                             <span class="nt">&#34;TargetDomainId&#34;</span><span class="p">:</span>  <span class="s2">&#34;5694aa9c-04e1-4df1-9d37-5d64d0915d42&#34;</span><span class="p">,</span>
+<span class="ln"> 6</span>                             <span class="nt">&#34;OSVersion&#34;</span><span class="p">:</span>  <span class="s2">&#34;Vista&#34;</span><span class="p">,</span>
+<span class="ln"> 7</span>                             <span class="nt">&#34;TargetDomain&#34;</span><span class="p">:</span>  <span class="s2">&#34;&#34;</span><span class="p">,</span>
+<span class="ln"> 8</span>                             <span class="nt">&#34;ClientIdentity&#34;</span><span class="p">:</span>  <span class="p">{</span>
+<span class="hl"><span class="ln"> 9</span>                                                    <span class="nt">&#34;Sid&#34;</span><span class="p">:</span>  <span class="s2">&#34;S-1-5-21-181028512-47807049-227815571-9284.2021-02-20 08:57:42Z&#34;</span><span class="p">,</span>
+</span><span class="ln">10</span>                                                    <span class="nt">&#34;Type&#34;</span><span class="p">:</span>  <span class="s2">&#34;sha256signed&#34;</span><span class="p">,</span>
+<span class="hl"><span class="ln">11</span>                                                    <span class="nt">&#34;SignedBlob&#34;</span><span class="p">:</span>  <span class="s2">&#34;mt4lVuVcnAsc[redacted]pYAr+d8LJZyfNan6MeXvk+2SU40BGkfdw==&#34;</span>
+</span><span class="ln">12</span>                                                <span class="p">},</span>
+<span class="ln">13</span>                             <span class="nt">&#34;SourceDomainController&#34;</span><span class="p">:</span>  <span class="s2">&#34;dc.contoso.com&#34;</span><span class="p">,</span>
+<span class="ln">14</span>                             <span class="nt">&#34;DeviceDisplayName&#34;</span><span class="p">:</span>  <span class="s2">&#34;Hybrid Joined Device 2&#34;</span>
+<span class="ln">15</span>                         <span class="p">},</span>
+<span class="ln">16</span>    <span class="nt">&#34;CertificateRequest&#34;</span><span class="p">:</span>  <span class="p">{</span>
+<span class="ln">17</span>                               <span class="nt">&#34;Type&#34;</span><span class="p">:</span>  <span class="s2">&#34;pkcs10&#34;</span><span class="p">,</span>
+<span class="ln">18</span>                               <span class="nt">&#34;Data&#34;</span><span class="p">:</span>  <span class="s2">&#34;MIICdDCCAVwCAQAwL[redacted]ctccQcPO0wwtq0dKUk/+V8aKw4i4TNznHeZ3DY=&#34;</span>
+<span class="ln">19</span>                           <span class="p">},</span>
+<span class="ln">20</span>    <span class="nt">&#34;Attributes&#34;</span><span class="p">:</span>  <span class="p">{</span>
+<span class="ln">21</span>                       <span class="nt">&#34;ReuseDevice&#34;</span><span class="p">:</span>  <span class="kc">true</span><span class="p">,</span>
+<span class="ln">22</span>                       <span class="nt">&#34;ReturnClientSid&#34;</span><span class="p">:</span>  <span class="kc">true</span><span class="p">,</span>
+<span class="ln">23</span>                       <span class="nt">&#34;SharedDevice&#34;</span><span class="p">:</span>  <span class="kc">false</span>
+<span class="ln">24</span>                   <span class="p">},</span>
+<span class="hl"><span class="ln">25</span>    <span class="nt">&#34;JoinType&#34;</span><span class="p">:</span>  <span class="mi">6</span>
+</span><span class="ln">26</span><span class="p">}</span></code></pre></div>
+The join type (row 25) indicates Hybrid Join. Also, the SID of the device is sent (row 9), and it must match the <strong>onPremisesSecurityIdentifier</strong> of the device&rsquo;s Azure AD object.<br><br>
+The enrollment request is authorised by calculating a SHA256 hash from &ldquo;&lt;SID&gt;.&lt;timestamp&gt;&rdquo; (row 9) and signing the hash with the private key of the <strong>Machine certificate</strong>. The signature (row 11) is sent with the enrollment request.</li>
+<li>Return <strong>device certificate</strong></li>
+</ol>
+
+<p><strong>Identity federation flow:</strong></p>
+
+<p><img src="/images/posts/device_hybrid_flow2.png" alt="Hybrid flow 2" /></p>
+
+<ol>
+<li>Generate <strong>Machine certificate</strong></li>
+<li>Set the public key of the <strong>Machine certificate</strong> to the <strong>userCertificate</strong> attribute of the device&rsquo;s on-prem AD object.</li>
+<li>Request SAML token. <br>The computer requests a SAML token from the AD FS server.</li>
+<li>Return <strong>SAML token</strong>.<br><br>
+The token includes the <strong>name</strong> (row 15) and <strong>SID</strong> (row 27) of the device and its on-prem AD GUID in Base64 encoded format (rows 9,18, 24, and 35). The account type is always <strong>DJ</strong> (row 21).
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="ln"> 1</span><span class="nt">&lt;saml:Assertion</span> <span class="na">MajorVersion=</span><span class="s">&#34;1&#34;</span> <span class="na">MinorVersion=</span><span class="s">&#34;1&#34;</span> <span class="na">AssertionID=</span><span class="s">&#34;_b2db43d0-2f96-479e-a31f-e8225326fdbb&#34;</span> <span class="na">Issuer=</span><span class="s">&#34;http://e5.myo365.site/adfs/services/trust/&#34;</span> <span class="na">IssueInstant=</span><span class="s">&#34;2021-02-21T15:13:15.505Z&#34;</span> <span class="na">xmlns:saml=</span><span class="s">&#34;urn:oasis:names:tc:SAML:1.0:assertion&#34;</span><span class="nt">&gt;</span>
+<span class="ln"> 2</span>	<span class="nt">&lt;saml:Conditions</span> <span class="na">NotBefore=</span><span class="s">&#34;2021-02-21T15:13:15.505Z&#34;</span> <span class="na">NotOnOrAfter=</span><span class="s">&#34;2021-02-21T16:13:15.505Z&#34;</span><span class="nt">&gt;</span>
+<span class="ln"> 3</span>		<span class="nt">&lt;saml:AudienceRestrictionCondition&gt;</span>
+<span class="ln"> 4</span>			<span class="nt">&lt;saml:Audience&gt;</span>urn:federation:MicrosoftOnline<span class="nt">&lt;/saml:Audience&gt;</span>
+<span class="ln"> 5</span>		<span class="nt">&lt;/saml:AudienceRestrictionCondition&gt;</span>
+<span class="ln"> 6</span>	<span class="nt">&lt;/saml:Conditions&gt;</span>
+<span class="ln"> 7</span>	<span class="nt">&lt;saml:AttributeStatement&gt;</span>
+<span class="ln"> 8</span>		<span class="nt">&lt;saml:Subject&gt;</span>
+<span class="hl"><span class="ln"> 9</span>			<span class="nt">&lt;saml:NameIdentifier</span> <span class="na">Format=</span><span class="s">&#34;urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified&#34;</span><span class="nt">&gt;</span>UUEMXKriXkOYeql655jERA==<span class="nt">&lt;/saml:NameIdentifier&gt;</span>
+</span><span class="ln">10</span>			<span class="nt">&lt;saml:SubjectConfirmation&gt;</span>
+<span class="ln">11</span>				<span class="nt">&lt;saml:ConfirmationMethod&gt;</span>urn:oasis:names:tc:SAML:1.0:cm:bearer<span class="nt">&lt;/saml:ConfirmationMethod&gt;</span>
+<span class="ln">12</span>			<span class="nt">&lt;/saml:SubjectConfirmation&gt;</span>
+<span class="ln">13</span>		<span class="nt">&lt;/saml:Subject&gt;</span>
+<span class="ln">14</span>		<span class="nt">&lt;saml:Attribute</span> <span class="na">AttributeName=</span><span class="s">&#34;UPN&#34;</span> <span class="na">AttributeNamespace=</span><span class="s">&#34;http://schemas.xmlsoap.org/claims&#34;</span><span class="nt">&gt;</span>
+<span class="hl"><span class="ln">15</span>			<span class="nt">&lt;saml:AttributeValue&gt;</span>DESKTOP-4A5AE8$@company.com<span class="nt">&lt;/saml:AttributeValue&gt;</span>
+</span><span class="ln">16</span>		<span class="nt">&lt;/saml:Attribute&gt;</span>
+<span class="ln">17</span>		<span class="nt">&lt;saml:Attribute</span> <span class="na">AttributeName=</span><span class="s">&#34;ImmutableID&#34;</span> <span class="na">AttributeNamespace=</span><span class="s">&#34;http://schemas.microsoft.com/LiveID/Federation/2008/05&#34;</span><span class="nt">&gt;</span>
+<span class="hl"><span class="ln">18</span>			<span class="nt">&lt;saml:AttributeValue&gt;</span>UUEMXKriXkOYeql655jERA==<span class="nt">&lt;/saml:AttributeValue&gt;</span>
+</span><span class="ln">19</span>		<span class="nt">&lt;/saml:Attribute&gt;</span>
+<span class="ln">20</span>		<span class="nt">&lt;saml:Attribute</span> <span class="na">AttributeName=</span><span class="s">&#34;accounttype&#34;</span> <span class="na">AttributeNamespace=</span><span class="s">&#34;http://schemas.microsoft.com/ws/2012/01&#34;</span><span class="nt">&gt;</span>
+<span class="hl"><span class="ln">21</span>			<span class="nt">&lt;saml:AttributeValue&gt;</span>DJ<span class="nt">&lt;/saml:AttributeValue&gt;</span>
+</span><span class="ln">22</span>		<span class="nt">&lt;/saml:Attribute&gt;</span>
+<span class="ln">23</span>		<span class="nt">&lt;saml:Attribute</span> <span class="na">AttributeName=</span><span class="s">&#34;onpremobjectguid&#34;</span> <span class="na">AttributeNamespace=</span><span class="s">&#34;http://schemas.microsoft.com/identity/claims&#34;</span><span class="nt">&gt;</span>
+<span class="hl"><span class="ln">24</span>			<span class="nt">&lt;saml:AttributeValue&gt;</span>UUEMXKriXkOYeql655jERA==<span class="nt">&lt;/saml:AttributeValue&gt;</span>
+</span><span class="ln">25</span>		<span class="nt">&lt;/saml:Attribute&gt;</span>
+<span class="ln">26</span>		<span class="nt">&lt;saml:Attribute</span> <span class="na">AttributeName=</span><span class="s">&#34;primarysid&#34;</span> <span class="na">AttributeNamespace=</span><span class="s">&#34;http://schemas.microsoft.com/ws/2008/06/identity/claims&#34;</span><span class="nt">&gt;</span>
+<span class="hl"><span class="ln">27</span>			<span class="nt">&lt;saml:AttributeValue&gt;</span>S-1-5-21-126850608-2097551590-1142751551-1260<span class="nt">&lt;/saml:AttributeValue&gt;</span>
+</span><span class="ln">28</span>		<span class="nt">&lt;/saml:Attribute&gt;</span>
+<span class="ln">29</span>		<span class="nt">&lt;saml:Attribute</span> <span class="na">AttributeName=</span><span class="s">&#34;insidecorporatenetwork&#34;</span> <span class="na">AttributeNamespace=</span><span class="s">&#34;http://schemas.microsoft.com/ws/2012/01&#34;</span> <span class="na">a:OriginalIssuer=</span><span class="s">&#34;CLIENT CONTEXT&#34;</span> <span class="na">xmlns:a=</span><span class="s">&#34;http://schemas.xmlsoap.org/ws/2009/09/identity/claims&#34;</span><span class="nt">&gt;</span>
+<span class="ln">30</span>			<span class="nt">&lt;saml:AttributeValue&gt;</span>true<span class="nt">&lt;/saml:AttributeValue&gt;</span>
+<span class="ln">31</span>		<span class="nt">&lt;/saml:Attribute&gt;</span>
+<span class="ln">32</span>	<span class="nt">&lt;/saml:AttributeStatement&gt;</span>
+<span class="ln">33</span>	<span class="nt">&lt;saml:AuthenticationStatement</span> <span class="na">AuthenticationMethod=</span><span class="s">&#34;urn:federation:authentication:windows&#34;</span> <span class="na">AuthenticationInstant=</span><span class="s">&#34;2021-02-21T15:13:15.505Z&#34;</span><span class="nt">&gt;</span>
+<span class="ln">34</span>		<span class="nt">&lt;saml:Subject&gt;</span>
+<span class="hl"><span class="ln">35</span>			<span class="nt">&lt;saml:NameIdentifier</span> <span class="na">Format=</span><span class="s">&#34;urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified&#34;</span><span class="nt">&gt;</span>UUEMXKriXkOYeql655jERA==<span class="nt">&lt;/saml:NameIdentifier&gt;</span>
+</span><span class="ln">36</span>			<span class="nt">&lt;saml:SubjectConfirmation&gt;</span>
+<span class="ln">37</span>				<span class="nt">&lt;saml:ConfirmationMethod&gt;</span>urn:oasis:names:tc:SAML:1.0:cm:bearer<span class="nt">&lt;/saml:ConfirmationMethod&gt;</span>
+<span class="ln">38</span>			<span class="nt">&lt;/saml:SubjectConfirmation&gt;</span>
+<span class="ln">39</span>		<span class="nt">&lt;/saml:Subject&gt;</span>
+<span class="ln">40</span>		<span class="nt">&lt;saml:SubjectLocality</span> <span class="na">IPAddress=</span><span class="s">&#34;&#34;</span> <span class="na">DNSAddress=</span><span class="s">&#34;&#34;</span><span class="nt">/&gt;</span>
+<span class="ln">41</span>	<span class="nt">&lt;/saml:AuthenticationStatement&gt;</span>
+<span class="ln">42</span>	<span class="nt">&lt;Signature</span> <span class="na">xmlns=</span><span class="s">&#34;http://www.w3.org/2000/09/xmldsig#&#34;</span><span class="nt">&gt;</span>
+<span class="ln">43</span>		<span class="nt">&lt;SignedInfo&gt;</span>
+<span class="ln">44</span>			<span class="nt">&lt;CanonicalizationMethod</span> <span class="na">Algorithm=</span><span class="s">&#34;http://www.w3.org/2001/10/xml-exc-c14n#&#34;</span><span class="nt">/&gt;</span>
+<span class="ln">45</span>			<span class="nt">&lt;SignatureMethod</span> <span class="na">Algorithm=</span><span class="s">&#34;http://www.w3.org/2001/04/xmldsig-more#rsa-sha256&#34;</span><span class="nt">/&gt;</span>
+<span class="ln">46</span>			<span class="nt">&lt;Reference</span> <span class="na">URI=</span><span class="s">&#34;#_b2db43d0-2f96-479e-a31f-e8225326fdbb&#34;</span><span class="nt">&gt;</span>
+<span class="ln">47</span>				<span class="nt">&lt;Transforms&gt;</span>
+<span class="ln">48</span>					<span class="nt">&lt;Transform</span> <span class="na">Algorithm=</span><span class="s">&#34;http://www.w3.org/2000/09/xmldsig#enveloped-signature&#34;</span><span class="nt">/&gt;</span>
+<span class="ln">49</span>					<span class="nt">&lt;Transform</span> <span class="na">Algorithm=</span><span class="s">&#34;http://www.w3.org/2001/10/xml-exc-c14n#&#34;</span><span class="nt">/&gt;</span>
+<span class="ln">50</span>				<span class="nt">&lt;/Transforms&gt;</span>
+<span class="ln">51</span>				<span class="nt">&lt;DigestMethod</span> <span class="na">Algorithm=</span><span class="s">&#34;http://www.w3.org/2001/04/xmlenc#sha256&#34;</span><span class="nt">/&gt;</span>
+<span class="ln">52</span>				<span class="nt">&lt;DigestValue&gt;</span>tLyWWYmqHM5OqQoULGhxtO0iFiHu2uqg/nmS0orxfG4=<span class="nt">&lt;/DigestValue&gt;</span>
+<span class="ln">53</span>			<span class="nt">&lt;/Reference&gt;</span>
+<span class="ln">54</span>		<span class="nt">&lt;/SignedInfo&gt;</span>
+<span class="ln">55</span>		<span class="nt">&lt;SignatureValue&gt;</span>Ook5qUQYD[redacted]/39yd2WVc3ZbN5asVD6a3kU25ZqCY3A==<span class="nt">&lt;/SignatureValue&gt;</span>
+<span class="ln">56</span>		<span class="nt">&lt;KeyInfo&gt;</span>
+<span class="ln">57</span>			<span class="nt">&lt;X509Data&gt;</span>
+<span class="ln">58</span>				<span class="nt">&lt;X509Certificate&gt;</span>MIIC7jCCA[redacted]SV4JYS3wGstXeMw5qx++5fw==<span class="nt">&lt;/X509Certificate&gt;</span>
+<span class="ln">59</span>			<span class="nt">&lt;/X509Data&gt;</span>
+<span class="ln">60</span>		<span class="nt">&lt;/KeyInfo&gt;</span>
+<span class="ln">61</span>	<span class="nt">&lt;/Signature&gt;</span>
+<span class="ln">62</span><span class="nt">&lt;/saml:Assertion&gt;</span></code></pre></div></li>
+<li>Request access token for Azure AD Join<br>
+Requests an access token using the SAML token.</li>
+<li>Return <strong>access token</strong> <br>
+The returned access token looks like a normal user token, but there are some differences.<br><br>
+The token contains <strong>account type</strong> (row 7), which is always &ldquo;DJ&rdquo;. It also contains the <strong>on-prem AD object id</strong> (row 16) and <strong>SID</strong> (row 17) of the device. <br><br>
+The <strong>idp</strong> (row 13) and <strong>unique_name</strong> (row 23) attributes contains what seems to be the issuer uri of the AD FS. However, this is not the case, as the <strong>domain part of the uri is the domain of the device</strong>, not FQDN of the AD FS service.<br><br>
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json"><span class="ln"> 1</span><span class="p">{</span>
+<span class="ln"> 2</span>    <span class="nt">&#34;aud&#34;</span><span class="p">:</span> <span class="s2">&#34;01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9&#34;</span><span class="p">,</span>
+<span class="ln"> 3</span>    <span class="nt">&#34;iss&#34;</span><span class="p">:</span> <span class="s2">&#34;https://sts.windows.net/8c63b77b-19de-4b04-a8b2-ae8bb19a00fe/&#34;</span><span class="p">,</span>
+<span class="ln"> 4</span>    <span class="nt">&#34;iat&#34;</span><span class="p">:</span> <span class="mi">1613920183</span><span class="p">,</span>
+<span class="ln"> 5</span>    <span class="nt">&#34;nbf&#34;</span><span class="p">:</span> <span class="mi">1613920183</span><span class="p">,</span>
+<span class="ln"> 6</span>    <span class="nt">&#34;exp&#34;</span><span class="p">:</span> <span class="mi">1613924083</span><span class="p">,</span>
+<span class="hl"><span class="ln"> 7</span>    <span class="nt">&#34;account_type&#34;</span><span class="p">:</span> <span class="s2">&#34;DJ&#34;</span><span class="p">,</span>
+</span><span class="ln"> 8</span>    <span class="nt">&#34;acr&#34;</span><span class="p">:</span> <span class="s2">&#34;1&#34;</span><span class="p">,</span>
+<span class="ln"> 9</span>    <span class="nt">&#34;aio&#34;</span><span class="p">:</span> <span class="s2">&#34;AXQAi/8TAAAASTiNcttgcax[redacted]o27/TRsgA==&#34;</span><span class="p">,</span>
+<span class="ln">10</span>    <span class="nt">&#34;amr&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;wia&#34;</span><span class="p">],</span>
+<span class="ln">11</span>    <span class="nt">&#34;appid&#34;</span><span class="p">:</span> <span class="s2">&#34;1b730954-1685-4b74-9bfd-dac224a7b894&#34;</span><span class="p">,</span>
+<span class="ln">12</span>    <span class="nt">&#34;appidacr&#34;</span><span class="p">:</span> <span class="s2">&#34;0&#34;</span><span class="p">,</span>
+<span class="hl"><span class="ln">13</span>    <span class="nt">&#34;idp&#34;</span><span class="p">:</span> <span class="s2">&#34;http://company.com/adfs/services/trust/&#34;</span><span class="p">,</span>
+</span><span class="ln">14</span>    <span class="nt">&#34;in_corp&#34;</span><span class="p">:</span> <span class="s2">&#34;true&#34;</span><span class="p">,</span>
+<span class="ln">15</span>    <span class="nt">&#34;ipaddr&#34;</span><span class="p">:</span> <span class="s2">&#34;13.122.32.15&#34;</span><span class="p">,</span>
+<span class="hl"><span class="ln">16</span>    <span class="nt">&#34;on_prem_id&#34;</span><span class="p">:</span> <span class="s2">&#34;5c0c4151-e2aa-435e-987a-a97ae798c444&#34;</span><span class="p">,</span>
+</span><span class="hl"><span class="ln">17</span>    <span class="nt">&#34;primary_sid&#34;</span><span class="p">:</span> <span class="s2">&#34;S-1-5-21-1768792239-781667213-1105014165-9071&#34;</span><span class="p">,</span>
+</span><span class="ln">18</span>    <span class="nt">&#34;rh&#34;</span><span class="p">:</span> <span class="s2">&#34;0.AAAAnKqUVuEE8U2dN11k0JFdQlQJcxuFFnRLm_3awiSnuJR5AIE.&#34;</span><span class="p">,</span>
+<span class="ln">19</span>    <span class="nt">&#34;scp&#34;</span><span class="p">:</span> <span class="s2">&#34;policy_management&#34;</span><span class="p">,</span>
+<span class="ln">20</span>    <span class="nt">&#34;sub&#34;</span><span class="p">:</span> <span class="s2">&#34;6vWJbn3QWCXJShfSB3c2MbRKe5YPYZ01e3nLFlWiUFk&#34;</span><span class="p">,</span>
+<span class="ln">21</span>    <span class="nt">&#34;tenant_region_scope&#34;</span><span class="p">:</span> <span class="s2">&#34;EU&#34;</span><span class="p">,</span>
+<span class="ln">22</span>    <span class="nt">&#34;tid&#34;</span><span class="p">:</span> <span class="s2">&#34;8c63b77b-19de-4b04-a8b2-ae8bb19a00fe&#34;</span><span class="p">,</span>
+<span class="hl"><span class="ln">23</span>    <span class="nt">&#34;unique_name&#34;</span><span class="p">:</span> <span class="s2">&#34;http://company.com/adfs/services/trust/#&#34;</span><span class="p">,</span>
+</span><span class="ln">24</span>    <span class="nt">&#34;uti&#34;</span><span class="p">:</span> <span class="s2">&#34;fjp57QEVuEGDuKTRzjQkAA&#34;</span><span class="p">,</span>
+<span class="ln">25</span>    <span class="nt">&#34;ver&#34;</span><span class="p">:</span> <span class="s2">&#34;1.0&#34;</span><span class="p">,</span>
+<span class="ln">26</span>    <span class="nt">&#34;xms_sptype&#34;</span><span class="p">:</span> <span class="s2">&#34;0&#34;</span>
+<span class="ln">27</span><span class="p">}</span></code></pre></div></li>
+<li>Generate <strong>Device key</strong> and <strong>Transport key</strong>.</li>
+<li>Enroll device</li>
+<li>Return <strong>device certificate</strong></li>
+</ol>
+
+<h1 id="conditional-access">Conditional Access</h1>
+
+<p>Devices are a crucial part of Microsoft&rsquo;s <strong>Zero Trust</strong> concept:</p>
+
+<p><img src="/images/posts/diagram-zero-trust-security-elements.png" alt="Zero Trust" /></p>
+
+<p>In practice, implementing Zero Trust requires Azure AD Conditional Access (CA), which is included in Azure AD Premium P1. Among other things, with CA, we can allow or deny access based on the device information.</p>
+
+<p>According to <a href="https://docs.microsoft.com/en-us/azure/active-directory/conditional-access/require-managed-devices#managed-devices" target="_blank">documentation</a>,
+we can require the device to be <strong>managed</strong>. Managed devices are devices that are either <strong>Hybrid Joined</strong> or marked as <strong>compliant</strong>.</p>
+
+<p>The Hybrid Joined devices are assumed to be managed by <strong>Configuration Manager</strong> and/or <strong>GPO</strong>s.
+Other devices can be marked compliant by Mobile Device Management (MDM) system, such as <a href="https://docs.microsoft.com/en-us/mem/intune/fundamentals/what-is-intune" target="_blank">Intune</a>. However, as I described in an earlier <a href="/post/mdm/" target="_blank">blog post</a>, the device compliance can be &ldquo;faked&rdquo;, depending on the compliance requirements.
+The compliance can also be set by <strong>AADInternals</strong> <a href="/aadinternals/#set-aadintdevicecompliant-a" target="_blank">Set&#8209;AADIntDeviceCompliant</a> function.</p>
+
+<h1 id="single-sign-on">Single-Sign-On</h1>
+
+<p>As mentioned earlier, devices registered or joined to Azure AD allows single-sign-on (SSO) for Azure AD. The SSO is implemented by <a href="https://docs.microsoft.com/en-us/azure/active-directory/devices/concept-primary-refresh-token" target="_blank">Primary Refresh Tokens</a> (PRTs),
+which can be created with the device and transport certificates.
+The process and details of creating PRTs are described in an earlier <a href="/post/prt/" target="_blank">blog post</a>.</p>
+
+<p>One important detail related to PRTs is the authentication method used when the device was registered or joined to Azure AD. If the user was authenticated with MFA, also the access tokens fetched using the PRT will have
+the MFA claim set. This will satisfy MFA requirement of CA policies. Administrators can change the methods after the registration with <strong>AADInternals</strong> <a href="/aadinternals/#set-aadintdeviceregauthmethods-a" target="_blank">Set&#8209;AADIntDeviceRegAuthMethods</a> function.</p>
+
+<h1 id="joining-devices-with-aadinternals">Joining devices with AADInternals</h1>
+
+<p><strong>AADInternals</strong> can register, join, and hybrid join devices to Azure AD with <a href="/aadinternals/#join-aadintdevicetoazuread-j" target="_blank">Join&#8209;AADIntDeviceToAzureAD</a> function.
+Let&rsquo;s see how to do this in action!</p>
+
+<h2 id="registering-devices">Registering devices</h2>
+
+<p>Registering devices to Azure AD is supported in <strong>AADInternals</strong> version <strong>v0.4.6</strong> and later. <br><br>
+To register a device, obtain an access token and provide <strong>Register</strong> as <strong>JoinType</strong>:</p>
+
+<p><div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get access token for Azure AD Join and save to cache</span>
+<span class="nb">Get-AADIntAccessTokenForAADJoin</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Register a new device to Azure AD</span>
+<span class="nb">Join-AADIntDeviceToAzureAD</span> <span class="n">-DeviceName</span> <span class="s2">&#34;My Registered Device&#34;</span> <span class="n">-JoinType</span> <span class="n">Register</span></code></pre></div>
+<strong>Output:</strong></p>
+
+<pre><code>Device successfully registered to Azure AD:
+  DisplayName:     &quot;My Registered Device&quot;
+  DeviceId:        77b7781f-9531-44f0-bae2-ad45b995880a
+  Cert thumbprint: 00D8F218928A63D466091BA6847CE5A701A75218
+  Cert file name : &quot;77b7781f-9531-44f0-bae2-ad45b995880a.pfx&quot;
+Local SID:
+  S-1-5-32-544
+Additional SIDs:
+  S-1-12-1-4209995732-1115842628-132208791-3473393508
+  S-1-12-1-1284395347-1172857899-2838897599-3439875365
+</code></pre>
+
+<h2 id="joining-devices">Joining devices</h2>
+
+<p>The <strong>JoinType</strong> defaults to <strong>Join</strong>, so joining a device is easy:</p>
+
+<p><div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get access token for Azure AD Join and save to cache</span>
+<span class="nb">Get-AADIntAccessTokenForAADJoin</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Register a new device to Azure AD</span>
+<span class="nb">Join-AADIntDeviceToAzureAD</span> <span class="n">-DeviceName</span> <span class="s2">&#34;My Joined Device&#34;</span></code></pre></div>
+<strong>Output:</strong></p>
+
+<pre><code>Device successfully registered to Azure AD:
+  DisplayName:     &quot;My Joined Device&quot;
+  DeviceId:        bbe84457-2c93-4857-a7e4-0573fdcfd229
+  Cert thumbprint: 6AFA62FEF611EBC1DFDA72B0221C986B77CF7597
+  Cert file name : &quot;bbe84457-2c93-4857-a7e4-0573fdcfd229.pfx&quot;
+Local SID:
+  S-1-5-32-544
+Additional SIDs:
+  S-1-12-1-4209995732-1115842628-132208791-3473393508
+  S-1-12-1-1284395347-1172857899-2838897599-3439875365
+  S-1-12-1-1372034668-1267036473-87356082-2200290463
+</code></pre>
+
+<h2 id="hybrid-joining-devices">Hybrid joining devices</h2>
+
+<p>As explained earlier, hybrid join requires that a device object exists in Azure AD. Moreover, we now know that there are two ways to create those device objects to Azure AD.</p>
+
+<h3 id="hybrid-joining-to-synced-device-option-1">Hybrid joining to synced device - option 1</h3>
+
+<p>Let&rsquo;s start by creating a device object to on-prem AD, syncing it to Azure AD, and hybrid joining it.</p>
+
+<p>The following script creates a computer object to on-prem AD (rows 1-5), gets its GUID (rows 6-7), creates a self-signed certificate for it using <strong>AADInternals</strong> (row 8), and finally, sets the public key
+of the certificate to the <strong>userCertificate</strong> attribute of the computer object (row 9).</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="ln">1</span><span class="nv">$ComputerName</span> <span class="p">=</span> <span class="s2">&#34;DESKTOP-1234&#34;</span>
+<span class="ln">2</span><span class="nv">$ComputerOU</span> <span class="p">=</span>   <span class="s2">&#34;OU=Computers,DC=company,DC=com&#34;</span>
+<span class="ln">3</span><span class="nv">$CloudDomain</span> <span class="p">=</span>  <span class="s2">&#34;company.com&#34;</span>
+<span class="ln">4</span>
+<span class="ln">5</span><span class="nb">New-ADComputer</span> <span class="n">-Name</span> <span class="nv">$ComputerName</span> <span class="n">-SAMAccountName</span> <span class="nv">$ComputerName</span> <span class="n">-DisplayName</span> <span class="nv">$ComputerName</span> <span class="n">-Path</span> <span class="nv">$ComputerOU</span> <span class="n">-Enabled</span> <span class="nv">$true</span>
+<span class="ln">6</span><span class="nv">$ComputerObject</span> <span class="p">=</span> <span class="nb">Get-ADComputer</span> <span class="nv">$ComputerName</span> 
+<span class="ln">7</span><span class="nv">$ComputerGuid</span> <span class="p">=</span> <span class="nv">$ComputerObject</span><span class="p">.</span><span class="n">ObjectGUID</span>
+<span class="ln">8</span><span class="nb">New-AADIntCertificate</span> <span class="n">-SubjectName</span> <span class="s2">&#34;CN=$ComputerGuid&#34;</span> <span class="n">-Export</span>
+<span class="ln">9</span><span class="nb">Set-ADObject</span> <span class="nv">$ComputerGuid</span> <span class="n">-Add</span> <span class="p">@{</span><span class="s2">&#34;userCertificate&#34;</span> <span class="p">=</span> <span class="no">[byte[]]</span><span class="p">(</span><span class="nb">get-content</span> <span class="s2">&#34;.\CN=$ComputerGuid.cer&#34;</span> <span class="n">-Encoding</span> <span class="n">byte</span><span class="p">)}</span></code></pre></div>
+
+<p>As the output shows, the generated certificate is also exported to a file:</p>
+
+<pre><code>Certificate successfully exported:
+  CN=09d302c1-8160-430a-a9b1-a699ae696b31.pfx
+  CN=09d302c1-8160-430a-a9b1-a699ae696b31.cer
+</code></pre>
+
+<p>The script created a new computer object to the Active Directory:</p>
+
+<p><img src="/images/posts/devices_1.png" alt="Computer added to AD" /></p>
+
+<p>Next, run the following cmdlet to start the sync:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="nb">Start-ADSyncSyncCycle</span></code></pre></div>
+
+<p>After the sync, the device appears in Azure AD:</p>
+
+<p><img src="/images/posts/devices_2.png" alt="Computer added to Azure AD" /></p>
+
+<p>Now we can continue the script we started earlier. First, we need to get the tenant id (row 10).
+By using the generated certificate and providing the name and SID of the computer, we can hybrid join the device (row 11):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="ln">10</span><span class="nv">$TenantId</span> <span class="p">=</span> <span class="nb">Get-AADIntTenantID</span> <span class="n">-Domain</span> <span class="nv">$CloudDomain</span>
+<span class="ln">11</span><span class="nb">Join-AADIntDeviceToAzureAD</span> <span class="n">-PfxFileName</span> <span class="s2">&#34;.\CN=$ComputerGuid.pfx&#34;</span> <span class="n">-DeviceName</span> <span class="nv">$ComputerObject</span><span class="p">.</span><span class="n">Name</span> <span class="n">-SID</span> <span class="nv">$ComputerObject</span><span class="p">.</span><span class="n">SID</span> <span class="n">-TenantId</span> <span class="nv">$TenantId</span></code></pre></div>
+
+<pre><code>Device successfully registered to Azure AD:
+  DisplayName:     &quot;DESKTOP-1234&quot;
+  DeviceId:        09d302c1-8160-430a-a9b1-a699ae696b31
+  Cert thumbprint: 99EE3264242568BDDB3D0800C064F9D369B051E8
+  Cert file name : &quot;09d302c1-8160-430a-a9b1-a699ae696b31.pfx&quot;
+</code></pre>
+
+<p>Now the computer is successfully hybrid joined to Azure AD:</p>
+
+<p><img src="/images/posts/devices_3.png" alt="Computer Hybrid Joined to Azure AD" /></p>
+
+<h3 id="hybrid-joining-to-synced-device-option-2">Hybrid joining to synced device - option 2</h3>
+
+<p>It is also possible to create device objects directly to Azure AD with <strong>AADInternals</strong> using <a href="/aadinternals/#join-aadintonpremdevicetoazuread-a" target="_blank">Join&#8209;AADIntOnPremDeviceToAzureAD</a> function.
+The function uses the same API Azure AD Connect is using, so <strong>Global Admin</strong> or <strong>Directory Synchronization Accounts</strong> role is required.</p>
+
+<p>If SID, DeviceId, or certificate are not provided, the function will generate them.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get access token and save to cache</span>
+<span class="nb">Get-AADIntAccessTokenForAADGraph</span> <span class="n">-SaveToCache</span> 
+
+<span class="c"># Create a device object to Azure AD</span>
+<span class="nb">Join-AADIntOnPremDeviceToAzureAD</span> <span class="n">-DeviceName</span> <span class="s2">&#34;DESKTOP-5678&#34;</span></code></pre></div>
+
+<pre><code>Device successfully created:
+  Device Name:     &quot;DESKTOP-5678&quot;
+  Device ID:       663cb1d1-bd4b-412f-a673-14f04ea55622
+  Device SID:      S-1-5-21-378725881-735212363-822861820-5928
+  Cloud Anchor:    Device_d7bf50e4-9538-43e9-b1ed-d20f8fd60064
+  Source Anchor:   0bE8Zku9L0GmcxTwTqVWIg==
+  Cert thumbprint: DF40352AD440EF8A4BECC27347A4FA9D35677188
+  Cert file name:  &quot;663cb1d1-bd4b-412f-a673-14f04ea55622-user.pfx&quot;
+</code></pre>
+
+<p>We can now use the generated certificate and other information to hybrid join the device:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get the tenant id</span>
+<span class="nv">$TenantId</span> <span class="p">=</span> <span class="nb">Get-AADIntTenantID</span> <span class="n">-Domain</span> <span class="n">company</span><span class="p">.</span><span class="n">com</span>
+<span class="c"># Hybrid join the device</span>
+<span class="nb">Join-AADIntDeviceToAzureAD</span> <span class="n">-DeviceName</span> <span class="s2">&#34;DESKTOP-5678&#34;</span> <span class="n">-SID</span> <span class="s2">&#34;S-1-5-21-378725881-735212363-822861820-5928&#34;</span> <span class="n">-TenantId</span> <span class="nv">$TenantId</span> <span class="n">-PfxFileName</span> <span class="p">.\</span><span class="n">663cb1d1-bd4b</span><span class="p">-</span><span class="n">412f-a673</span><span class="p">-</span><span class="n">14f04ea55622-user</span><span class="p">.</span><span class="n">pfx</span></code></pre></div></p>
+
+<pre><code>Device successfully registered to Azure AD:
+  DisplayName:     &quot;DESKTOP-5678&quot;
+  DeviceId:        663cb1d1-bd4b-412f-a673-14f04ea55622
+  Cert thumbprint: BCDFF1388B845A2CEF4D0C9F4C08DD68CC130B41
+  Cert file name : &quot;663cb1d1-bd4b-412f-a673-14f04ea55622.pfx&quot;
+</code></pre>
+
+<h3 id="hybrid-joining-by-federation">Hybrid joining by federation</h3>
+
+<p>To hybrid join a device with federation, a SAML token is needed. To create the SAML token, we need to have the <strong>token signing certificate</strong> and the <strong>issuer uri</strong> of the identity provider.</p>
+
+<p><strong>Note:</strong> AD FS certificate export functionality was heavily refactored in <strong>v0.4.7</strong>. See the <a href="/post/adfs/" target="_blank">blog</a> for details.</p>
+
+<p>Easies way to get the certificate is to export it from AD FS with <strong>AADInternals</strong>:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Export AD FS token signing and encryption certificates</span>
+<span class="nb">Export-AADIntADFSCertificates</span></code></pre></div></p>
+
+<p>To get the issuer uri, run the following cmdlet on AD FS server:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get AD FS issuer uri</span>
+<span class="nv">$issuer</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Get-AdfsProperties</span><span class="p">).</span><span class="n">Identifier</span><span class="p">.</span><span class="n">OriginalString</span></code></pre></div></p>
+
+<p>To create a SAML token for the device:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Create a new SAML token</span>
+<span class="nv">$saml</span> <span class="p">=</span> <span class="nb">New-AADIntSAMLToken</span> <span class="n">-UserName</span> <span class="s2">&#34;DESKTOP-9999&#34;</span> <span class="n">-DeviceGUID</span> <span class="p">(</span><span class="nb">New-Guid</span><span class="p">)</span> <span class="n">-Issuer</span> <span class="nv">$issuer</span> <span class="n">-PfxFileName</span> <span class="p">.\</span><span class="n">ADFS_signing</span><span class="p">.</span><span class="n">pfx</span></code></pre></div></p>
+
+<p>Now we have all we need to hybrid join the device:
+<div class="highlight"><pre class="chroma"><code class="language-powershell" data-lang="powershell"><span class="c"># Get an access token for the device with the SAML token</span>
+<span class="nb">Get-AADIntAccessTokenForAADJoin</span> <span class="n">-SAMLToken</span> <span class="nv">$saml</span> <span class="n">-Device</span> <span class="n">-SaveToCache</span>
+
+<span class="c"># Hybrid join the device</span>
+<span class="nb">Join-AADIntDeviceToAzureAD</span> <span class="n">-DeviceName</span> <span class="s2">&#34;DESKTOP-9999&#34;</span></code></pre></div></p>
+
+<pre><code>Device successfully registered to Azure AD:
+  DisplayName:     &quot;DESKTOP-9999&quot;
+  DeviceId:        0810056c-d2d5-4c1b-bc17-2f2fbedd6ca3
+  Cert thumbprint: 3022FF7937C0766CE3DB0AD45C9413FB68A05EE3
+  Cert file name : &quot;0810056c-d2d5-4c1b-bc17-2f2fbedd6ca3.pfx&quot;
+Local SID:
+  S-1-5-32-544
+Additional SIDs:
+  S-1-12-1-3240472016-1160587922-3614255014-3410032901
+  S-1-12-1-2566832563-1141717763-392342924-578657198
+</code></pre>
+
+<h1 id="summary">Summary</h1>
+
+<p>In this blog post, I explained what happens under-the-hood when devices are joined to Azure AD. Although there are three different join types, all device certificates are technically identical.</p>
+
+<p>Next question would be how to exploit what we&rsquo;ve have learned? Well, that is another story soon to be told :wink:</p>
+
+<h1 id="references">References</h1>
+
+<ul>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/devices/overview" target="_blank">What is a device identity?</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/devices/concept-azure-ad-register" target="_blank">Azure AD registered devices</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/devices/concept-azure-ad-join" target="_blank">Azure AD joined devices</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/devices/concept-azure-ad-join-hybrid" target="_blank">Hybrid Azure AD joined devices</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/hybrid/how-to-connect-device-writeback" target="_blank">Azure AD Connect: Enabling device writeback</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/conditional-access/overview" target="_blank">What is Conditional Access?</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/conditional-access/require-managed-devices#managed-devices" target="_blank">How To: Require managed devices for cloud app access with Conditional Access</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/active-directory-graph-api" target="_blank">Azure Active Directory Graph API</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/mem/intune/fundamentals/what-is-intune" target="_blank">Microsoft Intune is an MDM and MAM provider for your devices</a></li>
+<li>Microsoft: <a href="https://docs.microsoft.com/en-us/azure/active-directory/devices/concept-primary-refresh-token" target="_blank">What is a Primary Refresh Token?</a></li>
+</ul>
+		</div>
+		
+<div class="post__tags tags clearfix">
+	<img class="icon icon-tag" src="/images/tags.png" width="16" height="16" viewBox="0 0 16 16">
+	
+	<ul class="tags__list">
+		<li class="tags__item"><a class="tags__link" href="/tags/azure-active-directory/" rel="tag">Azure Active Directory</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/azure/" rel="tag">Azure</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/security/" rel="tag">security</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/mfa/" rel="tag">MFA</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/bprt/" rel="tag">BPRT</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/prt/" rel="tag">PRT</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/device/" rel="tag">device</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/join/" rel="tag">join</a></li>
+		<li class="tags__item"><a class="tags__link" href="/tags/hybrid-join/" rel="tag">hybrid join</a></li>
+	</ul>
+</div>
+
+		<div class="post__tags tags clearfix">
+<ul class="tags__list">
+	<li class="tags__item"><a class="tags__link" href="http://twitter.com/intent/tweet?url=http%3a%2f%2fo365blog.com%2fpost%2fdevices%2f&text=Deep-dive%20to%20Azure%20AD%20device%20join&tw_p=tweetbutton" title="Share in Twitter" target="_blank" rel="nofollow"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+	<li class="tags__item"><a class="tags__link" href="https://www.linkedin.com/shareArticle?url=http%3a%2f%2fo365blog.com%2fpost%2fdevices%2f&mini=true&title=Deep-dive%20to%20Azure%20AD%20device%20join&summary=&source=o365blog.com" title="Share in LinkedIn" target="_blank" rel="nofollow"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+</ul>
+</div>
+	</article>
+	
+<div class="authorbox clearfix">
+	<figure class="authorbox__avatar">
+		<img alt="Dr Nestori Syynimaa (@DrAzureAD) avatar" src="/images/nestori.jpg" class="avatar" height="90" width="90">
+	</figure>
+	<div class="authorbox__header">
+		<span class="authorbox__name">About Dr Nestori Syynimaa (@DrAzureAD)</span>
+	</div>
+	<div class="authorbox__description">
+		Dr Syynimaa works as Senior Principal Information Security Researcher at Secureworks CTU (Counter Threat Unit). <br> Before moving to his current position, Dr Syynimaa worked as a CIO, consultant, trainer, and university lecturer for over 20 years. He is a regular speaker in scientific and professional conferences related to Microsoft 365 and Azure AD security. <br><br>Dr Syynimaa is Microsoft Certified Expert (Microsoft 365), Microsoft Certified Azure Solutions Architect Expert, Microsoft Certified Trainer, Microsoft MVP (Enterprise Mobility, Identity and Access &amp; Intune), and Microsoft Most Valuable Security Researcher (MVR).
+	</div>
+</div>
+	
+<nav class="post-nav row clearfix" itemscope="itemscope" itemtype="http://schema.org/SiteNavigationElement">
+	<div class="post-nav__item post-nav__item--prev col-1-2">
+		<a class="post-nav__link" href="/post/bprt/" rel="prev"><span class="post-nav__caption">«Previous</span><p class="post-nav__post-title">BPRT unleashed: Joining multiple devices to Azure AD and Intune</p></a>
+	</div>
+	<div class="post-nav__item post-nav__item--next col-1-2">
+		<a class="post-nav__link" href="/post/adfs/" rel="next"><span class="post-nav__caption">Next»</span><p class="post-nav__post-title">Exporting AD FS certificates revisited: Tactics, Techniques and Procedures</p></a>
+	</div>
+</nav>
+
+	
+<div class="comments">
+	<div id="disqus_thread"></div>
+<script>
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "o365blog-com" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+</main>
+
+<aside class="sidebar" itemscope="itemscope" itemtype="http://schema.org/WPSideBar">
+	
+<div class="widget-search widget">
+	<form class="widget-search__form" role="search" method="get" action="//google.com/search">
+		<label>
+			<span class="screen-reader-text">Search for:</span>
+			<input class="widget-search__field" type="search" placeholder="SEARCH..." value="" name="q">
+		</label>
+		<input class="widget-search__submit" type="submit" value="Search">
+		<input type="hidden" name="sitesearch" value="http://o365blog.com" />
+	</form>
+</div>
+	
+<div class="widget-recent widget">
+	<h4 class="widget__title">Recent Posts</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/post/pta/">Exploiting Azure AD PTA vulnerabilities: Creating backdoor and harvesting credentials</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/gmsa/">Hunt for the gMSA secrets</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/august_2022/">AADInternals World Tour August 2022: USA</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/deviceidentity/">Stealing and faking Azure AD device identities</a></li>
+			<li class="widget__item"><a class="widget__link" href="/post/partners/">Microsoft partners: The Good, The Bad, or The Ugly?</a></li>
+		</ul>
+	</div>
+</div>
+
+	
+<div class="widget-categories widget">
+	<h4 class="widget__title">Categories</h4>
+	<div class="widget__content">
+		<ul class="widget__list">
+			<li class="widget__item"><a class="widget__link" href="/categories/"></a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/article">Article</a></li>
+			<li class="widget__item"><a class="widget__link" href="/categories/blog">Blog</a></li>
+		</ul>
+	</div>
+</div>
+	
+<div class="widget-social widget">
+	<h4 class="widget-social__title widget__title">Social</h4>
+	<div class="widget-social__content widget__content">
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Twitter" rel="noopener noreferrer" href="https://twitter.com/DrAzureAD" target="_blank">
+				<svg class="widget-social__link-icon icon-twitter" viewBox="0 0 384 312" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5 0-78.8 35.3-78.8 78.8 0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3-6.7 11.6-10.6 25.2-10.6 39.6 0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1 0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4 0-12.6-.4-18.8-1.1 34.9 22.4 76.3 35.4 120.8 35.4 144.9 0 224.1-120 224.1-224.1 0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg>
+				<span>Twitter</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="" rel="noopener noreferrer" href="https://linkedin.com/in/nestori" target="_blank">
+				<svg class="widget-social__link-icon icon-linkedin" viewBox="0 0 352 352" width="24" height="24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M0,40v272c0,21.9,18.1,40,40,40h272c21.9,0,40-18.1,40-40V40c0-21.9-18.1-40-40-40H40C18.1,0,0,18.1,0,40z M312,32 c4.6,0,8,3.4,8,8v272c0,4.6-3.4,8-8,8H40c-4.6,0-8-3.4-8-8V40c0-4.6,3.4-8,8-8H312z M59.5,87c0,15.2,12.3,27.5,27.5,27.5 c15.2,0,27.5-12.3,27.5-27.5c0-15.2-12.3-27.5-27.5-27.5C71.8,59.5,59.5,71.8,59.5,87z M187,157h-1v-21h-45v152h47v-75 c0-19.8,3.9-39,28.5-39c24.2,0,24.5,22.4,24.5,40v74h47v-83.5c0-40.9-8.7-72-56.5-72C208.5,132.5,193.3,145.1,187,157z M64,288h47.5 V136H64V288z"/></svg>
+				<span>LinkedIn</span>
+			</a>
+		</div>
+		<div class="widget-social__item widget__item">
+			<a class="widget-social__link widget__link btn" title="Email" href="mailto:nestori.syynimaa@gerenios.com">
+				<svg class="widget-social__link-icon icon-mail" viewBox="0 0 416 288" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill="#fff"><path d="m0 16v256 16h16 384 16v-16-256-16h-16-384-16zm347 16-139 92.5-139-92.5zm-148 125.5 9 5.5 9-5.5 167-111.5v210h-352v-210z"/></svg>
+				<span>nestori.syynimaa@gerenios.com</span>
+			</a>
+		</div>
+	</div>
+</div>
+
+	
+<div class="widget-taglist widget">
+	<h4 class="widget__title">Tags</h4>
+	<div class="widget__content">
+		<a class="widget__link widget__link--taglist" href="/tags/aadconnect" title="aadconnect">aadconnect (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/aadinternals" title="aadinternals">aadinternals (10)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/abusing" title="abusing">abusing (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/active-directory" title="active-directory">active-directory (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/adfs" title="adfs">adfs (5)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/admin" title="admin">admin (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/administration" title="administration">administration (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/authentication" title="authentication">authentication (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure" title="azure">azure (20)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azure-active-directory" title="azure-active-directory">azure-active-directory (27)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/azuread" title="azuread">azuread (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/backdoor" title="backdoor">backdoor (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blackhat" title="blackhat">blackhat (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/blue-team" title="blue-team">blue-team (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/bprt" title="bprt">bprt (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/browser" title="browser">browser (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/compromise" title="compromise">compromise (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/conferences" title="conferences">conferences (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/defcon" title="defcon">defcon (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/desktop-sso" title="desktop-sso">desktop-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/device" title="device">device (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/dns" title="dns">dns (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/email" title="email">email (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/encryption" title="encryption">encryption (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/exchange" title="exchange">exchange (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/federation" title="federation">federation (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/forensics" title="forensics">forensics (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/gdpr" title="gdpr">gdpr (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/global-administrator" title="global-administrator">global-administrator (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/graph" title="graph">graph (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/groups" title="groups">groups (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/guest" title="guest">guest (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/hybrid-join" title="hybrid-join">hybrid-join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/identity" title="identity">identity (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/inactive" title="inactive">inactive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/insider" title="insider">insider (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/intune" title="intune">intune (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/join" title="join">join (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/logs" title="logs">logs (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mailbox" title="mailbox">mailbox (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mdm" title="mdm">mdm (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/mfa" title="mfa">mfa (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office-365" title="office-365">office-365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/office365" title="office365">office365 (9)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/on-prem" title="on-prem">on-prem (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/onedrive" title="onedrive">onedrive (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/outsider" title="outsider">outsider (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/partner" title="partner">partner (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/password" title="password">password (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/persistence" title="persistence">persistence (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/phishing" title="phishing">phishing (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/planner" title="planner">planner (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/powershell" title="powershell">powershell (13)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/prt" title="prt">prt (6)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/pta" title="pta">pta (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/recon" title="recon">recon (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/reconnaissance" title="reconnaissance">reconnaissance (4)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/seamless-sso" title="seamless-sso">seamless-sso (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/security" title="security">security (31)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sso" title="sso">sso (2)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/sync" title="sync">sync (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/synchronisation" title="synchronisation">synchronisation (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/t2" title="t2">t2 (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/talks" title="talks">talks (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/teams" title="teams">teams (3)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/user" title="user">user (1)</a>
+		<a class="widget__link widget__link--taglist" href="/tags/virtual-machine" title="virtual-machine">virtual-machine (1)</a>
+	</div>
+</div>
+</aside>
+
+	</div>
+		<footer class="footer" itemscope="itemscope" itemtype="http://schema.org/WPFooter">
+			<div class="container container-inner">
+				<p class="footer__copyright"><span><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img src="/images/CC-BY.png"></a> </span></p>
+			</div>
+		</footer>
+	</div>
+
+<script>
+	var navigation = responsiveNav(".menu", {
+		navClass: "menu--collapse",
+	});
+</script>
+</body>
+</html>

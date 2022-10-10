@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Mdm on Office 365 blog</title>
+    <link>http://o365blog.com/tags/mdm/</link>
+    <description>Recent content in Mdm on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Sun, 06 Sep 2020 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/mdm/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Bypassing conditional access by faking device compliance.</title>
+      <link>http://o365blog.com/post/mdm/</link>
+      <pubDate>Sun, 06 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/mdm/</guid>
+      <description>&lt;p&gt;In my previous &lt;a href=&#34;http://o365blog.com/post/prt/#creating-your-own-prt&#34; target=&#34;_blank&#34;&gt;blog&lt;/a&gt; I demonstrated how to create
+a Persistent Refresh Token (PRT) by joining imaginary device to Azure AD.&lt;/p&gt;
+
+&lt;p&gt;In this blog, with &lt;strong&gt;AADInternals v0.4.2&lt;/strong&gt;, I&amp;rsquo;ll show how to make those devices compliant, allowing bypassing compliance related conditional access (CA) policies.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

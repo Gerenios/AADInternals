@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Mfa on Office 365 blog</title>
+    <link>http://o365blog.com/tags/mfa/</link>
+    <description>Recent content in Mfa on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Wed, 03 Mar 2021 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/mfa/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Deep-dive to Azure AD device join</title>
+      <link>http://o365blog.com/post/devices/</link>
+      <pubDate>Wed, 03 Mar 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/devices/</guid>
+      <description>&lt;p&gt;Devices (endpoints) are a crucial part of Microsoft&amp;rsquo;s Zero Trust concept. Devices can be Registered, Joined, or Hybrid Joined to Azure AD.
+Conditional Access uses the device information as one of the decisions criteria to allow or block access to services.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll explain what these different registration types are, what happens under-the-hood during the registration, and how to register devices with &lt;a href=&#34;http://o365blog.com/aadinternals/#hack-functions-azure-ad-join-mdm-prt&#34; target=&#34;_blank&#34;&gt;AADInternals&lt;/a&gt; &lt;strong&gt;v0.4.6&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>BPRT unleashed: Joining multiple devices to Azure AD and Intune</title>
+      <link>http://o365blog.com/post/bprt/</link>
+      <pubDate>Sun, 31 Jan 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/bprt/</guid>
+      <description>&lt;p&gt;In October 2020, someone contacted me and asked whether it would be possible
+to create BPRTs using AADInternals. I hadn&amp;rsquo;t even heard of BPRTs, but was eventually able to help him to create BPRTs. Now this
+functionality is included in &lt;strong&gt;&lt;a href=&#34;http://o365blog.com/aadinternals/&#34; target=&#34;_blank&#34;&gt;AADInternals&lt;/a&gt; v0.4.5&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll explain what BPRTs are and how they can be used to join multiple devices to both Azure AD and Intune.
+I&amp;rsquo;ll also show the dark side of BPRTs: how they can be used to conduct DOS attacks against Azure AD, and how to detect and prevent this.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Using Azure Cloud Shell from PowerShell</title>
+      <link>http://o365blog.com/post/cloudshell/</link>
+      <pubDate>Wed, 30 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/cloudshell/</guid>
+      <description>&lt;p&gt;Azure Cloud Shell is a browser-based shell for managing Azure resources using your favourite shell, Bash or PowerShell.
+Cloud Shell is typically used from Azure Portal. It provides an easy access to Azure CLI, Azure PowerShell and Azure AD PowerShell.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll introduce a new way to access Cloud Shell from PowerShell (requires &lt;strong&gt;AADInternals v0.4.3&lt;/strong&gt; or newer).&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Bypassing conditional access by faking device compliance.</title>
+      <link>http://o365blog.com/post/mdm/</link>
+      <pubDate>Sun, 06 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/mdm/</guid>
+      <description>&lt;p&gt;In my previous &lt;a href=&#34;http://o365blog.com/post/prt/#creating-your-own-prt&#34; target=&#34;_blank&#34;&gt;blog&lt;/a&gt; I demonstrated how to create
+a Persistent Refresh Token (PRT) by joining imaginary device to Azure AD.&lt;/p&gt;
+
+&lt;p&gt;In this blog, with &lt;strong&gt;AADInternals v0.4.2&lt;/strong&gt;, I&amp;rsquo;ll show how to make those devices compliant, allowing bypassing compliance related conditional access (CA) policies.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Journey to Azure AD PRT: Getting access with pass-the-token and pass-the-cert</title>
+      <link>http://o365blog.com/post/prt/</link>
+      <pubDate>Tue, 01 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/prt/</guid>
+      <description>&lt;p&gt;Lately we have seen great articles by &lt;a href=&#34;https://twitter.com/_dirkjan&#34; target=&#34;_blank&#34;&gt;@_dirkjan&lt;/a&gt;,
+&lt;a href=&#34;https://twitter.com/tifkin%5F&#34; target=&#34;_blank&#34;&gt;@tifkin_&lt;/a&gt;,
+&lt;a href=&#34;https://twitter.com/rubin_mor&#34; target=&#34;_blank&#34;&gt;@rubin_mor&lt;/a&gt;,
+ and &lt;a href=&#34;https://twitter.com/gentilkiwi&#34; target=&#34;_blank&#34;&gt;@gentilkiwi&lt;/a&gt;
+about utilising Primary Refresh Token (PRT) to get access to Azure AD and Azure AD joined computers.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll report my own findings regarding to PRT and introduce the new functionality added to &lt;strong&gt;AADInternals v0.4.1&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Deep-dive to Azure AD MFA: Creating a custom authenticator app</title>
+      <link>http://o365blog.com/post/mfa/</link>
+      <pubDate>Thu, 06 Aug 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/post/mfa/</guid>
+      <description>&lt;p&gt;Multi-factor Authentication (MFA) is nowadays a recommended method for providing extra protection for users.
+In most cases, it protects users from phishing attacks as the attackers can&amp;rsquo;t log in even they have user&amp;rsquo;s credentials.&lt;/p&gt;
+
+&lt;p&gt;In this blog, I&amp;rsquo;ll report my findings on how the Azure AD MFA works under-the-hood, and how I built a &lt;a href=&#34;https://github.com/Gerenios/Authenticator&#34; target=&#34;_blank&#34;&gt;custom authenticator app for Android&lt;/a&gt;.
+I also introduce some methods how the rogue administrator can bypass MFA when using user&amp;rsquo;s compromised credentials.&lt;/p&gt;
+
+&lt;p&gt;&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

@@ -1,0 +1,618 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Tags on Office 365 blog</title>
+    <link>http://o365blog.com/tags/</link>
+    <description>Recent content in Tags on Office 365 blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Thu, 08 Jul 2021 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://o365blog.com/tags/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Aadconnect</title>
+      <link>http://o365blog.com/tags/aadconnect/</link>
+      <pubDate>Thu, 08 Jul 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/aadconnect/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Aadinternals</title>
+      <link>http://o365blog.com/tags/aadinternals/</link>
+      <pubDate>Mon, 01 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/aadinternals/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Abusing</title>
+      <link>http://o365blog.com/tags/abusing/</link>
+      <pubDate>Tue, 20 Sep 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/abusing/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Active Directory</title>
+      <link>http://o365blog.com/tags/active-directory/</link>
+      <pubDate>Fri, 08 May 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/active-directory/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Adfs</title>
+      <link>http://o365blog.com/tags/adfs/</link>
+      <pubDate>Thu, 08 Jul 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/adfs/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Admin</title>
+      <link>http://o365blog.com/tags/admin/</link>
+      <pubDate>Mon, 13 Jul 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/admin/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Administration</title>
+      <link>http://o365blog.com/tags/administration/</link>
+      <pubDate>Tue, 07 Sep 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/administration/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Authentication</title>
+      <link>http://o365blog.com/tags/authentication/</link>
+      <pubDate>Mon, 30 Mar 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/authentication/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Azure</title>
+      <link>http://o365blog.com/tags/azure/</link>
+      <pubDate>Mon, 29 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/azure/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Azure Active Directory</title>
+      <link>http://o365blog.com/tags/azure-active-directory/</link>
+      <pubDate>Mon, 29 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/azure-active-directory/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Azuread</title>
+      <link>http://o365blog.com/tags/azuread/</link>
+      <pubDate>Thu, 08 Jul 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/azuread/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Backdoor</title>
+      <link>http://o365blog.com/tags/backdoor/</link>
+      <pubDate>Tue, 20 Sep 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/backdoor/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Blackhat</title>
+      <link>http://o365blog.com/tags/blackhat/</link>
+      <pubDate>Mon, 01 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/blackhat/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Blue Team</title>
+      <link>http://o365blog.com/tags/blue-team/</link>
+      <pubDate>Tue, 07 Sep 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/blue-team/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Bprt</title>
+      <link>http://o365blog.com/tags/bprt/</link>
+      <pubDate>Wed, 03 Mar 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/bprt/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Browser</title>
+      <link>http://o365blog.com/tags/browser/</link>
+      <pubDate>Thu, 28 Sep 2017 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/browser/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Compromise</title>
+      <link>http://o365blog.com/tags/compromise/</link>
+      <pubDate>Sun, 14 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/compromise/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Conferences</title>
+      <link>http://o365blog.com/tags/conferences/</link>
+      <pubDate>Thu, 11 Nov 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/conferences/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Defcon</title>
+      <link>http://o365blog.com/tags/defcon/</link>
+      <pubDate>Mon, 01 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/defcon/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Desktop Sso</title>
+      <link>http://o365blog.com/tags/desktop-sso/</link>
+      <pubDate>Thu, 03 Oct 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/desktop-sso/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Device</title>
+      <link>http://o365blog.com/tags/device/</link>
+      <pubDate>Mon, 29 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/device/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Dns</title>
+      <link>http://o365blog.com/tags/dns/</link>
+      <pubDate>Tue, 20 Feb 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/dns/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Email</title>
+      <link>http://o365blog.com/tags/email/</link>
+      <pubDate>Tue, 29 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/email/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Encryption</title>
+      <link>http://o365blog.com/tags/encryption/</link>
+      <pubDate>Wed, 16 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/encryption/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Exchange</title>
+      <link>http://o365blog.com/tags/exchange/</link>
+      <pubDate>Mon, 02 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/exchange/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Federation</title>
+      <link>http://o365blog.com/tags/federation/</link>
+      <pubDate>Wed, 12 Jun 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/federation/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Forensics</title>
+      <link>http://o365blog.com/tags/forensics/</link>
+      <pubDate>Mon, 02 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/forensics/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Gdpr</title>
+      <link>http://o365blog.com/tags/gdpr/</link>
+      <pubDate>Wed, 25 Apr 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/gdpr/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Global Administrator</title>
+      <link>http://o365blog.com/tags/global-administrator/</link>
+      <pubDate>Thu, 04 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/global-administrator/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Graph</title>
+      <link>http://o365blog.com/tags/graph/</link>
+      <pubDate>Mon, 27 Aug 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/graph/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Groups</title>
+      <link>http://o365blog.com/tags/groups/</link>
+      <pubDate>Thu, 31 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/groups/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Guest</title>
+      <link>http://o365blog.com/tags/guest/</link>
+      <pubDate>Sun, 14 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/guest/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Hybrid Join</title>
+      <link>http://o365blog.com/tags/hybrid-join/</link>
+      <pubDate>Mon, 29 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/hybrid-join/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Identity</title>
+      <link>http://o365blog.com/tags/identity/</link>
+      <pubDate>Wed, 12 Jun 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/identity/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Inactive</title>
+      <link>http://o365blog.com/tags/inactive/</link>
+      <pubDate>Tue, 29 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/inactive/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Insider</title>
+      <link>http://o365blog.com/tags/insider/</link>
+      <pubDate>Mon, 15 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/insider/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Intune</title>
+      <link>http://o365blog.com/tags/intune/</link>
+      <pubDate>Sun, 06 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/intune/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Join</title>
+      <link>http://o365blog.com/tags/join/</link>
+      <pubDate>Mon, 29 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/join/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Logs</title>
+      <link>http://o365blog.com/tags/logs/</link>
+      <pubDate>Mon, 02 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/logs/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Mailbox</title>
+      <link>http://o365blog.com/tags/mailbox/</link>
+      <pubDate>Tue, 29 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/mailbox/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Mdm</title>
+      <link>http://o365blog.com/tags/mdm/</link>
+      <pubDate>Sun, 06 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/mdm/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Mfa</title>
+      <link>http://o365blog.com/tags/mfa/</link>
+      <pubDate>Wed, 03 Mar 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/mfa/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Office 365</title>
+      <link>http://o365blog.com/tags/office-365/</link>
+      <pubDate>Wed, 12 Jun 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/office-365/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Office365</title>
+      <link>http://o365blog.com/tags/office365/</link>
+      <pubDate>Wed, 11 Dec 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/office365/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>On Prem</title>
+      <link>http://o365blog.com/tags/on-prem/</link>
+      <pubDate>Thu, 08 Jul 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/on-prem/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Onedrive</title>
+      <link>http://o365blog.com/tags/onedrive/</link>
+      <pubDate>Wed, 11 Dec 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/onedrive/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Outsider</title>
+      <link>http://o365blog.com/tags/outsider/</link>
+      <pubDate>Sun, 14 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/outsider/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Partner</title>
+      <link>http://o365blog.com/tags/partner/</link>
+      <pubDate>Sat, 11 Dec 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/partner/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Password</title>
+      <link>http://o365blog.com/tags/password/</link>
+      <pubDate>Fri, 10 May 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/password/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Persistence</title>
+      <link>http://o365blog.com/tags/persistence/</link>
+      <pubDate>Sun, 14 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/persistence/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Phishing</title>
+      <link>http://o365blog.com/tags/phishing/</link>
+      <pubDate>Mon, 19 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/phishing/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Planner</title>
+      <link>http://o365blog.com/tags/planner/</link>
+      <pubDate>Thu, 31 May 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/planner/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Powershell</title>
+      <link>http://o365blog.com/tags/powershell/</link>
+      <pubDate>Mon, 30 Mar 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/powershell/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Prt</title>
+      <link>http://o365blog.com/tags/prt/</link>
+      <pubDate>Mon, 29 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/prt/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Pta</title>
+      <link>http://o365blog.com/tags/pta/</link>
+      <pubDate>Tue, 20 Sep 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/pta/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Recon</title>
+      <link>http://o365blog.com/tags/recon/</link>
+      <pubDate>Sun, 14 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/recon/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Reconnaissance</title>
+      <link>http://o365blog.com/tags/reconnaissance/</link>
+      <pubDate>Mon, 13 Jul 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/reconnaissance/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Seamless Sso</title>
+      <link>http://o365blog.com/tags/seamless-sso/</link>
+      <pubDate>Thu, 03 Oct 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/seamless-sso/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Security</title>
+      <link>http://o365blog.com/tags/security/</link>
+      <pubDate>Mon, 29 Aug 2022 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/security/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Sso</title>
+      <link>http://o365blog.com/tags/sso/</link>
+      <pubDate>Wed, 12 Jun 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/sso/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Sync</title>
+      <link>http://o365blog.com/tags/sync/</link>
+      <pubDate>Fri, 08 May 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/sync/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Synchronisation</title>
+      <link>http://o365blog.com/tags/synchronisation/</link>
+      <pubDate>Tue, 24 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/synchronisation/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>T2</title>
+      <link>http://o365blog.com/tags/t2/</link>
+      <pubDate>Fri, 18 Oct 2019 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/t2/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Talks</title>
+      <link>http://o365blog.com/tags/talks/</link>
+      <pubDate>Thu, 11 Nov 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/talks/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Teams</title>
+      <link>http://o365blog.com/tags/teams/</link>
+      <pubDate>Tue, 27 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/teams/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>User</title>
+      <link>http://o365blog.com/tags/user/</link>
+      <pubDate>Sun, 14 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/user/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Virtual Machine</title>
+      <link>http://o365blog.com/tags/virtual-machine/</link>
+      <pubDate>Thu, 04 Jun 2020 00:00:00 +0000</pubDate>
+      
+      <guid>http://o365blog.com/tags/virtual-machine/</guid>
+      <description></description>
+    </item>
+    
+  </channel>
+</rss>
