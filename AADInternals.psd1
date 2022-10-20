@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.7.5'
+	ModuleVersion = '0.7.6'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -135,6 +135,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\SPO_utils.ps1"
         ".\SQLite.ps1"
         ".\SyncAgent.ps1"
+        ".\TBRES.ps1"
         ".\Teams.ps1"
         ".\Teams_utils.ps1"
         ".\WBAWeaponiser.ps1"
