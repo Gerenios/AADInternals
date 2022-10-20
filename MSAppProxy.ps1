@@ -14,6 +14,27 @@ function Register-ProxyAgent
     .DESCRIPTION
     Registers a new MS App Proxy agent to Azure AD. Currently Sync and PTA agents are supported.
 
+    .PARAMETER MachineName
+    Machine name used to register the proxy agent
+
+    .PARAMETER AgentType
+    Type of the proxy agent. One of "PTA","Sync"
+
+    .PARAMETER AgentGroup
+    The Agent group where to add the new agent.
+
+    .PARAMETER UpdateTrust
+    Instead of register a new agent, updates the trust of existing one. As a result, a new proxy certificate is created.
+
+    .PARAMETER Bootstrap
+    Filename of existing bootstrap configuration file.
+
+    .PARAMETER PfxFileName
+    The name of an existing proxy agent certificate used to update trust.
+
+    .PARAMETER PfxPassword
+    Password of the existing proxy agent certificate.
+
     .Example
     $pt=Get-AADIntAccessTokenForPTA
     PS C:\>Register-AADIntProxyAgent -AccessToken $pt -MachineName server1.company.com -AgentType PTA -FileName server1-pta.pfx
@@ -37,6 +58,8 @@ function Register-ProxyAgent
         $AgentGroup,
         [Parameter(Mandatory=$False)]
         [bool]$UpdateTrust,
+        [Parameter(Mandatory=$False)]
+        [String]$Bootstrap,
         [Parameter(Mandatory=$False)]
         [String]$PfxFileName,
         [Parameter(Mandatory=$False)]
@@ -115,10 +138,20 @@ function Register-ProxyAgent
         # Create the request body 
         if($UpdateTrust)
         {
-            [xml]$config=Get-BootstrapConfiguration -Certificate $cert -MachineName $MachineName
+            if($Bootstrap -and (Test-Path $Bootstrap))
+            {
+                Write-Verbose "Loading bootstrap from $Bootstrap"
+                [xml]$config=Get-Content -Path $Bootstrap -Encoding UTF8
+            }
+            else 
+            {
+                Write-Verbose "Getting bootstrap using $($cert.Thumbprint) as $MachineName"
+                [xml]$config=Get-BootstrapConfiguration -Certificate $cert -MachineName $MachineName
+            }
+
             if(!$config)
             {
-                # Couldn't get bootrap so cert doesn't work :(
+                Write-Error "Could not load bootstrap!"
                 return
             }
             $trustEndpoint = $config.BootstrapResponse.TrustRenewEndpoint
