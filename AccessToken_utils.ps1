@@ -1034,6 +1034,11 @@ function Read-Accesstoken
     {
         # Token sections
         $sections =  $AccessToken.Split(".")
+        if($sections.Count -eq 5)
+        {
+            Write-Warning "JWE token, expected JWS. Unable to parse."
+            return
+        }
         $header =    $sections[0]
         $payload =   $sections[1]
         $signature = $sections[2]
@@ -2015,31 +2020,35 @@ function Export-TeamsTokens
                 # Cookies data is stored on Table Leaf
                 if($page.PageType -eq "Table Leaf" -and $page.CellsOnPage -gt 0)
                 {
-                    # Which has exactly 16 columns (the last is empty)
-                    if($page.Cells[0].Payload.Count -eq 16)
+                    # Which has exactly 19 columns (the last is empty)
+                    if($page.Cells[0].Payload.Count -ge 19)
                     {
                         Write-Verbose "Found Table Leaf page with $($page.CellsOnPage) cells"
-                        <# Columns
+                        <# Columns - updated Oct 20th 2022
                          0: creation_utc
-                         1: host_key
-                         2: name
-                         3: value
-                         4: path
-                         5: expires_utc
-                         6: is_secure
-                         7: is_httponly
-                         8: last_access_utc
-                         9: has_expires
-                        10: is_persistent
-                        11: priority
-                        12: encrypted_value
-                        13: samesite
-                        14: source_scheme
+                         1: top_frame_site_key
+                         2: host_key
+                         3: name
+                         4: value
+                         5: encrypted_value
+                         6: path
+                         7: expires_utc
+                         8: is_secure
+                         9: is_httponly
+                        10: last_access_utc
+                        12: has_expires
+                        13: is_persistent
+                        14: priority
+                        15: encrypted_value
+                        16: samesite
+                        17: source_scheme
+                        18: source_port
+                        19: is_same_party
                         #>
                         foreach($cell in $page.Cells)
                         {
-                            $name  = $cell.Payload[2]
-                            $value = $cell.Payload[3]
+                            $name  = $cell.Payload[3]
+                            $value = $cell.Payload[4]
 
                             if($name -like "*token*" -or $name -eq "SSOAUTHCOOKIE")
                             {
@@ -2325,6 +2334,136 @@ function Export-AzureCliTokens
         catch
         {
             Throw $_
+        }
+    }
+}
+
+# Exports access tokens from the Token Broker cache
+# Oct 20th 2022
+function Export-TokenBrokerTokens
+{
+<#
+    .SYNOPSIS
+    Exports access tokens from the Token Broker cache.
+
+    .DESCRIPTION
+    Exports access tokens from the Token Broker cache. 
+
+    .PARAMETER AddToCache
+    Adds the tokens to AADInternals token cache
+
+    .PARAMETER CopyToClipboard
+    Copies the tokens to clipboard as JSON string
+
+    .EXAMPLE
+    PS\:>Export-AADIntTokenBrokerTokens
+    Users: user@company.com,user2@company.com
+
+    UserName          access_token                                                                  
+    --------          ------------                                                                  
+    user@company.com  eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IjJaUXBKM1VwYmpBWVhZR2FYRUpsOGx...
+    user@company.com  eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IjJaUXBKM1VwYmpBWVhZR2FYRUpsOGx...
+    user2@company.com eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IjJaUXBKM1VwYmpBWVhZR2FYRUpsOGx...
+    user2@company.com eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IjJaUXBKM1VwYmpBWVhZR2FYRUpsOGx...
+
+    .EXAMPLE
+    PS\:>Export-AADIntTokenBrokerTokens -AddToCache
+    Users: user@company.com,user2@company.com
+
+    4 access tokens added to cache
+
+    .EXAMPLE
+    PS\:>Export-AADIntTokenBrokerTokens -AddToCache -CopyToClipboard
+    Users: user@company.com,user2@company.com
+
+    4 access tokens added to cache
+    4 access tokens copied to clipboard
+
+    .EXAMPLE
+    PS\:>Export-AADIntTokenBrokerTokens -CopyToClipboard
+    Users: user@company.com,user2@company.com
+
+    4 access tokens copied to clipboard
+#>
+    [cmdletbinding()]
+    Param(
+        [switch]$AddToCache,
+        [switch]$CopyToClipboard
+    )
+    Begin
+    {
+        # Load system.security assembly
+        Add-Type -AssemblyName System.Security
+    }
+    Process
+    {
+        # Test whether the Token Broker cache exists
+        $TBRES = "$env:LOCALAPPDATA\Microsoft\TokenBroker\Cache\*.tbres"
+        
+        if(-not (Test-Path $TBRES))
+        {
+            Throw "The Token Broker cache does not exist: $TBRES"
+        }
+
+        $access_tokens = @()
+        $users = [ordered]@{}
+
+        # Get the cache files
+        $files = Get-Item -Path $TBRES
+        foreach($file in $files)
+        {
+            Write-Verbose "Parsing $file"
+            $data    = Get-BinaryContent -Path $file.FullName
+            $content = Parse-TBRES -Data $data
+
+            if($content.WTRes_Token)
+            {
+                $parsedToken = Read-AccessToken -AccessToken $content.WTRes_Token
+                
+                # Could be JWE which can't be parsed
+                if($parsedToken)
+                {
+                    $users[$parsedToken.oid] = $parsedToken.unique_name
+
+                    # Form the return object
+                    $attributes = [ordered]@{
+                        "UserName"      = $parsedToken.unique_name
+                        "access_token"  = $content.WTRes_Token
+                    }
+                
+                    if($AddToCache)
+                    {
+                        Add-AccessTokenToCache -AccessToken $content.WTRes_Token | Out-Null
+                    }
+                    $access_tokens += [PSCustomObject] $attributes
+                }
+            }
+
+        }
+        
+        Write-Verbose "Found tokens for $($users.Count) users"
+
+        # Print out the usernames
+        Write-Host "Users: $($users.Values -Join ",")"
+
+        # Print count cached tokens
+        if($AddToCache)
+        {
+            Write-Host "$($access_tokens.Count) access tokens added to cache."
+            Write-Host "Note: AADInternals only stores tokens for one user! The token of last added user is used."
+        }
+
+        # Copy tokens to clipboard and print the count
+        if($CopyToClipboard)
+        {
+            $access_tokens | ConvertTo-Json | Set-Clipboard
+            Write-Host "$($access_tokens.Count) access tokens copied to clipboard"
+        }
+
+        # Return
+        if(-not $AddToCache -and -not $CopyToClipboard)
+        {
+            return $access_tokens
         }
     }
 }

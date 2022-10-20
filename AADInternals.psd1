@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.7.4'
+	ModuleVersion = '0.7.5'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -194,6 +194,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Add-AccessTokenToCache"
     "Export-TeamsTokens"
     "Export-AzureCliTokens"
+    "Export-TokenBrokerTokens"
 
     # GraphAPI.ps1
     "Get-TenantDetails"

@@ -2385,7 +2385,9 @@ function Decode-MultiByteInteger
         [parameter(Mandatory=$true)]
         [ref]$Position,
         [parameter(Mandatory=$false)]
-        [switch]$Reverse
+        [switch]$Reverse,
+        [parameter(Mandatory=$false)]
+        [switch]$Google
     )
     Process
     {
@@ -2394,29 +2396,62 @@ function Decode-MultiByteInteger
         $nBytes = 1
         $bytes = New-Object Byte[] 8
 
-        # Loop until all bytes are handled
-        while((Check-ContinuationBit($Data[$p])) -and $nBytes -lt 8)
+        if($Google)
         {
-            # Strip the continuation bit (not really needed as shifting to left)
-            [byte]$byte = $Data[$p] -band 0x7F
+            # Ref: https://developers.google.com/protocol-buffers/docs/encoding#varints
 
-            # Shift bits to left 8-$nBytes times
-            [byte]$shiftedToNext = $byte -shl (8-$nBytes)
+            # Strip the continuation bit and add to an array
+            while((Check-ContinuationBit($Data[$p])) -and $nBytes -lt 8)
+            {
+                $bytes[$nBytes-1] = $Data[$p] -band 0x7F
+                $p++
+                $nBytes++
+            }
+            $bytes[$nBytes-1] = $Data[$p] -band 0x7F
+            $p++
 
-            # Shift bits to right $nBytes times
-            $byte = $byte -shr $nBytes
+            # Reverse the array
+            [Array]::Reverse($bytes)
 
+            # Shift bits
+            $n = 7
+            while($n -gt 8-$nBytes)
+            {
+                $shiftedToNext = $bytes[$n-1] -shl $n
+                $byte = $bytes[$n] -shr 7-$n
+                $bytes[$n] = $shiftedToNext -bor $byte
+                $n--
+            }
+            $bytes[$n] = $bytes[$n] -shr 7-$n
+
+            [Array]::Reverse($bytes)
+        }
+        else
+        {
+            # Loop until all bytes are handled
+            while((Check-ContinuationBit($Data[$p])) -and $nBytes -lt 8)
+            {
+                # Strip the continuation bit (not really needed as shifting to left)
+                [byte]$byte = $Data[$p] -band 0x7F
+
+                # Shift bits to left 8-$nBytes times
+                [byte]$shiftedToNext = $byte -shl (8-$nBytes)
+
+                # Shift bits to right $nBytes times
+                $byte = $byte -shr $nBytes
+
+                # Add to byte array by binary or as there might be shifted bits
+                $bytes[$nBytes-1] = $bytes[$nBytes-1] -bor $byte
+
+                # Add shifted bits
+                $bytes[$nBytes]   = $shiftedToNext
+                $nBytes++
+                $p++
+            }
             # Add to byte array by binary or as there might be shifted bits
-            $bytes[$nBytes-1] = $bytes[$nBytes-1] -bor $byte
-
-            # Add shifted bits
-            $bytes[$nBytes]   = $shiftedToNext
-            $nBytes++
+            $bytes[$nBytes-1] = $bytes[$nBytes-1] -bor $Data[$p]
             $p++
         }
-        # Add to byte array by binary or as there might be shifted bits
-        $bytes[$nBytes-1] = $bytes[$nBytes-1] -bor $Data[$p]
-        $p++
 
         # Reverse as needed
         if($Reverse)

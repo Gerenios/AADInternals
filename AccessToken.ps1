@@ -23,8 +23,19 @@ function Get-AccessTokenFromCache
             # Check if cache entry is empty
             if([string]::IsNullOrEmpty($Script:tokens["$ClientId-$Resource"]))
             {
-                # Empty, so throw the exception
-                Throw "No saved tokens found. Please call Get-AADIntAccessTokenFor<service> -SaveToCache"
+                Write-Verbose "Access token for $ClientId-$Resource not found. Trying to find other clients for the resource"
+                foreach($key in $Script:tokens.Keys)
+                {
+                    if($key.TrimEnd("/").EndsWith($Resource.TrimEnd("/")))
+                    {
+                        $retVal=$Script:tokens[$key]
+                    }
+                }
+                if([string]::IsNullOrEmpty($retVal))
+                {
+                    # Empty, so throw the exception
+                    Throw "No saved tokens found. Please call Get-AADIntAccessTokenFor<service> -SaveToCache"
+                }
             }
             else
             {
