@@ -2412,31 +2412,38 @@ function Export-TokenBrokerTokens
         $files = Get-Item -Path $TBRES
         foreach($file in $files)
         {
-            Write-Verbose "Parsing $file"
-            $data    = Get-BinaryContent -Path $file.FullName
-            $content = Parse-TBRES -Data $data
-
-            if($content.WTRes_Token)
+            try
             {
-                $parsedToken = Read-AccessToken -AccessToken $content.WTRes_Token
-                
-                # Could be JWE which can't be parsed
-                if($parsedToken)
-                {
-                    $users[$parsedToken.oid] = $parsedToken.unique_name
+                Write-Verbose "Parsing $file"
+                $data    = Get-BinaryContent -Path $file.FullName
+                $content = Parse-TBRES -Data $data
 
-                    # Form the return object
-                    $attributes = [ordered]@{
-                        "UserName"      = $parsedToken.unique_name
-                        "access_token"  = $content.WTRes_Token
-                    }
+                if($content.WTRes_Token)
+                {
+                    $parsedToken = Read-AccessToken -AccessToken $content.WTRes_Token
                 
-                    if($AddToCache)
+                    # Could be JWE which can't be parsed
+                    if($parsedToken)
                     {
-                        Add-AccessTokenToCache -AccessToken $content.WTRes_Token | Out-Null
+                        $users[$parsedToken.oid] = $parsedToken.unique_name
+
+                        # Form the return object
+                        $attributes = [ordered]@{
+                            "UserName"      = $parsedToken.unique_name
+                            "access_token"  = $content.WTRes_Token
+                        }
+                
+                        if($AddToCache)
+                        {
+                            Add-AccessTokenToCache -AccessToken $content.WTRes_Token | Out-Null
+                        }
+                        $access_tokens += [PSCustomObject] $attributes
                     }
-                    $access_tokens += [PSCustomObject] $attributes
                 }
+            }
+            catch
+            {
+                Write-Verbose "Got exception: $_"
             }
 
         }

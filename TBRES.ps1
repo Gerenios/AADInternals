@@ -73,15 +73,15 @@ Function Parse-TBRESResponseBytes
                 [parameter(Mandatory=$true,ValueFromPipeline)]
                 [ref]$Position,
                 [parameter(Mandatory=$false,ValueFromPipeline)]
-                [int]$ExpectedVersion = 1
+                [int[]]$ExpectedVersions = @(1,2)
             )
             Process
             {
                 $p = $Position.Value
                 $version = [BitConverter]::ToUInt32($Data[($p + 3)..$p],0); $p += 4
-                if($version -ne $ExpectedVersion)
+                if($ExpectedVersions -notcontains $version)
                 {
-                    Throw "Invalid version $version, expected $ExpectedVersion"
+                    Throw "Invalid version $version, expected one of $($ExpectedVersions -join ',')"
                 }
 
                 $Position.Value = $p
