@@ -96,14 +96,12 @@ function Get-SPOAuthenticationHeader
         }
 
         # Extract the needed parameters
-        $htmlform=$form.Controls[0].Document.Forms[0].InnerHtml
-        $htmlform=$htmlform.Replace('">','"/>')
-        [xml]$xmlform="<html>$htmlform</html>"
+        $forminputs=$form.Controls[0].Document.getElementsByTagName("input")
 
-        $code = $xmlform.SelectSingleNode("//input[@name='code']").value
-        $session_state = $xmlform.SelectSingleNode("//input[@name='session_state']").value
-        $id_token = $xmlform.SelectSingleNode("//input[@name='id_token']").value
-        $correlation_id = $xmlform.SelectSingleNode("//input[@name='correlation_id']").value
+        $code = $forminputs.GetElementsByName("code")[0].GetAttribute("value")
+        $session_state = $forminputs.GetElementsByName("session_state")[0].GetAttribute("value")
+        $id_token = $forminputs.GetElementsByName("id_token")[0].GetAttribute("value")
+        $correlation_id = $forminputs.GetElementsByName("correlation_id")[0].GetAttribute("value")
         $url=$form.Controls[0].Document.Forms[0].DomElement.action
 
         # Dispose the control
