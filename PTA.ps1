@@ -89,6 +89,8 @@ function Register-PTAAgent
         [Parameter(ParameterSetName='normal',Mandatory=$False)]
         [Parameter(ParameterSetName='update',Mandatory=$True)]
         [switch]$UpdateTrust,
+        [Parameter(Mandatory=$False)]
+        [String]$Bootstrap,
         [Parameter(ParameterSetName='update',Mandatory=$True)]
         [String]$PfxFileName,
         [Parameter(ParameterSetName='update',Mandatory=$False)]
@@ -96,7 +98,7 @@ function Register-PTAAgent
     )
     Process
     {
-        return Register-ProxyAgent -AccessToken $AccessToken -MachineName $MachineName -FileName $FileName -AgentType PTA -UpdateTrust $UpdateTrust -PfxFileName $PfxFileName -PfxPassword $PfxPassword
+        return Register-ProxyAgent -AccessToken $AccessToken -MachineName $MachineName -FileName $FileName -AgentType PTA -UpdateTrust $UpdateTrust -PfxFileName $PfxFileName -PfxPassword $PfxPassword -Bootstrap $Bootstrap
     }
 }
 

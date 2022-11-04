@@ -86,7 +86,7 @@ function Register-ProxyAgent
         if($UpdateTrust)
         {
             # Load the old certificate
-            $cert = Load-Certificate -FileName $PfxFileName -Password $PfxPassword
+            $cert = Load-Certificate -FileName $PfxFileName -Password $PfxPassword -Exportable
 
             $tenantId = $cert.Subject.Split("=")[1]
         }
@@ -141,12 +141,12 @@ function Register-ProxyAgent
             if($Bootstrap -and (Test-Path $Bootstrap))
             {
                 Write-Verbose "Loading bootstrap from $Bootstrap"
-                [xml]$config=Get-Content -Path $Bootstrap -Encoding UTF8
+                [xml]$config = Get-Content -Path $Bootstrap -Encoding UTF8
             }
             else 
             {
                 Write-Verbose "Getting bootstrap using $($cert.Thumbprint) as $MachineName"
-                [xml]$config=Get-BootstrapConfiguration -Certificate $cert -MachineName $MachineName
+                [xml]$config = Get-BootstrapConfiguration -Certificate $cert -MachineName $MachineName
             }
 
             if(!$config)
@@ -154,6 +154,7 @@ function Register-ProxyAgent
                 Write-Error "Could not load bootstrap!"
                 return
             }
+            
             $trustEndpoint = $config.BootstrapResponse.TrustRenewEndpoint
             
             $body=@"
@@ -583,19 +584,13 @@ function Export-ProxyAgentCertificates
     .Example
     Export-AADIntProxyAgentCertificates
 
-    Certificate saved to: PTA01.company.com_ea664074-37dd-4797-a676-b0cf6fdafcd4_4b6ffe82-bfe2-4357-814c-09da95399da7_A3457AEAE25D4C513BCF37CB138628772BE1B52.pfx
-    
-    .Example
-    Export-AADIntProxyAgentCertificates -GetBootstrap
+    WARNING: Elevating to LOCAL SYSTEM. You MUST restart PowerShell to restore PTA01\Administrator rights.
 
     Certificate saved to: PTA01.company.com_ea664074-37dd-4797-a676-b0cf6fdafcd4_4b6ffe82-bfe2-4357-814c-09da95399da7_A3457AEAE25D4C513BCF37CB138628772BE1B52.pfx
-	Bootstrap saved to:   PTA01.company.com_ea664074-37dd-4797-a676-b0cf6fdafcd4_4b6ffe82-bfe2-4357-814c-09da95399da7_A3457AEAE25D4C513BCF37CB138628772BE1B52.xml
- 
+    
     #>
     [cmdletbinding()]
-    Param(
-        [Switch]$GetBootstrap
-    )
+    Param()
 
     Process
     {
@@ -725,30 +720,71 @@ function Export-ProxyAgentCertificates
                     } 
 
                     # Save to pfx file
-                    $fileName = "$(Get-ComputerName -FQDN)_$($tenantId)_$($agentId)_$($certificate.Thumbprint).pfx"
+                    $machineName = Get-ComputerName -FQDN
+                    $fileName = "$($machineName)_$($tenantId)_$($agentId)_$($certificate.Thumbprint).pfx"
                     Set-BinaryContent -Path $fileName -Value (New-PfxFile -RSAParameters ($privateKey.RSAParameters) -X509Certificate $binCert)
 
                     Write-Host "Certificate saved to: $fileName"
-
-                    if($GetBootstrap)
-                    {
-                        try
-                        {
-                            $bootStrap = Get-BootstrapConfiguration -MachineName (Get-ComputerName -FQDN) -Certificate (Load-Certificate -FileName $fileName)
-                            $bootStrapFileName = "$(Get-ComputerName -FQDN)_$($tenantId)_$($agentId)_$($certificate.Thumbprint).xml"
-                            Set-Content $bootStrapFileName -Value $bootStrap
-                            Write-Host "Bootstrap saved to:   $bootStrapFileName"
-                        }
-                        catch
-                        {
-                            Write-Warning "Could not get bootstrap using certificate $($certificate.Thumbprint)!"
-                        }
-                    }
 
                     break
                 }
             }
         }
 
+    }
+}
+
+# Export proxy agent bootstraps using the given certificates
+# Nov 1st 2022
+function Export-ProxyAgentBootstraps
+{
+    <#
+    .SYNOPSIS
+    Export bootstraps of the given certificates.
+
+    .DESCRIPTION
+    Export boostraps of the given certificates. Uses the FQDN of the current computer as MachineName.
+    The filename of the bootstrap is same than the certificate with .xml extension
+
+    .Example
+    Export-AADIntProxyAgentBootstraps -Certificates PTA01.company.com_ea664074-37dd-4797-a676-b0cf6fdafcd4_4b6ffe82-bfe2-4357-814c-09da95399da7_A3457AEAE25D4C513BCF37CB138628772BE1B52.pfx
+
+    Bootstrap saved to: PTA01.company.com_ea664074-37dd-4797-a676-b0cf6fdafcd4_4b6ffe82-bfe2-4357-814c-09da95399da7_A3457AEAE25D4C513BCF37CB138628772BE1B52.xml
+    #>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String[]]$Certificates
+    )
+
+    Process
+    {
+        foreach($fileName in $Certificates)
+        {
+            if(Test-Path $fileName)
+            {
+                try
+                {
+                    $certificate = Load-Certificate -FileName $fileName -Exportable    
+
+                    # Sleep a sec to get the cert properly loaded
+                    Start-Sleep -Seconds 1 
+
+                    $bootStrap = Get-BootstrapConfiguration -MachineName (Get-ComputerName -FQDN) -Certificate $certificate
+                            
+                    if($bootstrap -eq $null)
+                    {
+                        Throw "Could not get bootstrap"
+                    }
+                    $bootStrapFileName = "$($fileName.Substring(0,$fileName.LastIndexOf(".")-1)).xml"
+                    Set-Content $bootStrapFileName -Value $bootStrap
+                    Write-Host "Bootstrap saved to: $bootStrapFileName"
+                }
+                catch
+                {
+                    Write-Warning "Could not get bootstrap for $fileName"
+                }
+            }
+        }
     }
 }
