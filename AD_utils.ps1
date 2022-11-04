@@ -172,6 +172,7 @@ function Get-ComputerName
         {
             # Get the domain part
             $domain = Get-ComputerDomainName
+            $computer+=".$domain"
         }
 
         Write-Verbose "ComputerName: $computer"

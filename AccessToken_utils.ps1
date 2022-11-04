@@ -2418,7 +2418,7 @@ function Export-TokenBrokerTokens
                 $data    = Get-BinaryContent -Path $file.FullName
                 $content = Parse-TBRES -Data $data
 
-                if($content.WTRes_Token)
+                if($content.WTRes_Token -ne $null -and $content.WTRes_Token -ne "No Token")
                 {
                     $parsedToken = Read-AccessToken -AccessToken $content.WTRes_Token
                 
@@ -2451,7 +2451,14 @@ function Export-TokenBrokerTokens
         Write-Verbose "Found tokens for $($users.Count) users"
 
         # Print out the usernames
-        Write-Host "Users: $($users.Values -Join ",")"
+        if($users.Count -gt 0)
+        {
+            Write-Host "Users: $($users.Values -Join ",")"
+        }
+        else
+        {
+            Write-Host "No tokens found."
+        }
 
         # Print count cached tokens
         if($AddToCache)

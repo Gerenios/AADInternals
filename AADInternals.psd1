@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.7.7'
+	ModuleVersion = '0.7.8'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -329,10 +329,11 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     # SyncAgent.ps1
     "Register-SyncAgent"
 
-    # MSAppProxy_utils.ps1
+    # MSAppProxy.ps1
     "Get-ProxyAgents"
     "Get-ProxyAgentGroups"
     "Export-ProxyAgentCertificates"
+    "Export-ProxyAgentBootstraps"
 
     # AD_Utils.ps1
     "Get-DPAPIKeys"
