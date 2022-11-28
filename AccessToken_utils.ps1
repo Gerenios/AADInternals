@@ -1665,8 +1665,18 @@ function Get-Cache
 
             $parsedToken = Read-Accesstoken -AccessToken $accessToken
 
+            if($parsedToken.xms_mirid)
+            {
+                # Managed identity
+                $name = $parsedToken.xms_mirid.Substring($parsedToken.xms_mirid.LastIndexOf("/")+1)
+            }
+            else
+            {
+                $name = $parsedToken.unique_name
+            }
+
             $attributes = [ordered]@{
-                "Name" =            $parsedToken.unique_name
+                "Name" =            $name
                 "ClientId" =        $parsedToken.appid
                 "Audience" =        $parsedToken.aud
                 "Tenant" =          $parsedToken.tid
