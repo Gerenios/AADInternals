@@ -2154,13 +2154,13 @@ function Get-AccessTokenUsingIMDS
     AuthMethods     : 
     Device          : 
 
-    PS C:\>Get-AADIntAzureSubscriptions -AccessToken $at
+    PS C:\>Get-AADIntAzureSubscriptions
 
     subscriptionId                       displayName state  
     --------------                       ----------- -----  
     233cd967-f2d4-41eb-897a-47ac77c7393d Production  Enabled
 
-    PS C:\>Get-AADIntAzureResourceGroups -AccessToken $at -SubscriptionId "233cd967-f2d4-41eb-897a-47ac77c7393d"
+    PS C:\>Get-AADIntAzureResourceGroups -SubscriptionId "233cd967-f2d4-41eb-897a-47ac77c7393d"
 
     name                           location      tags
     ----                           --------      ----
