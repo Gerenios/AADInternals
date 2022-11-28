@@ -699,3 +699,90 @@ function Get-AADConnectStatus
         return $response
     }
 }
+
+# Adds a new .onmicrosoft.com domain to the tenant
+# Nov 11th 2022
+function New-MOERADomain
+{
+<#
+    .SYNOPSIS
+    Adds a new Microsoft Online Email Routing Address (MOERA) domain (.onmicrosoft.com) to the tenant. 
+
+    .DESCRIPTION
+    Adds a new Microsoft Online Email Routing Address (MOERA) domain (.onmicrosoft.com) to the tenant. 
+    You can have add up to 30 MOERA domains, and can also add subdomains.
+        
+    .Example
+    Get-AADIntAccessTokenForAADIAMAPI -SaveToCache
+
+    Tenant                               User Resource                             Client                              
+    ------                               ---- --------                             ------                              
+    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd      74658136-14ec-4630-ad9b-26e160ff0fc6 d3590ed6-52b3-4102-aeff-aad2292ab01c
+
+    PS C:\>New-AADIntMOERADomain -Domain "mydomain.onmicrosoft.com"
+
+    authenticationType : 
+    isDefault          : False
+    isInitial          : False
+    isVerified         : True
+    name               : mydomain.onmicrosoft.com
+    forceDeleteState   : 
+
+    .Example
+    Get-AADIntAccessTokenForAADIAMAPI -SaveToCache
+
+    Tenant                               User Resource                             Client                              
+    ------                               ---- --------                             ------                              
+    6e3846ee-e8ca-4609-a3ab-f405cfbd02cd      74658136-14ec-4630-ad9b-26e160ff0fc6 d3590ed6-52b3-4102-aeff-aad2292ab01c
+
+    PS C:\>New-AADIntMOERADomain -Domain "microsoft.onmicrosoft.com"
+
+    New-AADIntMOERADomain : Domain microsoft.onmicrosoft.com is already occupied by tenant 72f988bf-86f1-41af-91ab-2d7cd011db47
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$Domain
+    )
+    Process
+    {
+        # Get from cache 
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+
+        # Check whether the domain already exist.
+        $tenantId = Get-TenantID -Domain $Domain
+        if($tenantId)
+        {
+            Write-Error "Domain $domain is already occupied by tenant $tenantId"
+            return
+        }
+
+        # Create the body
+        $body = @{"name" = $Domain}
+
+        # Add a new MOERA domain
+        try
+        {
+            $response = Call-AzureAADIAMAPI -AccessToken $AccessToken -Command "MoeraDomain" -Body $body -Method "Post"
+        }
+        catch
+        {
+            if($_.ErrorDetails.Message)
+            { 
+                $message = $_.ErrorDetails.Message | ConvertFrom-Json
+
+                throw "$($message.Message) FaultType: $($message.ClientData.exceptionType)"
+            }
+            else
+            {
+                throw $_.Exception
+            }
+        }
+
+        
+        return $response
+        
+    }
+}

@@ -55,7 +55,41 @@ function Get-ComplianceAPICookies
         }
         # Increase the cookie maximum size and get the second set of cookies.
         $websession.Cookies.MaxCookieSize=65536
+
         $response = Invoke-WebRequest -UseBasicParsing -Uri $redirect -body $body -WebSession $WebSession -Method post -MaximumRedirection 1 -ErrorAction SilentlyContinue 
+
+        # If redirect to MCAS before the previous step, we need to make an extra request
+        if($redirect.EndsWith(".mcas.ms/aad_login"))
+        {
+            Write-Verbose "Handling MCAS response from $redirect"
+            $body=@{}
+
+            # Parse the form from the response
+            $htmlResponse = $response.Content
+            $s = $htmlResponse.IndexOf("<form")
+            if($s -lt 0)
+            {
+                Write-Warning "Error handling MCAS redirect"
+            }
+            else
+            {
+                $e = $htmlResponse.IndexOf("</form>",$s)
+
+                [xml]$xmlForm = $response.Content.Substring($s, $e-$s+7)
+
+                foreach($element in $xmlForm.GetElementsByTagName("input"))
+                {
+                    if($element.Type -eq "hidden")
+                    {
+                        $body[$element.name] = $element.value
+                    }
+                }
+
+                $response = Invoke-WebRequest -UseBasicParsing -Uri $xmlForm.form.action -body $body -WebSession $WebSession -Method post -MaximumRedirection 1 -ErrorAction SilentlyContinue 
+            }
+        }
+        
+
 
         # Dispose the form
         $form.Dispose()

@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.7.8'
+	ModuleVersion = '0.7.9'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -181,6 +181,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AccessTokenForAdmin"
     "Get-AccessTokenForOneNote"
     "Unprotect-EstsAuthPersistentCookie"
+    "Get-AccessTokenUsingIMDS"
     
     # AccessToken_utils.ps1
     "Get-LoginInformation"
@@ -252,6 +253,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     # AzureManagementAPI_utils.ps1
     "Get-AccessTokenForAADIAMAPI"
     "Get-AccessTokenForAzureMgmtAPI"
+    "New-MOERADomain"
 
     # AzureManagementAPI.ps1
     "New-GuestInvitation"
@@ -517,13 +519,13 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
 			Tags = @('Office365','Microsoft365','Azure','AAD','Security')
 
 			# A URL to the license for this module.
-			# LicenseUri = ''
+			LicenseUri = 'https://raw.githubusercontent.com/Gerenios/AADInternals/master/LICENSE.md'
 
 			# A URL to the main website for this project.
-			ProjectURI = 'https://o365blog.com/aadinternals'
+			ProjectURI = 'https://aadinternals.com/aadinternals'
 
 			# A URL to an icon representing this module.
-			# IconUri = ''
+			IconUri = 'https://aadinternals.com/images/favicon-128.png'
 
 			# ReleaseNotes of this module
 			# ReleaseNotes = ''
@@ -533,7 +535,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
 	} # End of PrivateData hashtable
 
 	# HelpInfo URI of this module
-	# HelpInfoURI = ''
+	HelpInfoURI = 'https://aadinternals.com/aadinternals'
 
 	# Default prefix for commands exported from this module. Override the default prefix using Import-Module -Prefix.
 	DefaultCommandPrefix = 'AADInt'

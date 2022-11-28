@@ -73,6 +73,14 @@ function Get-AccessTokenFromCache
         # Check the expiration
         if(Is-AccessTokenExpired($retVal))
         {
+            # Use the same client id as the expired token
+            $ClientID = (Read-Accesstoken -AccessToken $retVal).appid
+
+            # Strip the trailing slashes
+            if($Resource.EndsWith("/"))
+            {
+                $Resource = $Resource.Substring(0,$Resource.Length-1)
+            }
             Write-Verbose "ACCESS TOKEN HAS EXPRIRED. Trying to get a new one with RefreshToken."
             $retVal = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientID -RefreshToken $script:refresh_tokens["$ClientId-$Resource"] -TenantId (Read-Accesstoken -AccessToken $retVal).tid -SaveToCache $true -IncludeRefreshToken $IncludeRefreshToken
         }
@@ -1369,10 +1377,10 @@ function Get-AccessTokenForOneNote
     Use device code flow.
     
     .Example
-    Get-AADIntAccessTokenForAdmin
+    Get-AADIntAccessTokenForOneNote
     
     .Example
-    PS C:\>Get-AADIntAccessTokenForAdmin -SaveToCache
+    PS C:\>Get-AADIntAccessTokenForOneNote -SaveToCache
 #>
     [cmdletbinding()]
     Param(
@@ -1448,6 +1456,14 @@ function Get-AccessToken
         [Parameter(Mandatory=$False)]
         [bool]$UseDeviceCode=$false,
         [Parameter(Mandatory=$False)]
+        [bool]$UseIMDS=$false,
+        [Parameter(Mandatory=$False)]
+        [String]$MsiResId,
+        [Parameter(Mandatory=$False)]
+        [String]$MsiClientId,
+        [Parameter(Mandatory=$False)]
+        [String]$MsiObjectId,
+        [Parameter(Mandatory=$False)]
         [string]$BPRT,
         [Parameter(Mandatory=$False)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
@@ -1493,7 +1509,7 @@ function Get-AccessToken
         elseif(![String]::IsNullOrEmpty($PRTToken)) # Check if we got a PRT token
         {
             # Get token using the PRT token
-            $OAuthInfo = Get-AccessTokenWithPRT -Cookie $PRTToken -Resource $Resource -ClientId $ClientId
+            $OAuthInfo = Get-AccessTokenWithPRT -Cookie $PRTToken -Resource $Resource -ClientId $ClientId  -Tenant $Tenant
             $access_token = $OAuthInfo.access_token
         }
         elseif($UseDeviceCode) # Check if we want to use device code flow
@@ -1501,6 +1517,11 @@ function Get-AccessToken
             # Get token using device code
             $OAuthInfo = Get-AccessTokenUsingDeviceCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant
             $access_token = $OAuthInfo.access_token
+        }
+        elseif($UseIMDS) # Check if we want to use IMDS
+        {
+            # Get token using Azure Instance Metadata Service (IMDS)
+            $access_token = Get-AccessTokenUsingIMDS -ClientId $MsiClientId -ObjectId $MsiObjectId -AzureResourceId $MsiResId -Resource $Resource
         }
         elseif(![String]::IsNullOrEmpty($BPRT)) # Check if we got a BPRT
         {
@@ -2092,5 +2113,104 @@ function Unprotect-EstsAuthPersistentCookie
         
         $session.Cookies.Add((New-Object System.Net.Cookie("ESTSAUTHPERSISTENT", $Cookie, "/", ".login.microsoftonline.com")))
         Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/forgetuser?sessionid=$((New-Guid).toString())" -WebSession $session
+    }
+}
+
+
+# Returns access token using Azure Instance Metadata Service (IMDS)
+# Nov 8th 2022
+
+function Get-AccessTokenUsingIMDS
+{
+<#
+    .SYNOPSIS
+    Gets access token using Azure Instance Metadata Service (IMDS)
+
+    .DESCRIPTION
+    Gets access token using Azure Instance Metadata Service (IMDS). 
+    The ClientId of the token is the (Enterprise) Application ID of the managed identity.
+
+    .Parameter Resource
+    The App ID URI of the target resource. It also appears in the aud (audience) claim of the issued token. 
+
+    .Parameter ObjectId
+    The ObjectId of the managed identity you would like the token for. Required, if your VM has multiple user-assigned managed identities.
+
+    .Parameter ClientId
+    The ClientId of the managed identity you would like the token for. Required, if your VM has multiple user-assigned managed identities.
+
+    .Parameter AzureResourceId
+    The Azure Resource ID of the managed identity you would like the token for. Required, if your VM has multiple user-assigned managed identities.
+    
+    .Example
+    PS C:\>Get-AADIntAccessTokenUsingIMDS -Resource https://management.core.windows.net | Add-AADIntAccessTokenToCache
+    
+    Name            : 
+    ClientId        : 686d728a-2838-458d-9038-2d9808781b9a
+    Audience        : https://management.core.windows.net
+    Tenant          : ef35ef41-6e54-43f8-bdf0-b89827a3a991
+    IsExpired       : False
+    HasRefreshToken : False
+    AuthMethods     : 
+    Device          : 
+
+    PS C:\>Get-AADIntAzureSubscriptions -AccessToken $at
+
+    subscriptionId                       displayName state  
+    --------------                       ----------- -----  
+    233cd967-f2d4-41eb-897a-47ac77c7393d Production  Enabled
+
+    PS C:\>Get-AADIntAzureResourceGroups -AccessToken $at -SubscriptionId "233cd967-f2d4-41eb-897a-47ac77c7393d"
+
+    name                           location      tags
+    ----                           --------      ----
+    Production-Norway              norwayeast
+    Production-Germany             westeurope
+    Production-US-West             westus3
+    Production-Sweden              swedencentral     
+    Production-US-East             eastus            
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Resource,
+        [Parameter(Mandatory=$False)]
+        [String]$ClientId,
+        [Parameter(Mandatory=$False)]
+        [String]$ObjectId,
+        [Parameter(Mandatory=$False)]
+        [String]$AzureResourceId,
+        [Parameter(Mandatory=$False)]
+        [String]$ApiVersion="2018-02-01"
+    )
+    Process
+    {
+        # Construct the url
+        # Ref: https://learn.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/how-to-use-vm-token#get-a-token-using-http
+
+        $url = "http://169.254.169.254/metadata/identity/oauth2/token?api-version=$($ApiVersion)&resource=$($Resource)"
+        if($ClientId)
+        {
+            $url += "&client_id=$ClientId"
+        }
+        if($ObjectId)
+        {
+            $url += "&object_id=$ObjectId"
+        }
+        if($AzureResourceId)
+        {
+            $url += "&msi_res_id=$AzureResourceId"
+        }
+
+        # Create the header
+        $headers = @{
+                "Metadata" = "true"
+            }
+
+        # Invoke the request. Short timeout as this may be a computer not able to access IMDS.
+        $response = Invoke-RestMethod -UseBasicParsing -Uri $url -Method Get -Headers $headers -TimeoutSec 1
+        
+        # Return
+        $response.access_token
     }
 }

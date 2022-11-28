@@ -724,6 +724,9 @@ function Export-ProxyAgentCertificates
                     $fileName = "$($machineName)_$($tenantId)_$($agentId)_$($certificate.Thumbprint).pfx"
                     Set-BinaryContent -Path $fileName -Value (New-PfxFile -RSAParameters ($privateKey.RSAParameters) -X509Certificate $binCert)
 
+                    # Set the modified date
+                    (Get-Item -Path $fileName).LastWriteTime = $certificate.NotBefore
+
                     Write-Host "Certificate saved to: $fileName"
 
                     break

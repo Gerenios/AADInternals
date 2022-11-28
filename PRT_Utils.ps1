@@ -293,19 +293,26 @@ function Get-AccessTokenWithPRT
         [String]$ClientId,
         [Parameter(Mandatory=$False)]
         [String]$RedirectUri="urn:ietf:wg:oauth:2.0:oob",
-        [switch]$GetNonce
+        [switch]$GetNonce,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant
     )
     Process
     {
+        # If no tenant is given, use Common
+        if([string]::IsNullOrEmpty($Tenant))
+        {
+            $Tenant = "Common"
+        }
+
         $parsedCookie = Read-Accesstoken $Cookie
 
         # Create parameters
         $mscrid =    (New-Guid).ToString()
         $requestId = $mscrid
-
         
         # Create url and headers
-        $url = "https://login.microsoftonline.com/Common/oauth2/authorize?resource=$Resource&client_id=$ClientId&response_type=code&redirect_uri=$RedirectUri&client-request-id=$requestId&mscrid=$mscrid"
+        $url = "https://login.microsoftonline.com/$Tenant/oauth2/authorize?resource=$Resource&client_id=$ClientId&response_type=code&redirect_uri=$RedirectUri&client-request-id=$requestId&mscrid=$mscrid"
 
         # Add sso_nonce if exist
         if($parsedCookie.request_nonce)
