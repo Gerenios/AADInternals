@@ -131,8 +131,6 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\PTASpy.ps1"
         ".\SARA.ps1"
         ".\SARA_utils.ps1"
-        ".\SPMT.ps1"
-        ".\SPMT_utils.ps1"
         ".\SPO.ps1"
         ".\SPO_utils.ps1"
         ".\SQLite.ps1"
