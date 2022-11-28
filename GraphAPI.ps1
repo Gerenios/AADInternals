@@ -366,6 +366,62 @@ function Get-ConditionalAccessPolicies
 
     odata.type          : Microsoft.DirectoryServices.Policy
     objectType          : Policy
+    objectId            : 1a6a3b84-7d6d-4398-9c26-50fab315be8b
+    deletionTimestamp   : 
+    displayName         : Default Policy
+    keyCredentials      : {}
+    policyType          : 18
+    policyDetail        : {{"Version":0,"State":"Disabled"}}
+    policyIdentifier    : 2022-11-18T00:16:20.2379877Z
+    tenantDefaultPolicy : 18
+
+    odata.type          : Microsoft.DirectoryServices.Policy
+    objectType          : Policy
+    objectId            : 7f6ac8e5-bd21-4091-ae4c-0e48e0f4db04
+    deletionTimestamp   : 
+    displayName         : Block NestorW
+    keyCredentials      : {}
+    policyType          : 18
+    policyDetail        : {{"Version":1,"CreatedDateTime":"2022-11-18T00:16:19.461967Z","State":"Enabled
+                          ","Conditions":{"Applications":{"Include":[{"Applications":["None"]}]},"Users"
+                          :{"Include":[{"Users":["8ab3ed0d-6668-49f7-a108-c50bb230c870"]}]}},"Controls":
+                          [{"Control":["Block"]}],"EnforceAllPoliciesForEas":true,"IncludeOtherLegacyCli
+                          entTypeForEvaluation":true}}
+    policyIdentifier    : 
+    tenantDefaultPolicy : 
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Return conditional access policies
+        Get-AzureADPolicies -AccessToken $AccessToken | Where policyType -eq 18
+    }
+}
+
+# Gets tenant's Azure AD Policies
+# Nov 17th 2022
+function Get-AzureADPolicies
+{
+<#
+    .SYNOPSIS
+    Shows Azure AD policies.
+
+    .DESCRIPTION
+    Shows Azure AD policies.
+
+    .Parameter AccessToken
+    The Access Token. If not given, tries to use cached Access Token.
+
+    .Example
+    PS C:\>Get-AADIntAccessTokenForAADGraph -SaveToCache
+    PS C:\>Get-AADIntAzureADPolicies
+
+    odata.type          : Microsoft.DirectoryServices.Policy
+    objectType          : Policy
     objectId            : e35e4cd3-53f8-4d65-80bb-e3279c2c1b71
     deletionTimestamp   : 
     displayName         : On-Premise Authentication Flow Policy
@@ -395,11 +451,56 @@ function Get-ConditionalAccessPolicies
     Process
     {
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
-
         
-            # Call the API
-            Call-GraphAPI -AccessToken $AccessToken -Command "policies" -Method Get
-        
+        # Call the API
+        Call-GraphAPI -AccessToken $AccessToken -Command "policies" -Method Get
+    }
+}
 
+# Gets tenant's Azure AD Policies
+# Nov 17th 2022
+function Set-AzureADPolicyDetails
+{
+<#
+    .SYNOPSIS
+    Sets Azure AD policy details.
+
+    .DESCRIPTION
+    Sets Azure AD policy details.
+
+    .Parameter AccessToken
+    The Access Token. If not given, tries to use cached Access Token.
+
+    .PARAMETER ObjectId
+    Object ID of the policy
+
+    .PARAMETER PolicyDetail
+    Policy details.
+
+    .Example
+    PS C:\>Get-AADIntAccessTokenForAADGraph -SaveToCache
+    PS C:\>Set-AADIntAzureADPolicyDetail -ObjectId "e35e4cd3-53f8-4d65-80bb-e3279c2c1b71" -PolicyDetail '{{"SecurityPolicy":{"Version":0,"SecurityDefaults":{"IgnoreBaselineProtectionPolicies":true,"IsEnabled":false}}}}'
+
+    
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [Guid]$ObjectId,
+        [Parameter(Mandatory=$True)]
+        [String]$PolicyDetail
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+        
+        $body = @{
+            "policyDetail" = @($PolicyDetail)
+        }
+
+        # Call the API
+        Call-GraphAPI -AccessToken $AccessToken -Command "policies/$($ObjectId)" -Method Patch -Body ($body | ConvertTo-Json)
     }
 }

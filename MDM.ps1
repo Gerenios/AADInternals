@@ -361,9 +361,6 @@ function Start-DeviceIntuneCallback
 
                 "./Vendor/MSFT/eUICCs" = "com.microsoft/1.2/MDM/eUICCs"
 
-                "./Vendor/MSFT/EnterpriseModernAppManagement/AppManagement/nonStore" = "Mimikatz"
-                "./Vendor/MSFT/EnterpriseModernAppManagement/AppManagement/AppStore" = ""
-
                 "./Vendor/MSFT/NodeCache/MS%20DM%20Server" =              "CacheVersion/Nodes/ChangedNodes/ChangedNodesData"
                 "./Vendor/MSFT/NodeCache/MS%20DM%20Server/CacheVersion" = ""
                 "./Vendor/MSFT/NodeCache/MS%20DM%20Server/ChangedNodes" = ""

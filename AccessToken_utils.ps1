@@ -1139,8 +1139,10 @@ function Prompt-Credentials
 
         # Show the form and wait for the return value
         if($form.ShowDialog() -ne "OK") {
-            # Dispose the control
-        $form.Controls[0].Dispose()
+            # Dispose the controls
+            $form.Controls[1].Dispose()
+            $form.Controls[0].Dispose()
+            $form.Dispose()
             Write-Verbose "Login cancelled"
             return $null
         }
@@ -1156,8 +1158,10 @@ function Prompt-Credentials
             redirect_uri=$auth_redirect
         }
         
-        # Dispose the control
+        # Dispose the controls
+        $form.Controls[1].Dispose()
         $form.Controls[0].Dispose()
+        $form.Dispose()
 
         # Debug
         Write-Debug "AUTHENTICATION BODY: $($body | Out-String)"
@@ -1734,7 +1738,7 @@ function Add-AccessTokenToCache
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$True,ValueFromPipeline)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
         [String]$RefreshToken
@@ -1885,7 +1889,9 @@ function Get-AuthRedirectUrl
         {
             $redirect_uri = "https://partner.microsoft.com/aad/authPostGateway"
         }
-        elseif($ClientId -eq "fb78d390-0c51-40cd-8e17-fdbfab77341b") # Microsoft Exchange REST API Based Powershell
+        elseif($ClientId -eq "fb78d390-0c51-40cd-8e17-fdbfab77341b" -or # Microsoft Exchange REST API Based Powershell
+               $ClientId -eq "fdd7719f-d61e-4592-b501-793734eb8a0e" -or # SharePoint Migration Tool
+               $ClientId -eq "a0c73c16-a7e3-4564-9a95-2bdf47383716")    # EXO PS
         {
             $redirect_uri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
         }
@@ -1893,11 +1899,10 @@ function Get-AuthRedirectUrl
         {
             $redirect_uri = "https://windows365.microsoft.com/signin-oidc"
         }
-        elseif($ClientId -eq "a0c73c16-a7e3-4564-9a95-2bdf47383716") # EXO PS
+        elseif($ClientId -eq "08e18876-6177-487e-b8b5-cf950c1e598c") # SharePoint Online Web Client Extensibility
         {
-            $redirect_uri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
+            $redirect_uri = "https://*-admin.sharepoint.com/_forms/spfxsinglesignon.aspx"
         }
-        
 
         return $redirect_uri
     }
@@ -2169,6 +2174,7 @@ function Export-AzureCliTokens
     Param(
         [switch]$AddToCache,
         [switch]$CopyToClipboard,
+        [switch]$DPAPI,
         [String]$MSALCache
     )
     Begin
