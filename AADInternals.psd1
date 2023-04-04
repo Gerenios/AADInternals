@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.8.0'
+	ModuleVersion = '0.8.1'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -19,7 +19,7 @@
 	CompanyName = 'Gerenios Ltd'
 
 	# Copyright statement for this module
-	Copyright = '(c) 2018 - 2022 Nestori Syynimaa (@DrAzureAD). Distributed under MIT license.'
+	Copyright = '(c) 2018 - 2023 Nestori Syynimaa (@DrAzureAD). Distributed under MIT license.'
 
 	# Description of the functionality provided by this module
 	Description = 'The AADInternals PowerShell Module utilises several internal features of Azure Active Directory, Office 365, and related admin tools.
@@ -252,6 +252,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-WindowsCredentialsSyncConfig"
     "Get-SyncDeviceConfiguration"
     "Join-OnPremDeviceToAzureAD"
+    "Set-AzureADGroupMember"
 
     # AzureManagementAPI_utils.ps1
     "Get-AccessTokenForAADIAMAPI"
@@ -477,6 +478,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Remove-MSPartnerDelegatedAdminRoles"
     "Get-MSPartners"  
     "Get-TenantOrganisationInformation"
+    "Get-AccessTokenUsingAdminAPI"
     
     # Device.ps1
     "Export-LocalDeviceCertificate"

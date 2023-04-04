@@ -40,6 +40,7 @@ function Invoke-ReconAsOutsider
     Tenant id:          05aea22e-32f3-4c35-831b-52735704feb3
     Tenant region:      NA
     DesktopSSO enabled: False
+    MDI instance:       company.atp.azure.com
 
     Name                           DNS   MX    SPF  DMARC  Type      STS
     ----                           ---   --    ---  -----  ----      ---
@@ -56,6 +57,7 @@ function Invoke-ReconAsOutsider
     Tenant id:          05aea22e-32f3-4c35-831b-52735704feb3
     Tenant region:      NA
     DesktopSSO enabled: False
+    MDI instance:       company.atp.azure.com
 
     Name                           DNS   MX    SPF  DMARC  Type      STS             RPS
     ----                           ---   --    ---  -----  ----      ---             ---
@@ -72,6 +74,7 @@ function Invoke-ReconAsOutsider
     Tenant id:          05aea22e-32f3-4c35-831b-52735704feb3
     Tenant region:      NA
     DesktopSSO enabled: False
+    MDI instance:       company.atp.azure.com
     CBA enabled:        True
 
     Name                           DNS   MX    SPF  DMARC  Type      STS
@@ -233,6 +236,13 @@ function Invoke-ReconAsOutsider
             Write-Host "DesktopSSO enabled: $tenantSSO"
         }
 
+        # MDI instance not definitive, may have different instance name than the tenant name.
+        $tenantMDI = GetMDIInstance -Tenant $tenantName
+        if($tenantMDI)
+        {
+            Write-Host "MDI instance:       $tenantMDI"
+        }
+
         # CBA status definitive if username was provided
         if($tenantCBA)
         {
@@ -254,13 +264,13 @@ function Invoke-UserEnumerationAsOutsider
     Checks whether the given user exists in Azure AD or not. Returns $True or $False or empty.
 
     .DESCRIPTION
-    Checks whether the given user exists in Azure AD or not. Works also with external users! Supports two enumeration methods: Normal, Login, and Autologon.
+    Checks whether the given user exists in Azure AD or not. Works also with external users! Supports following enumeration methods: Normal, Login, Autologon, and RST2.
 
     The Normal method seems currently work with all tenants. Previously it required Desktop SSO (aka Seamless SSO) to be enabled for at least one domain. 
 
     The Login method works with any tenant, but enumeration queries will be logged to Azure AD sign-in log as failed login events!
 
-    The Autologon method works with any tenant and enumeration queries are not logged!
+    The Autologon method doesn't seem to work with all tenants anymore. Probably requires that DesktopSSO or directory sync is enabled.
 
     Returns $True or $False if existence can be verified and empty if not.
 
@@ -274,7 +284,7 @@ function Invoke-UserEnumerationAsOutsider
     The initial domain of the given tenant.
 
     .Parameter Method
-    The used enumeration method. One of "Normal","Login","Autologon"
+    The used enumeration method. One of "Normal","Login","Autologon","RST2"
 
     .Example
     Invoke-AADIntUserEnumerationAsOutsider -UserName user@company.com
@@ -330,7 +340,7 @@ function Invoke-UserEnumerationAsOutsider
         [Parameter(ParameterSetName="External",Mandatory=$True)]
         [String]$Domain,
         [Parameter(Mandatory=$False)]
-        [ValidateSet("Normal","Login","Autologon")]
+        [ValidateSet("Normal","Login","Autologon","RST2")]
         [String]$Method="Normal"
     )
     Process
@@ -836,6 +846,7 @@ function Invoke-ReconAsInsider
     Tenant brand:                Company Ltd
     Tenant name:                 company.onmicrosoft.com
     Tenant id:                   6e3846ee-e8ca-4609-a3ab-f405cfbd02cd
+    Tenant SKU:                  E3
     Azure AD objects:            520/500000
     Domains:                     6 (4 verified)
     Non-admin users restricted?  True
@@ -943,6 +954,42 @@ function Invoke-ReconAsInsider
             # Okay
         }
 
+        # AzureAD SKU
+        $tenantSku = @()
+        if($tenantInformation.skuInfo.aadPremiumBasic)
+        {
+            $tenantSku += "Premium Basic"
+        }
+        if($tenantInformation.skuInfo.aadPremium)
+        {
+            $tenantSku += "Premium P1"
+        }
+        if($tenantInformation.skuInfo.aadPremiumP2)
+        {
+            $tenantSku += "Premium P2"
+        }
+        if($tenantInformation.skuInfo.aadBasic)
+        {
+            $tenantSku += "Basic"
+        }
+        if($tenantInformation.skuInfo.aadBasicEdu)
+        {
+            $tenantSku += "Basic Edu"
+        }
+        if($tenantInformation.skuInfo.aadSmb)
+        {
+            $tenantSku += "SMB"
+        }
+        if($tenantInformation.skuInfo.enterprisePackE3)
+        {
+            $tenantSku += "E3"
+        }
+        if($tenantInformation.skuInfo.enterprisePremiumE5)
+        {
+            $tenantSku += "Premium E5"
+        }
+        
+
         # Set the extra tenant information
         $tenantInformation |Add-Member -NotePropertyName "companyInformation"     -NotePropertyValue $companyInformation
         $tenantInformation |Add-Member -NotePropertyName "SPOInformation"         -NotePropertyValue $sharePointInformation
@@ -958,6 +1005,7 @@ function Invoke-ReconAsInsider
         Write-Host "Tenant brand:                $($tenantInformation.displayName)"
         Write-Host "Tenant name:                 $($tenantInformation.domains | where isInitial -eq "True" | select -ExpandProperty id)"
         Write-Host "Tenant id:                   $tenantId"
+        Write-Host "Tenant SKU:                  $($tenantSku -join ", ")"
         Write-Host "Azure AD objects:            $($tenantInformation.directorySizeQuota.used)/$($tenantInformation.directorySizeQuota.total)"
         Write-Host "Domains:                     $($tenantInformation.domains.Count) ($(($tenantInformation.domains | where isVerified -eq "True").Count) verified)"
         Write-Host "Non-admin users restricted?  $($tenantInformation.restrictNonAdminUsers)"

@@ -799,13 +799,20 @@ function Get-OAuthInfo
         [Parameter(Mandatory=$True)]
         [String]$Resource,
         [Parameter(Mandatory=$False)]
-        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894"
+        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894",
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant="common"
     )
     Begin
     {
         # Create the headers. We like to be seen as Outlook.
         $headers = @{
             "User-Agent" = "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 10.0; WOW64; Trident/7.0; .NET4.0C; .NET4.0E; Tablet PC 2.0; Microsoft Outlook 16.0.4266)"
+        }
+
+        if([string]::IsNullOrEmpty($Tenant))
+        {
+            $Tenant="common"
         }
     }
     Process
@@ -841,7 +848,7 @@ function Get-OAuthInfo
             $contentType="application/x-www-form-urlencoded"
             try
             {
-                $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
+                $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
             }
             catch
             {
@@ -2495,5 +2502,128 @@ function Export-TokenBrokerTokens
         {
             return $access_tokens
         }
+    }
+}
+
+# Gets RST token 
+# Mar 3rd 2023
+function Get-RSTToken
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$True)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='UserNameAndPassword',Mandatory=$True)]
+        [String]$UserName,
+        [Parameter(ParameterSetName='UserNameAndPassword',Mandatory=$False)]
+        [String]$Password,
+        [Parameter(Mandatory=$True)]
+        [String]$EndpointAddress,
+        [Parameter(Mandatory=$True)]
+        [String]$Url
+    )
+    Process
+    {
+        If([String]::IsNullOrEmpty($UserName))
+        {
+            $UserName = $Credentials.UserName
+            $Password = $Credentials.GetNetworkCredential().password
+        }
+        $requestId = (New-Guid).ToString()
+
+        $now = Get-Date
+        $created = $now.toUniversalTime().toString("o")
+        $expires = $now.addMinutes(10).toUniversalTime().toString("o")
+
+        
+        $body=@"
+<?xml version='1.0' encoding='UTF-8'?>
+<s:Envelope xmlns:s='http://www.w3.org/2003/05/soap-envelope' xmlns:wsse='http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd' xmlns:saml='urn:oasis:names:tc:SAML:1.0:assertion' xmlns:wsp='http://schemas.xmlsoap.org/ws/2004/09/policy' xmlns:wsu='http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd' xmlns:wsa='http://www.w3.org/2005/08/addressing' xmlns:wssc='http://schemas.xmlsoap.org/ws/2005/02/sc' xmlns:wst='http://schemas.xmlsoap.org/ws/2005/02/trust' xmlns:ic='http://schemas.xmlsoap.org/ws/2005/05/identity'>
+    <s:Header>
+        <wsa:Action s:mustUnderstand='1'>http://schemas.xmlsoap.org/ws/2005/02/trust/RST/Issue</wsa:Action>
+        <wsa:To s:mustUnderstand='1'>$url</wsa:To>
+        <wsa:MessageID>urn:uuid:$((New-Guid).ToString())</wsa:MessageID>
+        <wsse:Security s:mustUnderstand="1">
+            <wsu:Timestamp wsu:Id="_0">
+                <wsu:Created>$created</wsu:Created>
+                <wsu:Expires>$expires</wsu:Expires>
+            </wsu:Timestamp>
+            <wsse:UsernameToken wsu:Id="uuid-$((New-Guid).toString())">
+                <wsse:Username>$UserName</wsse:Username>
+                <wsse:Password>$Password</wsse:Password>
+            </wsse:UsernameToken>
+        </wsse:Security>
+    </s:Header>
+    <s:Body>
+        <wst:RequestSecurityToken Id='RST0'>
+                <wst:RequestType>http://schemas.xmlsoap.org/ws/2005/02/trust/Issue</wst:RequestType>
+                    <wsp:AppliesTo>
+                        <wsa:EndpointReference>
+                            <wsa:Address>$EndpointAddress</wsa:Address>
+                        </wsa:EndpointReference>
+                    </wsp:AppliesTo>
+                    <wst:KeyType>http://schemas.xmlsoap.org/ws/2005/05/identity/NoProofKey</wst:KeyType>
+            </wst:RequestSecurityToken>
+    </s:Body>
+</s:Envelope>
+"@
+        try
+        {
+            $response = Invoke-RestMethod -UseBasicParsing -Uri $url -Method Post -Body $body -ErrorAction SilentlyContinue
+            $tokenResponse = $response.Envelope.Body.RequestSecurityTokenResponse
+            if($tokenResponse)
+            {
+                switch($tokenResponse.TokenType)
+                {
+                    # DesktopSSOToken when EndpointAddress is:
+                    # urn:federation:MicrosoftOnline
+                    ("urn:oasis:names:tc:SAML:1.0:assertion")
+                    {
+                        $token = $tokenResponse.RequestedSecurityToken.Assertion.DesktopSsoToken
+                        break
+                    }
+                    # Passport Compact when EndpointAddress is one of:
+                    # officeapps.live.com
+                    # sharepoint.com
+                    ("urn:passport:compact")
+                    {
+                        $token = $tokenResponse.RequestedSecurityToken.BinarySecurityToken.'#text'
+                        break
+                    }
+                    # Passport Legacy when EndpointAddress is:
+                    # http://Passport.NET/tb
+                    ("urn:passport:legacy")
+                    {
+                        # TODO: Try to figure out how this is encrypted
+                        $cipherData = $tokenResponse.RequestedSecurityToken.EncryptedData.CipherData.CipherData
+                        $keyName    = $tokenResponse.RequestedSecurityToken.EncryptedData.KeyInfo.KeyName
+                        $encAlg     = $tokenResponse.RequestedSecurityToken.EncryptedData.EncryptionMethod.Algorithm
+
+                        Write-Warning "Unable to decrypt legacy passport token, returning encrypted token"
+                        $token = $cipherData
+                        break
+                    }
+                }
+
+                return $token
+            }
+            else
+            {
+                $errorDetails = $response.Envelope.Body.Fault.Detail.error.internalerror.text
+            }
+        }
+        catch
+        {
+            $stream = $_.Exception.Response.GetResponseStream()
+            $responseBytes = New-Object byte[] $stream.Length
+
+            $stream.Position = 0
+            $stream.Read($responseBytes,0,$stream.Length) | Out-Null
+            
+            $responseXml = [xml][text.encoding]::UTF8.GetString($responseBytes)
+
+            $errorDetails = $responseXml.Envelope.Body.Fault.Detail.error.internalerror.text
+        }
+        throw $errorDetails
     }
 }

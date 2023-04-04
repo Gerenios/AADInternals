@@ -55,7 +55,7 @@ function Get-SPOAuthenticationHeader
         $s=$html.IndexOf('href="')+6
         $e=$html.IndexOf('"',$s)
         $url=$html.Substring($s,$e-$s)
-        $url="https://$siteDomain/$url"
+        $url="https://$siteDomain$url"
         $response = Invoke-WebRequest -UseBasicParsing -uri $url -MaximumRedirection 0 -ErrorAction SilentlyContinue -WebSession $siteWebSession
 
         # Create the cookie header for the login form
@@ -394,7 +394,7 @@ function Get-SPODigest
             $webCookie = New-Object System.Net.Cookie
             $webCookie.Name = $Cookie.Split("=")[0]
             $webCookie.Value = $Cookie.Substring($webCookie.Name.Length+1)
-            $webCookie.Domain = "$tenant-admin.sharepoint.com"
+            $webCookie.Domain = "$tenant.sharepoint.com"
             $session.Cookies.Add($webCookie)
         }
         else
@@ -407,7 +407,7 @@ function Get-SPODigest
         }
 
         # Invoke the API
-        $response=Invoke-WebRequest -UseBasicParsing -Method Post "https://$tenant.sharepoint.com/_vti_bin/sites.asmx" -Headers $headers -Body $Body -WebSession $session
+        $response=Invoke-WebRequest -UseBasicParsing -Method Post "$site/_vti_bin/sites.asmx" -Headers $headers -Body $Body -WebSession $session
 
         # Extract the Digest
         [xml]$xmlContent=$response.Content
@@ -431,16 +431,7 @@ function Get-SPOTenantSettings
     )
     Process
     {
-        # Get the digest
-        $digest = Get-SPODigest -AccessToken $AccessToken -Cookie $Cookie -Site $Site
-        # Set the headers
-        $headers=@{
-            "Content-Type" = "text/xml"
-            "X-RequestForceAuthentication" = "true"
-            "X-FORMS_BASED_AUTH_ACCEPTED"= "f"
-            "User-Agent" = ""
-            "X-RequestDigest" = $digest
-        }
+
         
         $Body=@"
 <Request AddExpandoFieldTypeSuffix="true" SchemaVersion="15.0.0.0" LibraryVersion="16.0.0.0" ApplicationName="SharePoint Online PowerShell (16.0.20122.0)" xmlns="http://schemas.microsoft.com/sharepoint/clientquery/2009">
@@ -464,6 +455,50 @@ function Get-SPOTenantSettings
 	</ObjectPaths>
 </Request>
 "@
+        # Invoke ProcessQuery
+        $response = Invoke-ProcessQuery -Cookie $Cookie -AccessToken $AccessToken -Site $site -Body $Body
+
+        $content = ($response.content | ConvertFrom-Json)
+        
+        # Return
+        return $content[$content.Count-1]
+    }
+}
+
+# Invokes ProcessQuery
+# Nov 23rd 2022
+function Invoke-ProcessQuery
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [string]$Cookie,
+        [Parameter(Mandatory=$False)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [string]$Site,
+        [Parameter(Mandatory=$True)]
+        [string]$Body,
+        [Parameter(Mandatory=$False)]
+        [string]$Digest
+    )
+    Process
+    {
+        # Get the digest if not provided
+        if([String]::IsNullOrEmpty($Digest))
+        {
+            $Digest = Get-SPODigest -AccessToken $AccessToken -Cookie $Cookie -Site $Site
+        }
+        
+        # Set the headers
+        $headers=@{
+            "Content-Type" = "text/xml"
+            "X-RequestForceAuthentication" = "true"
+            "X-FORMS_BASED_AUTH_ACCEPTED"= "f"
+            "User-Agent" = ""
+            "X-RequestDigest" = $digest
+        }
+        
         # Parse the tenant part
         $tenant = $site.Split("/")[2].Split(".")[0]
 
@@ -473,7 +508,7 @@ function Get-SPOTenantSettings
             $webCookie = New-Object System.Net.Cookie
             $webCookie.Name = $Cookie.Split("=")[0]
             $webCookie.Value = $Cookie.Substring($webCookie.Name.Length+1)
-            $webCookie.Domain = "$tenant-admin.sharepoint.com"
+            $webCookie.Domain = "$tenant.sharepoint.com"
             $session.Cookies.Add($webCookie)
         
         }
@@ -487,11 +522,17 @@ function Get-SPOTenantSettings
         }
 
         # Invoke the API
-        $response=Invoke-WebRequest -UseBasicParsing -Method Post "https://$tenant.sharepoint.com/_vti_bin/client.svc/ProcessQuery" -Headers $headers -Body $Body -WebSession $session
+        $response = Invoke-WebRequest -UseBasicParsing -Method Post "$site/_vti_bin/client.svc/ProcessQuery" -Headers $headers -Body $Body -WebSession $session
 
-        $content = ($response.content | ConvertFrom-Json)
-        
-        # Return
-        return $content[$content.Count-1]
+        # Try to check error
+        $responseJson = $response.Content | ConvertFrom-Json
+        if($responseJson[0].ErrorInfo)
+        {
+            throw $responseJson[0].ErrorInfo.ErrorMessage
+        }
+
+        # return
+        $response
     }
 }
+

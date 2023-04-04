@@ -473,7 +473,8 @@ function Get-AzureInformation
             $access_token3 = Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
 
             # Get the directory quota
-            $response2 = Invoke-RestMethod -UseBasicParsing -Uri "https://main.iam.ad.ext.azure.com/api/MsGraph/v1.0/organization/?`$select=directorySizeQuota" -Headers @{"Authorization" = "Bearer $access_token3"}
+            $response2 = Call-MSGraphAPI -AccessToken $access_token3 -API "organization" -QueryString '$select=directorySizeQuota'
+            $quota = $response2.directorySizeQuota 
 
             # Get the domain details
             $domains = Get-MSGraphDomains -AccessToken $access_token3
@@ -493,7 +494,7 @@ function Get-AzureInformation
             $properties | Add-Member -NotePropertyName "allowedActions"      -NotePropertyValue $permissions.allowedActions
             $properties | Add-Member -NotePropertyName "skuInfo"             -NotePropertyValue $skuInfo
             $properties | Add-Member -NotePropertyName "domains"             -NotePropertyValue $domains
-            $properties | Add-Member -NotePropertyName "directorySizeQuota"  -NotePropertyValue $response2.value[0].directorySizeQuota
+            $properties | Add-Member -NotePropertyName "directorySizeQuota"  -NotePropertyValue $quota
             $properties | Add-Member -NotePropertyName "authorizationPolicy" -NotePropertyValue $authPolicy
 			$properties | Add-Member -NotePropertyName "conditionalAccessPolicy" -NotePropertyValue $CAPolicy
             $properties | Add-Member -NotePropertyName "guestAccess"         -NotePropertyValue $guestAccess
