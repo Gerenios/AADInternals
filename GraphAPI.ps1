@@ -477,9 +477,16 @@ function Set-AzureADPolicyDetails
     .PARAMETER PolicyDetail
     Policy details.
 
+    .PARAMETER DisplayName
+    New displayname of the policy
+
     .Example
     PS C:\>Get-AADIntAccessTokenForAADGraph -SaveToCache
     PS C:\>Set-AADIntAzureADPolicyDetail -ObjectId "e35e4cd3-53f8-4d65-80bb-e3279c2c1b71" -PolicyDetail '{{"SecurityPolicy":{"Version":0,"SecurityDefaults":{"IgnoreBaselineProtectionPolicies":true,"IsEnabled":false}}}}'
+
+    .Example
+    PS C:\>Get-AADIntAccessTokenForAADGraph -SaveToCache
+    PS C:\>Set-AADIntAzureADPolicyDetail -ObjectId "e35e4cd3-53f8-4d65-80bb-e3279c2c1b71" -PolicyDetail '{{"SecurityPolicy":{"Version":0,"SecurityDefaults":{"IgnoreBaselineProtectionPolicies":true,"IsEnabled":false}}}}' -displayName "My Policy"
 
     
 #>
@@ -490,7 +497,9 @@ function Set-AzureADPolicyDetails
         [Parameter(Mandatory=$True)]
         [Guid]$ObjectId,
         [Parameter(Mandatory=$True)]
-        [String]$PolicyDetail
+        [String]$PolicyDetail,
+        [Parameter(Mandatory=$False)]
+        [String]$DisplayName
     )
     Process
     {
@@ -498,6 +507,10 @@ function Set-AzureADPolicyDetails
         
         $body = @{
             "policyDetail" = @($PolicyDetail)
+        }
+        if(![string]::IsNullOrEmpty($DisplayName))
+        {
+            $body["displayName"] = $DisplayName
         }
 
         # Call the API

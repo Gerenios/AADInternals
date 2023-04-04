@@ -587,7 +587,9 @@ function Get-AccessTokenWithKerberosTicket
         [Parameter(Mandatory=$False)]
         [String]$Resource="https://graph.windows.net",
         [Parameter(Mandatory=$False)]
-        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894"
+        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894",
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant="common"
     )
     Process
     {
@@ -653,7 +655,7 @@ function Get-AccessTokenWithKerberosTicket
         
         try
         {
-            $response = Invoke-WebRequest -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -Method Post -Body $body
+            $response = Invoke-WebRequest -UseBasicParsing -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token" -Method Post -Body $body
         }
         catch
         {

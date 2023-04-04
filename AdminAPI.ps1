@@ -149,31 +149,60 @@ function Get-AccessTokenUsingAdminAPI
 
     .DESCRIPTION
     Gets access token for the requested resource using Admin API.
+    The client id of the retuned access token is 00000006-0000-0ff1-ce00-000000000000 (Microsoft Office 365 Portal).
 
     .Parameter Access
     Some supported type of access token.
 
     .Parameter TokenType
-    The type of the access token to return
+    The type of the access token to return. Can be one of "PortalAT","BusinessStoreAT"
+
+    .Parameter Resource
+    Gets an access token for the given resource. Can be one of "https://management.core.windows.net/","https://graph.microsoft.com/"
 
     .Example
     PS C:\>Get-AADIntAccessTokenForAdmin -SaveToCache
     PS C:\>$at = Get-AADIntAccessTokenUsingAdminAPI -TokenType PortalAT
 
+    .Example
+    PS C:\>Get-AADIntAccessTokenForAdmin -SaveToCache
+    PS C:\>$at = Get-AADIntAccessTokenUsingAdminAPI -Resource https://management.core.windows.net/
+
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$False)]
+        [Parameter(ParameterSetName='Normal',Mandatory=$True)]
         [ValidateSet('PortalAT','BusinessStoreAT')]
-        [String]$TokenType="PortalAT",
+        [String]$TokenType,
+        [Parameter(ParameterSetName='Resource',Mandatory=$True)]
+        [ValidateSet('https://graph.microsoft.com/','https://management.core.windows.net/')]
+        [String]$Resource,
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
-        [Microsoft.PowerShell.Commands.WebRequestSession]$WebSession
+        [Microsoft.PowerShell.Commands.WebRequestSession]$WebSession,
+        [Parameter(Mandatory=$False)]
+        [bool]$SaveToCache=$False
     )
     Process
     {
-        Invoke-AdminAPI -AccessToken $AccessToken -Url "admin/api/users/getuseraccesstoken?tokenType=$TokenType" -Method Get -WebSession $WebSession
+        if($TokenType)
+        {
+            $access_token = Invoke-AdminAPI -AccessToken $AccessToken -Url "admin/api/users/getuseraccesstoken?tokenType=$TokenType" -Method Get -WebSession $WebSession
+        }
+        else
+        {
+            $access_token = Invoke-AdminAPI -AccessToken $AccessToken -Url "admin/api/users/token" -Method Post -Body "=$Resource"
+        }
+
+        if($SaveToCache)
+        {
+            Add-AccessTokenToCache -AccessToken $access_token
+        }
+        else
+        {
+            $access_token
+        }
     }
 }
 
