@@ -22,12 +22,20 @@ function Start-CloudShell
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [ValidateSet('PowerShell','Bash')]
-        [String]$Shell="PowerShell"
+        [String]$Shell="PowerShell",
+        [Parameter(Mandatory=$False)]
+        [guid]$SubscriptionId,
+        [Parameter(Mandatory=$False)]
+        [String]$ResourceGroup,
+        [Parameter(Mandatory=$False)]
+        [String]$StorageAccount,
+        [Parameter(Mandatory=$False)]
+        [String]$FileShareName
     )
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "00000006-0000-0ff1-ce00-000000000000"
 
         if(!$host.UI.SupportsVirtualTerminal)
         {
@@ -37,6 +45,28 @@ function Start-CloudShell
 
         try
         {
+            # Check the user settings
+            $userSettings = Get-UserCloudShellSettings -AccessToken $AccessToken 
+            if(!$userSettings)
+            {
+                # User has no settings, we need storage account and fileshare information to create new settings
+                if([string]::IsNullOrEmpty($StorageAccount) -or [string]::IsNullOrEmpty($ResourceGroup) -or [string]::IsNullOrEmpty($FileShareName) -or ($SubscriptionId -eq $null))
+                {
+                    Write-Warning "User has no cloud shell settings. If connection fails, please provide Storage Account and FileShare details."
+                }
+                else
+                {
+                    # Let's try to create setting
+                    $StorageAccountId = "/subscriptions/$SubscriptionId/resourcegroups/$ResourceGroup/providers/Microsoft.Storage/storageAccounts/$StorageAccount"
+                    $userSettings = Set-UserCloudShellSettings -AccessToken $AccessToken -StorageAccountId $StorageAccountId -fileShareName $fileShareName
+                }
+            }
+            else
+            {
+                Write-Verbose "User settings received!"
+            }
+
+
             # Get the shell info
             $shellInfo = New-CloudShell -AccessToken $AccessToken
             Write-Verbose "Created shell $($shellInfo.uri)"
@@ -155,7 +185,6 @@ function Start-CloudShell
                 Write-Verbose "Closing websocket"
                 $socket.Dispose()
             }
-
         }
 
         

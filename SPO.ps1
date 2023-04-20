@@ -121,13 +121,9 @@ function Get-SPOSiteUsers
     )
     Process
     {
-        # Check the site url
-        if($Site.EndsWith("/"))
-        {
-            $Site=$Site.Substring(0,$Site.Length-1)
-        }
-
-        $siteDomain=$Site.Split("/")[2]
+        $Site=$Site.TrimEnd("/")
+        
+        $tenant=$Site.Split("/")[2]
 
         if(![string]::IsNullOrEmpty($AuthHeader))
         {
@@ -137,7 +133,7 @@ function Get-SPOSiteUsers
         else
         {
             # Get from cache if not provided
-            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
             $headers=@{
                 "Authorization" = "Bearer $AccessToken"
             }

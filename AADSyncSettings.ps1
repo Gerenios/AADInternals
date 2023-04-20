@@ -1,7 +1,5 @@
 ﻿# This module contains functions to extract and update AADConnect sync credentials
 
-# Print the loading message here as this is the first .ps1 to be loaded :)
-Write-Host "Loading module.."
 
 # Oct 29th 2019
 function Check-Server
@@ -72,7 +70,7 @@ function Check-Server
             if($elevation)
             {
                 Write-Verbose """Elevation"" to ADSync succeeded!"
-                Write-Warning "Running as ADSync ($ADSyncUser). You MUST restart PowerShell to restore $CurrentUser rights."
+                #Write-Warning "Running as ADSync ($ADSyncUser). You MUST restart PowerShell to restore $CurrentUser rights."
             }
             else
             {
@@ -106,110 +104,170 @@ function Get-SyncCredentials
     ADDomain2                      business.net  
     ADUser2                        MSOL_4bc4a34e95fa
     ADUserPassword2                cE/Pj+4/MR6hW)2L_4P=H^hiq)pZhMb...
+
+    .Example
+    PS C:\>$synccredentials = Get-AADIntSyncCredentials -AsCredentials
+    PS C:\>Get-AADIntAccessTokenForAADGraph -Credentials $synccredentials[0] -SaveToCache
+
+    Tenant                               User                                            Resource                  Client               
+    ------                               ----                                            --------                  ------               
+    a5427106-ed71-4185-9481-221e2ebdfc6c Sync_SRV01_4bc4a34e95fa@company.onmicrosoft.com https://graph.windows.net 1b730954-1685-4b74...
+
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$false)]
         [bool]$AsADSync=$true,
-        #[Parameter(Mandatory=$false)]
-        #[switch]$AsCredentials,
+        [Parameter(Mandatory=$false)]
+        [bool]$AsBackgroundProcess=$true,
+        [Parameter(Mandatory=$false)]
+        [switch]$AsCredentials,
         [Parameter(Mandatory=$false)]
         [switch]$force
     )
     Process
     {
-        # Do the checks
-        if((Check-Server -AsADSync $AsADSync -force $force) -eq $false)
+        # If started as a background process, start the background job script
+        if($AsBackgroundProcess)
         {
-           return
-        }
-
-        # Read the encrypt/decrypt key settings
-        $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList (Get-AADConfigDbConnection)
-        $SQLclient.Open()
-        $SQLcmd = $SQLclient.CreateCommand()
-        $SQLcmd.CommandText = "SELECT keyset_id, instance_id, entropy FROM mms_server_configuration"
-        $SQLreader = $SQLcmd.ExecuteReader()
-        $SQLreader.Read() | Out-Null
-        $key_id = $SQLreader.GetInt32(0)
-        $instance_id = $SQLreader.GetGuid(1)
-        $entropy = $SQLreader.GetGuid(2)
-        $SQLreader.Close()
-
-        # Read the AD configuration data
-        $ADConfigs=@()
-        $SQLcmd = $SQLclient.CreateCommand()
-        $SQLcmd.CommandText = "SELECT private_configuration_xml, encrypted_configuration FROM mms_management_agent WHERE ma_type = 'AD'"
-        $SQLreader = $SQLcmd.ExecuteReader()
-        while($SQLreader.Read())
-        {
-            $ADConfig = $SQLreader.GetString(0)
-            $ADCryptedConfig = $SQLreader.GetString(1)
-            $ADConfigs += New-Object -TypeName psobject -Property @{"ADConfig" = $ADConfig; "ADCryptedConfig" = $ADCryptedConfig}
-        }
-        $SQLreader.Close()
-
-        # Read the AAD configuration data
-        $SQLcmd = $SQLclient.CreateCommand()
-        $SQLcmd.CommandText = "SELECT private_configuration_xml, encrypted_configuration FROM mms_management_agent WHERE subtype = 'Windows Azure Active Directory (Microsoft)'"
-        $SQLreader = $SQLcmd.ExecuteReader()
-        $SQLreader.Read() | Out-Null
-        $AADConfig = $SQLreader.GetString(0)
-        $AADCryptedConfig = $SQLreader.GetString(1)
-        $SQLreader.Close()
-        $SQLclient.Close()
-
-        # Extract the data
-        $attributes=[ordered]@{}
-        $attributes["AADUser"]=([xml]$AADConfig).MAConfig.'parameter-values'.parameter[0].'#text'
-        $attributes["AADUserPassword"]=""
-
-        try
-        {
-            # Decrypt config data
-            $KeyMgr = New-Object -TypeName Microsoft.DirectoryServices.MetadirectoryServices.Cryptography.KeyManager
-
-            $KeyMgr.LoadKeySet($entropy, $instance_id, $key_id)
-            $key = $null
-            $KeyMgr.GetActiveCredentialKey([ref]$key)
-            $key2 = $null
-            $KeyMgr.GetKey(1, [ref]$key2)
-
-            # Extract the encrypted data
-            $n=1
-            foreach($ADConfig in $ADConfigs)
+            Write-Verbose "Starting as a background process."
+            Try 
             {
-                $ADDecryptedConfig = $null
-                $key2.DecryptBase64ToString($ADConfig.ADCryptedConfig, [ref]$ADDecryptedConfig)
-                
-                $attributes["ADDomain$n"      ]=([xml]$ADConfig.ADConfig).'adma-configuration'.'forest-login-domain'
-                $attributes["ADUser$n"        ]=([xml]$ADConfig.ADConfig).'adma-configuration'.'forest-login-user'
-                $attributes["ADUserPassword$n"]=([xml]$ADDecryptedConfig).'encrypted-attributes'.attribute.'#text'
-                
-                $n++
+                $pinfo = New-Object System.Diagnostics.ProcessStartInfo
+                $pinfo.FileName = "powershell.exe"
+                $pinfo.RedirectStandardError = $true
+                $pinfo.RedirectStandardOutput = $true
+                $pinfo.UseShellExecute = $false
+                $pinfo.Arguments = "-File $PSScriptRoot\AADSyncSettings_job.ps1"
+                $p = New-Object System.Diagnostics.Process
+                $p.StartInfo = $pinfo
+                $p.Start() | Out-Null
+
+                # Get the return value and convert from JSON string
+                $response = $p.StandardOutput.ReadToEnd()
+                Write-Verbose "Background process response: $response"
+                $retVal =  $response | ConvertFrom-Json
+
+                $p.WaitForExit()
+              }
+              Catch 
+              {
+                throw "Could not export credentials using background process."
+              }
+        }
+        else
+        {
+
+            # Do the checks
+            if((Check-Server -AsADSync $AsADSync -force $force) -eq $false)
+            {
+               return
             }
 
-            $AADDecryptedConfig = $null
-            $key2.DecryptBase64ToString($AADCryptedConfig, [ref]$AADDecryptedConfig)
-            $attributes["AADUserPassword"]=([xml]$AADDecryptedConfig).'encrypted-attributes'.attribute | Where name -eq "Password" | Select -ExpandProperty "#text"
-        }
-        catch
-        {
-            Write-Error "Could not load key set!"
-        }
+            # Read the encrypt/decrypt key settings
+            $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList (Get-AADConfigDbConnection)
+            $SQLclient.Open()
+            $SQLcmd = $SQLclient.CreateCommand()
+            $SQLcmd.CommandText = "SELECT keyset_id, instance_id, entropy FROM mms_server_configuration"
+            $SQLreader = $SQLcmd.ExecuteReader()
+            $SQLreader.Read() | Out-Null
+            $key_id = $SQLreader.GetInt32(0)
+            $instance_id = $SQLreader.GetGuid(1)
+            $entropy = $SQLreader.GetGuid(2)
+            $SQLreader.Close()
 
-        # Return
-        #if($AsCredentials)
-        #{
-        #    $adCreds =  New-Object System.Management.Automation.PSCredential($attributes["ADUser"],  (ConvertTo-SecureString $attributes["ADUserPassword"] -AsPlainText -Force))
-        #    $aadCreds = New-Object System.Management.Automation.PSCredential($attributes["AADUser"], (ConvertTo-SecureString $attributes["AADUserPassword"] -AsPlainText -Force))
-        #
-        #    return @($adCreds, $aadCreds)
-        #}
-        #else
-        #{
-            return New-Object -TypeName PSObject -Property $attributes
-        #}
+            # Read the AD configuration data
+            $ADConfigs=@()
+            $SQLcmd = $SQLclient.CreateCommand()
+            $SQLcmd.CommandText = "SELECT private_configuration_xml, encrypted_configuration FROM mms_management_agent WHERE ma_type = 'AD'"
+            $SQLreader = $SQLcmd.ExecuteReader()
+            while($SQLreader.Read())
+            {
+                $ADConfig = $SQLreader.GetString(0)
+                $ADCryptedConfig = $SQLreader.GetString(1)
+                $ADConfigs += New-Object -TypeName psobject -Property @{"ADConfig" = $ADConfig; "ADCryptedConfig" = $ADCryptedConfig}
+            }
+            $SQLreader.Close()
+
+            # Read the AAD configuration data
+            $SQLcmd = $SQLclient.CreateCommand()
+            $SQLcmd.CommandText = "SELECT private_configuration_xml, encrypted_configuration FROM mms_management_agent WHERE subtype = 'Windows Azure Active Directory (Microsoft)'"
+            $SQLreader = $SQLcmd.ExecuteReader()
+            $SQLreader.Read() | Out-Null
+            $AADConfig = $SQLreader.GetString(0)
+            $AADCryptedConfig = $SQLreader.GetString(1)
+            $SQLreader.Close()
+            $SQLclient.Close()
+
+            # Extract the data
+            $attributes=[ordered]@{}
+            $attributes["AADUser"]=([xml]$AADConfig).MAConfig.'parameter-values'.parameter[0].'#text'
+            $attributes["AADUserPassword"]=""
+
+            try
+            {
+                # Decrypt config data
+                $KeyMgr = New-Object -TypeName Microsoft.DirectoryServices.MetadirectoryServices.Cryptography.KeyManager
+
+                $KeyMgr.LoadKeySet($entropy, $instance_id, $key_id)
+                $key = $null
+                $KeyMgr.GetActiveCredentialKey([ref]$key)
+                $key2 = $null
+                $KeyMgr.GetKey(1, [ref]$key2)
+
+                # Extract the encrypted data
+                $n=1
+                foreach($ADConfig in $ADConfigs)
+                {
+                    $ADDecryptedConfig = $null
+                    $key2.DecryptBase64ToString($ADConfig.ADCryptedConfig, [ref]$ADDecryptedConfig)
+                
+                    $attributes["ADDomain$n"      ]=([xml]$ADConfig.ADConfig).'adma-configuration'.'forest-login-domain'
+                    $attributes["ADUser$n"        ]=([xml]$ADConfig.ADConfig).'adma-configuration'.'forest-login-user'
+                    $attributes["ADUserPassword$n"]=([xml]$ADDecryptedConfig).'encrypted-attributes'.attribute.'#text'
+                
+                    $n++
+                }
+
+                $AADDecryptedConfig = $null
+                $key2.DecryptBase64ToString($AADCryptedConfig, [ref]$AADDecryptedConfig)
+                $attributes["AADUserPassword"]=([xml]$AADDecryptedConfig).'encrypted-attributes'.attribute | Where name -eq "Password" | Select -ExpandProperty "#text"
+                $retVal = [PSCustomObject]$attributes
+            }
+            catch
+            {
+                Write-Error "Could not load key set!"
+            }
+        }
+        
+        # Create credentials objects if requested
+        if($AsCredentials)
+        {
+            $credentials = @()
+            # There is only one AAD credentials
+            $credentials += New-Object System.Management.Automation.PSCredential($retVal.AADUser, (ConvertTo-SecureString $retVal.AADUserPassword -AsPlainText -Force))
+
+            # Loop through the on-prem AD credentials. Shouldn't be more than 100 :)
+            for($n = 1 ; $n -lt 100 ; $n++)
+            {
+                if(![string]::IsNullOrEmpty($retVal."ADUser$n"))
+                {
+                   $userName = "$($retVal."ADDomain$n")\$($retVal."ADUser$n")"
+                   $credentials += New-Object System.Management.Automation.PSCredential($userName, (ConvertTo-SecureString $retVal."ADUserPassword$n" -AsPlainText -Force))
+                }
+                else
+                {
+                    # No more on-prem AD credentials
+                    break
+                }
+            }
+
+            return @($credentials)
+        }
+        else
+        {
+            return $retVal
+        }
         
     }
 }

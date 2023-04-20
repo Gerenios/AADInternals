@@ -740,6 +740,7 @@ function Set-AzureADObject
                             $(Add-PropertyValue "userCertificate"             $userCertificate -Type ArrayOfbase64)
 
                             $(if($ObjectType -eq "User"){Add-PropertyValue "userType" $userType})
+                            $(if($ObjectType -eq "Group"){Add-PropertyValue "securityEnabled" $true -Type bool})
                         </b:PropertyValues>
 						<b:SyncObjectType>$ObjectType</b:SyncObjectType>
 						<b:SyncOperation>$Operation</b:SyncOperation>
@@ -1140,6 +1141,7 @@ function Set-UserPassword
         [String]$Password,
         [Parameter(Mandatory=$False)]
         [String]$Hash,
+        [switch]$IncludeLegacy,
         [Parameter(Mandatory=$False)]
         [DateTime]$ChangeDate=(Get-Date),
         [Parameter(Mandatory=$False)]
@@ -1176,8 +1178,37 @@ function Set-UserPassword
             $CloudAnchor="User_$($user.ObjectId)"
         }
 
+        if($Password)
+        {
+            $Hash = (Get-MD4 -bArray ([System.Text.UnicodeEncoding]::Unicode.GetBytes($password))).ToUpper()
+        }
+
         # Create AAD hash
-        $CredentialData = Create-AADHash -Password $Password -Hash $Hash -Iterations $Iterations
+        $CredentialData = Create-AADHash -Hash $Hash -Iterations $Iterations
+
+        # Create Windows Legacy Credentials blob
+        if($IncludeLegacy)
+        {
+            # First, get the encryption certificate
+            $DCaaSConfig = Get-WindowsCredentialsSyncConfig -AccessToken $AccessToken
+            if(-not $DCaaSConfig.Certificate)
+            {
+                Write-Warning "Could not get encryption certificate. Is AADDS enabled for the tenant?"
+            }
+            else
+            {
+                # Create the NTHash blob
+                $NTHashBlob = @(0x5A,0x00,0x09,0x00, # Ref: https://github.com/mubix/ntds_decode/blob/master/attributes.h#L3048
+                                                     # 0x09005A = 589914 = ATT_UNICODE_PWD / unicodePwd
+
+                                0x10,0x00,0x00,0x00  # Size of the hash in bytes? 0x10 = 16 bytes
+                                )+ (Convert-HexToByteArray -HexString $Hash)
+
+                # Encrypt the blob
+                $ADAuthInfo = Protect-ADAuthInfo -Data $NTHashBlob -Certificate $DCaaSConfig.Certificate
+                $windowsLegacyCredentials = Convert-ByteArrayToB64 -Bytes $ADAuthInfo
+            }
+        }
 
         # Create the body block
         $body=@"
@@ -1185,12 +1216,12 @@ function Set-UserPassword
 	        <request xmlns:b="http://schemas.datacontract.org/2004/07/Microsoft.Online.Coexistence.Schema" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
 		        <b:RequestItems>
 			        <b:SyncCredentialsChangeItem>
-				        <b:ChangeDate>$($ChangeDate.ToUniversalTime().ToString("o"))</b:ChangeDate>
+                        <b:ChangeDate>$($ChangeDate.ToUniversalTime().ToString("o"))</b:ChangeDate>
 				        $(if($CloudAnchor){"<b:CloudAnchor>$CloudAnchor</b:CloudAnchor>"}else{"<b:CloudAnchor i:nil=""true""/>"})
 				        <b:CredentialData>$CredentialData</b:CredentialData>
 				        <b:ForcePasswordChangeOnLogon>false</b:ForcePasswordChangeOnLogon>
 				        $(if($SourceAnchor){"<b:SourceAnchor>$SourceAnchor</b:SourceAnchor>"}else{"<b:SourceAnchor i:nil=""true""/>"})
-				        <b:WindowsLegacyCredentials i:nil="true"/>
+                        $(if($windowsLegacyCredentials){"<b:WindowsLegacyCredentials>$windowsLegacyCredentials</b:WindowsLegacyCredentials>"}else{"<b:WindowsLegacyCredentials i:nil=""true""/>"})
 				        <b:WindowsSupplementalCredentials i:nil="true"/>
 			        </b:SyncCredentialsChangeItem>
 		        </b:RequestItems>
@@ -1864,14 +1895,21 @@ function Get-WindowsCredentialsSyncConfig
             $attributes=[ordered]@{
                 "EnableWindowsLegacyCredentials" =      $res.EnableWindowsLegacyCredentials -eq "true"
                 "EnableWindowsSupplementaCredentials" = $res.EnableWindowsSupplementaCredentials -eq "true"
-                "SecretEncryptionCertificate" =         $res.SecretEncryptionCertificate.InnerText
+                "SecretEncryptionCertificate" =         $res.SecretEncryptionCertificate
 
             }
 
-            return New-Object psobject -Property $attributes
-            
-            return $res
+            try
+            {
+                # Parse the certificate information
+                $binCert = Convert-B64ToByteArray -B64 $attributes["SecretEncryptionCertificate"]
+                $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new([byte[]]$binCert)
+                $attributes["Certificate"]    = $certificate
+            }
+            catch
+            {}
 
+            return New-Object psobject -Property $attributes
         }
     }
 }
@@ -2190,5 +2228,179 @@ function Join-OnPremDeviceToAzureAD
         {
             $response
         }
+    }
+}
+
+# Add member to Azure AD group using provisioning API
+# Dec 14th 2022
+function Set-AzureADGroupMember
+{
+<#
+    .SYNOPSIS
+    Adds or removes an Azure AD object from the given group using Azure AD Sync API.
+
+    .DESCRIPTION
+    Adds or removes an Azure AD object from the given group using Azure AD Sync API.
+
+    .Parameter AccessToken
+    Access Token
+
+    .Parameter SourceAnchor
+    The source anchor for the Azure AD object. Typically Base 64 encoded GUID of on-prem AD object.
+
+    .Parameter CloudAnchor
+    The cloud anchor for the Azure AD object in the form "<type>_<objectid>". For example "User_a98368aa-f0cb-41b5-a7c6-10f18c6c837d"
+
+    .Parameter GroupSourceAnchor
+    The source anchor of the target Azure AD group. Typically Base 64 encoded GUID.
+
+    .Parameter GroupCloudAnchor
+    The cloud anchor of the target Azure AD group in the form "Group_<objectid>".
+
+    .Parameter Operation
+    Group modification operation: Add or Remove
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [String]$CloudAnchor,
+        [Parameter(Mandatory=$False)]
+        [String]$SourceAnchor,
+        [Parameter(Mandatory=$False)]
+        [String]$GroupSourceAnchor,
+        [Parameter(Mandatory=$False)]
+        [String]$GroupCloudAnchor,
+        [Parameter(Mandatory=$True)]
+        [ValidateSet('Add','Remove')]
+        [String]$Operation,
+        [Parameter(Mandatory=$False)]
+        [int]$Recursion=1
+    )
+    Process
+    {
+        # Check that we have values
+        if(-not $CloudAnchor -and -not $SourceAnchor)
+        {
+            Throw "Either CloudAnchor or SourceAnchor is required"
+        }
+        if($CloudAnchor -and $SourceAnchor)
+        {
+            Throw "Provide CloudAnchor or SourceAnchor, not both"
+        }
+
+        if(-not $GroupCloudAnchor -and -not $GroupSourceAnchor)
+        {
+            Throw "Either GroupCloudAnchor or GroupSourceAnchor is required"
+        }
+        if($GroupCloudAnchor -and $GroupSourceAnchor)
+        {
+            Throw "Provide GroupCloudAnchor or GroupSourceAnchor, not both"
+        }
+
+
+        # Accept only three loops
+        if($Recursion -gt 3)
+        {
+            throw "Too many recursions"
+        }
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        if($SourceAnchor)
+        {
+            $anchorType  = 2
+            $anchorValue = $SourceAnchor
+        }
+        else
+        {
+            $anchorType  = 1
+            $anchorValue = $CloudAnchor
+        }
+
+        if($GroupSourceAnchor)
+        {
+            $groupAnchorType  = "SourceAnchor"
+            $groupAnchorValue = $GroupSourceAnchor
+        }
+        else
+        {
+            $groupAnchorType  = "CloudAnchor"
+            $groupAnchorValue = $GroupCloudAnchor
+        }
+
+        # Set the operation value
+        if($Operation -eq "Add")
+        {
+            $operationValue = 1
+        }
+        else
+        {
+            $operationValue = 2
+        }
+
+        # Create the body block
+        $body=@"
+        <ProvisionAzureADSyncObjects2 xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
+	        <syncRequest xmlns:b="http://schemas.microsoft.com/online/aws/change/2014/06" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+		        <b:SyncObjects>
+			        <b:AzureADSyncObject>
+				        <b:PropertyValues xmlns:c="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					        <c:KeyValueOfstringanyType>
+						        <c:Key>$groupAnchorType</c:Key>
+						        <c:Value i:type="d:string" xmlns:d="http://www.w3.org/2001/XMLSchema">$groupAnchorValue</c:Value>
+					        </c:KeyValueOfstringanyType>
+					        <c:KeyValueOfstringanyType>
+						        <c:Key>member</c:Key>
+						        <c:Value i:type="SyncReferenceChangeCollection">
+							        <referenceChanges>
+								        <SyncReferenceChange>
+									        <Reference>
+										        <Anchor>$anchorValue</Anchor>
+										        <referenceTypeInt>$anchorType</referenceTypeInt>
+									        </Reference>
+									        <operationInt>$operationValue</operationInt>
+								        </SyncReferenceChange>
+							        </referenceChanges>
+						        </c:Value>
+					        </c:KeyValueOfstringanyType>
+				        </b:PropertyValues>
+				        <b:SyncObjectType>Group</b:SyncObjectType>
+				        <b:SyncOperation>Set</b:SyncOperation>
+			        </b:AzureADSyncObject>
+		        </b:SyncObjects>
+	        </syncRequest>
+        </ProvisionAzureADSyncObjects2>
+"@
+
+        $Message_id=(New-Guid).ToString()
+        $Command="ProvisionAzureADSyncObjects2"
+
+        $serverName=$aadsync_server
+
+        $envelope = Create-SyncEnvelope -AccessToken $AccessToken -Command $Command -Message_id $Message_id -Body $body -Binary -Server $serverName
+        
+        # Call the API
+        $response=Call-ADSyncAPI $envelope -Command "$Command" -Tenant_id (Read-AccessToken($AccessToken)).tid -Message_id $Message_id -Server $serverName
+        
+        # Convert binary response to XML
+        $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
+
+        
+        if(IsRedirectResponse($xml_doc))
+        {
+            return Set-AzureADObject -AccessToken $AccessToken -Recursion ($Recursion+1) -sourceAnchor $sourceAnchor -ObjectType $ObjectType -userPrincipalName $userPrincipalName -surname $surname -onPremisesSamAccountName $onPremisesSamAccountName -onPremisesDistinguishedName $onPremisesDistinguishedName -onPremiseSecurityIdentifier $onPremisesDistinguishedName -netBiosName $netBiosName -lastPasswordChangeTimestamp $lastPasswordChangeTimestamp -givenName $givenName -dnsDomainName $dnsDomainName -displayName $displayName -countryCode $countryCode -commonName $commonName -accountEnabled $accountEnabled -cloudMastered $cloudMastered -usageLocation $usageLocation -CloudAnchor $CloudAnchor
+        }
+        
+        # Check whether this is an error message
+        if($xml_doc.Envelope.Body.Fault)
+        {
+            Throw $xml_doc.Envelope.Body.Fault.Reason.Text.'#text'
+        }
+
+        # Return
+        $xml_doc.Envelope.Body.ProvisionAzureADSyncObjects2Response.ProvisionAzureADSyncObjects2Result.SyncObjectResults.AzureADSyncObjectResult
     }
 }

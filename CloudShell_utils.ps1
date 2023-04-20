@@ -12,7 +12,7 @@ function New-CloudShell
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "c44b4083-3bb0-49c1-b47d-974e53cbdf3c"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "00000006-0000-0ff1-ce00-000000000000"
 
         $headers=@{
             "x-ms-console-preferred-location" = $PreferredLocation
@@ -100,6 +100,120 @@ function Get-CloudShellSettings
         $url = $url.Replace(":443","")
 
         $response = Invoke-RestMethod -UseBasicParsing -Uri "$url/terminals?cols=$cols&rows=$rows&version=2019-01-01&shell=$Shell" -Method Post -Body $body -Headers $headers
+        
+        # return
+        return $response
+
+    }
+}
+
+
+# Gets user's cloud shell settings
+# Jan 1st 2023
+function Get-UserCloudShellSettings
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Create headers
+        $headers=@{
+            "Content-Type" =  "application/json"
+            "Authorization" = "Bearer $AccessToken"
+        }
+
+        try
+        {
+            $response = Invoke-RestMethod -UseBasicParsing -Uri "https://management.azure.com/providers/Microsoft.Portal/userSettings/cloudconsole?api-version=2020-04-01-preview" -Headers $headers
+        }
+        catch{}
+        
+        # return
+        return $response
+
+    }
+}
+
+# Gets user's cloud shell settings
+# Jan 1st 2023
+function Set-UserCloudShellSettings
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$StorageAccountId,
+        [Parameter(Mandatory=$True)]
+        [String]$FileShareName
+    )
+    Process
+    {
+        # Create headers
+        $headers=@{
+            "Content-Type" =  "application/json"
+            "Authorization" = "Bearer $AccessToken"
+        }
+
+        try
+        {
+            # Create the body
+            $body = @{
+                "properties" = @{
+                    "preferredOsType" = "Linux"
+                    "preferredLocation" = "westeurope"
+                    "storageProfile" = @{
+                      "storageAccountResourceId" = $StorageAccountId
+                      "fileShareName" = $fileShareName
+                      "diskSizeInGB" = 5
+                    }
+                    "terminalSettings" = @{
+                      "fontSize" = "Medium"
+                      "fontStyle" = "Monospace"
+                    }
+                    "preferredShellType" = "pwsh"
+                    "vnetSettings" = @{}
+                    "networkType" = "Default"
+                }
+            }
+
+            $response = Invoke-RestMethod -UseBasicParsing -Uri "https://management.azure.com/providers/Microsoft.Portal/userSettings/cloudconsole?api-version=2020-04-01-preview" -Headers $headers -Method Put -Body $($body | ConvertTo-Json -Depth 4)
+        }
+        catch
+        {}
+        
+        # return
+        return $response
+
+    }
+}
+
+# Remove user's cloud shell settings
+# Jan 1st 2023
+function Remove-UserCloudShellSettings
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Create headers
+        $headers=@{
+            "Content-Type" =  "application/json"
+            "Authorization" = "Bearer $AccessToken"
+        }
+
+        try
+        {
+            $response = Invoke-RestMethod -UseBasicParsing -Uri "https://management.azure.com/providers/Microsoft.Portal/userSettings/cloudconsole?api-version=2020-04-01-preview" -Headers $headers -Method Delete
+        }
+        catch
+        {}
         
         # return
         return $response

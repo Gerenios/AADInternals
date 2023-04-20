@@ -286,11 +286,32 @@ function Get-MFAAppRegistrationInfo
             $securityInfoType = 3
         }
 
-        # Get the authorization information
-        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://account.activedirectory.windowsazure.com/securityinfo/Authorize" -Method POST -Headers $headers 
+        try
+        {
+            # Get the authorization information
+            $response = Invoke-RestMethod -UseBasicParsing -Uri "https://account.activedirectory.windowsazure.com/securityinfo/Authorize" -Method POST -Headers $headers 
+        }
+        catch
+        {
+            throw $_
+        }
 
         # Strip the carbage from the start and convert to psobject
         $response=$response.Substring($response.IndexOf("{")-1) | ConvertFrom-Json
+
+        # Verbose
+        Write-Verbose "Authorization information"
+        Write-Verbose " Is authorized:    $($response.isAuthorized)"
+        Write-Verbose " Require MFA:      $($response.requireMfa)"
+        Write-Verbose " Require NGC MFA:  $($response.requireNgcMfa)"
+        Write-Verbose " Prompt for login: $($response.promptForLogin)"
+        Write-Verbose " My star enabled:  $($response.isMyStarEnabled)"
+
+        # Check is user authorized to register MFA with this access token
+        if(!$response.isAuthorized)
+        {
+            throw "User is not authorized to register MFA! Use -Verbose for details."
+        }
 
         # Extract the session context and update headers
         $sessionCtx = $response.sessionCtx

@@ -745,18 +745,39 @@ function Get-AccessTokenForSPO
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
-        [Parameter(Mandatory=$True)]
-        [String]$Tenant,
-        [switch]$SaveToCache,
-        [switch]$Admin
+        [switch]$SaveToCache
     )
     Process
     {
-        if($Admin)
+        # Get access and refresh tokens
+        #$clientId = "fdd7719f-d61e-4592-b501-793734eb8a0e" # SharePoint Migration Tool
+        #$clientId = "9bc3ab49-b65d-410a-85ad-de819febfddc" # SPO Management shell
+        $clientId = "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Microsoft Office
+
+        $graphTokens = Get-AccessToken -Resource "https://graph.microsoft.com" -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -IncludeRefreshToken $True
+
+        # Get SPO root site url
+        $response = Call-MSGraphAPI -AccessToken $graphTokens[0] -ApiVersion Beta -API "sites/root" -QueryString "select=webUrl"
+        $SPOUrl = $response.webUrl.TrimEnd("/")
+        $tenant = $SPOUrl.Split(".")[0]
+
+        # Get SPO tokens 
+        $SPOtokens = Get-AccessTokenWithRefreshToken       -Resource "$($tenant).sharepoint.com"       -ClientId $clientId -RefreshToken $graphTokens[1] -IncludeRefreshToken $true -TenantId "Common"
+        $SPOtokens_my = Get-AccessTokenWithRefreshToken    -Resource "$($tenant)-my.sharepoint.com"    -ClientId $clientId -RefreshToken $graphTokens[1] -IncludeRefreshToken $true -TenantId "Common"
+        $SPOtokens_admin = Get-AccessTokenWithRefreshToken -Resource "$($tenant)-admin.sharepoint.com" -ClientId $clientId -RefreshToken $graphTokens[1] -IncludeRefreshToken $true -TenantId "Common"
+
+        if($SaveToCache)
         {
-            $prefix = "-admin"
+            # Add tokens to cache
+            Add-AccessTokenToCache -AccessToken $graphTokens[0]     -RefreshToken $graphTokens[1]     | Out-Null
+            Add-AccessTokenToCache -AccessToken $SPOtokens[0]       -RefreshToken $SPOtokens[1]       | Out-Null
+            Add-AccessTokenToCache -AccessToken $SPOtokens_my[0]    -RefreshToken $SPOtokens_my[1]    | Out-Null
+            Add-AccessTokenToCache -AccessToken $SPOtokens_admin[0] -RefreshToken $SPOtokens_admin[1] | Out-Null
         }
-        Get-AccessToken -Resource "https://$Tenant$prefix.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
+        else
+        {
+            return @($SPOtokens[0],$SPOtokens_my[0],$SPOtokens_admin[0])
+        }
     }
 }
 
@@ -781,11 +802,15 @@ function Get-AccessTokenForMySignins
     Param(
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [switch]$SaveToCache
+        [switch]$SaveToCache,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain
     )
     Process
     {
-        return Get-AccessToken -ClientId 1b730954-1685-4b74-9bfd-dac224a7b894 -Resource "0000000c-0000-0000-c000-000000000000" -ForceMFA $true -Credentials $Credentials -SaveToCache $SaveToCache
+        return Get-AccessToken -ClientId 1b730954-1685-4b74-9bfd-dac224a7b894 -Resource "0000000c-0000-0000-c000-000000000000" -ForceMFA $true -Credentials $Credentials -SaveToCache $SaveToCache -KerberosTicket $KerberosTicket -Domain $Domain
     }
 }
 
@@ -1028,7 +1053,16 @@ function Get-AccessTokenForCloudShell
     )
     Process
     {
-        Get-AccessToken -Resource "https://management.core.windows.net/" -ClientId "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+        # First, get an access token for admin.microsoft.com
+        $response = Get-AccessToken -Resource "https://admin.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+
+        if([string]::IsNullOrEmpty($response.Tenant))
+        {
+            $access_token = $response
+        }
+
+        # Get access token for management.core.windows.net using Admin API
+        Get-AccessTokenUsingAdminAPI -AccessToken $access_token -Resource "https://management.core.windows.net/" -SaveToCache $SaveToCache
     }
 }
 
@@ -1503,7 +1537,11 @@ function Get-AccessToken
         if(![String]::IsNullOrEmpty($KerberosTicket)) # Check if we got the kerberos token
         {
             # Get token using the kerberos token
-            $OAuthInfo = Get-AccessTokenWithKerberosTicket -KerberosTicket $KerberosTicket -Domain $Domain -Resource $Resource -ClientId $ClientId
+            if([string]::IsNullOrEmpty($Tenant))
+            {
+                $Tenant = "common"
+            }
+            $OAuthInfo = Get-AccessTokenWithKerberosTicket -KerberosTicket $KerberosTicket -Domain $Domain -Resource $Resource -ClientId $ClientId -Tenant $Tenant
             $access_token = $OAuthInfo.access_token
         }
         elseif(![String]::IsNullOrEmpty($PRTToken)) # Check if we got a PRT token
@@ -1571,12 +1609,12 @@ function Get-AccessToken
                     if($requireClientId -contains $ClientId)
                     {
                         # Requires same clientId
-                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId -Resource "https://graph.windows.net"
+                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId -Resource "https://graph.windows.net" -Tenant $Tenant
                     }
                     else
                     {
                         # "Normal" flow
-                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -Resource "https://graph.windows.net"
+                        $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -Resource "https://graph.windows.net" -Tenant $Tenant
                     }
                 }
             }
