@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.8.1'
+	ModuleVersion = '0.8.2'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -66,6 +66,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
 	# Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
 	NestedModules = @(
         ".\AADSyncSettings.ps1"
+        ".\AccessPackages.ps1"
         ".\AccessToken.ps1"
         ".\AccessToken_utils.ps1"
         ".\ActiveSync.ps1"
@@ -159,6 +160,11 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Update-ADFSFederationSettings"
     "Get-ADFSConfiguration"
     
+    # AccessPackages.ps1
+    "Get-AccessPackageAdmins"
+    "Get-AccessPackageCatalogs"
+    "Get-AccessPackages"
+
     # AccessToken.ps1
     "Get-AccessToken"
     "Get-AccessTokenWithRefreshToken"
@@ -183,6 +189,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Unprotect-EstsAuthPersistentCookie"
     "Get-AccessTokenUsingIMDS"
     "Get-AccessTokenForSPOMigrationTool"
+    "Get-AccessTokenForAccessPackages"
     
     # AccessToken_utils.ps1
     "Get-LoginInformation"
@@ -198,6 +205,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Export-TeamsTokens"
     "Export-AzureCliTokens"
     "Export-TokenBrokerTokens"
+    "Get-FOCIClientIDs"
 
     # GraphAPI.ps1
     "Get-TenantDetails"

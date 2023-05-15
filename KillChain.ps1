@@ -474,6 +474,7 @@ function Invoke-ReconAsGuest
         Write-Host "Directory access restricted? $($tenantInformation.restrictDirectoryAccess)"
         Write-Host "Guest access:                $($tenantInformation.guestAccess)"
         Write-Host "CA policies:                 $($tenantInformation.conditionalAccessPolicy.Count)" 
+        Write-Host "Access package admins:       $($tenantInformation.accessPackageAdmins.Count)" 
 
         # Return
         return $tenantInformation
@@ -559,7 +560,7 @@ function Invoke-UserEnumerationAsGuest
         $tenant =     $tenantInfo.Id
 
         # Create a new AccessToken for graph.microsoft.com
-        $refresh_token = $script:refresh_tokens["d3590ed6-52b3-4102-aeff-aad2292ab01c-https://management.core.windows.net/"]
+        $refresh_token = Get-RefreshTokenFromCache -ClientID "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://management.core.windows.net"
         if([string]::IsNullOrEmpty($refresh_token))
         {
             throw "No refresh token found! Use Get-AADIntAccessTokenForAzureCoreManagement with -SaveToCache switch"
@@ -882,7 +883,7 @@ function Invoke-ReconAsInsider
         
         # Get the refreshtoken from the cache and create AAD token
         $tenantId = (Read-Accesstoken $AccessToken).tid
-        $refresh_token = $script:refresh_tokens["d3590ed6-52b3-4102-aeff-aad2292ab01c-https://management.core.windows.net/"]
+        $refresh_token = Get-RefreshTokenFromCache -AccessToken $AccessToken
         
         $AAD_AccessToken       = Get-AccessTokenWithRefreshToken -RefreshToken $refresh_token -Resource "https://graph.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenantId
         $MSPartner_AccessToken = Get-AccessTokenWithRefreshToken -RefreshToken $refresh_token -Resource "fa3d9a0c-3fb0-42cc-9193-47c7ecd2edbd" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenantId
@@ -1085,7 +1086,7 @@ function Invoke-UserEnumerationAsInsider
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
          # Create a new AccessToken for graph.microsoft.com
-        $refresh_token = $script:refresh_tokens["d3590ed6-52b3-4102-aeff-aad2292ab01c-https://management.core.windows.net/"]
+        $refresh_token = Get-RefreshTokenFromCache -AccessToken $AccessToken
         if([string]::IsNullOrEmpty($refresh_token))
         {
             throw "No refresh token found! Use Get-AADIntAccessTokenForAzureCoreManagement with -SaveToCache switch"
@@ -1292,7 +1293,7 @@ function Invoke-Phishing
             }
 
             # Create a new AccessToken for graph.microsoft.com
-            $refresh_token = $script:refresh_tokens["d3590ed6-52b3-4102-aeff-aad2292ab01c-https://management.core.windows.net/"]
+            $refresh_token = Get-RefreshTokenFromCache -ClientID "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://management.core.windows.net"
             if([string]::IsNullOrEmpty($refresh_token))
             {
                 throw "No refresh token found! Use Get-AADIntAccessTokenForAzureCoreManagement with -SaveToCache switch"
@@ -1405,8 +1406,7 @@ function Invoke-Phishing
         if($SaveToCache)
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$ClientId-https://graph.windows.net"] =         $response.access_token
-            $Script:refresh_tokens["$ClientId-https://graph.windows.net"] = $response.refresh_token
+			Add-AccessTokenToCache -AccessToken $response.access_token -RefreshToken $response.refresh_token -ShowCache $false
         }
         
         # Create the return hashtable

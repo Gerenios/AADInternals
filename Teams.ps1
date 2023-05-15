@@ -888,7 +888,7 @@ function Get-TeamsMemberships
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264"
 
         # Try to get a new access token for chat service using cached refreshtoken
-        $refreshToken = $script:refresh_tokens["1fec8e78-bce4-4aaf-ab1b-5451cc387264-https://api.spaces.skype.com"]
+		$refreshToken = Get-RefreshTokenFromCache -ClientID "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -Resource "https://api.spaces.skype.com"
         if(!$refreshToken)
         {
             Throw "No refresh token found!"

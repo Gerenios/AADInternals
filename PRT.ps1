@@ -1046,7 +1046,7 @@ function Get-UserPRTKeys
         elseif($UseRefreshToken)
         {
             # Trying to get the refresh token from the cache
-            $refresh_token = $script:refresh_tokens["29d9ed98-a469-4536-ade2-f981bc1d605e-https://graph.windows.net"]
+			$refresh_token = Get-RefreshTokenFromCache -ClientID "29d9ed98-a469-4536-ade2-f981bc1d605e" -Resource "https://graph.windows.net"
             if([string]::IsNullOrEmpty($refresh_token))
             {
                 Throw "No refresh token found! Use Get-AADIntAccessTokenForIntuneMDM with -SaveToCache switch and try again."

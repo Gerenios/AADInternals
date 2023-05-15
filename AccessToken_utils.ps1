@@ -6,78 +6,43 @@
 # Unix epoch time (1.1.1970)
 $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millisecond 0
 
-# Well known client ids
-<#
-    "graph_api"=            "1b730954-1685-4b74-9bfd-dac224a7b894" # MS Graph API
-    "aadrm"=                "90f610bf-206d-4950-b61d-37fa6fd1b224" # AADRM
-    "exo"=                  "a0c73c16-a7e3-4564-9a95-2bdf47383716" # EXO Remote PowerShell
-    "skype"=                "d924a533-3729-4708-b3e8-1d2445af35e3" # Skype
-    "www"=                  "00000006-0000-0ff1-ce00-000000000000" # Office portal
-    "o365spo"=              "00000003-0000-0ff1-ce00-000000000000" # SharePoint Online
-    "o365exo"=              "00000002-0000-0ff1-ce00-000000000000" # Exchange Online
-    "dynamicscrm"=          "00000007-0000-0000-c000-000000000000" # Dynamics CRM
-    "o365suiteux"=          "4345a7b9-9a63-4910-a426-35363201d503" # O365 Suite UX
-    "aadsync"=              "cb1056e2-e479-49de-ae31-7812af012ed8" # Azure AD Sync
-    "aadconnectv2"=         "6eb59a73-39b2-4c23-a70f-e2e3ce8965b1" # AAD Connect v2
-    "synccli"=              "1651564e-7ce4-4d99-88be-0a65050d8dc3" # Sync client
-    "azureadmin" =          "c44b4083-3bb0-49c1-b47d-974e53cbdf3c" # Azure Admin web ui
-    "pta" =                 "cb1056e2-e479-49de-ae31-7812af012ed8" # Pass-through authentication
-    "patnerdashboard" =     "4990cffe-04e8-4e8b-808a-1175604b879"  # Partner dashboard (missing on letter?)
-    "webshellsuite" =       "89bee1f7-5e6e-4d8a-9f3d-ecd601259da7" # Office365 Shell WCSS-Client
-    "teams" =               "1fec8e78-bce4-4aaf-ab1b-5451cc387264" # Teams
-    "office" =              "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Office, ref. https://docs.microsoft.com/en-us/office/dev/add-ins/develop/register-sso-add-in-aad-v2
-    "office_online2" =      "57fb890c-0dab-4253-a5e0-7188c88b2bb4" # SharePoint Online Client
-    "office_online" =       "bc59ab01-8403-45c6-8796-ac3ef710b3e3" # Outlook Online Add-in App
-    "powerbi_contentpack" = "2a0c3efa-ba54-4e55-bdc0-770f9e39e9ee" # PowerBI content pack
-    "aad_account" =         "0000000c-0000-0000-c000-000000000000" # https://account.activedirectory.windowsazure.com
-    "sara" =                "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Microsoft Support and Recovery Assistant (SARA)
-    "office_mgmt" =         "389b1b32-b5d5-43b2-bddc-84ce938d6737" # Office Management API Editor https://manage.office.com 
-    "onedrive" =            "ab9b8c07-8f02-4f72-87fa-80105867a763" # OneDrive Sync Engine
-    "adibizaux" =           "74658136-14ec-4630-ad9b-26e160ff0fc6" # Azure portal UI "ADIbizaUX"
-    "msmamservice" =        "27922004-5251-4030-b22d-91ecd9a37ea4" # MS MAM Service API
-    "teamswebclient" =      "5e3ce6c0-2b1f-4285-8d4b-75ee78787346" # Teams web client
-    "azuregraphclientint" = "7492bca1-9461-4d94-8eb8-c17896c61205" # Microsoft Azure Graph Client Library 2.1.9 Internal
-    "azure_mgmt" =          "84070985-06ea-473d-82fe-eb82b4011c9d" # Windows Azure Service Management API
-    "az" =                  "1950a258-227b-4e31-a9cf-717495945fc2" # AZ PowerShell Module
-                            "f8d98a96-0999-43f5-8af3-69971c7bb423" # Apple Internet Accounts
-                            "7f59a773-2eaf-429c-a059-50fc5bb28b44" # https://docs.microsoft.com/en-us/rest/api/authorization/globaladministrator/elevateaccess#code-try-0
-                            "9bc3ab49-b65d-410a-85ad-de819febfddc" # SPO Management Shell
-                            "06c6433f-4fb8-4670-b2cd-408938296b8e" # AAD Pin redemption client
-                            "19db86c3-b2b9-44cc-b339-36da233a3be2" # https://mysignins.microsoft.com
-                            "00b41c95-dab0-4487-9791-b9d2c32c80f2" # Office 365 Management (mobile app)
-                            "29d9ed98-a469-4536-ade2-f981bc1d605e" # Microsoft Authentication Broker (Azure MDM client)
-                            "6f7e0f60-9401-4f5b-98e2-cf15bd5fd5e3" # Microsoft.AAD.BrokerPlugin resource:https://cs.dds.microsoft.com
-                            "38aa3b87-a06d-4817-b275–7a316988d93b" # Microsoft AAD Cloud AP
-                            "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa" # Azure Android App
-                            "6c7e8096-f593-4d72-807f-a5f86dcc9c77" # Intune MAM client resource:https://intunemam.microsoftonline.com
-                            "4813382a-8fa7-425e-ab75-3b753aab3abb" # Authenticator App resource:ff9ebd75-fe62-434a-a6ce-b3f0a8592eaf
-                            "1fec8e78-bce4-4aaf-ab1b-5451cc387264" # Teams client
-                            "de0853a1-ab20-47bd-990b-71ad5077ac7b" # Windows Configuration Designer (WCD)
-                            "b90d5b8f-5503-4153-b545-b31cecfaece2" # AADJ CSP
-                            "fb78d390-0c51-40cd-8e17-fdbfab77341b" # Microsoft Exchange REST API Based Powershell
-                            "18ed3507-a475-4ccb-b669-d66bc9f2a36e" # Microsoft_AAD_RegisteredApps
-                            "3f1abb3f-12cc-42c3-ad06-5b608dc5fb67" # Microsoft Intune multi-tenant management UX extension
-                            "810dcf14-1858-4bf2-8134-4c369fa3235b" # Azure AD Identity Governance - Entitlement Management
-#>
+# FOCI client ids
+# Ref: https://github.com/secureworks/family-of-client-ids-research/blob/main/known-foci-clients.csv
 
-
-# AccessToken resource strings
-<#
-$resources=@{
-    "aad_graph_api"=         "https://graph.windows.net"
-    "ms_graph_api"=          "https://graph.microsoft.com"
-    "azure_mgmt_api" =       "https://management.azure.com"
-    "windows_net_mgmt_api" = "https://management.core.windows.net/"
-    "cloudwebappproxy" =     "https://proxy.cloudwebappproxy.net/registerapp"
-    "officeapps" =           "https://officeapps.live.com"
-    "outlook" =              "https://outlook.office365.com"
-    "webshellsuite" =        "https://webshell.suite.office.com"
-    "sara" =                 "https://api.diagnostics.office.com"
-    "office_mgmt" =          "https://manage.office.com"
-    "msmamservice" =         "https://msmamservice.api.application"
-    "spacesapi" =            "https://api.spaces.skype.com"
+$FOCIs = @{
+    "00b41c95-dab0-4487-9791-b9d2c32c80f2" = "Office 365 Management"
+    "04b07795-8ddb-461a-bbee-02f9e1bf7b46" = "Microsoft Azure CLI"
+    "1950a258-227b-4e31-a9cf-717495945fc2" = "Microsoft Azure PowerShell"
+    "1fec8e78-bce4-4aaf-ab1b-5451cc387264" = "Microsoft Teams"
+    "26a7ee05-5602-4d76-a7ba-eae8b7b67941" = "Windows Search"
+    "27922004-5251-4030-b22d-91ecd9a37ea4" = "Outlook Mobile"
+    "4813382a-8fa7-425e-ab75-3b753aab3abb" = "Microsoft Authenticator App"
+    "ab9b8c07-8f02-4f72-87fa-80105867a763" = "OneDrive SyncEngine"
+    "d3590ed6-52b3-4102-aeff-aad2292ab01c" = "Microsoft Office"
+    "872cd9fa-d31f-45e0-9eab-6e460a02d1f1" = "Visual Studio"
+    "af124e86-4e96-495a-b70a-90f90ab96707" = "OneDrive iOS App"
+    "2d7f3606-b07d-41d1-b9d2-0d0c9296a6e8" = "Microsoft Bing Search for Microsoft Edge"
+    "844cca35-0656-46ce-b636-13f48b0eecbd" = "Microsoft Stream Mobile Native"
+    "87749df4-7ccf-48f8-aa87-704bad0e0e16" = "Microsoft Teams - Device Admin Agent"
+    "cf36b471-5b44-428c-9ce7-313bf84528de" = "Microsoft Bing Search"
+    "0ec893e0-5785-4de6-99da-4ed124e5296c" = "Office UWP PWA"
+    "22098786-6e16-43cc-a27d-191a01a1e3b5" = "Microsoft To-Do client"
+    "4e291c71-d680-4d0e-9640-0a3358e31177" = "PowerApps"
+    "57336123-6e14-4acc-8dcf-287b6088aa28" = "Microsoft Whiteboard Client"
+    "57fcbcfa-7cee-4eb1-8b25-12d2030b4ee0" = "Microsoft Flow"
+    "66375f6b-983f-4c2c-9701-d680650f588f" = "Microsoft Planner"
+    "9ba1a5c7-f17a-4de9-a1f1-6178c8d51223" = "Microsoft Intune Company Portal"
+    "a40d7d7d-59aa-447e-a655-679a4107e548" = "Accounts Control UI"
+    "a569458c-7f2b-45cb-bab9-b7dee514d112" = "Yammer iPhone"
+    "b26aadf8-566f-4478-926f-589f601d9c74" = "OneDrive"
+    "c0d2a505-13b8-4ae0-aa9e-cddd5eab0b12" = "Microsoft Power BI"
+    "d326c1ce-6cc6-4de2-bebc-4591e5e13ef0" = "SharePoint"
+    "e9c51622-460d-4d3d-952d-966a5b1da34c" = "Microsoft Edge"
+    "eb539595-3fe1-474e-9c1d-feb3625d1be5" = "Microsoft Tunnel"
+    "ecd6b820-32c2-49b6-98a6-444530e5a77a" = "Microsoft Edge"
+    "f05ff7c9-f75a-4acd-a3b5-f4b6a870245d" = "SharePoint Android"
+    "f44b1140-bc5e-48c6-8dc0-5cf5a53c0e34" = "Microsoft Edge"
 }
-#>
 
 # Stored tokens (access & refresh)
 $tokens=@{}
@@ -1758,26 +1723,54 @@ function Add-AccessTokenToCache
         [Parameter(Mandatory=$True,ValueFromPipeline)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
-        [String]$RefreshToken
+        [String]$RefreshToken,
+        [Parameter(Mandatory=$False)]
+        [boolean]$ShowCache = $true
     )
     Process
     {
         # Parse the token
         $parsedToken = Read-Accesstoken -AccessToken $accessToken
         $clientId = $parsedToken.appid
-        $resource = $parsedToken.aud
+        $resource = $parsedToken.aud.TrimEnd("/")
 
         # Add to cache
         $Script:tokens["$clientId-$resource"] = $AccessToken
         if(![string]::IsNullOrEmpty($RefreshToken))
         {
-            $script:refresh_tokens["$ClientId-$Resource"] = $RefreshToken
+            Add-RefreshTokenToCache -ClientId $clientId -Resource $resource -RefreshToken $RefreshToken
         }
         
         # Dump the cache
-        Get-Cache
+        if($ShowCache)
+        {
+            Get-Cache
+        }
     }
 }
+
+# Adds refresh token to cache
+# Apr 25th 2023
+function Add-RefreshTokenToCache
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$RefreshToken,
+        [Parameter(Mandatory=$True)]
+        [String]$ClientId,
+        [Parameter(Mandatory=$True)]
+        [String]$Resource
+    )
+    Process
+    {
+        # Strip the trailing slash
+        $Resource = $Resource.TrimEnd("/")
+        $Script:refresh_tokens["$ClientId-$Resource"] = $RefreshToken
+    }
+}
+
+
 
 # Gets other domains of the given tenant
 # Jun 15th 2020
@@ -2625,5 +2618,167 @@ function Get-RSTToken
             $errorDetails = $responseXml.Envelope.Body.Fault.Detail.error.internalerror.text
         }
         throw $errorDetails
+    }
+}
+
+
+# Checks whether the client is a FOCI clientid 
+# Apr 25th 2023
+function IsFOCI
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [guid]$ClientId,
+        [Parameter(Mandatory=$False)]
+        [int]$FOCI = -1
+        )
+    Process
+    {
+        # If FOCI = 1 this is 100% a FOCI client
+
+        # Is this a known FOCI client?
+        $isFOCI = $Script:FOCIs.ContainsKey($ClientId.ToString())
+
+        Write-Verbose "FOCI: Known FOCI $isFOCI, FOCI indicator $FOCI"
+        
+        # Is this a new or deprecated FOCI client?
+        if($isFOCI -and $FOCI -eq 0)
+        {
+            # Found in FOCI list, but no FOCI indicator present
+            Write-Warning "Found deprecated FOCI client $ClientId. Please report at https://github.com/secureworks/family-of-client-ids-research"
+            $isFOCI = $False
+        }
+        elseif ($FOCI -eq 1 -and -not $isFOCI)
+        {
+            # Not found on FOCI list, but FOCI indicator present
+            Write-Warning "Found a new FOCI client $ClientId. Please report at https://github.com/secureworks/family-of-client-ids-research"
+            $Script:FOCIs[$ClientId] = "UNKNOWN"
+            $isFOCI = $True
+        }
+
+        return $isFOCI
+    }
+}
+
+# Lists FOCI clients 
+# Apr 26th 2023
+function Get-FOCIClientIDs
+{
+<#
+    .SYNOPSIS
+    Dumps the list of known FOCI client ids
+
+    .DESCRIPTION
+    Dumps the list of Family of known Client IDs (FOCI) client ids
+
+    .Parameter Online
+    Get's list online from https://raw.githubusercontent.com/secureworks/family-of-client-ids-research/main/known-foci-clients.csv
+
+    .Example
+    PS C:\>Get-AADIntFOCIClientIDs
+
+    client_id                            application_name                        
+    ---------                            ----------------                        
+    00b41c95-dab0-4487-9791-b9d2c32c80f2 Office 365 Management                   
+    04b07795-8ddb-461a-bbee-02f9e1bf7b46 Microsoft Azure CLI                     
+    1950a258-227b-4e31-a9cf-717495945fc2 Microsoft Azure PowerShell              
+    1fec8e78-bce4-4aaf-ab1b-5451cc387264 Microsoft Teams                         
+    26a7ee05-5602-4d76-a7ba-eae8b7b67941 Windows Search                          
+    27922004-5251-4030-b22d-91ecd9a37ea4 Outlook Mobile                          
+    4813382a-8fa7-425e-ab75-3b753aab3abb Microsoft Authenticator App             
+    ab9b8c07-8f02-4f72-87fa-80105867a763 OneDrive SyncEngine                     
+    d3590ed6-52b3-4102-aeff-aad2292ab01c Microsoft Office                        
+    872cd9fa-d31f-45e0-9eab-6e460a02d1f1 Visual Studio                           
+    af124e86-4e96-495a-b70a-90f90ab96707 OneDrive iOS App                        
+    2d7f3606-b07d-41d1-b9d2-0d0c9296a6e8 Microsoft Bing Search for Microsoft Edge
+    844cca35-0656-46ce-b636-13f48b0eecbd Microsoft Stream Mobile Native          
+    87749df4-7ccf-48f8-aa87-704bad0e0e16 Microsoft Teams - Device Admin Agent    
+    cf36b471-5b44-428c-9ce7-313bf84528de Microsoft Bing Search                   
+    0ec893e0-5785-4de6-99da-4ed124e5296c Office UWP PWA                          
+    22098786-6e16-43cc-a27d-191a01a1e3b5 Microsoft To-Do client                  
+    4e291c71-d680-4d0e-9640-0a3358e31177 PowerApps                               
+    57336123-6e14-4acc-8dcf-287b6088aa28 Microsoft Whiteboard Client             
+    57fcbcfa-7cee-4eb1-8b25-12d2030b4ee0 Microsoft Flow                          
+    66375f6b-983f-4c2c-9701-d680650f588f Microsoft Planner                       
+    9ba1a5c7-f17a-4de9-a1f1-6178c8d51223 Microsoft Intune Company Portal         
+    a40d7d7d-59aa-447e-a655-679a4107e548 Accounts Control UI                     
+    a569458c-7f2b-45cb-bab9-b7dee514d112 Yammer iPhone                           
+    b26aadf8-566f-4478-926f-589f601d9c74 OneDrive                                
+    c0d2a505-13b8-4ae0-aa9e-cddd5eab0b12 Microsoft Power BI                      
+    d326c1ce-6cc6-4de2-bebc-4591e5e13ef0 SharePoint                              
+    e9c51622-460d-4d3d-952d-966a5b1da34c Microsoft Edge                          
+    eb539595-3fe1-474e-9c1d-feb3625d1be5 Microsoft Tunnel                        
+    ecd6b820-32c2-49b6-98a6-444530e5a77a Microsoft Edge                          
+    f05ff7c9-f75a-4acd-a3b5-f4b6a870245d SharePoint Android                      
+    f44b1140-bc5e-48c6-8dc0-5cf5a53c0e34 Microsoft Edge
+
+    .Example
+    PS C:\>Get-AADIntFOCIClientIDs -Online
+
+    client_id                            application_name                        
+    ---------                            ----------------                        
+    00b41c95-dab0-4487-9791-b9d2c32c80f2 Office 365 Management                   
+    04b07795-8ddb-461a-bbee-02f9e1bf7b46 Microsoft Azure CLI                     
+    1950a258-227b-4e31-a9cf-717495945fc2 Microsoft Azure PowerShell              
+    1fec8e78-bce4-4aaf-ab1b-5451cc387264 Microsoft Teams                         
+    26a7ee05-5602-4d76-a7ba-eae8b7b67941 Windows Search                          
+    27922004-5251-4030-b22d-91ecd9a37ea4 Outlook Mobile                          
+    4813382a-8fa7-425e-ab75-3b753aab3abb Microsoft Authenticator App             
+    ab9b8c07-8f02-4f72-87fa-80105867a763 OneDrive SyncEngine                     
+    d3590ed6-52b3-4102-aeff-aad2292ab01c Microsoft Office                        
+    872cd9fa-d31f-45e0-9eab-6e460a02d1f1 Visual Studio                           
+    af124e86-4e96-495a-b70a-90f90ab96707 OneDrive iOS App                        
+    2d7f3606-b07d-41d1-b9d2-0d0c9296a6e8 Microsoft Bing Search for Microsoft Edge
+    844cca35-0656-46ce-b636-13f48b0eecbd Microsoft Stream Mobile Native          
+    87749df4-7ccf-48f8-aa87-704bad0e0e16 Microsoft Teams - Device Admin Agent    
+    cf36b471-5b44-428c-9ce7-313bf84528de Microsoft Bing Search                   
+    0ec893e0-5785-4de6-99da-4ed124e5296c Office UWP PWA                          
+    22098786-6e16-43cc-a27d-191a01a1e3b5 Microsoft To-Do client                  
+    4e291c71-d680-4d0e-9640-0a3358e31177 PowerApps                               
+    57336123-6e14-4acc-8dcf-287b6088aa28 Microsoft Whiteboard Client             
+    57fcbcfa-7cee-4eb1-8b25-12d2030b4ee0 Microsoft Flow                          
+    66375f6b-983f-4c2c-9701-d680650f588f Microsoft Planner                       
+    9ba1a5c7-f17a-4de9-a1f1-6178c8d51223 Microsoft Intune Company Portal         
+    a40d7d7d-59aa-447e-a655-679a4107e548 Accounts Control UI                     
+    a569458c-7f2b-45cb-bab9-b7dee514d112 Yammer iPhone                           
+    b26aadf8-566f-4478-926f-589f601d9c74 OneDrive                                
+    c0d2a505-13b8-4ae0-aa9e-cddd5eab0b12 Microsoft Power BI                      
+    d326c1ce-6cc6-4de2-bebc-4591e5e13ef0 SharePoint                              
+    e9c51622-460d-4d3d-952d-966a5b1da34c Microsoft Edge                          
+    eb539595-3fe1-474e-9c1d-feb3625d1be5 Microsoft Tunnel                        
+    ecd6b820-32c2-49b6-98a6-444530e5a77a Microsoft Edge                          
+    f05ff7c9-f75a-4acd-a3b5-f4b6a870245d SharePoint Android                      
+    f44b1140-bc5e-48c6-8dc0-5cf5a53c0e34 Microsoft Edge
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [switch]$Online
+        )
+    Process
+    {
+        if($Online)
+        {
+            try
+            {
+                $FOCIClients = Invoke-RestMethod -UseBasicParsing -Uri "https://raw.githubusercontent.com/secureworks/family-of-client-ids-research/main/known-foci-clients.csv"
+                ConvertFrom-Csv -Delimiter "," -InputObject $FOCIClients
+            }
+            catch
+            {
+                Throw "Unable to get FOCI clients from https://raw.githubusercontent.com/secureworks/family-of-client-ids-research/main/known-foci-clients.csv"
+            }
+        }
+        else
+        {
+            foreach($key in $Script:FOCIs.Keys)
+            {
+                [PSCustomObject]@{
+                    "client_id" = $key
+                    "application_name" = $Script:FOCIs[$key]
+                    }
+            }
+        }
     }
 }

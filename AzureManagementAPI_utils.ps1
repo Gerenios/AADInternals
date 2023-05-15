@@ -415,8 +415,7 @@ function Get-AccessTokenForAzureMgmtAPI
         if($SaveToCache)
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$ClientId-https://graph.windows.net"] =         $accessToken
-            $Script:refresh_tokens["$ClientId-https://graph.windows.net"] = $refreshToken
+			Add-AccessTokenToCache -AccessToken $accessToken -RefreshToken $refreshToken -ShowCache $false
         }
         else # Return
         {
