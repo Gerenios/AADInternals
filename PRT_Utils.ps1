@@ -291,6 +291,8 @@ function Get-AccessTokenWithPRT
         [String]$Resource,
         [Parameter(Mandatory=$True)]
         [String]$ClientId,
+        [Parameter(Mandatory=$False)]
+        [String]$RedirectUri,
         [switch]$GetNonce,
         [Parameter(Mandatory=$False)]
         [String]$Tenant
@@ -306,7 +308,10 @@ function Get-AccessTokenWithPRT
         $parsedCookie = Read-Accesstoken $Cookie
 
         #Set RedirectURI
-        $RedirectUri = Get-AuthRedirectUrl -ClientID $ClientId -Resource $Resource
+        if([string]::IsNullOrEmpty($RedirectUri))
+        {
+            $RedirectUri = Get-AuthRedirectUrl -ClientID $ClientId -Resource $Resource
+        }
 
         # Create parameters
         $mscrid =    (New-Guid).ToString()
@@ -332,9 +337,17 @@ function Get-AccessTokenWithPRT
         Write-Debug "RESPONSE: $($response.OuterXml)"
 
         # Try to parse the code from the response
-        if ($response.html.body.h2.a.href)
+        if ($response.html.body.script)
+        {
+            $values = $response.html.body.script.Split("?").Split("\")
+        }
+        elseif ($response.html.body.h2.a.href) # Teams
         {
             $values = $response.html.body.h2.a.href.Split("?").Split("\").Split("&")
+        }
+            
+        if($values)
+        {
             foreach($value in $values)
             {
                $row=$value.Split("=")

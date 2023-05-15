@@ -430,7 +430,7 @@ function Get-AzureInformation
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
                 
         # Get the refreshtoken
-        $refresh_token=$script:refresh_tokens["d3590ed6-52b3-4102-aeff-aad2292ab01c-https://management.core.windows.net/"]
+        $refresh_token = Get-RefreshTokenFromCache -ClientID "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://management.core.windows.net"
 
         if([string]::IsNullOrEmpty($refresh_token))
         {
@@ -451,14 +451,34 @@ function Get-AzureInformation
         foreach($tenant_info in $tenants)
         {
             # Create a new AccessToken for Azure AD management portal API
-            $access_token = Get-AccessTokenWithRefreshToken -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
+            try
+            {
+                $access_token = Get-AccessTokenWithRefreshToken -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
+            }
+            catch
+            {
+                # This may fail due to resource tenant MFA or CA.
+                Write-Warning "Couldn't get access token for tenant $($tenant_info.Id)"
+                Write-Warning "Try getting access token to target tenant and run recon again:"
+                Write-Warning "Get-AADIntAccessTokenForAzureCoreManagement -Tenant $($tenant_info.Id) -SaveToCache"
+
+                $error_details = $_.ErrorDetails.Message | ConvertFrom-Json | Select -ExpandProperty error_description
+                throw $error_details
+            }
 
             # Directory information included in properties
-            #$directory =   Call-AzureAADIAMAPI -AccessToken $access_token -Command "Directory"
-            $properties =  Call-AzureAADIAMAPI -AccessToken $access_token -Command "Directories/Properties"
-            if($properties.restrictNonAdminUsers -ne "True") # If restricted, don't bother trying
+            try
             {
-                $permissions = Call-AzureAADIAMAPI -AccessToken $access_token -Command "Permissions?forceRefresh=false"
+                $properties =  Call-AzureAADIAMAPI -AccessToken $access_token -Command "Directories/Properties"
+                if($properties.restrictNonAdminUsers -ne "True") # If restricted, don't bother trying
+                {
+                    $permissions = Call-AzureAADIAMAPI -AccessToken $access_token -Command "Permissions?forceRefresh=false"
+                }
+            }
+            catch
+            {
+                $Properties = [PSCustomObject]@{}
+                $Properties | Add-Member -NotePropertyName "objectId" -NotePropertyValue $Tenant
             }
             $skuinfo =     Call-AzureAADIAMAPI -AccessToken $access_token -Command "TenantSkuInfo"
 
@@ -472,12 +492,23 @@ function Get-AzureInformation
             # Create a new AccessToken for graph.microsoft.com
             $access_token3 = Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
 
+            # Create a new AccessToken for access packages (elm.iga.azure.com)
+            $access_token4 = Get-AccessTokenWithRefreshToken -Resource "https://elm.iga.azure.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
+
             # Get the directory quota
-            $response2 = Call-MSGraphAPI -AccessToken $access_token3 -API "organization" -QueryString '$select=directorySizeQuota'
-            $quota = $response2.directorySizeQuota 
+            try
+            {
+                $response2 = Call-MSGraphAPI -AccessToken $access_token3 -API "organization" -QueryString '$select=directorySizeQuota'
+                $quota = $response2.directorySizeQuota 
+            }
+            catch{}
 
             # Get the domain details
-            $domains = Get-MSGraphDomains -AccessToken $access_token3
+            try
+            {
+                $domains = Get-MSGraphDomains -AccessToken $access_token3
+            }
+            catch{}
 
             # Get the tenant authorization policy
             try
@@ -488,16 +519,24 @@ function Get-AzureInformation
             catch{}
 			
 			# Get Conditional access policies
-			$CAPolicy = Get-ConditionalAccessPolicies -AccessToken $access_token2
+            try
+            {
+			    $CAPolicy = Get-ConditionalAccessPolicies -AccessToken $access_token2
+            }
+            catch{}
+
+            # Get access package users
+            $accessPackageAdmins = Get-AccessPackageAdmins -AccessToken $access_token4
             
             # Construct the return value
-            $properties | Add-Member -NotePropertyName "allowedActions"      -NotePropertyValue $permissions.allowedActions
-            $properties | Add-Member -NotePropertyName "skuInfo"             -NotePropertyValue $skuInfo
-            $properties | Add-Member -NotePropertyName "domains"             -NotePropertyValue $domains
-            $properties | Add-Member -NotePropertyName "directorySizeQuota"  -NotePropertyValue $quota
-            $properties | Add-Member -NotePropertyName "authorizationPolicy" -NotePropertyValue $authPolicy
+            $properties | Add-Member -NotePropertyName "allowedActions"          -NotePropertyValue $permissions.allowedActions
+            $properties | Add-Member -NotePropertyName "skuInfo"                 -NotePropertyValue $skuInfo
+            $properties | Add-Member -NotePropertyName "domains"                 -NotePropertyValue $domains
+            $properties | Add-Member -NotePropertyName "directorySizeQuota"      -NotePropertyValue $quota
+            $properties | Add-Member -NotePropertyName "authorizationPolicy"     -NotePropertyValue $authPolicy
 			$properties | Add-Member -NotePropertyName "conditionalAccessPolicy" -NotePropertyValue $CAPolicy
-            $properties | Add-Member -NotePropertyName "guestAccess"         -NotePropertyValue $guestAccess
+            $properties | Add-Member -NotePropertyName "guestAccess"             -NotePropertyValue $guestAccess
+            $properties | Add-Member -NotePropertyName "accessPackageAdmins"     -NotePropertyValue $accessPackageAdmins
 
             # Return
             $properties

@@ -17,20 +17,49 @@ function Get-AccessTokenFromCache
     )
     Process
     {
+        # Strip the trailing slash
+        $tResource = $Resource.TrimEnd("/")
+
         # Check if we got the AccessToken as parameter
         if([string]::IsNullOrEmpty($AccessToken))
         {
             # Check if cache entry is empty
-            if([string]::IsNullOrEmpty($Script:tokens["$ClientId-$Resource"]))
+            if([string]::IsNullOrEmpty($Script:tokens["$ClientId-$tResource"]))
             {
-                Write-Verbose "Access token for $ClientId-$Resource not found. Trying to find other clients for the resource"
+                # If token not found, try to find other tokens with the same resource
+                Write-Verbose "Access token for $ClientId-$tResource not found. Trying to find other clients for the resource"
                 foreach($key in $Script:tokens.Keys)
                 {
-                    if($key.TrimEnd("/").EndsWith($Resource.TrimEnd("/")))
+                    if($key.EndsWith($tResource))
                     {
+                        Write-Verbose "Found token for ClientId $($key.Substring(0,36))"
                         $retVal=$Script:tokens[$key]
+                        break
                     }
                 }
+
+                # If FOCI client, try to find refresh token for other FOCI client
+                if([string]::IsNullOrEmpty($retVal) -and (IsFOCI -ClientId $ClientID))
+                {
+                    Write-Verbose "Access token for $ClientId-$tResource not found. Trying to find refresh token for other FOCI clients"
+                    # Loop through cached refresh tokens
+                    foreach($key in $Script:refresh_tokens.Keys)
+                    {
+                        # Extract the client id
+                        [guid]$rtClientId = $key.Substring(0,36)
+                        
+                        if(IsFOCI -ClientId $rtClientId)
+                        {
+                            Write-Verbose "Using refresh token for ClientId $rtClientId"
+                            # If FOCI client, get access token with it's refresh_token
+                            $tenantId  = (Read-Accesstoken -AccessToken $Script:tokens[$key]).tid
+                            $refresh_token = $Script:refresh_tokens[$key]
+                            $retVal = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientID -RefreshToken $refresh_token -TenantId $tenantId -SaveToCache $True
+                            break
+                        }
+                    }
+                }
+
                 if([string]::IsNullOrEmpty($retVal))
                 {
                     # Empty, so throw the exception
@@ -39,29 +68,19 @@ function Get-AccessTokenFromCache
             }
             else
             {
-                $retVal=$Script:tokens["$ClientId-$Resource"]
+                $retVal=$Script:tokens["$ClientId-$tResource"]
             }
         }
         else
         {
             # Check that the audience of the access token is correct
-            $audience=(Read-Accesstoken -AccessToken $AccessToken).aud
+            $tAudience=(Read-Accesstoken -AccessToken $AccessToken).aud.TrimEnd("/")
 
-            # Strip the trailing slashes
-            if($audience.EndsWith("/"))
-            {
-                $audience = $audience.Substring(0,$audience.Length-1)
-            }
-            if($Resource.EndsWith("/"))
-            {
-                $Resource = $Resource.Substring(0,$Resource.Length-1)
-            }
-
-            if(($audience -ne $Resource) -and ($Force -eq $False))
+            if(($tAudience -ne $tResource) -and ($Force -eq $False))
             {
                 # Wrong audience
-                Write-Verbose "ACCESS TOKEN HAS WRONG AUDIENCE: $audience. Exptected: $resource."
-                Throw "The audience of the access token ($audience) is wrong. Should be $resource!"
+                Write-Verbose "ACCESS TOKEN HAS WRONG AUDIENCE: $tAudience. Exptected: $tResource."
+                Throw "The audience of the access token ($tAudience) is wrong. Should be $tResource!"
             }
             else
             {
@@ -76,19 +95,45 @@ function Get-AccessTokenFromCache
             # Use the same client id as the expired token
             $ClientID = (Read-Accesstoken -AccessToken $retVal).appid
 
-            # Strip the trailing slashes
-            if($Resource.EndsWith("/"))
-            {
-                $Resource = $Resource.Substring(0,$Resource.Length-1)
-            }
             Write-Verbose "ACCESS TOKEN HAS EXPRIRED. Trying to get a new one with RefreshToken."
-            $retVal = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientID -RefreshToken $script:refresh_tokens["$ClientId-$Resource"] -TenantId (Read-Accesstoken -AccessToken $retVal).tid -SaveToCache $true -IncludeRefreshToken $IncludeRefreshToken
+            $retVal = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientID -RefreshToken (Get-RefreshTokenFromCache -AccessToken $retVal) -TenantId (Read-Accesstoken -AccessToken $retVal).tid -SaveToCache $true -IncludeRefreshToken $IncludeRefreshToken
         }
 
         # Return
         return $retVal
     }
 }
+
+# Returns refresh token from cache
+# Apr 25th 2023
+function Get-RefreshTokenFromCache
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='AccessToken',Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(ParameterSetName='ClientAndResource', Mandatory=$True)]
+        [String]$ClientID,
+        [Parameter(ParameterSetName='ClientAndResource', Mandatory=$True)]
+        [String]$Resource
+    )
+    Process
+    {
+        # Get clientid and resource from access token if provided
+        if($AccessToken)
+        {
+            $parsedToken = Read-AccessToken -AccessToken $AccessToken
+            $ClientID = $parsedToken.appid
+            $Resource = $parsedToken.aud
+        }
+
+        # Strip the trailing slash
+        $Resource = $Resource.TrimEnd("/")
+                
+        return $Script:refresh_tokens["$ClientId-$Resource"]
+    }
+}
+
 
 # Gets the access token for AAD Graph API
 function Get-AccessTokenForAADGraph
@@ -769,10 +814,10 @@ function Get-AccessTokenForSPO
         if($SaveToCache)
         {
             # Add tokens to cache
-            Add-AccessTokenToCache -AccessToken $graphTokens[0]     -RefreshToken $graphTokens[1]     | Out-Null
-            Add-AccessTokenToCache -AccessToken $SPOtokens[0]       -RefreshToken $SPOtokens[1]       | Out-Null
-            Add-AccessTokenToCache -AccessToken $SPOtokens_my[0]    -RefreshToken $SPOtokens_my[1]    | Out-Null
-            Add-AccessTokenToCache -AccessToken $SPOtokens_admin[0] -RefreshToken $SPOtokens_admin[1] | Out-Null
+            Add-AccessTokenToCache -AccessToken $graphTokens[0]     -RefreshToken $graphTokens[1]     -ShowCache $false
+            Add-AccessTokenToCache -AccessToken $SPOtokens[0]       -RefreshToken $SPOtokens[1]       -ShowCache $false
+            Add-AccessTokenToCache -AccessToken $SPOtokens_my[0]    -RefreshToken $SPOtokens_my[1]    -ShowCache $false
+            Add-AccessTokenToCache -AccessToken $SPOtokens_admin[0] -RefreshToken $SPOtokens_admin[1] -ShowCache $false
         }
         else
         {
@@ -1440,6 +1485,65 @@ function Get-AccessTokenForOneNote
     }
 }
 
+# Gets an access token for for Access Packages
+# Apr 24th 2023
+function Get-AccessTokenForAccessPackages
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Access Packages
+
+    .DESCRIPTION
+    Gets OAuth Access Token for Access Packages
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
+    .Example
+    Get-AADIntAccessTokenForAccessPackages
+    
+    .Example
+    PS C:\>Get-AADIntAccessAccessPackages -SaveToCache
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant
+    )
+    Process
+    {
+        Get-AccessToken -Resource "https://elm.iga.azure.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+    }
+}
+
 # Gets the access token for provisioning API and stores to cache
 # Refactored Jun 8th 2020
 function Get-AccessToken
@@ -1635,8 +1739,7 @@ function Get-AccessToken
             if($SaveToCache)
             {
                 Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-                $Script:tokens["$ClientId-https://graph.windows.net"] =         $OAuthInfo.access_token
-                $Script:refresh_tokens["$ClientId-https://graph.windows.net"] = $OAuthInfo.refresh_token
+				Add-AccessTokenToCache -AccessToken $OAuthInfo.access_token -RefreshToken $OAuthInfo.refresh_token -ShowCache $false
             }
 
             # Get the access token from response
@@ -1644,6 +1747,8 @@ function Get-AccessToken
             
         }
 
+        # Check is this current, new, or deprecated FOCI client
+        IsFOCI -ClientId (Read-Accesstoken -AccessToken $OAuthInfo.access_token).appid -FOCI $OAuthInfo.foci | Out-Null
         $refresh_token = $OAuthInfo.refresh_token
 
         # Check whether we want to get the deviceid and (possibly) mfa in mra claim
@@ -1671,8 +1776,7 @@ function Get-AccessToken
 
         if($SaveToCache -and $OAuthInfo -ne $null -and $access_token -ne $null)
         {
-            $script:tokens["$ClientId-$Resource"] =          $access_token
-            $script:refresh_tokens["$ClientId-$Resource"] =  $refresh_token
+			Add-AccessTokenToCache -AccessToken $access_token -RefreshToken $refresh_token -ShowCache $false
         }
 
         # Return
@@ -1768,12 +1872,14 @@ function Get-AccessTokenWithRefreshToken
         # Debug
         Write-Debug "ACCESS TOKEN RESPONSE: $response"
 
+        # Check is this current, new, or deprecated FOCI client
+        IsFOCI -ClientId (Read-Accesstoken -AccessToken $response.access_token).appid -FOCI $response.foci | Out-Null
+
         # Save the tokens to cache
         if($SaveToCache)
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$ClientId-$Resource"] =         $response.access_token
-            $Script:refresh_tokens["$ClientId-$Resource"] = $response.refresh_token
+			Add-AccessTokenToCache -AccessToken $response.access_token -RefreshToken $response.refresh_token -ShowCache $false
         }
 
         # Return
@@ -1948,8 +2054,7 @@ function Get-AccessTokenWithAuthorizationCode
         if($SaveToCache)
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$ClientId-$Resource"] =         $response.access_token
-            $Script:refresh_tokens["$ClientId-$Resource"] = $response.refresh_token
+			Add-AccessTokenToCache -AccessToken $response.access_token -RefreshToken $response.refresh_token -ShowCache $false
         }
 
         # Return
@@ -2000,8 +2105,7 @@ function Get-AccessTokenWithDeviceSAML
         if($SaveToCache)
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$ClientId-$Resource"] =         $response.access_token
-            $Script:refresh_tokens["$ClientId-$Resource"] = $response.refresh_token
+			Add-AccessTokenToCache -AccessToken $response.access_token -RefreshToken $response.refresh_token -ShowCache $false
         }
         else
         {
@@ -2082,7 +2186,7 @@ function Get-AccessTokenUsingAADGraph
         $tenant = (Read-Accesstoken -AccessToken $AccessToken).tid
                 
         # Get the refreshtoken
-        $refresh_token=$script:refresh_tokens["1b730954-1685-4b74-9bfd-dac224a7b894-https://graph.windows.net"]
+        $refresh_token = Get-RefreshTokenFromCache -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         if([string]::IsNullOrEmpty($refresh_token))
         {
