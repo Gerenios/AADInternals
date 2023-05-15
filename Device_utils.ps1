@@ -118,11 +118,16 @@ function Parse-CertificateOIDs
                "1.2.840.113556.1.5.284.2" {
                     $retVal | Add-Member -NotePropertyName "DeviceId" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
                 
-               } 
+               }
+
+               # "The objectGuid of the user object ([MS-ADSC] section 2.268) on the directory server that corresponds to the authenticating user."
+               # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dvrj/850786b9-2525-4047-a5ff-8c3093b46b88
+               # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dvre/76747b5c-06c2-4c73-9207-8ebb6ee891ea
+               # I.e. the object ID in AAD of the user who joined/registered the device
                "1.2.840.113556.1.5.284.3" {
-                    $retVal | Add-Member -NotePropertyName "ObjectId" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
+                    $retVal | Add-Member -NotePropertyName "AuthUserObjectId" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
                 
-               } 
+               }
                "1.2.840.113556.1.5.284.5" {
                     $retVal | Add-Member -NotePropertyName "TenantId" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
                 
@@ -136,14 +141,14 @@ function Parse-CertificateOIDs
                     # ME = Middle East
                     # NA = North America
                     # SA = South America
-                    $retVal | Add-Member -NotePropertyName "Region"   -NotePropertyValue ([text.encoding]::UTF8.getString([byte[]](Get-OidRawValue -RawValue $ext.RawData)))
+                    $retVal | Add-Member -NotePropertyName "Region" -NotePropertyValue ([text.encoding]::UTF8.getString([byte[]](Get-OidRawValue -RawValue $ext.RawData)))
                }
                "1.2.840.113556.1.5.284.7" {
                     # JoinType
                     # 0 = Registered
                     # 1 = Joined
                     $retVal | Add-Member -NotePropertyName "JoinType" -NotePropertyValue ([int]([text.encoding]::UTF8.getString([byte[]](Get-OidRawValue -RawValue $ext.RawData))))
-               }    
+               }
             }
         }
 
