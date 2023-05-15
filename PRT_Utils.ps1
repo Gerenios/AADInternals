@@ -291,8 +291,6 @@ function Get-AccessTokenWithPRT
         [String]$Resource,
         [Parameter(Mandatory=$True)]
         [String]$ClientId,
-        [Parameter(Mandatory=$False)]
-        [String]$RedirectUri="urn:ietf:wg:oauth:2.0:oob",
         [switch]$GetNonce,
         [Parameter(Mandatory=$False)]
         [String]$Tenant
@@ -306,6 +304,9 @@ function Get-AccessTokenWithPRT
         }
 
         $parsedCookie = Read-Accesstoken $Cookie
+
+        #Set RedirectURI
+        $RedirectUri = Get-AuthRedirectUrl -ClientID $ClientId -Resource $Resource
 
         # Create parameters
         $mscrid =    (New-Guid).ToString()
@@ -331,12 +332,12 @@ function Get-AccessTokenWithPRT
         Write-Debug "RESPONSE: $($response.OuterXml)"
 
         # Try to parse the code from the response
-        if($response.html.body.script)
+        if ($response.html.body.h2.a.href)
         {
-            $values = $response.html.body.script.Split("?").Split("\")
+            $values = $response.html.body.h2.a.href.Split("?").Split("\").Split("&")
             foreach($value in $values)
             {
-                $row=$value.Split("=")
+               $row=$value.Split("=")
                 if($row[0] -eq "code")
                 {
                     $code = $row[1]
