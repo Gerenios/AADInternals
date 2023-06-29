@@ -841,6 +841,9 @@ function Get-UserPRTKeys
     .Parameter Credentials
     Credentials of the user.
 
+    .Parameter CloudAP
+    Get PRT and Session key from CloudAP cache using user's credentials
+
     .Parameter OSVersion
     The operating system version of the device. Defaults to "10.0.18363.0"
 
@@ -959,6 +962,17 @@ function Get-UserPRTKeys
     PS C\:>$prtKeys = Get-AADIntUserPRTKeys -PfxFileName .\f72ad27e-5833-48d3-b1d6-00b89c429b91.pfx -TransportKeyFileName .\f72ad27e-5833-48d3-b1d6-00b89c429b91_tk.pem
 
     PS C:\>$prttoken = New-AADIntUserPRTToken -Settings $prtkeys
+	
+	.Example
+	PS C\:>$creds = Get-Credential
+    PS C\:>$prtKeys = Get-AADIntUserPRTKeys -CloudAP -Credentials $creds
+	
+	WARNING: Elevating to LOCAL SYSTEM. You MUST restart PowerShell to restore AzureAD\User1 rights.
+	Keys saved to 31abceff-a84c-4f3b-9461-582435d7d448.json
+
+    PS C:\>$prttoken = New-AADIntUserPRTToken -Settings $prtkeys
+	
+	
 #>
     [cmdletbinding()]
     Param(

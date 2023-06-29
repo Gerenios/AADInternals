@@ -3,6 +3,25 @@
 # Dec 22nd 2022
 function Get-UserNTHash
 {
+<#
+    .SYNOPSIS
+    Exports and decrypts the NTHashes from Azure AD using the given application and certificate.
+
+    .DESCRIPTION
+    Exports and decrypts the NTHashes from Azure AD using the given application and certificate.
+
+    The application must be "Azure AD Domain Services Sync" created during the Azure AD Domain services (AADDS) deployment. Either client certificate or password needs to be provided.
+
+    The encryption certificate needs to be exported from AADDS domain controller.
+
+    .Example
+    PS C\:>Get-AADIntUserNTHash -ClientPassword "vlb8Q~W8iVXwfdt2FjIH4FE0hRc-p9G_kyN_KbtZ" -ClientId "23857e6f-7be4-4bb8-84b7-22e92c359c8d" -PfxFileName .\encryption_cert.pfx
+
+    NTHash                           UserPrincipalName                  
+    ------                           -----------------                  
+    00000000000000000000000000000000 user1@company.com
+    11111111111111111111111111111111 user2@company.com
+#>
     [cmdletbinding()]
     Param(
         [Parameter(ParameterSetName='ClientPassword', Mandatory=$False)]
