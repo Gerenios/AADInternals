@@ -1113,6 +1113,15 @@ function Set-UserPassword
     .Parameter Iterations
     The number of iterations of pbkdf2. Defaults to 1000.
 
+    .Parameter IncludeLegacy
+    Include windowsLegacyCredentials, i.e., NTHash. If certificate not provided, tries to get one from Azure AD
+
+    .Parameter PfxFileName
+    Name of windowsLegacyCredentials encryption certificate
+
+    .Parameter PfxPassword
+    Password of windowsLegacyCredentials encryption certificate
+
     .Example
     Set-AADIntUserPassword -SourceAnchor "Vvl6blILG0/Cr/8TWOe9pg==" -Password "MyPassword" -ChangeDate ((Get-Date).AddYears(-1))
 
@@ -1147,7 +1156,13 @@ function Set-UserPassword
         [Parameter(Mandatory=$False)]
         [int]$Recursion=1,
         [parameter(Mandatory=$false)]
-        [int]$Iterations=1000
+        [int]$Iterations=1000,
+
+        # Legacy credentials encryption certificate
+        [Parameter(Mandatory=$False)]
+        [string]$PfxFileName,
+        [Parameter(Mandatory=$False)]
+        [string]$PfxPassword
     )
     Process
     {
@@ -1189,25 +1204,38 @@ function Set-UserPassword
         # Create Windows Legacy Credentials blob
         if($IncludeLegacy)
         {
-            # First, get the encryption certificate
-            $DCaaSConfig = Get-WindowsCredentialsSyncConfig -AccessToken $AccessToken
-            if(-not $DCaaSConfig.Certificate)
+            # Load the certificate
+            if(![string]::IsNullOrEmpty($PfxFileName))
             {
-                Write-Warning "Could not get encryption certificate. Is AADDS enabled for the tenant?"
+                $certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword
             }
+            # Get the encryption certificate if not provided
             else
             {
-                # Create the NTHash blob
-                $NTHashBlob = @(0x5A,0x00,0x09,0x00, # Ref: https://github.com/mubix/ntds_decode/blob/master/attributes.h#L3048
-                                                     # 0x09005A = 589914 = ATT_UNICODE_PWD / unicodePwd
-
-                                0x10,0x00,0x00,0x00  # Size of the hash in bytes? 0x10 = 16 bytes
-                                )+ (Convert-HexToByteArray -HexString $Hash)
-
-                # Encrypt the blob
-                $ADAuthInfo = Protect-ADAuthInfo -Data $NTHashBlob -Certificate $DCaaSConfig.Certificate
-                $windowsLegacyCredentials = Convert-ByteArrayToB64 -Bytes $ADAuthInfo
+                $DCaaSConfig = Get-WindowsCredentialsSyncConfig -AccessToken $AccessToken
+                if(-not $DCaaSConfig.Certificate)
+                {
+                    Write-Warning "Could not get encryption certificate. Is AADDS enabled for the tenant?"
+                }
+                else
+                {
+                    $certificate = $DCaaSConfig.Certificate
+                }
             }
+
+            Write-Verbose "Encrypting with certificate: $($certificate.Thumbprint) $($certificate.Subject)"
+            
+            # Create the NTHash blob
+            $NTHashBlob = @(0x5A,0x00,0x09,0x00, # Ref: https://github.com/mubix/ntds_decode/blob/master/attributes.h#L3048
+                                                    # 0x09005A = 589914 = ATT_UNICODE_PWD / unicodePwd
+
+                            0x10,0x00,0x00,0x00  # Size of the hash in bytes? 0x10 = 16 bytes
+                            )+ (Convert-HexToByteArray -HexString $Hash)
+
+            # Encrypt the blob
+            $ADAuthInfo = Protect-ADAuthInfo -Data $NTHashBlob -Certificate $certificate
+            $windowsLegacyCredentials = Convert-ByteArrayToB64 -Bytes $ADAuthInfo
+        
         }
 
         # Create the body block

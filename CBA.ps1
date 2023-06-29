@@ -54,7 +54,7 @@ function Get-AdminPortalAccessTokenUsingCBA
         $webSession.Cookies.Add((New-Object System.Net.Cookie("x-portal-routekey", "wuk", "/", "admin.microsoft.com")))
 
         # Invoke the first request to get redirect url
-        $response = Invoke-WebRequest -UseBasicParsing -Uri "https://admin.microsoft.com/login?ru=%2FAdminportal%2FHome%3F%26source%3Dapplauncher" -Method Get -WebSession $webSession -ErrorAction SilentlyContinue -MaximumRedirection 0
+        $response = Invoke-WebRequest2 -Uri "https://admin.microsoft.com/login?ru=%2FAdminportal%2FHome%3F%26source%3Dapplauncher" -Method Get -WebSession $webSession -MaximumRedirection 0 -ErrorAction SilentlyContinue
         $url = $response.Headers.'Location'
 
         # Get the login parameters and cookies with the certificate
@@ -126,7 +126,7 @@ function Get-PortalAccessTokenUsingCBA
         $webSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
         # Invoke the first request to get redirect url
-        $response = Invoke-WebRequest -UseBasicParsing -Uri "https://www.office.com/login?ru=%2F%3Ffrom%3DPortalHome" -Method Get -WebSession $webSession -ErrorAction SilentlyContinue -MaximumRedirection 0
+        $response = Invoke-WebRequest2 -Uri "https://www.office.com/login?ru=%2F%3Ffrom%3DPortalHome" -Method Get -WebSession $webSession -MaximumRedirection 0 -ErrorAction SilentlyContinue
         $url = $response.Headers.'Location'
 
         # Get the login parameters and cookies with the certificate

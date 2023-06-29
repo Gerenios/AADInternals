@@ -1172,3 +1172,53 @@ function Get-TenantDomain
         return $results.defaultDomainName
     }
 }
+
+# Adds a new TAP for the given user
+# Jun 26th 2023
+function New-UserTAP
+{
+    <#
+    .SYNOPSIS
+    Creates a new Temporary Access Pass (TAP) for the given user.
+
+    .DESCRIPTION
+    Creates a new Temporary Access Pass (TAP) for the given user.
+
+    .PARAMETER
+
+    .Example
+    Get-AADIntAccessTokenForMSGraph -SaveToCache
+    PS C:\>Get-AADIntTenantDomain -TenantId 72f988bf-86f1-41af-91ab-2d7cd011db47
+    microsoft.onmicrosoft.com
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [switch]$UsableOnce,
+        [Parameter(Mandatory=$False)]
+        [ValidateRange(10, 43200)]
+        [int]$Lifetime = 60,
+        [Parameter(Mandatory=$False)]
+        [DateTime]$StartTime = (Get-Date),
+        [Parameter(Mandatory=$True)]
+        [String]$User
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+
+        # Create the body
+        $body = @{
+            "startDateTime"     = ($StartTime).ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
+            "lifetimeInMinutes" = $Lifetime
+            "isUsableOnce"      = $UsableOnce -eq $true
+        }
+
+        $results = Call-MSGraphAPI -AccessToken $AccessToken -API "users/$user/authentication/temporaryAccessPassMethods" -Method POST -Body ($body | ConvertTo-Json)
+        
+        return $results.temporaryAccessPass
+    }
+}

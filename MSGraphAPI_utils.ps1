@@ -26,9 +26,6 @@ function Call-MSGraphAPI
     )
     Process
     {
-        # Set the required variables
-        $TenantID = (Read-Accesstoken $AccessToken).tid
-
         if($Headers -eq $null)
         {
             $Headers=@{}
@@ -39,7 +36,26 @@ function Call-MSGraphAPI
         $url = "https://graph.microsoft.com/$($ApiVersion)/$($API)?$(if(![String]::IsNullOrEmpty($QueryString)){"&$QueryString"})"
 
         # Call the API
-        $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method -Body $Body -Headers $Headers
+        try
+        {
+            $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method -Body $Body -Headers $Headers
+        }
+        catch
+        {
+            $errorMessage = $_.Exception.Message
+            
+            try
+            {
+                $errorResponse = Get-ErrorStreamMessage -errorStream $_.Exception.Response.GetResponseStream() | ConvertFrom-Json
+                if($errorResponse.error.message)
+                {
+                    $errorMessage = $errorResponse.error.message
+                }
+            }
+            catch{}
+
+            throw $errorMessage
+        }
 
         # Check if we have more items to fetch
         if($response.psobject.properties.name -match '@odata.nextLink')
