@@ -213,6 +213,8 @@ function Join-LocalDeviceToAzureAD
     Begin
     {
         $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        $WAM_AAD = "B16898C6-A148-4967-9171-64D755DA8520"
+        $WAM_MSA = "D7F9888F-E3FC-49b0-9EA6-A85B5F392A4F"
     }
     Process
     {
@@ -373,8 +375,8 @@ function Join-LocalDeviceToAzureAD
         Write-Verbose "Transport key set: HKLM:\SYSTEM\CurrentControlSet\Control\Cryptography\Ngc\KeyTransportKey\PerDeviceKeyTransportKey\$idp\$tenant\SoftwareKeyTransportKeyName = $transportKeyName"
 
         # Set some registry values
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\IdentityStore\LoadParameters\{B16898C6-A148-4967-9171-64D755DA8520}" -Name "LoginUri" -Value "https://login.microsoftonline.com" -Force | Out-Null
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\IdentityStore\LoadParameters\{B16898C6-A148-4967-9171-64D755DA8520}" -Name "Enabled" -Value 1 | Out-Null
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\IdentityStore\LoadParameters\{$WAM_AAD}" -Name "LoginUri" -Value "https://login.microsoftonline.com" -Force | Out-Null
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\IdentityStore\LoadParameters\{$WAM_AAD}" -Name "Enabled" -Value 1 | Out-Null
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Provisioning\AutopilotPolicy" -Name "AutopilotMode" -Value 0 -Force | Out-Null
 
         # Restart Software Protection Platform 

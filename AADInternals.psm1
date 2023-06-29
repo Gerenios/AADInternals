@@ -1,13 +1,16 @@
 ﻿# Add some assemblies
 Add-type -AssemblyName System.xml.linq                 -ErrorAction SilentlyContinue
 Add-Type -AssemblyName System.Runtime.Serialization    -ErrorAction SilentlyContinue
-Add-Type -AssemblyName System.Windows.Forms            -ErrorAction SilentlyContinue
 Add-Type -AssemblyName System.Web                      -ErrorAction SilentlyContinue
 Add-Type -AssemblyName System.Web.Extensions           -ErrorAction SilentlyContinue
 Add-Type -path "$PSScriptRoot\BouncyCastle.Crypto.dll" -ErrorAction SilentlyContinue
 
+# Load settings
+. "$PSScriptRoot\Configuration.ps1"
+Read-Configuration
+
 # Set supported TLS methods
-[Net.ServicePointManager]::SecurityProtocol = "Tls, Tls11, Tls12, Ssl3"
+[Net.ServicePointManager]::SecurityProtocol = Get-Setting -Setting "SecurityProtocol"
 
 # Print the welcome message
 $manifest = Import-PowerShellDataFile "$PSScriptRoot\AADInternals.psd1"
@@ -21,7 +24,7 @@ $logo=@"
  / ___ |/ ___ |/ /_/ _/ // / / / /_/  __/ /  / / / / /_/ / (__  ) 
 /_/  |_/_/  |_/_____/___/_/ /_/\__/\___/_/  /_/ /_/\__,_/_/____/  
   
- v$version Black Hat Asia 2023 edition by @DrAzureAD (Nestori Syynimaa)
+ v$version 🛡️ TROOPERS23 edition by @DrAzureAD (Nestori Syynimaa)
 "@
 
 Write-Host $logo -ForegroundColor Yellow

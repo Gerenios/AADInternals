@@ -10,6 +10,8 @@ $DPAPI_ENTROPY_CAPI_KEY_PROPERTIES = @(0x48,0x6a,0x31,0x64,0x69,0x51,0x36,0x6b,0
 # Unix epoch time (1.1.1970)
 $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millisecond 0
 
+# Configuration settings
+$config = @{}
 
 # Gets Azure and Azure Stack WireServer ip address using DHCP
 # Nov 18 2021
@@ -856,23 +858,10 @@ Function Get-Error
         # Get the error message
         $response=Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://login.microsoftonline.com/error?code=$ErrorCode"
 
-        if($response.IndexOf("<table>") -gt 0)
-        {
-            $s=$response.IndexOf("<td>Error Code</td>")+23
-            $e=$response.IndexOf("</td>",$s)
-            $code=$response.Substring($s,$e-$s)
-
-            $s=$response.IndexOf("<td>Message</td>")+20
-            $e=$response.IndexOf("</td>",$s)
-            $message=$response.Substring($s,$e-$s)
-
-            Write-Host "$code`: $message"
-        }
-        else
-        {
-            Write-Host "Error $ErrorCode not found!"
-        }
-
+        $code    = Get-StringBetween -String $response -Start '<td>Error Code</td><td>' -End '</td>'
+        $message = Get-StringBetween -String $response -Start '<td>Message</td><td>'    -End '</td>'
+       
+        return "$code`: $message"
     }
 }
 
@@ -2016,7 +2005,7 @@ function Test-LocalAdministrator
     {  
         $isAdmin = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
 
-        if(!$isAdmin -and $Throw)
+        if(!$isAdmin -and $Warn)
         {
             Write-Warning "The PowerShell session is not elevated, please run as Administrator."
         }
@@ -2510,5 +2499,373 @@ function Set-BinaryContent
         {
             Set-Content -Path $Path -Value $Value -Encoding Byte
         }
+    }
+}
+
+# Load the settings from config.json
+# May 29th 2023
+function Read-Configuration
+{
+<#
+    .SYNOPSIS
+    Loads AADInternals settings
+
+    .DESCRIPTION
+    Loads AADInternals settings from config.json. All changes made after loading AADInternals module will be lost.
+
+    .Example
+    PS C:\>Read-AADIntConfiguration
+#>
+    [cmdletbinding()]
+    param()
+    Process
+    {
+        # Clear the settings
+        $Script:config = @{}
+
+        # ConvertFrom-Json -AsHashtable not supported in PowerShell 5.1
+        $configObject = Get-Content -Path "$PSScriptRoot\config.json" | ConvertFrom-Json
+        foreach($property in $configObject.PSObject.Properties)
+        {
+            $Script:config[$property.Name] = $property.Value
+        }
+    }
+}
+
+# Save the settings to config.json
+# May 29th 2023
+function Save-Configuration
+{
+<#
+    .SYNOPSIS
+    Saves AADInternals settings
+
+    .DESCRIPTION
+    Saves the current AADInternals settings to config.json. Settings will be loaded when AADInternals module is loaded.
+    
+    .Example
+    PS C:\>Save-AADIntConfiguration
+#>
+    [cmdletbinding()]
+    param()
+    Process
+    {
+        $Script:config | ConvertTo-Json | Set-Content -Path "$PSScriptRoot\config.json"
+
+        Write-Host "Settings saved."
+    }
+}
+
+# Shows the configuration
+# May 29th 2023
+function Get-Configuration
+{
+<#
+    .SYNOPSIS
+    Shows AADInternals settings
+
+    .DESCRIPTION
+    Shows AADInternals settings
+    
+    .Example
+    PS C:\>Get-AADIntSettings
+
+    Name                           Value
+    ----                           -----
+    SecurityProtocol               Tls12
+    User-Agent                     AADInternals
+#>
+    [cmdletbinding()]
+    param()
+    Process
+    {
+        $Script:config
+    }
+}
+
+# Get AADInternals setting
+# May 29th 2023
+function Get-Setting
+{
+    [cmdletbinding()]
+    param(
+        [parameter(Mandatory=$true, ValueFromPipeline)]
+        [string]$Setting
+    )
+    Process
+    {
+        return $Script:config[$Setting]
+    }
+}
+
+# Sets AADInternals setting value
+# May 29th 2023
+function Set-Setting
+{
+    <#
+    .SYNOPSIS
+    Sets the given setting with given value
+
+    .DESCRIPTION
+    Sets the given setting with given value. To persist, use Save-AADIntConfiguration after setting the value.
+
+    .Parameter Setting
+    Name of the setting to be set
+
+    .Parameter Value
+    Value of the setting
+    
+    .Example
+    PS C:\>Set-AADIntSetting -Setting "User-Agent" -Value "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+
+    .Example
+    PS C:\>Set-AADIntSetting -Setting "User-Agent" -Value "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+    PS C:\>Save-AADIntConfiguration
+
+    Settings saved.
+#>
+    [cmdletbinding()]
+    param(
+        [parameter(Mandatory=$true, ValueFromPipeline, Position=0)]
+        [string]$Setting,
+        [parameter(Mandatory=$true, ValueFromPipeline, Position=1)]
+        [PSObject]$Value
+    )
+    Process
+    {
+        $Script:config[$Setting] = $value
+    }
+}
+
+# Sets AADInternals User-Agent value
+# May 29th 2023
+function Set-UserAgent
+{
+    <#
+    .SYNOPSIS
+    Sets the User-Agent AADInternals will use in requests.
+
+    .DESCRIPTION
+    Sets a pre configured User-Agent for a specific device that AADInternals will use in requests. Supported devices: 'Windows','MacOS','Linux','iOS','Android'.
+    To persist, use Save-AADIntConfiguration after setting the User-Agent
+
+    .Parameter UserAgent
+    One of 'Windows','MacOS','Linux','iOS','Android'
+    
+    .Example
+    PS C:\>Set-AADIntUserAgent -Device Windows
+
+    .Example
+    PS C:\>Set-AADIntUserAgent -Device Windows
+    PS C:\>Save-AADIntConfiguration
+
+    Settings saved.
+#>
+    [cmdletbinding()]
+    param(
+        [parameter(Mandatory=$true)]
+        [ValidateSet('Windows','MacOS','Linux','iOS','Android')]
+        [string]$Device
+    )
+    Begin
+    {
+        $userAgents = @{
+            "Windows" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+            "MacOS"   = "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4)"
+            "Linux"   = "Mozilla/5.0 (X11; Linux x86_64)"
+            "iOS"     = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X)"
+            "Android" = "Mozilla/5.0 (Linux; Android 10)"
+        }
+    }
+    Process
+    {
+        Set-Setting -Setting "User-Agent" -Value $userAgents[$Device]
+    }
+}
+
+# Return the string between Start and End
+# May 29th 2023
+function Get-StringBetween
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$String,
+        [Parameter(Mandatory=$True)]
+        [String]$Start,
+        [Parameter(Mandatory=$True)]
+        [String]$End,
+        [Parameter(Mandatory=$False)]
+        [int]$IncludeEndCharacters = 0
+    )
+    Process
+    {
+
+        $s = $String.IndexOf($Start)
+        if($s -gt -1)
+        {
+            $e = $String.IndexOf($End,$s + $Start.Length)
+            if($e -gt $s)
+            {
+                $c = $String.Substring($s + $Start.Length,$e-$s-$Start.Length + $IncludeEndCharacters)
+            }
+        }
+        return $c
+    }
+}
+
+# Parses code from the response, either location header or body.
+# Jun 9th 2023
+Function Parse-CodeFromResponse
+{
+
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [PSObject]$Response
+    )
+    process
+    {
+        # Parse the code from the Location header
+        # Location: <redirect_uri>?code=<code>&session_state=<state>
+        
+        # Try first the location header
+        $redirect = $Response.Headers["Location"]
+        if([string]::IsNullOrEmpty($redirect))
+        {
+            # Didn't work, so try to parse from the body
+            Write-Verbose "Location header empty, parsing from body."
+
+            # Decode \u0026 to &
+            $redirect = $response.content.Replace("\u0026","&")
+        }
+        if(![string]::IsNullOrEmpty($redirect))
+        {
+            # PS versions >= 6 header values are a string array
+            if($redirect -is [String[]])
+            {
+                $redirect = $redirect[0]
+            }
+            $authorizationCode = Get-StringBetween -String $redirect -Start 'code=' -End '&'
+        }
+
+        if([string]::IsNullOrEmpty($authorizationCode))
+        {
+            Throw "Authorization code not received!"
+        }
+        Write-Verbose "Code: $authorizationCode"
+
+        return $authorizationCode
+    }
+}
+
+# Prompts for password
+# Jun 19th 2023
+Function Read-HostPassword
+{
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [string]$Prompt
+    )
+    process
+    {
+        # Use -MaskInput for PowerShell >= 7.1
+        if( ($PSVersionTable.PSVersion.Major -ge 7) -or
+            ($PSVersionTable.PSVersion.Major -eq 7 -and $PSVersionTable.PSVersion.Minor -ge 1) )
+        {
+            $password = Read-Host -Prompt $Prompt -MaskInput
+        }
+        else
+        {
+            # Use -AsSecureString for PowerShell < 7.1
+            $securePassword = Read-Host -Prompt $Prompt -AsSecureString
+            if(!$securePassword)
+            {
+                return $null
+            }
+            $securePasswordBytes = Convert-HexToByteArray -HexString (ConvertFrom-SecureString $securePassword)
+            $password = [text.encoding]::Unicode.GetString([Security.Cryptography.ProtectedData]::Unprotect($securePasswordBytes,$null,'CurrentUser'))
+        }
+
+        return $password
+    }
+}
+
+# Reads error stream and returns UTF8 string
+# Jun 21st 2023
+Function Get-ErrorStreamMessage
+{
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [System.IO.MemoryStream]$errorStream
+    )
+    process
+    {
+        $errorBytes = New-Object byte[] $errorStream.Length
+
+        $errorStream.Position = 0
+        $errorStream.Read($errorBytes,0,$errorStream.Length) | Out-Null
+
+        return [text.encoding]::UTF8.GetString($errorBytes)
+    }
+}
+
+# PSVersion aware Invoke-WebRequest
+# Jun 27th 2023
+Function Invoke-WebRequest2
+{
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true)]
+        [String]$Uri,
+        [parameter(Mandatory=$false)]
+        [String]$Method = "GET",
+        [parameter(Mandatory=$false)]
+        [PSObject]$WebSession,
+        [parameter(Mandatory=$false)]
+        [PSObject]$Headers,
+        [parameter(Mandatory=$false)]
+        [PSObject]$Body,
+        [parameter(Mandatory=$false)]
+        [String]$ContentType = "application/x-www-form-urlencoded",
+        [parameter(Mandatory=$false)]
+        [int]$MaximumRedirection = 5,
+        [parameter(Mandatory=$false)]
+        [String]$SessionVariable
+    )
+    process
+    {
+        $arguments = @{
+            "UseBasicParsing"    = $true
+            "Uri"                = $url 
+            "Method"             = $Method
+            "MaximumRedirection" = $MaximumRedirection
+            "ErrorAction"        = $ErrorActionPreference
+            "Headers"            = $Headers
+            "Body"               = $body 
+            "ContentType"        = $ContentType
+        }
+
+        if(![string]::IsNullOrEmpty($SessionVariable))
+        {
+            $arguments["SessionVariable"] = $SessionVariable
+        }
+        elseif($WebSession -ne $null)
+        {
+            $arguments["WebSession"] = $WebSession
+        }
+
+        # PSVersions >= 7 doesn't respect the ErrorAction SilentlyContinue so we need to use SkipHttpErrorCheck
+        if(($PSVersionTable.PSVersion.Major -ge 7) -and ($ErrorActionPreference -eq "SilentlyContinue"))
+        {
+            $arguments["SkipHttpErrorCheck"] = $true
+        }
+        Invoke-WebRequest @arguments
     }
 }

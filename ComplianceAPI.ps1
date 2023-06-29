@@ -29,7 +29,7 @@ function Get-ComplianceAPICookies
         $url = "https://compliance.microsoft.com"
 
         # Get the first set of cookies
-        $response = Invoke-WebRequest -UseBasicParsing -Uri $url -SessionVariable "WebSession" -Method get -MaximumRedirection 0 -ErrorAction SilentlyContinue
+        $response = Invoke-WebRequest -Uri $url -SessionVariable "WebSession" -Method get -MaximumRedirection 0
         $url = $response.Headers["location"]
         
         $form = Create-LoginForm -Url $url -auth_redirect "https://login.microsoftonline.com/kmsi"

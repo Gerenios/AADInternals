@@ -138,7 +138,9 @@ function Get-SyncCredentials
                 $pinfo.RedirectStandardError = $true
                 $pinfo.RedirectStandardOutput = $true
                 $pinfo.UseShellExecute = $false
-                $pinfo.Arguments = "-File $PSScriptRoot\AADSyncSettings_job.ps1"
+                $pinfo.CreateNoWindow = $true
+                $pinfo.WorkingDirectory = $PSScriptRoot
+                $pinfo.Arguments = "-File AADSyncSettings_job.ps1"
                 $p = New-Object System.Diagnostics.Process
                 $p.StartInfo = $pinfo
                 $p.Start() | Out-Null

@@ -412,7 +412,7 @@ function Send-TeamsMessage
                 }
             }
         
-            $threadResponse = Invoke-WebRequest -UseBasicParsing -Method Post -Uri "$chatService/v1/threads" -Headers $headers -Body ($threadBody | ConvertTo-Json) -ContentType "application/json" -MaximumRedirection 0
+            $threadResponse = Invoke-WebRequest2 -Method Post -Uri "$chatService/v1/threads" -Headers $headers -Body ($threadBody | ConvertTo-Json) -ContentType "application/json" -MaximumRedirection 0
             $threadUrl =      $threadResponse.Headers["location"]
             $thread =         $threadUrl.Substring($threadUrl.LastIndexOf("/")+1)
         }
