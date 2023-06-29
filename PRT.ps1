@@ -971,8 +971,10 @@ function Get-UserPRTKeys
 	Keys saved to 31abceff-a84c-4f3b-9461-582435d7d448.json
 
     PS C:\>$prttoken = New-AADIntUserPRTToken -Settings $prtkeys
-	
-	
+
+    .EXAMPLE
+    
+    PS C:\>$prtKeys = Get-AADIntUserPRTKeys -PfxFileName .\d03994c9-24f8-41ba-a156-1805998d6dc7.pfx -UseDeviceCertForWHfB -UserName user@company.com
 #>
     [cmdletbinding()]
     Param(
@@ -1041,7 +1043,7 @@ function Get-UserPRTKeys
             $oids = Parse-CertificateOIDs -Certificate $Certificate
             $deviceId = $oids.DeviceId.ToString()
             $tenantId = $oids.TenantId.ToString()
-            $objectId = $oids.ObjectId.ToString()
+            $objectId = $oids.AuthUserObjectId.ToString()
 
             # Get the nonce
             $nonce = (Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/common/oauth2/token" -Body "grant_type=srv_challenge").Nonce
@@ -1154,7 +1156,7 @@ function Get-UserPRTKeys
             else
             {
                 # Get access token interactively (supports MFA)
-                $tokens = Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -PfxFileName $PfxFileName -Resource "1b730954-1685-4b74-9bfd-dac224a7b894" -IncludeRefreshToken $true -ForceMFA $true
+                $tokens = Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -PfxFileName $PfxFileName -Resource "1b730954-1685-4b74-9bfd-dac224a7b894" -IncludeRefreshToken $true
 
                 $payloadObj["grant_type"]    = "refresh_token"
                 $payloadObj["refresh_token"] = $tokens[1]
@@ -1897,7 +1899,7 @@ function Set-DeviceWHfBKey
 
     PS C:\> $prttoken = New-AADIntUserPRTToken -Settings $prtkeys
     PS C:\> Get-AADIntAccessTokenForWHfB -PRTToken $prttoken -SaveToCache
-    PS C:\> Set-AADIntDeviceWHfBKey -PfxFileName .\b27db620-2673-4dac-a565-cec81bfafbaa.pfx -WHfB -Username user@company.com
+    PS C:\> Set-AADIntDeviceWHfBKey -PfxFileName .\b27db620-2673-4dac-a565-cec81bfafbaa.pfx
 
     Device Window Hello for Business key successfully added to the user:
     DeviceId:       b27db620-2673-4dac-a565-cec81bfafbaa
