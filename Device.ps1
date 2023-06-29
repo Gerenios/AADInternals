@@ -236,12 +236,12 @@ function Join-LocalDeviceToAzureAD
         $tenantId = $oids.TenantId
         $deviceId = $oids.DeviceId
 
-        Write-Verbose "Thumbprint: $thumbprint"
-        Write-Verbose "Device ID:  $deviceId"
-        Write-Verbose "Tenant ID:  $tenantId"
-        Write-Verbose "Object ID:  $($oids.ObjectId)"
-        Write-Verbose "Region:     $($oids.Region)"
-        Write-Verbose "Join Type:  $($oids.JoinType)"
+        Write-Verbose "Thumbprint:       $thumbprint"
+        Write-Verbose "Device ID:        $deviceId"
+        Write-Verbose "Tenant ID:        $tenantId"
+        Write-Verbose "Auth User Obj ID: $($oids.AuthUserObjectId)"
+        Write-Verbose "Region:           $($oids.Region)"
+        Write-Verbose "Join Type:        $($oids.JoinType)"
 
         if($oids.JoinType -eq 0)
         {
@@ -418,7 +418,7 @@ function Get-LocalDeviceJoinInfo
     CertPath           : Cert:\LocalMachine\My\CEC55C2566633AC8DA3D9E3EAD98A599084D0C4C
     TenantId           : afdb4be1-057f-4dc1-98a9-327ffa079cca
     DeviceId           : f4a4ea70-b196-4305-9531-018c3bcfc112
-    ObjectId           : d625e2e9-8465-4513-b6c9-8d34a3735d41
+    AuthUserObjectId   : d625e2e9-8465-4513-b6c9-8d34a3735d41
     KeyName            : 8bff0b7f02f6256b521de95a77d4e70d_934bc9f7-04ef-43d8-a343-610b736a4030
     KeyFriendlyName    : Device Identity Key
     IdpDomain          : login.windows.net
@@ -441,7 +441,7 @@ function Get-LocalDeviceJoinInfo
     CertPath           : Cert:\LocalMachine\My\FFDABA36622C66F1F9104703D77603AE1964E92B
     TenantId           : afdb4be1-057f-4dc1-98a9-327ffa079cca
     DeviceId           : e4c56ee8-419a-4421-bff4-1d3cb1c85ead
-    ObjectId           : b62a31e9-8268-485f-aba8-69696cdf3048
+    AuthUserObjectId   : b62a31e9-8268-485f-aba8-69696cdf3048
     KeyName            : C:\ProgramData\Microsoft\Crypto\PCPKSP\[redacted]\[redacted].PCPKEY
     KeyFriendlyName    : Device Identity Key
     IdpDomain          : login.windows.net
@@ -492,11 +492,11 @@ function Get-LocalDeviceJoinInfo
 
         $oids = Parse-CertificateOIDs -Certificate $certificate
 
-        $attributes["CertThumb"      ] = "$certThumbnail"
-        $attributes["CertPath"       ] = "Cert:\$certRoot\My\$certThumbnail"
-        $attributes["TenantId"       ] = $oids.TenantId
-        $attributes["DeviceId"       ] = $oids.DeviceId
-        $attributes["ObjectId"       ] = $oids.ObjectId
+        $attributes["CertThumb"       ] = "$certThumbnail"
+        $attributes["CertPath"        ] = "Cert:\$certRoot\My\$certThumbnail"
+        $attributes["TenantId"        ] = $oids.TenantId
+        $attributes["DeviceId"        ] = $oids.DeviceId
+        $attributes["AuthUserObjectId"] = $oids.AuthUserObjectId
 
         # This will fail for DeviceTransportKey because running as Local System
         try

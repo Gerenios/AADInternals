@@ -350,12 +350,12 @@ function Join-DeviceToAzureAD
     PS\:>Join-AADIntDeviceToAzureAD -DeviceName "My computer" -DeviceType "Commodore" -OSVersion "C64"
 
     Device successfully registered to Azure AD:
-      DisplayName:     "My computer"
-      DeviceId:        d03994c9-24f8-41ba-a156-1805998d6dc7
-      ObjectId:        afdeac87-b32a-41a0-95ad-0a555a91f0a4
-      TenantId:        8aeb6b82-6cc7-4e33-becd-97566b330f5b
-      Cert thumbprint: 78CC77315A100089CF794EE49670552485DE3689
-      Cert file name : "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
+      DisplayName:      "My computer"
+      DeviceId:         d03994c9-24f8-41ba-a156-1805998d6dc7
+      AuthUserObjectId: afdeac87-b32a-41a0-95ad-0a555a91f0a4
+      TenantId:         8aeb6b82-6cc7-4e33-becd-97566b330f5b
+      Cert thumbprint:  78CC77315A100089CF794EE49670552485DE3689
+      Cert file name :  "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
     Local SID:
       S-1-5-32-544
     Additional SIDs:
@@ -368,12 +368,12 @@ function Join-DeviceToAzureAD
     PS\:>Join-AADIntDeviceToAzureAD -DeviceName "My computer" -DeviceType "Commodore" -OSVersion "C64" -JoinType Register
 
     Device successfully registered to Azure AD:
-      DisplayName:     "My computer"
-      DeviceId:        d03994c9-24f8-41ba-a156-1805998d6dc7
-      ObjectId:        afdeac87-b32a-41a0-95ad-0a555a91f0a4
-      TenantId:        8aeb6b82-6cc7-4e33-becd-97566b330f5b
-      Cert thumbprint: 78CC77315A100089CF794EE49670552485DE3689
-      Cert file name : "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
+      DisplayName:      "My computer"
+      DeviceId:         d03994c9-24f8-41ba-a156-1805998d6dc7
+      AuthUserObjectId: afdeac87-b32a-41a0-95ad-0a555a91f0a4
+      TenantId:         8aeb6b82-6cc7-4e33-becd-97566b330f5b
+      Cert thumbprint:  78CC77315A100089CF794EE49670552485DE3689
+      Cert file name :  "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
     Local SID:
       S-1-5-32-544
     Additional SIDs:
@@ -385,12 +385,12 @@ function Join-DeviceToAzureAD
     PS C\:>Join-AADIntDeviceToAzureAD -DeviceName "My computer" -SID "S-1-5-21-685966194-1071688910-211446493-3729" -PfxFileName .\f24f116f-6e80-425d-8236-09803da7dfbe-user.pfx -TenantId 40cb9912-555c-42b8-80e9-3b3ad50dda8a
 
     Device successfully registered to Azure AD:
-      DisplayName:     "My computer"
-      DeviceId:        f24f116f-6e80-425d-8236-09803da7dfbe
-      ObjectId:        afdeac87-b32a-41a0-95ad-0a555a91f0a4
-      TenantId:        8aeb6b82-6cc7-4e33-becd-97566b330f5b
-      Cert thumbprint: A531B73CFBAB2BA26694BA2AD31113211CC2174A
-      Cert file name : "f24f116f-6e80-425d-8236-09803da7dfbe.pfx"
+      DisplayName:      "My computer"
+      DeviceId:         f24f116f-6e80-425d-8236-09803da7dfbe
+      AuthUserObjectId: afdeac87-b32a-41a0-95ad-0a555a91f0a4
+      TenantId:         8aeb6b82-6cc7-4e33-becd-97566b330f5b
+      Cert thumbprint:  A531B73CFBAB2BA26694BA2AD31113211CC2174A
+      Cert file name :  "f24f116f-6e80-425d-8236-09803da7dfbe.pfx"
 
 #>
     [cmdletbinding()]
@@ -476,7 +476,7 @@ function Join-DeviceToAzureAD
         $oids = Parse-CertificateOIDs -Certificate $deviceCert
         $deviceId = $oids.DeviceId.ToString()
         $tenantId = $oids.TenantId.ToString()
-        $objectId = $oids.ObjectId.ToString()
+        $authUserObjectId = $oids.AuthUserObjectId.ToString()
 
         # Write the device certificate to disk
         Set-BinaryContent -Path "$deviceId.pfx" -Value $deviceCert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)
@@ -485,12 +485,12 @@ function Join-DeviceToAzureAD
         Unload-PrivateKey -PrivateKey $deviceCert.PrivateKey
 
         Write-Host "Device successfully registered to Azure AD:"
-        Write-Host "  DisplayName:     ""$DeviceName"""
-        Write-Host "  DeviceId:        $deviceId"
-        Write-Host "  ObjectId:        $objectId"
-        Write-Host "  TenantId:        $tenantId"
-        Write-Host "  Cert thumbprint: $($regResponse.Certificate.Thumbprint)"
-        Write-host "  Cert file name : ""$deviceId.pfx"""
+        Write-Host "  DisplayName:      ""$DeviceName"""
+        Write-Host "  DeviceId:         $deviceId"
+        Write-Host "  AuthUserObjectId: $authUserObjectId"
+        Write-Host "  TenantId:         $tenantId"
+        Write-Host "  Cert thumbprint:  $($regResponse.Certificate.Thumbprint)"
+        Write-host "  Cert file name :  ""$deviceId.pfx"""
 
         foreach($change in $regResponse.MembershipChanges)
         {
@@ -865,12 +865,12 @@ function Get-UserPRTKeys
     PS C:\>Join-AADIntAzureAD -DeviceName "My computer" -DeviceType "Commodore" -OSVersion "C64"
 
     Device successfully registered to Azure AD:
-      DisplayName:     "My computer"
-      DeviceId:        d03994c9-24f8-41ba-a156-1805998d6dc7
-      ObjectId:        afdeac87-b32a-41a0-95ad-0a555a91f0a4
-      TenantId:        8aeb6b82-6cc7-4e33-becd-97566b330f5b
-      Cert thumbprint: 78CC77315A100089CF794EE49670552485DE3689
-      Cert file name : "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
+      DisplayName:      "My computer"
+      DeviceId:         d03994c9-24f8-41ba-a156-1805998d6dc7
+      AuthUserObjectId: afdeac87-b32a-41a0-95ad-0a555a91f0a4
+      TenantId:         8aeb6b82-6cc7-4e33-becd-97566b330f5b
+      Cert thumbprint:  78CC77315A100089CF794EE49670552485DE3689
+      Cert file name :  "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
     Local SID:
       S-1-5-32-544
     Additional SIDs:
@@ -889,12 +889,12 @@ function Get-UserPRTKeys
     PS C:\>Join-AADIntAzureAD -DeviceName "My computer" -DeviceType "Commodore" -OSVersion "C64"
 
     Device successfully registered to Azure AD:
-      DisplayName:     "My computer"
-      DeviceId:        d03994c9-24f8-41ba-a156-1805998d6dc7
-      ObjectId:        afdeac87-b32a-41a0-95ad-0a555a91f0a4
-      TenantId:        8aeb6b82-6cc7-4e33-becd-97566b330f5b
-      Cert thumbprint: 78CC77315A100089CF794EE49670552485DE3689
-      Cert file name : "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
+      DisplayName:      "My computer"
+      DeviceId:         d03994c9-24f8-41ba-a156-1805998d6dc7
+      AuthUserObjectId: afdeac87-b32a-41a0-95ad-0a555a91f0a4
+      TenantId:         8aeb6b82-6cc7-4e33-becd-97566b330f5b
+      Cert thumbprint:  78CC77315A100089CF794EE49670552485DE3689
+      Cert file name :  "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
     Local SID:
       S-1-5-32-544
     Additional SIDs:
@@ -913,12 +913,12 @@ function Get-UserPRTKeys
     PS C:\>Join-AADIntAzureAD -DeviceName "My computer" -DeviceType "Commodore" -OSVersion "C64"
 
     Device successfully registered to Azure AD:
-      DisplayName:     "My computer"
-      DeviceId:        d03994c9-24f8-41ba-a156-1805998d6dc7
-      ObjectId:        afdeac87-b32a-41a0-95ad-0a555a91f0a4
-      TenantId:        8aeb6b82-6cc7-4e33-becd-97566b330f5b
-      Cert thumbprint: 78CC77315A100089CF794EE49670552485DE3689
-      Cert file name : "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
+      DisplayName:      "My computer"
+      DeviceId:         d03994c9-24f8-41ba-a156-1805998d6dc7
+      AuthUserObjectId: afdeac87-b32a-41a0-95ad-0a555a91f0a4
+      TenantId:         8aeb6b82-6cc7-4e33-becd-97566b330f5b
+      Cert thumbprint:  78CC77315A100089CF794EE49670552485DE3689
+      Cert file name :  "d03994c9-24f8-41ba-a156-1805998d6dc7.pfx"
     Local SID:
       S-1-5-32-544
     Additional SIDs:
@@ -1008,7 +1008,6 @@ function Get-UserPRTKeys
         $oids = Parse-CertificateOIDs -Certificate $Certificate
         $deviceId = $oids.DeviceId.ToString()
         $tenantId = $oids.TenantId.ToString()
-        $objectId = $oids.ObjectId.ToString()
 
         $body = "grant_type=srv_challenge" 
         
