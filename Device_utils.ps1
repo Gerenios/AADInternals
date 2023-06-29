@@ -176,36 +176,3 @@ function Get-ServiceAccountNames
         }
     }
 }
-
-# Gets service account names for all services 
-# Aug 29th 2022
-function Export-WHfBCertificate
-{
-    [cmdletbinding()]
-
-    Param()
-    Process
-    {
-        $SID = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
-        $regKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\{D6886603-9D2F-4EB2-B667-1971041FA96B}\$SID"
-
-        # Is the user using WHfB with PIN?
-        if((Test-Path -Path $regKey) -and ((Get-ItemPropertyValue -Path $regKey -Name "LogonCredsAvailable") -eq 1))
-        {
-            if((Get-ItemPropertyValue -Path $regKey -Name "LogonCredsAvailable") -eq 1)
-            {
-                $certRegKey = "HKCU:\SOFTWARE\Microsoft\SystemCertificates\Local NonRemovable Certificates\Certificates"
-                $certPath = "$certRegKey\$((Get-Item -Path $certRegKey).GetSubKeyNames())"
-                $certBlob = Get-ItemPropertyValue -Path $certPath -Name "Blob"
-
-                Write-Host (Convert-ByteArrayToHex -Bytes $certBlob)
-            }
-        }
-        else
-        {
-            Write-Warning "User doesn't have PIN protected WHfB key"
-        }
-
-        
-    }
-}
