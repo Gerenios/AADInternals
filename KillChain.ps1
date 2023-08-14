@@ -15,14 +15,15 @@ function Invoke-ReconAsOutsider
     Starts tenant recon of the given domain. Gets all verified domains of the tenant and extracts information such as their type.
     Also checks whether Desktop SSO (aka Seamless SSO) is enabled for the tenant.
 
-    DNS:   Does the DNS record exists?
-    MX:    Does the MX point to Office 365?
-    SPF:   Does the SPF contain Exchange Online?
-    Type:  Federated or Managed
-    DMARC: Is the DMARC record configured?
-    DKIM:  Is the DKIM record configured?
-    STS:   The FQDN of the federated IdP's (Identity Provider) STS (Security Token Service) server
-    RPS:   Relaying parties of STS (AD FS)
+    DNS:     Does the DNS record exists?
+    MX:      Does the MX point to Office 365?
+    SPF:     Does the SPF contain Exchange Online?
+    Type:    Federated or Managed
+    DMARC:   Is the DMARC record configured?
+    DKIM:    Is the DKIM record configured?
+    MTA-STS: Is the MTA-STS record configured?
+    STS:     The FQDN of the federated IdP's (Identity Provider) STS (Security Token Service) server
+    RPS:     Relaying parties of STS (AD FS)
 
     .Parameter DomainName
     Any domain name of the Azure AD tenant.
@@ -43,12 +44,12 @@ function Invoke-ReconAsOutsider
     DesktopSSO enabled: False
     MDI instance:       company.atp.azure.com
 
-    Name                           DNS   MX    SPF  DMARC  DKIM Type      STS
-    ----                           ---   --    ---  -----  ---- ----      ---
-    company.com                   True  True  True   True  True Federated sts.company.com
-    company.mail.onmicrosoft.com  True  True  True   True  True Managed
-    company.onmicrosoft.com       True  True  True  False  True Managed
-    int.company.com              False False False  False  True Managed 
+    Name                           DNS   MX    SPF  DMARC  DKIM MTA-STS Type      STS
+    ----                           ---   --    ---  -----  ---- ------- ----      ---
+    company.com                   True  True  True   True  True True    Federated sts.company.com
+    company.mail.onmicrosoft.com  True  True  True   True  True False   Managed
+    company.onmicrosoft.com       True  True  True  False  True False   Managed
+    int.company.com              False False False  False  True False   Managed 
 
     .Example
     Invoke-AADIntReconAsOutsider -Domain company.com -GetRelayingParties | Format-Table
@@ -60,12 +61,12 @@ function Invoke-ReconAsOutsider
     DesktopSSO enabled: False
     MDI instance:       company.atp.azure.com
 
-    Name                           DNS   MX    SPF  DMARC  DKIM Type      STS             RPS
-    ----                           ---   --    ---  -----  ---- ----      ---             ---
-    company.com                   True  True  True   True  True Federated sts.company.com {adatum.com, salesforce.com}
-    company.mail.onmicrosoft.com  True  True  True   True  True Managed
-    company.onmicrosoft.com       True  True  True  False  True Managed
-    int.company.com              False False False  False  True Managed
+    Name                           DNS   MX    SPF  DMARC  DKIM MTA-STS Type      STS             RPS
+    ----                           ---   --    ---  -----  ---- ------- ----      ---             ---
+    company.com                   True  True  True   True  True True    Federated sts.company.com {adatum.com, salesforce.com}
+    company.mail.onmicrosoft.com  True  True  True   True  True False   Managed
+    company.onmicrosoft.com       True  True  True  False  True False   Managed
+    int.company.com              False False False  False  True False   Managed
 
     .Example
     Invoke-AADIntReconAsOutsider -UserName user@company.com | Format-Table
@@ -78,12 +79,12 @@ function Invoke-ReconAsOutsider
     MDI instance:       company.atp.azure.com
     CBA enabled:        True
 
-    Name                           DNS   MX    SPF  DMARC  DKIM  Type      STS
-    ----                           ---   --    ---  -----  ----  ----     ---
-    company.com                   True  True  True   True  True  Federated sts.company.com
-    company.mail.onmicrosoft.com  True  True  True   True  True  Managed
-    company.onmicrosoft.com       True  True  True  False  True  Managed
-    int.company.com              False False False  False  True  Managed 
+    Name                           DNS   MX    SPF  DMARC  DKIM MTA-STS Type      STS
+    ----                           ---   --    ---  -----  ---- ------- ----     ---
+    company.com                   True  True  True   True  True True    Federated sts.company.com
+    company.mail.onmicrosoft.com  True  True  True   True  True False   Managed
+    company.onmicrosoft.com       True  True  True  False  True False   Managed
+    int.company.com              False False False  False  True False   Managed 
 #>
     [cmdletbinding()]
     Param(
@@ -142,6 +143,7 @@ function Invoke-ReconAsOutsider
             $hasCloudMX =  $false
             $hasCloudSPF = $false
             $hasCloudDKIM = $false
+            $hasCloudMTASTS = $false
 
             Write-Progress -Activity "Getting DNS information" -Status $domain -PercentComplete (($c/$domains.count)*100)
             $c++
@@ -169,6 +171,9 @@ function Invoke-ReconAsOutsider
 
                 # Check the DKIM record
                 $hasCloudDKIM = hasCloudDKIM -Domain $domain
+
+                # Check the MTA-STS record
+                $hasCloudMTASTS = hasCloudMTASTS -Domain $domain
             }
 
             # Check if the tenant has the Desktop SSO (aka Seamless SSO) enabled
@@ -214,14 +219,15 @@ function Invoke-ReconAsOutsider
 
             # Set the return object properties
             $attributes=[ordered]@{
-                "Name" =  $domain
-                "DNS" =   $exists
-                "MX" =    $hasCloudMX
-                "SPF" =   $hasCloudSPF
-                "DMARC" = $hasDMARC
-                "DKIM" =  $hasCloudDKIM
-                "Type" =  $realmInfo.NameSpaceType
-                "STS" =   $authUrl 
+                "Name" =        $domain
+                "DNS" =         $exists
+                "MX" =          $hasCloudMX
+                "SPF" =         $hasCloudSPF
+                "DMARC" =       $hasDMARC
+                "DKIM" =        $hasCloudDKIM
+                "MTA-STS" =     $hasCloudMTASTS
+                "Type" =        $realmInfo.NameSpaceType
+                "STS" =         $authUrl 
             }
             if($GetRelayingParties)
             {

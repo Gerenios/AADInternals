@@ -78,6 +78,38 @@ function HasCloudDKIM
     }
 }
 
+# Checks whether the domain has MTA-STS records for Exchange Online
+# Aug 14rd 2023
+function HasCloudMTASTS {
+    param (
+        [string]$Domain
+    )
+
+    $url = "https://mta-sts.$Domain/.well-known/mta-sts.txt"
+    $mtaStsFound = $false
+    $outlookMxFound = $false
+
+    try {
+        $mtaStsResponse = Invoke-WebRequest -Uri $url -ErrorAction Stop
+        $mtaStsContent = $mtaStsResponse.Content
+        $mtaStsLines = $mtaStsContent -split "`r?`n"
+
+        foreach ($line in $mtaStsLines) {
+            if ($line -like "version: STSv1") {
+                $mtaStsFound = $true
+            }
+            if ($line -like "*mx: *.mail.protection.outlook.com*") {
+                $outlookMxFound = $true
+            }
+        }
+    } catch {
+        $mtaStsFound = $false
+        $outlookMxFound = $false
+    }
+
+    return ($mtaStsFound -eq $true) -and ($outlookMxFound -eq $true)
+}
+
 # Checks whether the domain has DesktopSSO enabled
 # Jun 16th 2020
 function HasDesktopSSO
@@ -107,8 +139,6 @@ function HasCBA
         (Get-CredentialType -UserName $UserName).Credentials.HasCertAuth -eq "True"
     }
 }
-
-
 
 # Checks whether the user exists in Azure AD or not
 # Jun 16th 2020
