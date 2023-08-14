@@ -20,6 +20,7 @@ function Invoke-ReconAsOutsider
     SPF:   Does the SPF contain Exchange Online?
     Type:  Federated or Managed
     DMARC: Is the DMARC record configured?
+    DKIM:  Is the DKIM record configured?
     STS:   The FQDN of the federated IdP's (Identity Provider) STS (Security Token Service) server
     RPS:   Relaying parties of STS (AD FS)
 
@@ -42,12 +43,12 @@ function Invoke-ReconAsOutsider
     DesktopSSO enabled: False
     MDI instance:       company.atp.azure.com
 
-    Name                           DNS   MX    SPF  DMARC  Type      STS
-    ----                           ---   --    ---  -----  ----      ---
-    company.com                   True  True  True   True  Federated sts.company.com
-    company.mail.onmicrosoft.com  True  True  True   True  Managed
-    company.onmicrosoft.com       True  True  True  False  Managed
-    int.company.com              False False False  False  Managed 
+    Name                           DNS   MX    SPF  DMARC  DKIM Type      STS
+    ----                           ---   --    ---  -----  ---- ----      ---
+    company.com                   True  True  True   True  True Federated sts.company.com
+    company.mail.onmicrosoft.com  True  True  True   True  True Managed
+    company.onmicrosoft.com       True  True  True  False  True Managed
+    int.company.com              False False False  False  True Managed 
 
     .Example
     Invoke-AADIntReconAsOutsider -Domain company.com -GetRelayingParties | Format-Table
@@ -59,12 +60,12 @@ function Invoke-ReconAsOutsider
     DesktopSSO enabled: False
     MDI instance:       company.atp.azure.com
 
-    Name                           DNS   MX    SPF  DMARC  Type      STS             RPS
-    ----                           ---   --    ---  -----  ----      ---             ---
-    company.com                   True  True  True   True  Federated sts.company.com {adatum.com, salesforce.com}
-    company.mail.onmicrosoft.com  True  True  True   True  Managed
-    company.onmicrosoft.com       True  True  True  False  Managed
-    int.company.com              False False False  False  Managed
+    Name                           DNS   MX    SPF  DMARC  DKIM Type      STS             RPS
+    ----                           ---   --    ---  -----  ---- ----      ---             ---
+    company.com                   True  True  True   True  True Federated sts.company.com {adatum.com, salesforce.com}
+    company.mail.onmicrosoft.com  True  True  True   True  True Managed
+    company.onmicrosoft.com       True  True  True  False  True Managed
+    int.company.com              False False False  False  True Managed
 
     .Example
     Invoke-AADIntReconAsOutsider -UserName user@company.com | Format-Table
@@ -77,12 +78,12 @@ function Invoke-ReconAsOutsider
     MDI instance:       company.atp.azure.com
     CBA enabled:        True
 
-    Name                           DNS   MX    SPF  DMARC  Type      STS
-    ----                           ---   --    ---  -----  ----      ---
-    company.com                   True  True  True   True  Federated sts.company.com
-    company.mail.onmicrosoft.com  True  True  True   True  Managed
-    company.onmicrosoft.com       True  True  True  False  Managed
-    int.company.com              False False False  False  Managed 
+    Name                           DNS   MX    SPF  DMARC  DKIM  Type      STS
+    ----                           ---   --    ---  -----  ----  ----     ---
+    company.com                   True  True  True   True  True  Federated sts.company.com
+    company.mail.onmicrosoft.com  True  True  True   True  True  Managed
+    company.onmicrosoft.com       True  True  True  False  True  Managed
+    int.company.com              False False False  False  True  Managed 
 #>
     [cmdletbinding()]
     Param(
