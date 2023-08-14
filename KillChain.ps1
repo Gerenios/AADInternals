@@ -140,6 +140,7 @@ function Invoke-ReconAsOutsider
             $exists =      $false
             $hasCloudMX =  $false
             $hasCloudSPF = $false
+            $hasCloudDKIM = $false
 
             Write-Progress -Activity "Getting DNS information" -Status $domain -PercentComplete (($c/$domains.count)*100)
             $c++
@@ -164,6 +165,9 @@ function Invoke-ReconAsOutsider
 
                 # Check the DMARC record
                 $hasDMARC = HasDMARC -Domain $domain
+
+                # Check the DKIM record
+                $hasCloudDKIM = hasCloudDKIM -Domain $domain
             }
 
             # Check if the tenant has the Desktop SSO (aka Seamless SSO) enabled
@@ -214,6 +218,7 @@ function Invoke-ReconAsOutsider
                 "MX" =    $hasCloudMX
                 "SPF" =   $hasCloudSPF
                 "DMARC" = $hasDMARC
+                "DKIM" =  $hasCloudDKIM
                 "Type" =  $realmInfo.NameSpaceType
                 "STS" =   $authUrl 
             }
@@ -435,7 +440,7 @@ function Invoke-ReconAsGuest
 
         # Get the list of tenants the user has access to
         $tenants = Get-AzureTenants -AccessToken $AccessToken
-        $tenantNames = $tenants | select -ExpandProperty Name
+        $tenantNames = $tenants | Select-Object -ExpandProperty Name
 
         # Prompt for tenant choice if more than one
         if($tenantNames.count -gt 1)
@@ -465,10 +470,10 @@ function Invoke-ReconAsGuest
 
         # Print out some relevant information
         Write-Host "Tenant brand:                $($tenantInformation.displayName)"
-        Write-Host "Tenant name:                 $($tenantInformation.domains | where isInitial -eq "True" | select -ExpandProperty id)"
+        Write-Host "Tenant name:                 $($tenantInformation.domains | Where-Object isInitial -eq "True" | Select-Object -ExpandProperty id)"
         Write-Host "Tenant id:                   $($tenantInformation.objectId)"
         Write-Host "Azure AD objects:            $($tenantInformation.directorySizeQuota.used)/$($tenantInformation.directorySizeQuota.total)"
-        Write-Host "Domains:                     $($tenantInformation.domains.Count) ($(($tenantInformation.domains | where isVerified -eq "True").Count) verified)"
+        Write-Host "Domains:                     $($tenantInformation.domains.Count) ($(($tenantInformation.domains | Where-Object isVerified -eq "True").Count) verified)"
         Write-Host "Non-admin users restricted?  $($tenantInformation.restrictNonAdminUsers)"
         Write-Host "Users can register apps?     $($tenantInformation.usersCanRegisterApps)"
         Write-Host "Directory access restricted? $($tenantInformation.restrictDirectoryAccess)"
@@ -540,7 +545,7 @@ function Invoke-UserEnumerationAsGuest
         # Get the list of tenants the user has access to
         Write-Verbose "Getting list of user's tenants.."
         $tenants = Get-AzureTenants -AccessToken $AccessToken
-        $tenantNames = $tenants | select -ExpandProperty Name
+        $tenantNames = $tenants | Select-Object -ExpandProperty Name
 
         # Prompt for tenant choice if more than one
         if($tenantNames.count -gt 1)
@@ -569,7 +574,7 @@ function Invoke-UserEnumerationAsGuest
 
         # Get the initial domain
         $domains = Get-MSGraphDomains -AccessToken $AccessToken
-        $tenantDomain = $domains | where isInitial -eq "True" | select -ExpandProperty id
+        $tenantDomain = $domains | Where-Object isInitial -eq "True" | Select-Object -ExpandProperty id
         if([string]::IsNullOrEmpty($tenantDomain))
         {
             Throw "No initial domain found for the tenant $tenant!"
@@ -901,7 +906,7 @@ function Invoke-ReconAsInsider
         Write-Verbose "Getting role information"
         $roles = Get-Roles -AccessToken $AAD_AccessToken
         $roleInformation=@()
-        $sortedRoles = $roles.Role | Sort -Property Name
+        $sortedRoles = $roles.Role | Sort-Object -Property Name
         foreach($role in $roles.Role)
         {
             Write-Verbose "Getting members of role ""$($role.Name)"""
@@ -910,7 +915,7 @@ function Invoke-ReconAsInsider
             $attributes["IsEnabled"] = $role.IsEnabled
             $attributes["IsSystem"] = $role.IsSystem
             $attributes["ObjectId"] = $role.ObjectId
-            $members = Get-RoleMembers -AccessToken $AAD_AccessToken -RoleObjectId $role.ObjectId | select @{N='DisplayName'; E={$_.DisplayName}},@{N='UserPrincipalName'; E={$_.EmailAddress}}
+            $members = Get-RoleMembers -AccessToken $AAD_AccessToken -RoleObjectId $role.ObjectId | Select-Object @{N='DisplayName'; E={$_.DisplayName}},@{N='UserPrincipalName'; E={$_.EmailAddress}}
 
             $attributes["Members"] = $members
 
@@ -1004,18 +1009,18 @@ function Invoke-ReconAsInsider
 
         # Print out some relevant information
         Write-Host "Tenant brand:                $($tenantInformation.displayName)"
-        Write-Host "Tenant name:                 $($tenantInformation.domains | where isInitial -eq "True" | select -ExpandProperty id)"
+        Write-Host "Tenant name:                 $($tenantInformation.domains | Where-Object isInitial -eq "True" | Select-Object -ExpandProperty id)"
         Write-Host "Tenant id:                   $tenantId"
         Write-Host "Tenant SKU:                  $($tenantSku -join ", ")"
         Write-Host "Azure AD objects:            $($tenantInformation.directorySizeQuota.used)/$($tenantInformation.directorySizeQuota.total)"
-        Write-Host "Domains:                     $($tenantInformation.domains.Count) ($(($tenantInformation.domains | where isVerified -eq "True").Count) verified)"
+        Write-Host "Domains:                     $($tenantInformation.domains.Count) ($(($tenantInformation.domains | Where-Object isVerified -eq "True").Count) verified)"
         Write-Host "Non-admin users restricted?  $($tenantInformation.restrictNonAdminUsers)"
         Write-Host "Users can register apps?     $($tenantInformation.usersCanRegisterApps)"
         Write-Host "Directory access restricted? $($tenantInformation.restrictDirectoryAccess)"
         Write-Host "Directory sync enabled?      $($tenantInformation.companyInformation.DirectorySynchronizationEnabled)"
         Write-Host "Global admins:               $(@($tenantInformation.roleInformation | Where-Object ObjectId -eq "62e90394-69f5-4237-9190-012177145e10" | Select-Object -ExpandProperty Members).Count)" 
         Write-Host "CA policies:                 $($tenantInformation.conditionalAccessPolicy.Count)" 
-        Write-Host "MS Partner IDs:              $(($tenantInformation.partnerOrganisations | where typeName -Like "Partner*" ).MPNID -join ",")"             
+        Write-Host "MS Partner IDs:              $(($tenantInformation.partnerOrganisations | Where-Object typeName -Like "Partner*" ).MPNID -join ",")"             
         Write-Host "MS Partner DAP enabled?      $($tenantInformation.partnerDAPEnabled)"
         Write-Host "MS Partner contracts:        $($tenantInformation.partnerContracts.Count)"             
         Write-Host "MS Partners:                 $($tenantInformation.partners.Count)"
@@ -1272,7 +1277,7 @@ function Invoke-Phishing
             if([string]::IsNullOrEmpty($Tenant))
             {
                 $tenants = Get-AzureTenants -AccessToken $AccessToken
-                $tenantNames = $tenants | select -ExpandProperty Name
+                $tenantNames = $tenants | Select-Object -ExpandProperty Name
 
                 # Prompt for tenant choice if more than one
                 if($tenantNames.count -gt 1)
