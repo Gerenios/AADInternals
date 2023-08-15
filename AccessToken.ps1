@@ -778,7 +778,7 @@ function Get-AccessTokenForSPO
     {
         # Get access and refresh tokens
         #$clientId = "fdd7719f-d61e-4592-b501-793734eb8a0e" # SharePoint Migration Tool
-        #$clientId = "d3590ed6-52b3-4102-aeff-aad2292ab01c" # SPO Management shell
+        #$clientId = "9bc3ab49-b65d-410a-85ad-de819febfddc" # SPO Management shell
         $clientId = "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Microsoft Office
 
         $graphTokens = Get-AccessToken -Resource "https://graph.microsoft.com" -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -IncludeRefreshToken $True -OTPSecretKey $OTPSecretKey -TAP $TAP

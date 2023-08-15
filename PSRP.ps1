@@ -259,7 +259,7 @@ function Get-TenantDomains2
         Remove-PSRPShell -Credentials $Credentials -Shell_Id $Shell_Id -SessionId $SessionId -Oauth $Oauth
        
         # Return domain names
-        return $Domains | Sort-Objects
+        return $Domains | Sort-Object
 
     }
         
