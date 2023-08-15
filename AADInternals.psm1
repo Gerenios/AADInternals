@@ -24,7 +24,7 @@ $logo=@"
  / ___ |/ ___ |/ /_/ _/ // / / / /_/  __/ /  / / / / /_/ / (__  ) 
 /_/  |_/_/  |_/_____/___/_/ /_/\__/\___/_/  /_/ /_/\__,_/_/____/  
   
- v$version 🛡️ TROOPERS23 edition by @DrAzureAD (Nestori Syynimaa)
+ v$version ☠️ DEFCON31 edition by @DrAzureAD (Nestori Syynimaa)
 "@
 
 Write-Host $logo -ForegroundColor Yellow

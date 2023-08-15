@@ -905,15 +905,10 @@ function Parse-CloudAPCacheData
 
         Write-Verbose "CacheData key id:       $keyId"
 
-        # Parse RSA1 blob
-        $p += 0x2C
-        $RSAblob = $Data[$p..$($p + 283)]
-        
         return [pscustomobject]@{
             "EncryptedKey"  = $encKey
             "EncryptedData" = $encData
             "Id"            = $guid
-            "RSAParameters" = Parse-KeyBLOB -Key $RSAblob
         }
         
      }
@@ -1077,10 +1072,7 @@ function Get-UserPRTKeysFromCloudAP
         # Get the encrypted blobs
         $encryptedKey  = $cacheData.EncryptedKey
         $encryptedData = $cacheData.EncryptedData
-
-        # Get the parameters
-        $RSA1 = $cacheData.RSAParameters
-
+        
         # Hey come on Microsoft..
         $defaultIV = @(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
 

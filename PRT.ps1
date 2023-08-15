@@ -1014,7 +1014,10 @@ function Get-UserPRTKeys
         [System.Management.Automation.PSCredential]$Credentials,
 
         [Parameter(Mandatory=$False)]
-        [String]$OSVersion="10.0.18363.0"
+        [String]$OSVersion="10.0.18363.0",
+
+        [Parameter(Mandatory=$False)]
+        [switch]$IncludePartialTGT
     )
 
     Process
@@ -1186,6 +1189,11 @@ function Get-UserPRTKeys
                 "client_info"         = "1"
             }
 
+            if ($IncludePartialTGT)
+            {
+                $body['tgt'] = $true
+            }
+
             # Make the request
             $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/$TenantId/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Body $body -ErrorAction SilentlyContinue
 
@@ -1206,6 +1214,13 @@ function Get-UserPRTKeys
                 }
                 $sessionKey = Decrypt-JWE -JWE $response.session_key_jwe -PrivateKey $privateKey
                 $response | Add-Member -NotePropertyName "session_key" -NotePropertyValue (Convert-ByteArrayToB64 -Bytes $sessionKey)
+
+                if ($IncludePartialTGT)
+                {
+                    $tgt = Decrypt-JWE -JWE $response.tgt_client_key -SessionKey $sessionKey
+                    $response | Add-Member -NotePropertyName "decrypted_tgt_client_key" -NotePropertyValue (Convert-ByteArrayToB64 -Bytes $tgt)
+                }
+
             }
             catch
             {

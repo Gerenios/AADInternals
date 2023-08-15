@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.9.0'
+	ModuleVersion = '0.9.1'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -134,6 +134,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\PTASpy.ps1"
         ".\SARA.ps1"
         ".\SARA_utils.ps1"
+        ".\SPMT.ps1"
+        ".\SPMT_utils.ps1"
         ".\SPO.ps1"
         ".\SPO_utils.ps1"
         ".\SQLite.ps1"
@@ -319,6 +321,11 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-SPOSiteGroups"
     "Get-SPOUserProperties"
     "Set-SPOSiteMembers"
+    "Export-SPOSiteFile"
+
+    # SPMT.ps1
+    "Add-SPOSiteFiles"
+    "Update-SPOSiteFile"
 
     # Kerberos.ps1
     "New-KerberosTicket"
@@ -449,6 +456,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Find-TeamsExternalUser"
     "Get-TeamsAvailability"
     "Get-Translation"
+    "Get-MyTeams"
 
     # Teams_utils.ps1
     "Get-TeamsUserSettings"

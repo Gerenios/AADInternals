@@ -551,7 +551,7 @@ function Find-MSPartners
     Two letter country code
 
     .Example
-    PS C:\>Find-AADIntMSPartners -Country FI -MaxResults 20 | Sort CompanyName
+    PS C:\>Find-AADIntMSPartners -Country FI -MaxResults 20 | Sort-Object CompanyName
     
     TenantId                             CompanyName                          Country Address                             
     --------                             -----------                          ------- -------                             

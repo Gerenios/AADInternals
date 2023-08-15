@@ -778,7 +778,7 @@ function Get-AccessTokenForSPO
     {
         # Get access and refresh tokens
         #$clientId = "fdd7719f-d61e-4592-b501-793734eb8a0e" # SharePoint Migration Tool
-        #$clientId = "9bc3ab49-b65d-410a-85ad-de819febfddc" # SPO Management shell
+        #$clientId = "d3590ed6-52b3-4102-aeff-aad2292ab01c" # SPO Management shell
         $clientId = "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Microsoft Office
 
         $graphTokens = Get-AccessToken -Resource "https://graph.microsoft.com" -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -IncludeRefreshToken $True -OTPSecretKey $OTPSecretKey -TAP $TAP
@@ -1709,7 +1709,7 @@ function Get-AccessToken
             "a0c73c16-a7e3-4564-9a95-2bdf47383716" # EXO Remote PowerShell
             "389b1b32-b5d5-43b2-bddc-84ce938d6737" # Office Management API Editor https://manage.office.com
             "ab9b8c07-8f02-4f72-87fa-80105867a763" # OneDrive Sync Engine
-            "9bc3ab49-b65d-410a-85ad-de819febfddc" # SPO
+            "d3590ed6-52b3-4102-aeff-aad2292ab01c" # SPO
             "29d9ed98-a469-4536-ade2-f981bc1d605e" # MDM
             "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa" # Azure Android App
             "6c7e8096-f593-4d72-807f-a5f86dcc9c77" # MAM
