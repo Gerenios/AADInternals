@@ -34,9 +34,20 @@ function Add-SPOSiteFiles
     
     .Example
     PS C:\>Get-AADIntAccessTokenForSPO -SaveToCache
-    PS C:\>Add-AADIntSPOSiteFiles -Site https://company.sharepoint.com/sales -Folder "Shared Documents" -Files C:\share\Document1.docx,C:\share\Document2.docx
+    PS C:\>Add-AADIntSPOSiteFiles -Site "https://company.sharepoint.com/sales" -Folder "Shared Documents" -Files "C:\share\Document1.docx","C:\share\Document2.docx"
 
-    Sending 2 files as SHAREPOINT\system to site https://company.sharepoint.com/sales/Shared%20Documents
+    Sending 2 files as "SHAREPOINT\system" to site "https://company.sharepoint.com/sales/Shared Documents"
+    11/28/2022 08:59:35.042 JobQueued
+    11/28/2022 09:01:55.986 JobLogFileCreate
+    11/28/2022 09:01:56.018 JobStart
+    11/28/2022 09:01:57.580 JobEnd
+    2 files (2,322,536 bytes) created.
+
+    .Example
+    PS C:\>Get-AADIntAccessTokenForSPO -SaveToCache
+    PS C:\>Add-AADIntSPOSiteFiles -Site "https://company.sharepoint.com/sales" -Folder "Shared Documents" -Files "C:\share\Document1.docx","C:\share\Document2.docx" -UserName "user2@company.com" -TimeCreated "1.1.1970 01:00" -TimeLastModified "1.1.1970 02:00"
+
+    Sending 2 files as "i:0#.f|membership|user2@company.com" to site "https://company.sharepoint.com/sales/Shared Documents"
     11/28/2022 08:59:35.042 JobQueued
     11/28/2022 09:01:55.986 JobLogFileCreate
     11/28/2022 09:01:56.018 JobStart
@@ -94,14 +105,11 @@ function Update-SPOSiteFile
     .Parameter RelativePath
     Path of the file to be replaced relative to site, e.g., "Shared Documents/Document.docx"
 
-    .Parameter Id
-    Guid of the file to be replaced.
-
     .Example
     PS C:\>Get-AADIntAccessTokenForSPO -SaveToCache
-    PS C:\>Update-AADIntSPOSiteFile -Site https://company.sharepoint.com/sales -File C:\share\Document1.docx -RelativePath "Shared Documents/Document1.docx"
+    PS C:\>Update-AADIntSPOSiteFile -Site "https://company.sharepoint.com/sales" -RelativePath "Shared Documents/Document1.docx" -File "UpdatedDocument.docx"
 
-    Sending 1 files as SHAREPOINT\system to site https://company.sharepoint.com/sales/Shared%20Documents
+    Sending 1 files as "i:0#.f|membership|user1@company.com" to site "https://company.sharepoint.com/sales/Shared Documents"
     11/28/2022 08:59:35.042 JobQueued
     11/28/2022 09:01:55.986 JobLogFileCreate
     11/28/2022 09:01:56.018 JobStart
@@ -110,9 +118,9 @@ function Update-SPOSiteFile
 
     .Example
     PS C:\>Get-AADIntAccessTokenForSPO -SaveToCache
-    PS C:\>Update-AADIntSPOSiteFile -Site https://company.sharepoint.com/sales -File C:\share\Document1.docx -Id "f89a5cae-a8a0-4ec0-b4db-72756f7effab"
+    PS C:\>Update-AADIntSPOSiteFile -Site "https://company.sharepoint.com/sales" -RelativePath "Shared Documents/Document1.docx" -File "UpdatedDocument.docx" -UserName "user2@company.com" -TimeCreated "1.1.1970 01:00" -TimeLastModified "1.1.1970 02:00"
 
-    Sending 1 files as SHAREPOINT\system to site https://company.sharepoint.com/sales/Shared%20Documents
+    Sending 1 files as "i:0#.f|membership|user2@company.com" to site "https://company.sharepoint.com/sales/Shared Documents"
     11/28/2022 08:59:35.042 JobQueued
     11/28/2022 09:01:55.986 JobLogFileCreate
     11/28/2022 09:01:56.018 JobStart
