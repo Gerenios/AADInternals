@@ -11,6 +11,14 @@ function Get-UserPRTToken
     .DESCRIPTION
     Gets user's PRT token from the Azure AD joined or Hybrid joined computer.
     Uses browsercore.exe or Token Provider DLL to get the PRT token.
+
+    .Parameter Method
+    Method to use to retrieve the user's PRT token.
+    "BrowserCore" for browsercore.exe or "TokenProvider" for Token Provider DLL
+
+    .EXAMPLE
+    PS C:\> Get-AADIntUserPRTToken
+    eyJ4NWMiOi...; path=/; domain=login.microsoftonline.com; secure; httponly
 #>
     [cmdletbinding()]
     Param(
