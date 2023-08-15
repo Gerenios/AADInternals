@@ -932,7 +932,29 @@ function Get-SPOSiteFolder
 }
 
 # Downloads the given file from SPO
-# Mar 10th 28th 2023
+# Mar 10th 2023
+<#
+    .SYNOPSIS
+    Downloads the given file from SPO
+
+    .DESCRIPTION
+    Downloads the given file from SPO
+
+    .Parameter AccessToken
+    SharePoint Online Access Token
+
+    .Parameter Site
+    The site name
+
+    .Parameter RelativePath
+    Path of the file to be exported
+
+    .Example
+    PS C:\>Get-AADIntAccessTokenForSPO -SaveToCache
+    PS C:\>Export-AADIntSPOSiteFile -Site "https://company.sharepoint.com/sites/Sales" -RelativePath "Shared Documents/General/sales.xlsx"
+
+    File saved to sales.xlsx
+#>
 function Export-SPOSiteFile
 {
     [cmdletbinding()]
