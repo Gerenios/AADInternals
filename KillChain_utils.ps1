@@ -248,6 +248,14 @@ function GetMDIInstance
         # Ref: https://github.com/thalpius/Microsoft-Defender-for-Identity-Check-Instance
         # The MDI url is <instance>.atp.azure.com where instance is the tenant or tenant-onmicrosoft-com
 
+        # Get the instance part if FQDN is provided
+        if($Tenant.IndexOf(".") -ge 0)
+        {
+            $Tenant=$Tenant.Substring(0,$Tenant.IndexOf("."))
+        }
+
+        Write-Verbose "Getting MDI Instance for $Tenant"
+
         $domains =@(
             "$tenant.atp.azure.com",
             "$tenant-onmicrosoft-com.atp.azure.com"

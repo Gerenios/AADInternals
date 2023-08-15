@@ -170,6 +170,6 @@ function Get-AccessPackageAdmins
         $accesspackages        | Select -ExpandProperty "modifiedBy" | %{ $names += $_}
 
         # Return unique usernames with upn
-        $names | Select-String -Pattern "@" | Sort | Get-Unique 
+        $names | Select-String -Pattern "@" | Sort-Object | Get-Unique 
     }
 }

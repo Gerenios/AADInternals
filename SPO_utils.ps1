@@ -26,10 +26,7 @@ function Get-SPOAuthenticationHeader
     Process
     {
         # Check the site url
-        if($Site.EndsWith("/"))
-        {
-            $Site=$Site.Substring(0,$Site.Length-1)
-        }
+		$Site = $Site.Trim("/")
 
         $siteDomain=$Site.Split("/")[2]
         
@@ -341,7 +338,7 @@ function Get-IDCRLCookie
         }
         
         # Invoke the API
-        $response=Invoke-WebRequest -UseBasicParsing -Method Get "https://$Tenant-admin.sharepoint.com/_vti_bin/idcrl.svc/" -Headers $headers
+        $response=Invoke-WebRequest2 -Method Get "https://$Tenant-admin.sharepoint.com/_vti_bin/idcrl.svc/" -Headers $headers
 
         # Extract the IDCRL cookie
         $cookie=$response.Headers.'Set-Cookie'
@@ -368,7 +365,6 @@ function Get-SPODigest
     {
         # Set the headers
         $headers=@{
-            "Content-Type" = "text/xml"
             "X-RequestForceAuthentication" = "true"
             "X-FORMS_BASED_AUTH_ACCEPTED"= "f"
             "SOAPAction" = "http://schemas.microsoft.com/sharepoint/soap/GetUpdatedFormDigestInformation"
@@ -400,14 +396,14 @@ function Get-SPODigest
         else
         {
             # Get from cache if not provided
-            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
             # Update the headers
             $headers["Authorization"]="Bearer $AccessToken"
         }
 
         # Invoke the API
-        $response=Invoke-WebRequest -UseBasicParsing -Method Post "$site/_vti_bin/sites.asmx" -Headers $headers -Body $Body -WebSession $session
+        $response=Invoke-WebRequest2 -Method Post "$site/_vti_bin/sites.asmx" -Headers $headers -Body $Body -WebSession $session -ContentType "text/xml; charset=utf-8"
 
         # Extract the Digest
         [xml]$xmlContent=$response.Content
@@ -492,7 +488,6 @@ function Invoke-ProcessQuery
         
         # Set the headers
         $headers=@{
-            "Content-Type" = "text/xml"
             "X-RequestForceAuthentication" = "true"
             "X-FORMS_BASED_AUTH_ACCEPTED"= "f"
             "User-Agent" = ""
@@ -515,14 +510,14 @@ function Invoke-ProcessQuery
         else
         {
             # Get from cache if not provided
-            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
             # Update the headers
             $headers["Authorization"]="Bearer $AccessToken"
         }
 
         # Invoke the API
-        $response = Invoke-WebRequest -UseBasicParsing -Method Post "$site/_vti_bin/client.svc/ProcessQuery" -Headers $headers -Body $Body -WebSession $session
+        $response = Invoke-WebRequest2 -Method Post "$site/_vti_bin/client.svc/ProcessQuery" -Headers $headers -Body $Body -WebSession $session -ContentType "text/xml; charset=utf-8"
 
         # Try to check error
         $responseJson = $response.Content | ConvertFrom-Json
@@ -536,3 +531,235 @@ function Invoke-ProcessQuery
     }
 }
 
+# Get migration container information
+# Nov 22nd 2022
+function Get-SPOMigrationContainersInfo
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [string]$Cookie,
+        [Parameter(Mandatory=$False)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [string]$Site
+    )
+    Process
+    {
+        # Get the digest to be used with two next requests
+        $digest = Get-SPODigest -AccessToken $AccessToken -Cookie $Cookie -Site $Site
+
+        $Body=@"
+<Request AddExpandoFieldTypeSuffix="true" SchemaVersion="15.0.0.0" LibraryVersion="16.0.0.0" ApplicationName=".NET Library" xmlns="http://schemas.microsoft.com/sharepoint/clientquery/2009">
+	<Actions>
+		<ObjectPath Id="2" ObjectPathId="1"/>
+		<ObjectPath Id="4" ObjectPathId="3"/>
+		<Method Name="ProvisionMigrationContainers" Id="5" ObjectPathId="3"/>
+	</Actions>
+	<ObjectPaths>
+		<StaticProperty Id="1" TypeId="{3747adcd-a3c3-41b9-bfab-4a64dd2f1e0a}" Name="Current"/>
+		<Property Id="3" ParentId="1" Name="Site"/>
+	</ObjectPaths>
+</Request>
+"@
+   
+        # Invoke ProcessQuery to get container info
+        $response = Invoke-ProcessQuery -Cookie $Cookie -AccessToken $AccessToken -Site $site -Body $Body -Digest $digest
+
+        $content = ($response.content | ConvertFrom-Json)
+        $retVal = $content[$content.Count-1]
+
+        # Parse the encryption key
+        $retVal.EncryptionKey = $retVal.EncryptionKey.Split("(")[1].Split(")")[0]
+
+        # Body for migration queue
+        $Body=@"
+<Request AddExpandoFieldTypeSuffix="true" SchemaVersion="15.0.0.0" LibraryVersion="16.0.0.0" ApplicationName=".NET Library" xmlns="http://schemas.microsoft.com/sharepoint/clientquery/2009">
+	<Actions>
+		<ObjectPath Id="2" ObjectPathId="1"/>
+		<ObjectPath Id="4" ObjectPathId="3"/>
+		<Method Name="ProvisionMigrationQueue" Id="5" ObjectPathId="3"/>
+	</Actions>
+	<ObjectPaths>
+		<StaticProperty Id="1" TypeId="{3747adcd-a3c3-41b9-bfab-4a64dd2f1e0a}" Name="Current"/>
+		<Property Id="3" ParentId="1" Name="Site"/>
+	</ObjectPaths>
+</Request>
+"@
+   
+        # Invoke ProcessQuery to get migration queue info
+        $response = Invoke-ProcessQuery -Cookie $Cookie -AccessToken $AccessToken -Site $site -Body $Body -Digest $digest
+
+        $content = ($response.content | ConvertFrom-Json)
+
+        $retVal | Add-Member -NotePropertyName "JobQueueUri" -NotePropertyValue $content[$content.Count-1].JobQueueUri.Replace(":443","")
+
+        # Return
+        return $retVal
+    }
+}
+
+# Get migration user loginname
+# Nov 23rd 2022
+function Get-SPOMigrationUser
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [string]$Cookie,
+        [Parameter(Mandatory=$False)]
+        [string]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [string]$Site,
+        [Parameter(Mandatory=$True)]
+        [string]$UserName
+    )
+    Process
+    {
+        $Body=@"
+<Request AddExpandoFieldTypeSuffix="true" SchemaVersion="15.0.0.0" LibraryVersion="16.0.0.0" ApplicationName=".NET Library" xmlns="http://schemas.microsoft.com/sharepoint/clientquery/2009">
+	<Actions>
+		<ObjectPath Id="2" ObjectPathId="1"/>
+		<ObjectPath Id="4" ObjectPathId="3"/>
+		<ObjectPath Id="6" ObjectPathId="5"/>
+		<Query Id="7" ObjectPathId="5">
+			<Query SelectAllProperties="true">
+				<Properties/>
+			</Query>
+		</Query>
+	</Actions>
+	<ObjectPaths>
+		<StaticProperty Id="1" TypeId="{3747adcd-a3c3-41b9-bfab-4a64dd2f1e0a}" Name="Current"/>
+		<Property Id="3" ParentId="1" Name="Web"/>
+		<Method Id="5" ParentId="3" Name="EnsureUser">
+			<Parameters>
+				<Parameter Type="String">$UserName</Parameter>
+			</Parameters>
+		</Method>
+	</ObjectPaths>
+</Request>
+"@
+        
+        # Invoke ProcessQuery
+        try
+        {
+            $response = Invoke-ProcessQuery -Cookie $Cookie -AccessToken $AccessToken -Site $site -Body $Body
+
+            $content = ($response.content | ConvertFrom-Json)
+        
+            $details = $content[$content.Count -1]
+
+            $retVal = [PSCustomObject]@{
+                "LoginName"         = $details.LoginName
+                "Title"             = $details.Title
+                "IsSiteAdmin"       = $details.IsSiteAdmin
+                "NameId"            = $details.UserId.NameId
+                "ObjectIdentity"    = $details._ObjectIdentity_
+                "Email"             = $details.Email
+                "UserPrincipalName" = $details.UserPrincipalName
+            }
+        }
+        catch
+        {
+            $retVal = [PSCustomObject]@{
+                "LoginName"         = $UserName
+                "Title"             = ""
+                "IsSiteAdmin"       = $true
+                "NameId"            = $null
+                "ObjectIdentity"    = ""
+                "Email"             = ""
+                "UserPrincipalName" = ""
+            }
+        }
+
+        # NameId is null for guest users
+        if([string]::IsNullOrEmpty($retVal.NameId))
+        {
+            $retVal.NameId = "0"
+        }
+        return $retVal
+        
+    }
+}
+
+# Gets SPOIDCRL authentication cookie for SPO web interface
+# Supports only username and password! (and legacy BPOSIDCRL)
+# Mar 3rd 2023
+function Get-SPOIDCRL
+{
+<#
+    .SYNOPSIS
+    Gets SPOIDCRL authentication header for SharePoint Online
+
+    .DESCRIPTION
+    Gets SharePoint Identity Client Runtime librafy (SPOIDCRL) authentication header for SharePoint Online, 
+    which is used for certain SPO APIs, such as /_vti_bin/webpartpages.asmx
+
+    .Parameter Site
+    Url of the SharePoint Online site (domain part will do)
+
+    .Parameter UserName
+    User's name
+
+    .Parameter Password
+    User's password
+
+    .Parameter Credential
+    User's credentials in PSCredential object
+
+    .Parameter BPOSIDCRL
+    User's BPOSIDCRL cookie
+    
+    .Example
+    PS C:\>$cred = Get-Credential
+    PS C:\>Get-AADIntSPOIDCRL -Site "https://company.sharepoint.com/" -Credentials $cred
+
+    77u/PD94bWwgdmVyc2l[redacted]nM2RTJQUFpKSVZXSElKNDgvaTNFVHp4NVlpemdVT2lSUDdQL0JCV1k1NVhHQT09PC9TUD4=
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Site,
+        [Parameter(ParameterSetName='Credentials',Mandatory=$True)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='UserNameAndPassword',Mandatory=$True)]
+        [String]$UserName,
+        [Parameter(ParameterSetName='UserNameAndPassword',Mandatory=$False)]
+        [String]$Password,
+        [Parameter(ParameterSetName='BPOSIDCRL',Mandatory=$True)]
+        [String]$BPOSIDCRL
+    )
+    Process
+    {
+        $siteDomain=$Site.Split("/")[2]
+        
+        # Did we got BPOSIDCRL token?
+        if([string]::IsNullOrEmpty($BPOSIDCRL))
+        {
+            # We didn't. How about user name?
+            If([String]::IsNullOrEmpty($UserName))
+            {
+                # Nope, so parse from credential object
+                $UserName = $Credentials.UserName
+                $Password = $Credentials.GetNetworkCredential().password
+            }
+            # Get the BPOSIDCRL token
+            $BPOSIDCRL = Get-RSTToken -Url "https://login.microsoftonline.com/RST2.srf" -EndpointAddress "sharepoint.com" -UserName $UserName -Password $Password
+        }
+
+
+
+        $headers=@{
+            "Authorization" = "BPOSIDCRL $BPOSIDCRL"
+        }
+
+        # Get the SPOIDCRL cookie
+        $response = Invoke-WebRequest2 -uri "https://$siteDomain/_vti_bin/idcrl.svc/" -Headers $headers
+        
+        $cookies = $response.Headers.'Set-Cookie'.Split(";")
+        $SPOIDCRL = $cookies[0].Substring(9)
+
+        # Return
+        return $SPOIDCRL
+    }
+}

@@ -130,7 +130,7 @@ function Set-PTACertificate
     Process
     {
         # Check if the file exists
-        if(Test-Path $PfxFileName -ne $True)
+        if(-not (Test-Path $PfxFileName))
         {
             Write-Error "The file $PfxFileName does not exist!"
             return

@@ -1135,7 +1135,22 @@ function Get-TeamsAvailability
 
         if($UserPrincipalName)
         {
-            $ObjectId = (Find-TeamsExternalUser -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName).objectId
+            try
+            {
+                $extUserResponse = Find-TeamsExternalUser -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName
+                if($extUserResponse -is [System.Array])
+                {
+                    $ObjectId = $extUserResponse[0].objectId
+                }
+                else
+                {
+                    $ObjectId = $extUserResponse.objectId
+                }
+            }
+            catch
+            {
+                return $null
+            }
         }
 
         $headers = @{
@@ -1146,7 +1161,7 @@ function Get-TeamsAvailability
 
         try
         {
-            $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://presence.teams.microsoft.com/v1/presence/getpresence/ " -Headers $headers -ContentType "application/json" -Body $body
+            $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://presence.teams.microsoft.com/v1/presence/getpresence" -Headers $headers -ContentType "application/json" -Body $body
         }
         catch
         {
@@ -1234,3 +1249,112 @@ function Get-Translation
         }
     }
 }
+
+# Gets list of current user's Teams
+# Aug 15 2023
+function Get-MyTeams
+{
+<#
+    .SYNOPSIS
+    Returns all teams the user is member of.
+
+    .DESCRIPTION
+    Returns all teams the user is member of.
+    
+    .Parameter AccessToken
+    The access token used to get teams
+    
+    .Parameter Owner
+    Return only Teams where the user is owner.
+
+    .EXAMPLE
+    PS\:>Get-AADIntAccessTokenForTeams -SaveToCache
+    PS\:>Get-AADIntMyTeams
+    
+    id                                   displayName site                                                 
+    --                                   ----------- ----                                                 
+    afa3b2d4-79d8-4a00-bfb2-070b58af26fc Sales       https://company.sharepoint.com/sites/Sales
+    eb780ae6-9f80-4ad3-9219-0deee278fb2a Marketing   https://company.sharepoint.com/sites/Marketing
+    0ab1c9ec-629a-4412-8e65-348bd1ed4fe8 All Hands   https://company.sharepoint.com/sites/AllHAnds
+    5521cd57-f814-4564-85ae-0e8c644a2a96 London      https://company.sharepoint.com/sites/London
+    0bf31a81-4833-4421-a1ff-5d4efb669d4b Test        https://company.sharepoint.com/sites/Test
+
+    .EXAMPLE
+    PS\:>Get-AADIntAccessTokenForTeams 
+    PS\:>Get-AADIntMyTeams -Owner
+    
+    id                                   displayName site                                                 
+    --                                   ----------- ----                                                 
+    afa3b2d4-79d8-4a00-bfb2-070b58af26fc Sales       https://company.sharepoint.com/sites/Sales
+    0bf31a81-4833-4421-a1ff-5d4efb669d4b Test        https://company.sharepoint.com/sites/Test
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [Switch]$Owner,
+        [Parameter(Mandatory=$False)]
+        [Switch]$Channels
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" 
+
+        $userName = (Read-Accesstoken -AccessToken $AccessToken).upn
+
+        $response = Call-MSGraphAPI -AccessToken $AccessToken -API "me/joinedTeams" -QueryString '$select=id,displayName'
+
+        $teams = @()
+
+        # Include only those where the user is owner
+        if($Owner)
+        {
+            foreach($team in $response)
+            {
+                $response = Call-MSGraphAPI -AccessToken $AccessToken -API "groups/$($team.id)/owners" -QueryString '$top=999&$select=userPrincipalName'
+                $owners = $response.userPrincipalName
+                if($owners.Contains($userNAme))
+                {
+                    $teams += $team
+                }
+            }
+        }
+        else
+        {
+            $teams = $response
+        }
+        
+
+        foreach($team in $teams)
+        {
+            $site = Call-MSGraphAPI -AccessToken $AccessToken -API "groups/$($team.id)/sites/root" -QueryString '$select=webUrl'
+            $team | Add-Member -NotePropertyName "site" -NotePropertyValue $site.webUrl
+            
+            # Include channels
+            if($Channels)
+            {
+                $response = Call-MSGraphAPI -AccessToken $AccessToken -ApiVersion "beta" -API "teams/$($team.id)/channels" -QueryString '$select=displayName,filesFolderWebUrl'
+                $teamsChannels = @()
+                foreach($channel in $response)
+                {
+                    $teamsChannels += $channel.filesFolderWebUrl.Substring($team.site.Length+1)
+                    #[pscustomobject]@{
+                        #"name" = $channel.displayName
+                        #"folderName" = $channel.filesFolderWebUrl.Substring($team.site.Length+1)
+                     #   $channel.filesFolderWebUrl.Substring($team.site.Length+1)
+                    #}
+                }
+
+                $team | Add-Member -NotePropertyName "channels" -NotePropertyValue $teamsChannels
+            }
+
+            $team
+        }
+    }
+}
+
+
+

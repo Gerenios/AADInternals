@@ -48,7 +48,7 @@ function Get-SPOSiteGroups
         else
         {
             # Get from cache if not provided
-            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource $site -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource $site -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
             $headers=@{
                 "Authorization" = "Bearer $AccessToken"
             }
@@ -133,7 +133,7 @@ function Get-SPOSiteUsers
         else
         {
             # Get from cache if not provided
-            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
             $headers=@{
                 "Authorization" = "Bearer $AccessToken"
             }
@@ -212,27 +212,45 @@ function Get-SPOUserProperties
         [Parameter(Mandatory=$True)]
         [String]$Site,
         [Parameter(Mandatory=$True)]
-        [String]$User,
-        [Parameter(Mandatory=$True)]
-        [String]$AuthHeader
+        [String]$UserName,
+        [Parameter(Mandatory=$False)]
+        [String]$AuthHeader,
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
     )
     Process
     {
         # Check the site url
-        if($Site.EndsWith("/"))
-        {
-            $Site=$Site.Substring(0,$Site.Length-1)
-        }
+        $Site=$Site.Trim("/")
 
-        $User=$User.Replace("#","%23")
+        $UserName=$UserName.Replace("#","%23")
 
         $siteDomain=$Site.Split("/")[2]
 
-        # Create a WebSession object
-        $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
+        $tenant = $siteDomain.Split(".")[0]
+
+        # Check the username format
+        if(!$UserName.StartsWith("i"))
+        {
+            $UserName="i:0%23.f|membership|$UserName"
+        }
+
+        if(![string]::IsNullOrEmpty($AuthHeader))
+        {
+            # Create a WebSession object
+            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
+        }
+        else
+        {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+            $headers=@{
+                "Authorization" = "Bearer $AccessToken"
+            }
+        }
 
         # Invoke the request
-        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/sp.userprofiles.peoplemanager/getpropertiesfor(@v)?@v='$User'" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue 
+        $response=Invoke-WebRequest2 -Uri "$Site/_api/sp.userprofiles.peoplemanager/getpropertiesfor(@v)?@v='$UserName'" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue 
 
         if($response.StatusCode -eq 200)
         {
@@ -336,7 +354,7 @@ function Get-SPOSiteUserProperties
         else
         {
             # Get from cache if not provided
-            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
             $headers=@{
                 "Authorization" = "Bearer $AccessToken"
             }
@@ -364,7 +382,7 @@ function Get-SPOSiteUserProperties
 
             # Sort by the key
             $attributes_sorted=[ordered]@{}
-            $entries = $attributes.GetEnumerator() | sort Key
+            $entries = $attributes.GetEnumerator() | Sort-Object Key
             foreach($entry in $entries)
             {
                 $attributes_sorted[$entry.Name]=$entry.Value
@@ -455,7 +473,7 @@ function Set-SPOSiteUserProperty
         else
         {
             # Get from cache if not provided
-            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
             $headers["Authorization"] = "Bearer $AccessToken"
         }
 
@@ -467,7 +485,7 @@ function Set-SPOSiteUserProperty
         }
 
         # Invoke the request
-        $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/SP.UserProfiles.PeopleManager/SetSingleValueProfileProperty" -Method Post -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers -ContentType "application/json" -Body ($body | ConvertTo-Json)
+        $response=Invoke-WebRequest2 -Uri "$Site/_api/SP.UserProfiles.PeopleManager/SetSingleValueProfileProperty" -Method Post -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers -ContentType "application/json" -Body ($body | ConvertTo-Json)
 
         if($response.StatusCode -eq 200)
         {
@@ -525,7 +543,7 @@ function Get-SPOSettings
     Process
     {
         # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant-admin.sharepoint.com/" -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc"
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant-admin.sharepoint.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 
         $body=@"
 <Request xmlns="http://schemas.microsoft.com/sharepoint/clientquery/2009" SchemaVersion="15.0.0.0" LibraryVersion="16.0.0.0" ApplicationName="Javascript Library">
@@ -610,7 +628,7 @@ function Set-SPOSiteMembers
             $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
             
             # Invoke the request tp get groupId and digest
-            $response=Invoke-WebRequest -UseBasicParsing -Uri "$($Site)/sites/$($siteName)?sw=auth" -Method GET -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
+            $response=Invoke-WebRequest2 -Uri "$($Site)/sites/$($siteName)?sw=auth" -Method GET -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
             
             # Validate response
             $baseContent = $response.BaseResponse
@@ -632,7 +650,7 @@ function Set-SPOSiteMembers
                 $groupid = $groupidTemp.Split('"')[0]
 
                 # Invoke the request to add a member to the SharePoint site
-                $newresponse=Invoke-WebRequest -UseBasicParsing -Uri "$($Site)/sites/$($siteName)/_api/SP.Directory.DirectorySession/Group('$($groupid)')/Members/Add(objectId='00000000-0000-0000-0000-000000000000', principalName='$($UserPrincipalName)')" -Method POST -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $newheaders -ContentType "application/json"
+                $newresponse=Invoke-WebRequest2 -Uri "$($Site)/sites/$($siteName)/_api/SP.Directory.DirectorySession/Group('$($groupid)')/Members/Add(objectId='00000000-0000-0000-0000-000000000000', principalName='$($UserPrincipalName)')" -Method POST -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $newheaders -ContentType "application/json"
                 
                 # Validate response
                 if($newresponse.StatusCode -eq 201 -and $newresponse.StatusDescription -eq "Created")
@@ -650,3 +668,286 @@ function Set-SPOSiteMembers
             }
         }
     }
+
+
+# Gets information of the given file from the given site
+# Nov 28th 2022
+function Get-SPOSiteFile
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Site,
+        [Parameter(Mandatory=$False)]
+        [PSObject]$Id,
+        [Parameter(Mandatory=$False)]
+        [String]$RelativePath,
+        [Parameter(Mandatory=$False)]
+        [String]$AuthHeader,
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$False)]
+        [Switch]$Download
+    )
+    Process
+    {
+        if($Id -eq $null -and [string]::IsNullOrEmpty($RelativePath))
+        {
+            Throw "Either file Id or RelativePath must be provided"
+        }
+        $Site=$Site.TrimEnd("/")
+        
+        $tenant=$Site.Split("/")[2]
+
+        $webUrl = "https://$tenant"
+
+        if(![string]::IsNullOrEmpty($AuthHeader))
+        {
+            # Create a WebSession object
+            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
+        }
+        else
+        {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+            $headers=@{
+                "Authorization" = "Bearer $AccessToken"
+            }
+        }
+
+        # Invoke the initial requests
+        try
+        {
+            if($Id)
+            {
+                $response = Invoke-WebRequest2 -Uri "$Site/_api/web/GetFileById('$Id')" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue
+            }
+            else
+            {
+                $siteUrl = $Site.Substring($webUrl.Length)
+                $response = Invoke-WebRequest2 -Uri "$Site/_api/web/GetFileByServerRelativePath(decodedurl='$([System.Net.WebUtility]::HtmlEncode("$siteUrl/$RelativePath"))')" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue
+            }
+        }
+        catch
+        {
+            Throw $_.Exception.Message
+        }
+
+        if($response.StatusCode -eq 200)
+        {
+            [xml]$response = $response.Content
+
+            $fileInformation = [PSCustomObject]@{
+                "IsPage"           = $response.entry.content.properties.CustomizedPageStatus.'#text' -ne "0"
+                "Name"             = $response.entry.content.properties.Name
+                "RelativeUrl"      = $response.entry.content.properties.ServerRelativeUrl
+                "Id"               = [Guid]$response.entry.content.properties.UniqueId.'#text'
+                "TimeCreated"      = [System.DateTime]$response.entry.content.properties.TimeCreated.'#text'
+                "TimeLastModified" = [System.DateTime]$response.entry.content.properties.TimeLastModified.'#text'
+            }
+        }
+        Remove-Variable -Name "response"
+
+        # Download the file
+        if($Download)
+        {
+            Invoke-WebRequest2 -Uri "$Site/_api/web/GetFileById('$($fileInformation.Id)')/OpenBinaryStream" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue -OutFile $fileInformation.Name
+
+            # Set the timestamps
+            (Get-Item -Path $fileInformation.Name).LastWriteTime = $fileInformation.TimeLastModified
+            (Get-Item -Path $fileInformation.Name).CreationTime  = $fileInformation.TimeCreated
+            Write-Host "File saved to $($fileInformation.Name)"
+        }
+        else
+        {
+            # Get ParentId
+        
+            $response = Invoke-WebRequest2 -Uri "$Site/_api/web/GetFileById('$($fileInformation.Id)')/Properties" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue
+
+            if($response.StatusCode -eq 200)
+            {
+                [xml]$response = $response.Content
+
+                $fileInformation | Add-Member -NotePropertyName "ParentId"   -NotePropertyValue ([Guid]$response.entry.content.properties.vti_x005f_parentid)
+                $fileInformation | Add-Member -NotePropertyName "Author"     -NotePropertyValue $response.entry.content.properties.vti_x005f_author
+                $fileInformation | Add-Member -NotePropertyName "ModifiedBy" -NotePropertyValue $response.entry.content.properties.vti_x005f_modifiedby
+            }
+
+            return $fileInformation
+        }
+
+    }
+}
+
+# Gets WebId of SPOSite
+# Mar 9th 2023
+function Get-SPOWebId
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Site,
+        [Parameter(Mandatory=$False)]
+        [String]$AuthHeader,
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        $Site=$Site.TrimEnd("/")
+        
+        $tenant=$Site.Split("/")[2]
+
+        if(![string]::IsNullOrEmpty($AuthHeader))
+        {
+            # Create a WebSession object
+            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
+        }
+        else
+        {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+            $headers=@{
+                "Authorization" = "Bearer $AccessToken"
+            }
+        }
+
+        # Get WebId 
+        $response = Invoke-WebRequest2 -Uri "$Site/_api/web/id" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue
+
+        if($response.StatusCode -eq 200)
+        {
+            [xml]$response = $response.Content
+
+            $retVal = [Guid]$response.id.'#text'
+        }
+
+        return $retVal
+    }
+}
+
+# Gets information of the given folder from the given site
+# Mar 9th 2023
+function Get-SPOSiteFolder
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Site,
+        [Parameter(Mandatory=$False)]
+        [PSObject]$Id,
+        [Parameter(Mandatory=$False)]
+        [String]$RelativePath,
+        [Parameter(Mandatory=$False)]
+        [String]$AuthHeader,
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        if($Id -eq $null -and [string]::IsNullOrEmpty($RelativePath))
+        {
+            Throw "Either file Id or RelativePath must be provided"
+        }
+        $Site=$Site.TrimEnd("/")
+        
+        $tenant=$Site.Split("/")[2]
+
+        if(![string]::IsNullOrEmpty($AuthHeader))
+        {
+            # Create a WebSession object
+            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
+        }
+        else
+        {
+            # Get from cache if not provided
+            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+            $headers=@{
+                "Authorization" = "Bearer $AccessToken"
+            }
+        }
+
+        # Invoke the initial requests
+        try
+        {
+            if($Id)
+            {
+                $response = Invoke-WebRequest2 -Uri "$Site/_api/web/GetFolderById('$Id')" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue
+            }
+            else
+            {
+                $response = Invoke-WebRequest2 -Uri "$Site/_api/web/GetFolderByServerRelativePath(decodedurl='$([System.Net.WebUtility]::HtmlEncode($RelativePath))')" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue
+            }
+        }
+        catch
+        {
+            throw $_.Exception.Message
+        }
+
+        if($response.StatusCode -eq 200)
+        {
+            [xml]$response = $response.Content
+
+            $folderInformation = [PSCustomObject]@{
+                "RelativeUrl"      = $response.entry.content.properties.ServerRelativeUrl
+                "Id"               = [Guid]$response.entry.content.properties.UniqueId.'#text'
+                "TimeCreated"      = [System.DateTime]$response.entry.content.properties.TimeCreated.'#text'
+                "TimeLastModified" = [System.DateTime]$response.entry.content.properties.TimeLastModified.'#text'
+            }
+
+            # Parse the full folder name
+            $webUrl = "https://$tenant"
+            $siteUrl = $Site.Substring($webUrl.Length)
+            $folderInformation | Add-Member -NotePropertyName "Name" -NotePropertyValue $folderInformation.RelativeUrl.Substring($siteUrl.Length+1)
+        }
+
+        # Get ParentId
+        Remove-Variable -Name "response"
+        $response = Invoke-WebRequest2 -Uri "$Site/_api/web/GetFolderById('$($folderInformation.Id)')/Properties" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue
+
+        if($response.StatusCode -eq 200)
+        {
+            [xml]$response = $response.Content
+            if($response.entry.content.properties.vti_x005f_parentid)
+            {
+                $folderInformation | Add-Member -NotePropertyName "ParentId" -NotePropertyValue ([Guid]$response.entry.content.properties.vti_x005f_parentid)
+            }
+            # listid seems to be same as listname, but doesn't exist for all folders
+            #if($response.entry.content.properties.vti_x005f_listid)
+            #{
+            #    $folderInformation | Add-Member -NotePropertyName "ListId"   -NotePropertyValue ([Guid]$response.entry.content.properties.vti_x005f_listid)
+            #}
+            if($response.entry.content.properties.vti_x005f_listname)
+            {
+                $folderInformation | Add-Member -NotePropertyName "ListId"   -NotePropertyValue ([Guid]$response.entry.content.properties.vti_x005f_listname)
+            }
+            if($response.entry.content.properties.vti_x005f_modifiedby)
+            {
+                $folderInformation | Add-Member -NotePropertyName "ModifiedBy" -NotePropertyValue $response.entry.content.properties.vti_x005f_modifiedby
+            }
+        }
+
+        return $folderInformation
+    }
+}
+
+# Downloads the given file from SPO
+# Mar 10th 28th 2023
+function Export-SPOSiteFile
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Site,
+        [String]$RelativePath,
+        [Parameter(Mandatory=$False)]
+        [String]$AuthHeader,
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        # Download the file
+        Get-SPOSiteFile -AccessToken $AccessToken -AuthHeader $AuthHeader -Site $site -RelativePath $RelativePath -Download
+    }
+}

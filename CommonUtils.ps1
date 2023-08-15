@@ -2837,19 +2837,22 @@ Function Invoke-WebRequest2
         [parameter(Mandatory=$false)]
         [int]$MaximumRedirection = 5,
         [parameter(Mandatory=$false)]
-        [String]$SessionVariable
+        [String]$SessionVariable,
+        [parameter(Mandatory=$false)]
+        [String]$OutFile
     )
     process
     {
         $arguments = @{
             "UseBasicParsing"    = $true
-            "Uri"                = $url 
+            "Uri"                = $uri 
             "Method"             = $Method
             "MaximumRedirection" = $MaximumRedirection
             "ErrorAction"        = $ErrorActionPreference
             "Headers"            = $Headers
             "Body"               = $body 
             "ContentType"        = $ContentType
+            "OutFile"            = $OutFile
         }
 
         if(![string]::IsNullOrEmpty($SessionVariable))

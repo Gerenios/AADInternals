@@ -36,7 +36,7 @@ function Invoke-ReconAsOutsider
     Invoke-AADIntReconAsOutsider -Domain company.com | Format-Table
 
     Tenant brand:       Company Ltd
-    Tenant name:        company
+    Tenant name:        company.onmicrosoft.com
     Tenant id:          05aea22e-32f3-4c35-831b-52735704feb3
     Tenant region:      NA
     DesktopSSO enabled: False
@@ -53,9 +53,10 @@ function Invoke-ReconAsOutsider
     Invoke-AADIntReconAsOutsider -Domain company.com -GetRelayingParties | Format-Table
 
     Tenant brand:       Company Ltd
-    Tenant name:        company
+    Tenant name:        company.onmicrosoft.com
     Tenant id:          05aea22e-32f3-4c35-831b-52735704feb3
     Tenant region:      NA
+    Uses cloud sync:    True
     DesktopSSO enabled: False
     MDI instance:       company.atp.azure.com
 
@@ -70,11 +71,12 @@ function Invoke-ReconAsOutsider
     Invoke-AADIntReconAsOutsider -UserName user@company.com | Format-Table
 
     Tenant brand:       Company Ltd
-    Tenant name:        company
+    Tenant name:        company.onmicrosoft.com
     Tenant id:          05aea22e-32f3-4c35-831b-52735704feb3
     Tenant region:      NA
     DesktopSSO enabled: False
     MDI instance:       company.atp.azure.com
+    Uses cloud sync:    True
     CBA enabled:        True
 
     Name                           DNS   MX    SPF  DMARC  Type      STS
@@ -115,17 +117,11 @@ function Invoke-ReconAsOutsider
         
         Write-Verbose "`n*`n* EXAMINING TENANT $tenantId`n*"
 
-        # Don't try to get other domains
-        if($Single)
-        {
-            $domains = @($DomainName)
-        }
-        else
-        {
-            Write-Verbose "Getting domains.."
-            $domains = Get-TenantDomains -Domain $DomainName
-            Write-Verbose "Found $($domains.count) domains!"
-        }
+        
+        Write-Verbose "Getting domains.."
+        $domains = Get-TenantDomains -Domain $DomainName
+        Write-Verbose "Found $($domains.count) domains!"
+        
 
         # Create an empty list
         $domainInformation = @()
@@ -141,95 +137,101 @@ function Invoke-ReconAsOutsider
             $hasCloudMX =  $false
             $hasCloudSPF = $false
 
-            Write-Progress -Activity "Getting DNS information" -Status $domain -PercentComplete (($c/$domains.count)*100)
+            if(-not $Single)
+            {
+                Write-Progress -Activity "Getting DNS information" -Status $domain -PercentComplete (($c/$domains.count)*100)
+            }
             $c++
 
             # Check if this is "the initial" domain
             if([string]::IsNullOrEmpty($tenantName) -and $domain.ToLower() -match "^[^.]*\.onmicrosoft.com$")
             {
-                $tenantName = $domain.Substring(0,$domain.IndexOf("."))
+                $tenantName = $domain
                 Write-Verbose "TENANT NAME: $tenantName"
             }
 
-            # Check whether the domain exists in DNS
-            try { $exists = (Resolve-DnsName -Name $Domain -ErrorAction SilentlyContinue -DnsOnly -NoHostsFile -NoIdn).count -gt 0 }  catch{}
-
-            if($exists)
-            {
-                # Check the MX record
-                $hasCloudMX = HasCloudMX -Domain $domain
-
-                # Check the SPF record
-                $hasCloudSPF = HasCloudSPF -Domain $domain
-
-                # Check the DMARC record
-                $hasDMARC = HasDMARC -Domain $domain
-            }
-
             # Check if the tenant has the Desktop SSO (aka Seamless SSO) enabled
-            if([string]::IsNullOrEmpty($tenantSSO) -or $tenantSSO -eq $false)
+            if([string]::IsNullOrEmpty($tenantSSO))
             {
                 $tenantSSO = HasDesktopSSO -Domain $domain
             }
 
-            # Get the federation information
-            $realmInfo = Get-UserRealmV2 -UserName "nn@$domain"
-            if([string]::IsNullOrEmpty($tenantBrand))
+            if(-not $Single -or ($Single -and $DomainName -eq $domain))
             {
-                $tenantBrand = $realmInfo.FederationBrandName
-                Write-Verbose "TENANT BRAND: $tenantBrand"
-            }
-            if($authUrl = $realmInfo.AuthUrl)
-            {
-                # Try to read relaying parties
+                # Check whether the domain exists in DNS
+                try { $exists = (Resolve-DnsName -Name $Domain -ErrorAction SilentlyContinue -DnsOnly -NoHostsFile -NoIdn).count -gt 0 }  catch{}
+
+                if($exists)
+                {
+                    # Check the MX record
+                    $hasCloudMX = HasCloudMX -Domain $domain
+
+                    # Check the SPF record
+                    $hasCloudSPF = HasCloudSPF -Domain $domain
+
+                    # Check the DMARC record
+                    $hasDMARC = HasDMARC -Domain $domain
+                }
+
+                # Get the federation information
+                $realmInfo = Get-UserRealmV2 -UserName "nn@$domain"
+                if([string]::IsNullOrEmpty($tenantBrand))
+                {
+                    $tenantBrand = $realmInfo.FederationBrandName
+                    Write-Verbose "TENANT BRAND: $tenantBrand"
+                }
+                if($authUrl = $realmInfo.AuthUrl)
+                {
+                    # Try to read relaying parties
+                    if($GetRelayingParties)
+                    {
+                        try
+                        {
+                        
+                            $idpUrl = $realmInfo.AuthUrl.Substring(0,$realmInfo.AuthUrl.LastIndexOf("/")+1)
+                            $idpUrl += "idpinitiatedsignon.aspx"
+                            Write-Verbose "Getting relaying parties for $domain from $idpUrl"
+                            [xml]$page = Invoke-RestMethod -Uri $idpUrl -TimeoutSec 3
+
+                            $selectElement = $page.html.body.div.div[2].div.div.div.form.div[1].div[1].select.option
+                            $relayingParties = New-Object string[] $selectElement.Count
+                            Write-Verbose "Got $relayingParties relaying parties from $idpUrl"
+                            for($o = 0; $o -lt $selectElement.Count; $o++)
+                            {
+                                $relayingParties[$o] = $selectElement[$o].'#text'
+                            }
+                    
+                        }
+                        catch{} # Okay
+                    }
+                    # Get just the server name
+                    $authUrl = $authUrl.split("/")[2]
+                }
+
+                # Set the return object properties
+                $attributes=[ordered]@{
+                    "Name" =  $domain
+                    "DNS" =   $exists
+                    "MX" =    $hasCloudMX
+                    "SPF" =   $hasCloudSPF
+                    "DMARC" = $hasDMARC
+                    "Type" =  $realmInfo.NameSpaceType
+                    "STS" =   $authUrl 
+                }
                 if($GetRelayingParties)
                 {
-                    try
-                    {
-                        
-                        $idpUrl = $realmInfo.AuthUrl.Substring(0,$realmInfo.AuthUrl.LastIndexOf("/")+1)
-                        $idpUrl += "idpinitiatedsignon.aspx"
-                        Write-Verbose "Getting relaying parties for $domain from $idpUrl"
-                        [xml]$page = Invoke-RestMethod -Uri $idpUrl -TimeoutSec 3
-
-                        $selectElement = $page.html.body.div.div[2].div.div.div.form.div[1].div[1].select.option
-                        $relayingParties = New-Object string[] $selectElement.Count
-                        Write-Verbose "Got $relayingParties relaying parties from $idpUrl"
-                        for($o = 0; $o -lt $selectElement.Count; $o++)
-                        {
-                            $relayingParties[$o] = $selectElement[$o].'#text'
-                        }
-                    
-                    }
-                    catch{} # Okay
+                    $attributes["RPS"] =   $relayingParties 
                 }
-                # Get just the server name
-                $authUrl = $authUrl.split("/")[2]
+                Remove-Variable "relayingParties" -ErrorAction SilentlyContinue
+                $domainInformation += New-Object psobject -Property $attributes
             }
-
-            # Set the return object properties
-            $attributes=[ordered]@{
-                "Name" =  $domain
-                "DNS" =   $exists
-                "MX" =    $hasCloudMX
-                "SPF" =   $hasCloudSPF
-                "DMARC" = $hasDMARC
-                "Type" =  $realmInfo.NameSpaceType
-                "STS" =   $authUrl 
-            }
-            if($GetRelayingParties)
-            {
-                $attributes["RPS"] =   $relayingParties 
-            }
-            Remove-Variable "relayingParties" -ErrorAction SilentlyContinue
-            $domainInformation += New-Object psobject -Property $attributes
         }
 
         Write-Host "Tenant brand:       $tenantBrand"
         Write-Host "Tenant name:        $tenantName"
         Write-Host "Tenant id:          $tenantId"
         Write-Host "Tenant region:      $tenantRegion"
-
+        
         # DesktopSSO status not definitive with a single domain
         if(!$Single -or $tenantSSO -eq $true)
         {
@@ -237,10 +239,19 @@ function Invoke-ReconAsOutsider
         }
 
         # MDI instance not definitive, may have different instance name than the tenant name.
-        $tenantMDI = GetMDIInstance -Tenant $tenantName
-        if($tenantMDI)
+        if(![string]::IsNullOrEmpty($tenantName))
         {
-            Write-Host "MDI instance:       $tenantMDI"
+            $tenantMDI = GetMDIInstance -Tenant $tenantName
+            if($tenantMDI)
+            {
+                Write-Host "MDI instance:       $tenantMDI"
+            }
+        }
+
+        # Cloud sync not definitive, may use different domain name
+        if(DoesUserExists -User "ADToAADSyncServiceAccount@$($tenantName)")
+        {
+            Write-Host "Uses cloud sync:    $true"
         }
 
         # CBA status definitive if username was provided
@@ -901,7 +912,7 @@ function Invoke-ReconAsInsider
         Write-Verbose "Getting role information"
         $roles = Get-Roles -AccessToken $AAD_AccessToken
         $roleInformation=@()
-        $sortedRoles = $roles.Role | Sort -Property Name
+        $sortedRoles = $roles.Role | Sort-Object -Property Name
         foreach($role in $roles.Role)
         {
             Write-Verbose "Getting members of role ""$($role.Name)"""

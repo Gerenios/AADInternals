@@ -6450,7 +6450,7 @@ function Get-ServiceLocations
     Access Token
     
     .Example
-    PS C:\>Get-AADIntServiceLocations | Sort Name | ft
+    PS C:\>Get-AADIntServiceLocations | Sort-Object Name | ft
 
     Region Instance             Name                          State Country
     ------ --------             ----                          ----- -------
