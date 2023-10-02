@@ -534,14 +534,13 @@ function Get-TenantID
 
             Try
             {
-                $OpenIdConfig = Get-OpenIDConfiguration -Domain $domain
+                $TenantId = (Invoke-RestMethod -UseBasicParsing -Uri "https://odc.officeapps.live.com/odc/v2.1/federationprovider?domain=$domain").TenantId
             }
             catch
             {
                 return $null
             }
 
-            $TenantId = $OpenIdConfig.authorization_endpoint.Split("/")[3]
         }
         else
         {
@@ -1114,32 +1113,66 @@ function Prompt-Credentials
             $amr = "ngcmfa"
         }
 
-        # Check the tenant
-        if([string]::IsNullOrEmpty($Tenant))
+        # If we have credentials, try first using ROPC flow
+        $response = $null
+        if($Credentials -and [string]::IsNullOrEmpty($amr))
         {
-            $Tenant = "common"
+            Write-Verbose "Credentials provided and no MFA enforced, trying ROPC flow."
+
+            # Create a body for REST API request
+            $body = @{
+                "resource"=$Resource
+                "client_id"=$ClientId
+                "grant_type"="password"
+                "username"=$Credentials.UserName
+                "password"=$Credentials.GetNetworkCredential().Password
+                "scope"="openid"
+            }
+
+            # Debug
+            Write-Debug "AUTHENTICATION BODY: $($body | Out-String)"
+
+            # Set the content type and call the Microsoft Online authentication API
+            $contentType="application/x-www-form-urlencoded"
+            try
+            {
+                $response=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
+            }
+            catch
+            {
+                Write-Verbose "ROPC failed, switching to interactive flow: $(($_.ErrorDetails.Message | convertfrom-json).error_description)"
+            }
         }
 
-        # Get the authorization code
-        $authorizationCode = Get-AuthorizationCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant -AMR $amr -RefreshTokenCredential $RefreshTokenCredential -UserAgent $userAgent -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP
-
-        if($authorizationCode)
+        if($null -eq $response)
         {
-            # Construct the body for auth code grant
-            $body = @{
-                client_id    = $ClientId
-                grant_type   = "authorization_code"
-                code         = $authorizationCode
-                redirect_uri = Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
+            # Check the tenant
+            if([string]::IsNullOrEmpty($Tenant))
+            {
+                $Tenant = "common"
             }
 
-            # Headers
-            $headers = @{
-                "Content-Type" = "application/x-www-form-urlencoded"
-                "User-Agent"   = $userAgent
+            # Get the authorization code
+            $authorizationCode = Get-AuthorizationCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant -AMR $amr -RefreshTokenCredential $RefreshTokenCredential -UserAgent $userAgent -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP
+
+            if($authorizationCode)
+            {
+                # Construct the body for auth code grant
+                $body = @{
+                    client_id    = $ClientId
+                    grant_type   = "authorization_code"
+                    code         = $authorizationCode
+                    redirect_uri = Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
+                }
+
+                # Headers
+                $headers = @{
+                    "Content-Type" = "application/x-www-form-urlencoded"
+                    "User-Agent"   = $userAgent
+                }
+                
+                $response = Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token" -Method POST -Body $body -Headers $headers
             }
-            
-            $response = Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token" -Method POST -Body $body -Headers $headers
         }
 
         # return 
@@ -1576,7 +1609,12 @@ function Get-TenantDomains
         $response = Invoke-RestMethod -UseBasicParsing -Method Post -uri "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc" -Body $body -Headers $headers
 
         # Return
-        $response.Envelope.body.GetFederationInformationResponseMessage.response.Domains.Domain | Sort-Object
+		$domains = $response.Envelope.body.GetFederationInformationResponseMessage.response.Domains.Domain
+		if($Domain -notin $domains)
+        {
+            $domains += $Domain
+        }
+        $domains | Sort-Object
     }
 }
 
@@ -2560,11 +2598,28 @@ function Parse-LoginMicrosoftOnlineComConfig
     Process
     {
         # Try to get the $Config=
-        $c = Get-StringBetween -String $body -Start '$Config=' -End ';'
+        $c = Get-StringBetween -String $body -Start '$Config=' -End "//]]>"
         
         try
         {
+            # Trim null, carriage return, newline, and ;
+            $c = $c.TrimEnd(@(0x00,0x0a,0x0d,0x3B))
             $j = $c | ConvertFrom-Json -ErrorAction SilentlyContinue
+
+            # Some verbose
+            if($j.serverDetails)
+            {
+                $s = $j.serverDetails
+                Write-Verbose "SERVER: $($s.dc) $($s.ri) $($s.ver.v -join ".")"
+            }
+            if($j.correlationId)
+            {
+                Write-Verbose "Correlation ID: $($j.correlationId)"
+            }
+            if($j.sessionId)
+            {
+                Write-Verbose "Session ID: $($j.sessionId)"
+            }
         }
         catch
         {}
@@ -2742,8 +2797,24 @@ function Get-AuthorizationCode
                         $config = Parse-LoginMicrosoftOnlineComConfig -Body $response.Content
                     }
 
+                    # MFA action required
+                    if($config.pgid -eq "ConvergedProofUpRedirect")
+                    {
+                        Write-Verbose "ConvergedProofUpRedirect"
+                        Write-Warning "MFA must be set up in $($config.iRemainingDaysToSkipMfaRegistration) days"
+                        # Create the body
+                        $body = @{
+                            "LoginOptions" = 1
+                            "ctx"          = $config.sCtx
+                            "flowToken"    = $config.sFT
+                            "canary"       = $config.canary
+                        }
+
+                        $url = $config.urlSkipMfaRegistration
+                        $response = Invoke-WebRequest2 -Uri $url -WebSession $LoginSession -MaximumRedirection 0 -Headers $Headers -ErrorAction SilentlyContinue
+                    }
                     # Keep me signed in prompt
-                    if($config.pgid -eq "KmsiInterrupt")
+                    elseif($config.pgid -eq "KmsiInterrupt")
                     {
                         Write-Verbose "KMSI"
                         # Create the body
@@ -2824,6 +2895,11 @@ function Get-AuthorizationCode
     }
     Process
     {
+        # Remove variables
+        Remove-Variable -Name "LoginSession" -ErrorAction SilentlyContinue
+        Remove-Variable -Name "Config" -ErrorAction SilentlyContinue
+        Remove-Variable -Name "Response" -ErrorAction SilentlyContinue
+
         # Load certificate if provided
         if(!$Certificate -and -not [string]::IsNullOrEmpty($PfxFileName))
         {
@@ -2892,7 +2968,7 @@ function Get-AuthorizationCode
         }
 
         # Does the user exist?
-        if($credType.IfExistsResult -ne 0 -and $credType.IfExistsResult -ne 6)
+        if($credType.IfExistsResult -ne 0 -and $credType.IfExistsResult -ne 6 -and $credType.IfExistsResult -ne 5)
         {
             Throw "We couldn't find an account with that username." 
         }
@@ -3216,6 +3292,7 @@ function Get-AuthorizationCode
                                 "mfaAuthMethod" = $mfaMethod
                                 "login"         = $userName
                                 "flowToken"     = $response.FlowToken
+                                "canary"        = $config.canary
                             }
 
                             $response = Invoke-WebRequest2 -Uri $url -WebSession $LoginSession -Method Post -MaximumRedirection 0 -Headers $Headers -Body $body -ErrorAction SilentlyContinue
@@ -3224,12 +3301,27 @@ function Get-AuthorizationCode
                         }
                         elseif($response.Retry -eq $false)
                         {
-                            Throw $response.Message
+                            Throw "$($response.Message) $($response.ResultValue)"
                         }
                         Start-Sleep -Milliseconds $config.iPollingInterval
                     }
                 }
             }
+        }
+
+        # Some weird redirect again
+        if($response.Content.Contains("https://device.login.microsoftonline.com"))
+        {
+            Write-Warning "Got an error, try using another User-Agent, current is: $(Get-Setting -Setting "User-Agent")"
+            throw "Got unexpected redirect to https://device.login.microsoftonline.com"
+        }
+
+        # Check for errors
+        $config = Parse-LoginMicrosoftOnlineComConfig -Body $response.Content
+        if($config.strServiceExceptionMessage)
+        {
+            Write-Warning "Got an error, try using another User-Agent, current is: $(Get-Setting -Setting "User-Agent")"
+            throw $config.strServiceExceptionMessage
         }
 
         $authorizationCode = Parse-CodeFromResponse -Response $response

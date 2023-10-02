@@ -54,6 +54,67 @@ function HasDMARC
     }
 }
 
+# Checks whether the domain has DKIM records for Exchange Online
+# Aug 14rd 2023
+function HasCloudDKIM
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Domain
+    )
+    Process
+    {
+        $selectors = @("selector1", "selector2")
+        foreach ($selector in $selectors)
+        {
+            try
+            {
+                $results = Resolve-DnsName -Name "$selector._domainkey.$($Domain)" -Type CNAME -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue
+
+                if($results.NameHost -like "*_domainkey.*.onmicrosoft.com*")
+                {
+                    return $true
+                }
+            }catch {}
+        }
+        
+        return $false
+    }
+}
+
+# Checks whether the domain has MTA-STS records for Exchange Online
+# Aug 14rd 2023
+function HasCloudMTASTS {
+    param (
+        [string]$Domain
+    )
+
+    $url = "https://mta-sts.$Domain/.well-known/mta-sts.txt"
+    $mtaStsFound = $false
+    $outlookMxFound = $false
+
+    try {
+        $mtaStsResponse = Invoke-WebRequest -Uri $url -ErrorAction Stop
+        $mtaStsContent = $mtaStsResponse.Content
+        $mtaStsLines = $mtaStsContent -split "`r?`n"
+
+        foreach ($line in $mtaStsLines) {
+            if ($line -like "version: STSv1") {
+                $mtaStsFound = $true
+            }
+            if ($line -like "*mx: *.mail.protection.outlook.com*") {
+                $outlookMxFound = $true
+            }
+        }
+    } catch {
+        $mtaStsFound = $false
+        $outlookMxFound = $false
+    }
+
+    return ($mtaStsFound -eq $true) -and ($outlookMxFound -eq $true)
+}
+
 # Checks whether the domain has DesktopSSO enabled
 # Jun 16th 2020
 function HasDesktopSSO

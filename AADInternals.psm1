@@ -15,7 +15,13 @@ Read-Configuration
 # Print the welcome message
 $manifest = Import-PowerShellDataFile "$PSScriptRoot\AADInternals.psd1"
 $version = $manifest.ModuleVersion
-$host.ui.RawUI.WindowTitle="AADInternals $version"
+
+# Try to set the window title
+try 
+{
+    $host.UI.RawUI.WindowTitle="AADInternals $version"    
+}
+catch {}
 
 $logo=@"
     ___    ___    ____  ____      __                        __    
@@ -24,7 +30,7 @@ $logo=@"
  / ___ |/ ___ |/ /_/ _/ // / / / /_/  __/ /  / / / / /_/ / (__  ) 
 /_/  |_/_/  |_/_____/___/_/ /_/\__/\___/_/  /_/ /_/\__,_/_/____/  
   
- v$version ☠️ DEFCON31 edition by @DrAzureAD (Nestori Syynimaa)
+ v$version TI Summit edition by @DrAzureAD (Nestori Syynimaa)
 "@
 
 Write-Host $logo -ForegroundColor Yellow

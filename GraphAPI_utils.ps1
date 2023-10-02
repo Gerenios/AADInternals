@@ -36,7 +36,7 @@ function Call-GraphAPI
         $Headers["Authorization"] = "Bearer $AccessToken"
 
         # Call the API
-        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://graph.windows.net/$TenantId/$Command`?api-version=$ApiVersion$(if(![String]::IsNullOrEmpty($QueryString)){"&$QueryString"})" -ContentType "application/json; charset=utf-8" -Method $Method -Body $Body -Headers $Headers -ErrorAction SilentlyContinue
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://graph.windows.net/$TenantId/$Command`?api-version=$ApiVersion$(if(![String]::IsNullOrEmpty($QueryString)){"&$QueryString"})" -ContentType "application/json; charset=utf-8; odata.metadata=none" -Method $Method -Body $Body -Headers $Headers -ErrorAction SilentlyContinue
 
         # Return
         if($response.value)

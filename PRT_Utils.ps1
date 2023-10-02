@@ -683,7 +683,12 @@ Function Decrypt-JWE
 
         $alg = $parsedJWE.alg
 
-        if($parsedJWE.enc -ne "A256GCM")
+        # If this is refresh_token or code, use RSA-OAEP
+        if([string]::IsNullOrEmpty($alg) -and $parsedJWE.ser -eq "1.0")
+        {
+            $alg = "RSA-OAEP"
+        }
+        elseif($parsedJWE.enc -ne "A256GCM")
         {
             Throw "Unsupported enc: $enc"
         }
@@ -760,7 +765,7 @@ Function Decrypt-JWE
                 $AEADParameters = [Org.BouncyCastle.Crypto.Parameters.AeadParameters]::new($keyParameter,128,$iv)
                 $GCMBlockCipher = [Org.BouncyCastle.Crypto.Modes.GcmBlockCipher]::new([Org.BouncyCastle.Crypto.Engines.AesFastEngine]::new())
                 $GCMBlockCipher.init($false, $AEADParameters)
-            
+
                 # Create an array for the decrypted data
                 $decData = New-Object byte[] $GCMBlockCipher.GetOutputSize($encData.Count)
 
@@ -781,7 +786,15 @@ Function Decrypt-JWE
                 }
                 else
                 {
-                    $retVal = $decData
+                    # De-deflate
+                    if($parsedJWE.zip -eq "Deflate")
+                    {
+                        $retVal = Get-DeDeflatedByteArray -byteArray $decData
+                    }
+                    else
+                    {
+                        $retVal = $decData
+                    }
                 }
 
                 # Return
@@ -1116,5 +1129,93 @@ function Get-UserPRTKeysFromCloudAP
         $prt | Add-Member -NotePropertyName "session_key" -NotePropertyValue (Convert-ByteArrayToB64 -Bytes (Unprotect-POPKeyBlob -Data (Convert-B64ToByteArray -B64 $prt.ProofOfPossesionKey.KeyValue)))
         
         return $prt
+    }
+}
+
+# Creates a new JWE
+# Sep 12th 2023
+Function New-JWE
+{
+
+    [cmdletbinding()]
+
+    param(
+        [Parameter(Mandatory=$True,ParameterSetName = "RSA")]
+        [System.Security.Cryptography.RSA]$PublicKey,
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Payload,
+        [Parameter(Mandatory=$True)]
+        [string]$Header,
+        [Parameter(Mandatory=$False)]
+        [byte[]]$InitialVector = (Get-RandomBytes -Bytes 12),
+        [Parameter(Mandatory=$False)]
+        [byte[]]$CEK = (Get-RandomBytes -Bytes 32)
+    )
+    process
+    {
+        # Parse & create binary header
+        $parsedHeader = $header | ConvertFrom-Json
+        $binHeader = [text.encoding]::UTF8.getBytes($header)
+        
+        $alg = $parsedHeader.alg
+
+        # If this is refresh_token or code, use RSA-OAEP
+        if([string]::IsNullOrEmpty($alg) -and $parsedHeader.ser -eq "1.0")
+        {
+            $alg = "RSA-OAEP"
+        }
+        elseif($parsedJWE.enc -ne "A256GCM")
+        {
+            Throw "Unsupported enc: $enc"
+        }
+
+        # Encrypt data using encrypted key
+        if($alg -eq "RSA-OAEP") 
+        {
+            if(!$PublicKey)
+            {
+                Throw "PublicKey required for RSA-OAEP encrypted JWE"
+            }
+
+            try
+            {
+                $decData = $Payload
+
+                # Encrypt the CEK
+                $encKey = [System.Security.Cryptography.RSAOAEPKeyExchangeFormatter]::new($PublicKey).CreateKeyExchange($CEK)
+
+                $keyParameter = [Org.BouncyCastle.Crypto.Parameters.KeyParameter]::new($CEK)
+
+                # Create & init block cipher. This data is correctly encrypted with A256GCM.
+                $AEADParameters = [Org.BouncyCastle.Crypto.Parameters.AeadParameters]::new($keyParameter,128,$InitialVector)
+                $GCMBlockCipher = [Org.BouncyCastle.Crypto.Modes.GcmBlockCipher]::new([Org.BouncyCastle.Crypto.Engines.AesFastEngine]::new())
+                $GCMBlockCipher.init($true, $AEADParameters)
+            
+                # Create an array for the encrypted data
+                $tag     = New-Object byte[] 16
+                $encData = New-Object byte[] $GCMBlockCipher.GetOutputSize($decData.Count)
+
+                # Encrypt the data
+                $res = $GCMBlockCipher.ProcessBytes($decData, 0, $decData.Count, $encData, 0)
+                $res = $GCMBlockCipher.DoFinal($encData, $res)
+                
+                # Last 16 bytes is the tag (in authorization code & refresh token)
+                $buffer = New-Object byte[] ($encData.Count - 16)
+                [Array]::Copy($encData,                  0,$buffer,0 ,$encData.Count - 16)
+                [Array]::Copy($encData,$encData.Count - 16,$tag   ,0 ,$tag.Count)
+                $encData = $buffer
+
+                # Return
+                return "$((Convert-ByteArrayToB64 -Bytes $binHeader -UrlEncode)).$((Convert-ByteArrayToB64 -Bytes $encKey -UrlEncode)).$((Convert-ByteArrayToB64 -Bytes $InitialVector -UrlEncode)).$((Convert-ByteArrayToB64 -Bytes $encData -UrlEncode)).$((Convert-ByteArrayToB64 -Bytes $tag -UrlEncode))"
+            }
+            catch
+            {
+                throw "Encrypting failed: ""$($_.Exception.InnerException.Message)"""
+            }
+        }
+        else
+        {
+            Throw "Unsupported alg: $alg"
+        }
     }
 }

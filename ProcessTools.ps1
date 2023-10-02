@@ -57,13 +57,21 @@ function Inject-DLL
         [Parameter(Mandatory=$True)]
         [String]$ProcessID,
         [Parameter(Mandatory=$True)]
-        [String]$FileName
+        [String]$FileName,
+		[Parameter(Mandatory=$False)]
+        [String]$Function
     )
     Process
     {
         $InjectDLL = "$PSScriptRoot\InjectDLL.exe"
+        $arguments = "$ProcessID `"$Filename`""
+        if(![string]::IsNullOrEmpty($function))
+        {
+            $arguments += " $function"
+        }
+        Write-Verbose "Invoking: $InjectDLL $arguments"
 
-        Execute-Process -FileName $InjectDLL -Arguments "$ProcessID `"$Filename`""
+        Execute-Process -FileName $InjectDLL -Arguments $arguments
     }
 }
 

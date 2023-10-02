@@ -7,7 +7,7 @@ function Check-Server
     [cmdletbinding()]
     Param(
             [Parameter(Mandatory=$true)]
-            [bool]$AsADSync,
+            [bool]$AsADSync, # Not needed with current version anymor
             [Parameter(Mandatory=$true)]
             [bool]$force
     )
@@ -117,8 +117,6 @@ function Get-SyncCredentials
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$false)]
-        [bool]$AsADSync=$true,
-        [Parameter(Mandatory=$false)]
         [bool]$AsBackgroundProcess=$true,
         [Parameter(Mandatory=$false)]
         [switch]$AsCredentials,
@@ -130,6 +128,13 @@ function Get-SyncCredentials
         # If started as a background process, start the background job script
         if($AsBackgroundProcess)
         {
+            # Check that we are on AADConnect server and that the service is running
+            if($force -ne $true -and (($adSyncService = Get-Service ADSync -ErrorAction SilentlyContinue) -eq $null -or $adSyncService.Status -ne "Running"))
+            {
+                Write-Error "This command needs to be run on a computer with ADSync running!"
+                return $false
+            }
+
             Write-Verbose "Starting as a background process."
             Try 
             {
@@ -159,9 +164,8 @@ function Get-SyncCredentials
         }
         else
         {
-
             # Do the checks
-            if((Check-Server -AsADSync $AsADSync -force $force) -eq $false)
+            if((Check-Server -AsADSync $true -force $force) -eq $false)
             {
                return
             }
@@ -319,14 +323,12 @@ function Update-SyncCredentials
         [String]$AccessToken,
         [Switch]$RestartADSyncService,
         [Parameter(Mandatory=$false)]
-        [bool]$AsADSync=$true,
-        [Parameter(Mandatory=$false)]
         [switch]$force
      )
     Process
     {
         # Do the checks
-        if((Check-Server -AsADSync $AsADSync -force $force) -eq $false)
+        if((Check-Server -AsADSync $true -force $force) -eq $false)
         {
            return
         }
@@ -465,20 +467,18 @@ function Set-ADSyncAccountPassword
         [String]$NewPassword,
         [Switch]$RestartADSyncService,
         [Parameter(Mandatory=$false)]
-        [bool]$AsADSync=$true,
-        [Parameter(Mandatory=$false)]
         [switch]$force
      )
     Process
     {
         # Do the checks
-        if((Check-Server -AsADSync $AsADSync -force $force) -eq $false)
+        if((Check-Server -AsADSync $true -force $force) -eq $false)
         {
            return
         }
 
-        # Add the encryption reference (should always be there)
-        Add-Type -path 'C:\Program Files\Microsoft Azure AD Sync\Bin\mcrypt.dll’
+        # Add the encryption dll reference
+        Add-Type -path "$(Get-ItemPropertyValue "HKLM:\SOFTWARE\Microsoft\AD Sync" -Name "Location")\Bin\mcrypt.dll"
 
         # Get the current configuration
         $SyncCreds = Get-SyncCredentials -force

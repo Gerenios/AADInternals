@@ -1,8 +1,8 @@
 ﻿# PTASpy functions
 
 # Some constants
-$serviceName = "AzureADConnectAuthenticationAgent"
-$processName = "AzureADConnectAuthenticationAgentService"
+$PTAserviceName = "AzureADConnectAuthenticationAgent"
+$PTAprocessName = "AzureADConnectAuthenticationAgentService"
 
 # May 20th 2019
 function Install-PTASpy
@@ -20,7 +20,7 @@ function Install-PTASpy
     Process
     {
         # Check that the process is running..
-        $process = Get-Process -Name $processName -ErrorAction SilentlyContinue
+        $process = Get-Process -Name $PTAprocessName -ErrorAction SilentlyContinue
         if([String]::IsNullOrEmpty($process))
         {
             Write-Error "This command needs to be run on a computer with Azure AD Authentication Agent running (AzureADConnectAuthenticationAgentService.exe)."
@@ -89,14 +89,14 @@ function Remove-PTASpy
     Param()
     Process
     {
-        $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+        $service = Get-Service -Name $PTAserviceName -ErrorAction SilentlyContinue
         if([String]::IsNullOrEmpty($service))
         {
             Write-Error "This command needs to be run on a computer with Azure AD Authentication Agent service (AzureADConnectAuthenticationAgent)"
             return
         }
 
-        Restart-Service $serviceName
+        Restart-Service $PTAserviceName
         Write-Verbose "Removing C:\PTASpy\PTASpy.dll"
 
         Remove-Item "C:\PTASpy\PTASpy.dll" -Force
