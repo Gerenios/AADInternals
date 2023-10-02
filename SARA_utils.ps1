@@ -47,8 +47,11 @@ function Call-AnalysisAPI
 
         while($response.RequestStatus -ne "Completed" -and $response.RequestStatus -ne "Failed")
         {
-            Write-Host "Retrieving information.."
-            sleep -Seconds "2"
+            Write-Verbose "Retrieving information.."
+            if($response.ProcessingStatus -eq "Queued")
+            {
+                Start-Sleep -Seconds "2"
+            }
             $response = Invoke-RestMethod -UseBasicParsing -Uri "$url/?id=$sessionId" -Method Get -Headers $headers
         }
 

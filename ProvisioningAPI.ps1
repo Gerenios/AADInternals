@@ -3531,7 +3531,7 @@ function Get-GlobalAdmins
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Return role members using well-known Global Admins role object id.
-        return Get-RoleMembers -AccessToken $AccessToken -RoleObjectId "62e90394-69f5-4237-9190-012177145e10" | select @{N='DisplayName'; E={$_.DisplayName}},@{N='UserPrincipalName'; E={$_.EmailAddress}}
+        return Get-RoleMembers -AccessToken $AccessToken -RoleObjectId "62e90394-69f5-4237-9190-012177145e10" | Select-Object @{N='DisplayName'; E={$_.DisplayName}},@{N='UserPrincipalName'; E={$_.EmailAddress}},@{N='ObjectId'; E={$_.ObjectId}}, @{N='Type'; E={$_.RoleMemberType}}
     }
 }
 
