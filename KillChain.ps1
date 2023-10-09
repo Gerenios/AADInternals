@@ -2,7 +2,6 @@
 # This file contains functions for Azure AD / Office 365 kill chain
 #
 
-
 # Invokes information gathering as an outsider
 # Jun 16th 2020
 function Invoke-ReconAsOutsider
@@ -119,11 +118,9 @@ function Invoke-ReconAsOutsider
         
         Write-Verbose "`n*`n* EXAMINING TENANT $tenantId`n*"
 
-        
         Write-Verbose "Getting domains.."
         $domains = Get-TenantDomains -Domain $DomainName
         Write-Verbose "Found $($domains.count) domains!"
-        
 
         # Create an empty list
         $domainInformation = @()
@@ -196,8 +193,7 @@ function Invoke-ReconAsOutsider
                     if($GetRelayingParties)
                     {
                         try
-                        {
-                        
+                        {                        
                             $idpUrl = $realmInfo.AuthUrl.Substring(0,$realmInfo.AuthUrl.LastIndexOf("/")+1)
                             $idpUrl += "idpinitiatedsignon.aspx"
                             Write-Verbose "Getting relaying parties for $domain from $idpUrl"
@@ -209,8 +205,7 @@ function Invoke-ReconAsOutsider
                             for($o = 0; $o -lt $selectElement.Count; $o++)
                             {
                                 $relayingParties[$o] = $selectElement[$o].'#text'
-                            }
-                    
+                            }                    
                         }
                         catch{} # Okay
                     }
@@ -225,8 +220,8 @@ function Invoke-ReconAsOutsider
                     "MX" =      $hasCloudMX
                     "SPF" =     $hasCloudSPF
                     "DMARC" =   $hasDMARC
-					"DKIM" =    $hasCloudDKIM						 
-					"MTA-STS" = $hasCloudMTASTS						   
+                    "DKIM" =    $hasCloudDKIM						 
+                    "MTA-STS" = $hasCloudMTASTS						   
                     "Type" =    $realmInfo.NameSpaceType
                     "STS" =     $authUrl 
                 }
@@ -274,7 +269,6 @@ function Invoke-ReconAsOutsider
         
         return $domainInformation
     }
-
 }
 
 
@@ -501,7 +495,6 @@ function Invoke-ReconAsGuest
 
         # Return
         return $tenantInformation
-
     }
 }
 
@@ -574,7 +567,7 @@ function Invoke-UserEnumerationAsGuest
                 $options += New-Object System.Management.Automation.Host.ChoiceDescription "&$($choises[$p % $choises.Length]) $($tenantNames[$p])"
             }
             $opt = $host.UI.PromptForChoice("Choose the tenant","Choose the tenant to recon",$options,0)
-            }
+        }
         else
         {
             $opt=0
@@ -599,8 +592,6 @@ function Invoke-UserEnumerationAsGuest
         }
         Write-Verbose "Tenant $Tenant / $tenantDomain selected."
 
-        
-
         # If GroupID is given, dump only the members of that group
         if($GroupId)
         {
@@ -622,7 +613,6 @@ function Invoke-UserEnumerationAsGuest
         }
         else
         {
-
             # If user name not given, try to get one from the access token
             if([string]::IsNullOrEmpty($UserName))
             {
@@ -654,7 +644,7 @@ function Invoke-UserEnumerationAsGuest
             # Create the users object
             $ht_users=@{
                 $user.id = $user
-                }
+        	}
 
             # Create the groups object
             $ht_groups=@{}
@@ -719,7 +709,6 @@ function Invoke-UserEnumerationAsGuest
                             #$itemGroups += $group.id
                         }
                     }
-
                 }
             }
 
@@ -797,7 +786,6 @@ function Invoke-UserEnumerationAsGuest
                             $ht_roles[$role.id] = $role
                         }
                     }
-
                 }
             }
 
@@ -849,7 +837,6 @@ function Invoke-UserEnumerationAsGuest
         return New-Object psobject -Property $attributes
     }
 }
-
 
 # Invokes information gathering as an internal user
 # Aug 4th 2020
@@ -1011,8 +998,7 @@ function Invoke-ReconAsInsider
         if($tenantInformation.skuInfo.enterprisePremiumE5)
         {
             $tenantSku += "Premium E5"
-        }
-        
+        }        
 
         # Set the extra tenant information
         $tenantInformation |Add-Member -NotePropertyName "companyInformation"     -NotePropertyValue $companyInformation
@@ -1042,11 +1028,9 @@ function Invoke-ReconAsInsider
         Write-Host "MS Partner DAP enabled?      $($tenantInformation.partnerDAPEnabled)"
         Write-Host "MS Partner contracts:        $($tenantInformation.partnerContracts.Count)"             
         Write-Host "MS Partners:                 $($tenantInformation.partners.Count)"
-            
-
+	
         # Return
         return $tenantInformation
-
     }
 }
 
@@ -1087,8 +1071,6 @@ function Invoke-UserEnumerationAsInsider
     proxyAddresses                  : {smtp:User@company.onmicrosoft.com, SMTP:User@company.com}
     businessPhones                  : {+1234567890}
     identities                      : {@{signInType=userPrincipalName; issuer=company.onmicrosoft.com; issuerAssignedId=User@company.com}} 
-
-
 
 #>
     [cmdletbinding()]
@@ -1357,7 +1339,6 @@ function Invoke-Phishing
             }
         }
         
-
         $continue = $true
         $interval = $authResponse.interval
         $expires =  $authResponse.expires_in
@@ -1449,6 +1430,5 @@ function Invoke-Phishing
         {
             return New-Object psobject -Property $attributes
         }
-        
     }
 }
