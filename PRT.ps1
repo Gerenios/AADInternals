@@ -109,7 +109,7 @@ function Get-UserPRTToken
             }
 
             # Return the data for x-ms-RefreshTokenCredential
-            $tokens = $response.response.data[$token_index]
+            $tokens = $response.response[$token_index].data
             return $tokens
         }
         else
