@@ -48,14 +48,14 @@ function HasDMARC
         try
         {
             $results=Resolve-DnsName -Name "_dmarc.$Domain" -Type txt -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | select strings | select -ExpandProperty strings 
-        }catch{}
+        } catch {}
 
         return ($results -like "v=DMARC1*").Count -gt 0
     }
 }
 
 # Checks whether the domain has DKIM records for Exchange Online
-# Aug 14rd 2023
+# Aug 14rd 2023 - added by michaelmsonne
 function HasCloudDKIM
 {
     [cmdletbinding()]
@@ -76,15 +76,14 @@ function HasCloudDKIM
                 {
                     return $true
                 }
-            }catch {}
-        }
-        
+            } catch {}
+        }        
         return $false
     }
 }
 
 # Checks whether the domain has MTA-STS records for Exchange Online
-# Aug 14rd 2023
+# Aug 14rd 2023 - added by michaelmsonne
 function HasCloudMTASTS {
     param (
         [string]$Domain
@@ -94,20 +93,26 @@ function HasCloudMTASTS {
     $mtaStsFound = $false
     $outlookMxFound = $false
 
-    try {
+    try
+    {
         $mtaStsResponse = Invoke-WebRequest -Uri $url -ErrorAction Stop
         $mtaStsContent = $mtaStsResponse.Content
         $mtaStsLines = $mtaStsContent -split "`r?`n"
 
-        foreach ($line in $mtaStsLines) {
-            if ($line -like "version: STSv1") {
+        foreach ($line in $mtaStsLines)
+        {
+            if ($line -like "version: STSv1")
+            {
                 $mtaStsFound = $true
             }
-            if ($line -like "*mx: *.mail.protection.outlook.com*") {
+            if ($line -like "*mx: *.mail.protection.outlook.com*")
+            {
                 $outlookMxFound = $true
             }
         }
-    } catch {
+    }
+    catch
+    {
         $mtaStsFound = $false
         $outlookMxFound = $false
     }
@@ -144,8 +149,6 @@ function HasCBA
         (Get-CredentialType -UserName $UserName).Credentials.HasCertAuth -eq "True"
     }
 }
-
-
 
 # Checks whether the user exists in Azure AD or not
 # Jun 16th 2020
