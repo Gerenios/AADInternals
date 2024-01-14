@@ -10,7 +10,7 @@ function HasCloudMX
     )
     Process
     {
-        $results=Resolve-DnsName -Name $Domain -Type MX -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | select nameexchange | select -ExpandProperty nameexchange
+        $results=Resolve-DnsName -Name $Domain -Type MX -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | Select-Object nameexchange | Select-Object -ExpandProperty nameexchange
         $filteredResults=$results -like "*.mail.protection.outlook.com"
 
         return ($filteredResults -eq $true) -and ($filteredResults.Count -gt 0)
@@ -28,7 +28,7 @@ function HasCloudSPF
     )
     Process
     {
-        $results=Resolve-DnsName -Name $Domain -Type txt -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | select strings | select -ExpandProperty strings 
+        $results=Resolve-DnsName -Name $Domain -Type txt -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | Select-Object strings | Select-Object -ExpandProperty strings 
 
         return ($results -like "*include:spf.protection.outlook.com*").Count -gt 0
     }
@@ -47,7 +47,7 @@ function HasDMARC
     {
         try
         {
-            $results=Resolve-DnsName -Name "_dmarc.$Domain" -Type txt -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | select strings | select -ExpandProperty strings 
+            $results=Resolve-DnsName -Name "_dmarc.$Domain" -Type txt -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | Select-Object strings | Select-Object -ExpandProperty strings 
         }catch{}
 
         return ($results -like "v=DMARC1*").Count -gt 0

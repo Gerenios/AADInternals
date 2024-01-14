@@ -42,6 +42,11 @@ $FOCIs = @{
     "ecd6b820-32c2-49b6-98a6-444530e5a77a" = "Microsoft Edge"
     "f05ff7c9-f75a-4acd-a3b5-f4b6a870245d" = "SharePoint Android"
     "f44b1140-bc5e-48c6-8dc0-5cf5a53c0e34" = "Microsoft Edge"
+    "be1918be-3fe3-4be9-b32b-b542fc27f02e" = "M365 Compliance Drive Client"
+    "cab96880-db5b-4e15-90a7-f3f1d62ffe39" = "Microsoft Defender Platform"
+    "d7b530a4-7680-4c23-a8bf-c52c121d2e87" = "Microsoft Edge Enterprise New Tab Page"
+    "dd47d17a-3194-4d86-bfd5-c6ae6f5651e3" = "Microsoft Defender for Mobile"
+    "e9b154d0-7658-433b-bb25-6b8e0a8a7c59" = "Outlook Lite"
 }
 
 # Stored tokens (access & refresh)
@@ -2801,17 +2806,25 @@ function Get-AuthorizationCode
                     if($config.pgid -eq "ConvergedProofUpRedirect")
                     {
                         Write-Verbose "ConvergedProofUpRedirect"
-                        Write-Warning "MFA must be set up in $($config.iRemainingDaysToSkipMfaRegistration) days"
-                        # Create the body
-                        $body = @{
-                            "LoginOptions" = 1
-                            "ctx"          = $config.sCtx
-                            "flowToken"    = $config.sFT
-                            "canary"       = $config.canary
-                        }
+                        $MFADays = $config.iRemainingDaysToSkipMfaRegistration
+                        if($MFADays)
+                        {
+                            Write-Warning "MFA must be set up in $($MFA) days"
+                            # Create the body
+                            $body = @{
+                                "LoginOptions" = 1
+                                "ctx"          = $config.sCtx
+                                "flowToken"    = $config.sFT
+                                "canary"       = $config.canary
+                            }
 
-                        $url = $config.urlSkipMfaRegistration
-                        $response = Invoke-WebRequest2 -Uri $url -WebSession $LoginSession -MaximumRedirection 0 -Headers $Headers -ErrorAction SilentlyContinue
+                            $url = $config.urlSkipMfaRegistration
+                            $response = Invoke-WebRequest2 -Uri $url -WebSession $LoginSession -MaximumRedirection 0 -Headers $Headers -ErrorAction SilentlyContinue
+                        }
+                        else
+                        {
+                            throw "MFA method must be registered."
+                        }
                     }
                     # Keep me signed in prompt
                     elseif($config.pgid -eq "KmsiInterrupt")

@@ -273,7 +273,7 @@ function Get-MFAAppRegistrationInfo
         $headers=@{
             "Authorization" = "Bearer $AccessToken"
             "Content-Type" =  "application/json"
-            "User-Agent" =    ""
+            "User-Agent" =    Get-Setting -Setting "User-Agent"
         }
 
         # Registration type

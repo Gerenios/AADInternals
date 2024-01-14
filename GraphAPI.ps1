@@ -517,3 +517,432 @@ function Set-AzureADPolicyDetails
         Call-GraphAPI -AccessToken $AccessToken -Command "policies/$($ObjectId)" -Method Patch -Body ($body | ConvertTo-Json)
     }
 }
+
+# Get Azure AD features
+# Aug 23 2023
+function Get-AzureADFeatures
+{
+<#
+    .SYNOPSIS
+    Show the status of Azure AD features.
+
+    .DESCRIPTION
+    Show the status of Azure AD features using Azure AD Graph internal API.
+    Requires Global Administrator role
+    
+    .Parameter AccessToken
+    Access Token
+
+    .Example
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+    PS C:\>Get-AADIntAzureADFeatures 
+
+    Feature                                             Enabled
+    -------                                             -------
+    AllowEmailVerifiedUsers                                True
+    AllowInvitations                                       True
+    AllowMemberUsersToInviteOthersAsMembers               False
+    AllowUsersToChangeTheirDisplayName                    False
+    B2CFeature                                            False
+    BlockAllTenantAuth                                    False
+    ConsentedForMigrationToPublicCloud                    False
+    CIAMFeature                                           False
+    CIAMTrialFeature                                      False
+    CIAMTrialUpgrade                                      False
+    EnableExchangeDualWrite                               False
+    EnableHiddenMembership                                False
+    EnableSharedEmailDomainApis                           False
+    EnableWindowsLegacyCredentials                        False
+    EnableWindowsSupplementalCredentials                  False
+    ElevatedGuestsAccessEnabled                           False
+    ExchangeDualWriteUsersV1                              False
+    GuestsCanInviteOthersEnabled                           True
+    InvitationsEnabled                                     True
+    LargeScaleTenant                                      False
+    TestTenant                                            False
+    USGovTenant                                           False
+    DisableOnPremisesWindowsLegacyCredentialsSync         False
+    DisableOnPremisesWindowsSupplementalCredentialsSync   False
+    RestrictPublicNetworkAccess                           False
+    AutoApproveSameTenantRequests                         False
+    RedirectPpeUsersToMsaInt                              False
+    LegacyTlsExceptionForEsts                             False
+    LegacyTlsBlockForEsts                                 False
+    TenantAuthBlockReasonFraud                            False
+    TenantAuthBlockReasonLifecycle                        False
+    TenantExcludeDeprecateAADLicenses                     False
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Begin
+    {
+        $features = @(
+            "AllowEmailVerifiedUsers"
+            "AllowInvitations"
+            "AllowMemberUsersToInviteOthersAsMembers"
+            "AllowUsersToChangeTheirDisplayName"
+            "B2CFeature"
+            "BlockAllTenantAuth"
+            "ConsentedForMigrationToPublicCloud"
+            "CIAMFeature"
+            "CIAMTrialFeature"
+            "CIAMTrialUpgrade"
+            "EnableExchangeDualWrite"
+            "EnableHiddenMembership"
+            "EnableSharedEmailDomainApis"
+            "EnableWindowsLegacyCredentials"
+            "EnableWindowsSupplementalCredentials"
+            "ElevatedGuestsAccessEnabled"
+            "ExchangeDualWriteUsersV1"
+            "GuestsCanInviteOthersEnabled"
+            "InvitationsEnabled"
+            "LargeScaleTenant"
+            "TestTenant"
+            "USGovTenant"
+            "DisableOnPremisesWindowsLegacyCredentialsSync"
+            "DisableOnPremisesWindowsSupplementalCredentialsSync"
+            "RestrictPublicNetworkAccess"
+            "AutoApproveSameTenantRequests"
+            "RedirectPpeUsersToMsaInt"
+            "LegacyTlsExceptionForEsts"
+            "LegacyTlsBlockForEsts"
+            "TenantAuthBlockReasonFraud"
+            "TenantAuthBlockReasonLifecycle"
+            "TenantExcludeDeprecateAADLicenses"
+        )
+    }
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        $retVal = @()
+
+        # Loop through the features
+        foreach($feature in $features)
+        {
+            try
+            {
+                $value = Get-AzureADFeature -AccessToken $AccessToken -Feature $feature
+
+                $retVal += [pscustomobject][ordered]@{
+                    "Feature" = $feature
+                    "Enabled" = $value
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        $retVal
+        
+        
+    }
+}
+
+# Get Azure AD feature status
+# Aug 23 2023
+function Get-AzureADFeature
+{
+<#
+    .SYNOPSIS
+    Show the status of given Azure AD feature.
+
+    .DESCRIPTION
+    Show the status of given Azure AD feature using Azure AD Graph internal API.
+    Requires Global Administrator role
+    
+    .Parameter AccessToken
+    Access Token
+
+    .PARAMETER Feature
+    The name of the feature. Should be one of:
+
+    AllowEmailVerifiedUsers
+    AllowInvitations
+    AllowMemberUsersToInviteOthersAsMembers
+    AllowUsersToChangeTheirDisplayName
+    B2CFeature
+    BlockAllTenantAuth
+    ConsentedForMigrationToPublicCloud
+    CIAMFeature
+    CIAMTrialFeature
+    CIAMTrialUpgrade
+    EnableExchangeDualWrite
+    EnableHiddenMembership
+    EnableSharedEmailDomainApis
+    EnableWindowsLegacyCredentials
+    EnableWindowsSupplementalCredentials
+    ElevatedGuestsAccessEnabled
+    ExchangeDualWriteUsersV1
+    GuestsCanInviteOthersEnabled
+    InvitationsEnabled
+    LargeScaleTenant
+    TestTenant
+    USGovTenant
+    DisableOnPremisesWindowsLegacyCredentialsSync
+    DisableOnPremisesWindowsSupplementalCredentialsSync
+    RestrictPublicNetworkAccess
+    AutoApproveSameTenantRequests
+    RedirectPpeUsersToMsaInt
+    LegacyTlsExceptionForEsts
+    LegacyTlsBlockForEsts
+    TenantAuthBlockReasonFraud
+    TenantAuthBlockReasonLifecycle
+    TenantExcludeDeprecateAADLicenses
+
+    .Example
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+    PS C:\>Get-AADIntAzureADFeature -Feature "B2CFeature"
+
+    True
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [ValidateSet('AllowEmailVerifiedUsers','AllowInvitations','AllowMemberUsersToInviteOthersAsMembers','AllowUsersToChangeTheirDisplayName','B2CFeature','BlockAllTenantAuth','ConsentedForMigrationToPublicCloud','CIAMFeature','CIAMTrialFeature','CIAMTrialUpgrade','EnableExchangeDualWrite','EnableHiddenMembership','EnableSharedEmailDomainApis','EnableWindowsLegacyCredentials','EnableWindowsSupplementalCredentials','ElevatedGuestsAccessEnabled','ExchangeDualWriteUsersV1','GuestsCanInviteOthersEnabled','InvitationsEnabled','LargeScaleTenant','TestTenant','USGovTenant','DisableOnPremisesWindowsLegacyCredentialsSync','DisableOnPremisesWindowsSupplementalCredentialsSync','RestrictPublicNetworkAccess','AutoApproveSameTenantRequests','RedirectPpeUsersToMsaInt','LegacyTlsExceptionForEsts','LegacyTlsBlockForEsts','TenantAuthBlockReasonFraud','TenantAuthBlockReasonLifecycle','TenantExcludeDeprecateAADLicenses')]
+        [Parameter(Mandatory=$True)]
+        [String]$Feature
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        $body = @{
+            "directoryFeature" = $feature
+        }
+
+        # Call the API
+        try
+        {
+            $response = Call-GraphAPI -AccessToken $AccessToken -Command "isDirectoryFeatureEnabled" -Method Post -Body ($body | ConvertTo-Json)
+
+            $enabled = $false;
+
+            # For some reason True is returned as boolean but False as object with value attribute
+            if($response -isnot [boolean])
+            {
+                $enabled = $response.Value
+            }
+            else
+            {
+                $enabled = $response
+            }
+            
+            return $enabled
+        }
+        catch
+        {
+            $stream = $_.Exception.Response.GetResponseStream()
+            $responseBytes = New-Object byte[] $stream.Length
+
+            $stream.Position = 0
+            $stream.Read($responseBytes,0,$stream.Length) | Out-Null
+            
+            $response = [text.encoding]::UTF8.GetString($responseBytes) | ConvertFrom-Json
+            
+            throw $response.'odata.error'.message.value
+        }
+    }
+}
+
+# Enable or Disable Azure AD feature
+# Aug 23 2023
+function Set-AzureADFeature
+{
+<#
+    .SYNOPSIS
+    Enables or disables the given Azure AD feature.
+
+    .DESCRIPTION
+    Enables or disables the given Azure AD feature using Azure AD Graph internal API.
+    Requires Global Administrator role
+    
+    .Parameter AccessToken
+    Access Token
+
+    .PARAMETER Feature
+    The name of the feature. Should be one of:
+
+    AllowEmailVerifiedUsers
+    AllowInvitations
+    AllowMemberUsersToInviteOthersAsMembers
+    AllowUsersToChangeTheirDisplayName
+    B2CFeature
+    BlockAllTenantAuth
+    ConsentedForMigrationToPublicCloud
+    CIAMFeature
+    CIAMTrialFeature
+    CIAMTrialUpgrade
+    EnableExchangeDualWrite
+    EnableHiddenMembership
+    EnableSharedEmailDomainApis
+    EnableWindowsLegacyCredentials
+    EnableWindowsSupplementalCredentials
+    ElevatedGuestsAccessEnabled
+    ExchangeDualWriteUsersV1
+    GuestsCanInviteOthersEnabled
+    InvitationsEnabled
+    LargeScaleTenant
+    TestTenant
+    USGovTenant
+    DisableOnPremisesWindowsLegacyCredentialsSync
+    DisableOnPremisesWindowsSupplementalCredentialsSync
+    RestrictPublicNetworkAccess
+    AutoApproveSameTenantRequests
+    RedirectPpeUsersToMsaInt
+    LegacyTlsExceptionForEsts
+    LegacyTlsBlockForEsts
+    TenantAuthBlockReasonFraud
+    TenantAuthBlockReasonLifecycle
+    TenantExcludeDeprecateAADLicenses
+
+    .Example
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+    PS C:\>Set-AADIntAzureADFeature -Feature "B2CFeature" -Enable $true
+
+    Feature      Enabled
+    -------      -------
+    B2CFeature      True
+
+    .Example
+    Get-AADIntAccessTokenForAADGraph -SaveToCache
+    PS C:\>Set-AADIntAzureADFeature -Feature "B2CFeature" -Enable $false
+
+    Feature      Enabled
+    -------      -------
+    B2CFeature     False
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [ValidateSet('AllowEmailVerifiedUsers','AllowInvitations','AllowMemberUsersToInviteOthersAsMembers','AllowUsersToChangeTheirDisplayName','B2CFeature','BlockAllTenantAuth','ConsentedForMigrationToPublicCloud','CIAMFeature','CIAMTrialFeature','CIAMTrialUpgrade','EnableExchangeDualWrite','EnableHiddenMembership','EnableSharedEmailDomainApis','EnableWindowsLegacyCredentials','EnableWindowsSupplementalCredentials','ElevatedGuestsAccessEnabled','ExchangeDualWriteUsersV1','GuestsCanInviteOthersEnabled','InvitationsEnabled','LargeScaleTenant','TestTenant','USGovTenant','DisableOnPremisesWindowsLegacyCredentialsSync','DisableOnPremisesWindowsSupplementalCredentialsSync','RestrictPublicNetworkAccess','AutoApproveSameTenantRequests','RedirectPpeUsersToMsaInt','LegacyTlsExceptionForEsts','LegacyTlsBlockForEsts','TenantAuthBlockReasonFraud','TenantAuthBlockReasonLifecycle','TenantExcludeDeprecateAADLicenses')]
+        [Parameter(Mandatory=$True)]
+        [String]$Feature,
+        [Parameter(Mandatory=$True)]
+        [bool]$Enabled
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        $isEnabled = Get-AzureADFeature -Feature $feature -AccessToken $AccessToken
+
+        if($Enabled)
+        {
+            # Check if already enabled
+            if($isEnabled)
+            {
+                Write-Warning "Feature $feature is already enabled."
+                return
+            }
+            $command = "enableDirectoryFeature"
+        }
+        else
+        {
+            # Check if already disabled
+            if(!$isEnabled)
+            {
+                Write-Warning "Feature $feature is already disabled."
+                return
+            }
+            $command = "disableDirectoryFeature"
+        }
+
+        $body = @{
+            "directoryFeature" = $feature
+        }
+
+        # Call the API
+        try
+        {
+            Call-GraphAPI -AccessToken $AccessToken -Command $command -Method Post -Body ($body | ConvertTo-Json)
+        }
+        catch
+        {
+            $stream = $_.Exception.Response.GetResponseStream()
+            $responseBytes = New-Object byte[] $stream.Length
+
+            $stream.Position = 0
+            $stream.Read($responseBytes,0,$stream.Length) | Out-Null
+            
+            $response = [text.encoding]::UTF8.GetString($responseBytes) | ConvertFrom-Json
+            
+            throw $response.'odata.error'.message.value
+        }
+
+        
+        [pscustomobject][ordered]@{
+            "Feature" = $feature
+            "Enabled" = Get-AzureADFeature -AccessToken $AccessToken -Feature $feature
+        }
+        
+    }
+}
+
+
+# Adds Microsoft.Azure.SyncFabric service principal
+# Dec 4th 2023
+function Add-SyncFabricServicePrincipal
+{
+<#
+    .SYNOPSIS
+    Adds Microsoft.Azure.SyncFabric service principal needed to create BPRTs.
+
+    .DESCRIPTION
+    Adds Microsoft.Azure.SyncFabric service principal needed to create BPRTs. 
+    
+    Requires Application Administrator, Cloud Application Administrator, Directory Synchronization Accounts, Hybrid Identity Administrator, or Global Administrator permissions.
+
+    .Parameter AccessToken
+    The Access Token. If not given, tries to use cached Access Token.
+
+    .Example
+    PS C:\>Get-AADIntAccessTokenForAADGraph -SaveToCache
+    PS C:\>Add-AADIntSyncFabricServicePrincipal
+
+    DisplayName                AppId                                ObjectId                            
+    -----------                -----                                --------                            
+    Microsoft.Azure.SyncFabric 00000014-0000-0000-c000-000000000000 138018f7-6aa2-454c-a103-a7e682e17d6b
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        
+        $body = @{
+            "accountEnabled"            = "True"
+	        "appId"                     = "00000014-0000-0000-c000-000000000000"
+	        "appRoleAssignmentRequired" = $false
+	        "displayName"               = "Microsoft.Azure.SyncFabric"
+	        "tags"                      = @( "WindowsAzureActiveDirectoryIntegratedApp" )
+        }
+
+        # Call the API
+        $result = Call-GraphAPI -AccessToken $AccessToken -Command "servicePrincipals" -Body ($body | ConvertTo-Json) -Method Post
+
+        if($result)
+        {
+            [pscustomobject]@{
+                "DisplayName" = $result.displayName
+                "AppId"       = $result.appId
+                "ObjectId"    = $result.objectId
+            }
+        }
+        
+
+    }
+}

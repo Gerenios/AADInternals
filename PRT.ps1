@@ -18,7 +18,7 @@ function Get-UserPRTToken
 
     .EXAMPLE
     PS C:\> Get-AADIntUserPRTToken
-    eyJ4NWMiOi...; path=/; domain=login.microsoftonline.com; secure; httponly
+    eyJ4NWMiOi...
 #>
     [cmdletbinding()]
     Param(
@@ -101,17 +101,18 @@ function Get-UserPRTToken
                 Throw "Error getting PRT: $($response.code). $($response.description)"
             }
 
-            # Return the last one
-            $tokens = $response.response.data
-            if($tokens.Count -gt 1)
+            # Get the index of the x-ms-RefreshTokenCredential data or throw error
+            $token_index = $response.response.name.IndexOf("x-ms-RefreshTokenCredential")
+            if($token_index -lt 0)
             {
-                return $tokens[$tokens.Count - 1]
+                throw "Could not find the x-ms-RefreshTokenCredential cookie in response"
             }
-            else
-            {
-                return $tokens
-            }
-                
+
+            # Return the data for x-ms-RefreshTokenCredential
+            $tokens = $response.response[$token_index].data
+            return $tokens
+			 
+				
         }
         else
         {
@@ -121,8 +122,15 @@ function Get-UserPRTToken
             {
                 Write-Verbose "Found $($tokens.Count) token(s)."
 
-                # Return the last one
-                $token = $tokens[$tokens.Count - 1]["data"]
+                # Get the index of the x-ms-RefreshTokenCredential data or throw error
+                $token_index = $tokens.name.IndexOf("x-ms-RefreshTokenCredential")
+                if($token_index -lt 0)
+                {
+                    throw "Could not find the x-ms-RefreshTokenCredential cookie in response"
+                }
+
+                # Return the data for x-ms-RefreshTokenCredential
+                $token = $tokens[$token_index]["data"]
                 
                 return $token.Split(";")[0]
             }
@@ -1843,6 +1851,20 @@ function New-BulkPRTToken
             if($details.error -eq "unauthorized_client")
             {
                 Write-Warning "Got unauthorized_client error. Please try again."
+            }
+            elseif($details.error_description.StartsWith("AADSTS90092"))
+            {
+                # Missing Microsoft.Azure.SyncFabric service principal?
+                try
+                {
+                    if([string]::IsNullOrEmpty((Get-ServicePrincipals -ClientIds "00000014-0000-0000-c000-000000000000").value))
+                    {
+                        Write-Warning "Missing Microsoft.Azure.SyncFabric service principal!"
+                        Write-Warning "Use Add-AADIntSyncFabricServicePrincipal to add the missing service principal."
+                    }
+
+                }
+                catch{} # Okay
             }
             throw $details.error_description
         }

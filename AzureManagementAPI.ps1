@@ -490,7 +490,14 @@ function Get-AzureInformation
             #$domains = $response.Value
 
             # Create a new AccessToken for graph.microsoft.com
-            $access_token3 = Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
+            try
+            {
+                $access_token3 = Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
+            }
+            catch
+            {
+                Write-Warning "Could not get access token for Microsoft Graph API"
+            }
 
             # Create a new AccessToken for access packages (elm.iga.azure.com)
             $access_token4 = Get-AccessTokenWithRefreshToken -Resource "https://elm.iga.azure.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant_info.Id -RefreshToken $refresh_token -SaveToCache $true
