@@ -7,12 +7,13 @@ function Check-Server
     [cmdletbinding()]
     Param(
             [Parameter(Mandatory=$true)]
-            [bool]$AsADSync, # Not needed with current version anymor
-            [Parameter(Mandatory=$true)]
             [bool]$force
     )
     process
     {
+        # Always export as ADSync user
+        $AsADSync = $true
+
         # Check that we are on AADConnect server and that the service is running
         if($force -ne $true -and (($adSyncService = Get-Service ADSync -ErrorAction SilentlyContinue) -eq $null -or $adSyncService.Status -ne "Running"))
         {
@@ -125,6 +126,9 @@ function Get-SyncCredentials
     )
     Process
     {
+        # Check whether we are running in elevated session
+        Test-LocalAdministrator -Throw | Out-Null
+
         # If started as a background process, start the background job script
         if($AsBackgroundProcess)
         {
@@ -165,7 +169,7 @@ function Get-SyncCredentials
         else
         {
             # Do the checks
-            if((Check-Server -AsADSync $true -force $force) -eq $false)
+            if((Check-Server -force $force) -eq $false)
             {
                return
             }
@@ -328,7 +332,7 @@ function Update-SyncCredentials
     Process
     {
         # Do the checks
-        if((Check-Server -AsADSync $true -force $force) -eq $false)
+        if((Check-Server -force $force) -eq $false)
         {
            return
         }
@@ -369,7 +373,7 @@ function Update-SyncCredentials
 </encrypted-attributes>
 "@
         # Read the encrypt/decrypt key settings
-        $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList -ArgumentList (Get-AADConfigDbConnection)
+        $SQLclient = new-object System.Data.SqlClient.SqlConnection -ArgumentList (Get-AADConfigDbConnection)
         $SQLclient.Open()
         $SQLcmd = $SQLclient.CreateCommand()
         $SQLcmd.CommandText = "SELECT keyset_id, instance_id, entropy FROM mms_server_configuration"
@@ -472,7 +476,7 @@ function Set-ADSyncAccountPassword
     Process
     {
         # Do the checks
-        if((Check-Server -AsADSync $true -force $force) -eq $false)
+        if((Check-Server -force $force) -eq $false)
         {
            return
         }
@@ -851,6 +855,12 @@ function Get-AADConfigDbConnection
         $dBName =            (Get-ItemProperty -Path $parametersPath).DBName
         $dBInstance =        (Get-ItemProperty -Path $parametersPath).SQLInstance
         $connectionString  = "Data Source=$dbServer\$dBInstance;Initial Catalog=$dBName"
+        
+        # If not using local WID, use ADSync account credentials
+        if($dBServer -ne "(localdb)")
+        {
+            $connectionString += ";Integrated Security=true"
+        }
     }
     Process
     {

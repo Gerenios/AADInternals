@@ -2010,6 +2010,7 @@ function Get-AccessTokenUsingDeviceCode
         Write-Host $authResponse.message
 
         $continue = $true
+        $response = $null
         $interval = $authResponse.interval
         $expires =  $authResponse.expires_in
 

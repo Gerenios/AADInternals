@@ -588,7 +588,14 @@ function Invoke-UserEnumerationAsGuest
         {
             throw "No refresh token found! Use Get-AADIntAccessTokenForAzureCoreManagement with -SaveToCache switch"
         }
-        $AccessToken = Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant -RefreshToken $refresh_token -SaveToCache $true
+        try
+        {
+            $AccessToken = Get-AccessTokenWithRefreshToken -Resource "https://graph.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -TenantId $tenant -RefreshToken $refresh_token -SaveToCache $true
+        }
+        catch
+        {
+            Throw "Unable to get access token for Microsoft Graph API"
+        }
 
         # Get the initial domain
         $domains = Get-MSGraphDomains -AccessToken $AccessToken

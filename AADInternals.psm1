@@ -23,6 +23,7 @@ try
 }
 catch {}
 
+
 $logo=@"
     ___    ___    ____  ____      __                        __    
    /   |  /   |  / __ \/  _/___  / /____  _________  ____ _/ /____
@@ -30,7 +31,7 @@ $logo=@"
  / ___ |/ ___ |/ /_/ _/ // / / / /_/  __/ /  / / / / /_/ / (__  ) 
 /_/  |_/_/  |_/_____/___/_/ /_/\__/\___/_/  /_/ /_/\__,_/_/____/  
   
- v$version TI Summit edition by @DrAzureAD (Nestori Syynimaa)
+ v$version by @DrAzureAD (Nestori Syynimaa)
 "@
 
 Write-Host $logo -ForegroundColor Yellow

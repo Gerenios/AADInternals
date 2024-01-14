@@ -532,3 +532,185 @@ function Get-SARAFreeBusyInformation
 
     }
 }
+
+
+# Aug 30th 2023
+# Uses SARA to test if provided port is available
+function Test-SARAPort
+{
+<#
+    .SYNOPSIS
+    Tests whether the given TCP port is open on the given host using SARA API.
+
+    .DESCRIPTION
+    Tests whether the given TCP port is open on the given host using SARA API.
+    
+    .Parameter AccessToken
+    Access Token
+
+    .PARAMETER Host
+    Hostname or IP address of the target
+
+    .PARAMETER Port
+    TCP port number
+
+    
+    .Example
+    Get-AADIntAccessTokenForSARA -SaveToCache
+    PS C:\>Test-AADIntSARAPort -Host www.company.com -Port 443
+
+    Host            Port Open
+    ----            ---- ----
+    www.company.com  443 True
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$Host,
+        [Parameter(Mandatory=$True)]
+        [String]$Port
+    )
+    Begin
+    {
+        
+    }
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://api.diagnostics.office.com"
+        
+
+        $body=@{
+	        "Symptom"            = "PortCheck"
+	        "RequestTimeoutInMs" =  180000
+	        "Parameters" = @( 
+                @{
+			        "Name"                     = "HostName"
+			        "Value"                    = $Host
+			        "ComplianceClassification" = "Identifiable"
+		        }
+		        @{
+                    "Name"                     = "Symptom"
+			        "Value"                    = "PortCheck"
+			        "ComplianceClassification" = "Identifiable"
+		        }
+                @{
+                    "Name"                     = "Port"
+			        "Value"                    = $Port.ToString()
+			        "ComplianceClassification" = "Identifiable"
+		        }
+@{
+                    "Name"                     = "IsReadBanner"
+			        "Value"                    = $true
+			        "ComplianceClassification" = "Identifiable"
+		        }
+		        @{
+                    "Name"                     = "ScenarioSymptom"
+			        "Value"                    = "Port"
+			        "ComplianceClassification" = "Identifiable"
+
+		        }
+	        )
+	        "UseDiagnosticService"   = $true
+
+        }
+        
+        $response = Call-AnalysisAPI -Body ($body | ConvertTo-Json) -AccessToken $AccessToken -Url "https://api.diagnostics.office.com/v1/cloudcheck"
+
+        $isOpen = $false
+        if($response.ProcessingStatus -eq "Succeeded")
+        {
+            $additionalInfo = $response.AdditionalInfo | ConvertFrom-Json
+
+            $isOpen = $additionalInfo.IsSuccess -eq "true"
+        }
+
+        [pscustomobject][ordered]@{
+            "Host" = $Host
+            "Port" = $Port
+            "Open" = $isOpen
+        }
+    }
+}
+
+
+# Aug 30th 2023
+# Uses SARA to resolve DNS name
+function Resolve-SARAHost
+{
+<#
+    .SYNOPSIS
+    Tests whether the given hostname can be resolved from DNS using SARA API.
+
+    .DESCRIPTION
+    Tests whether the given hostname can be resolved from DNS using SARA API.
+    
+    .Parameter AccessToken
+    Access Token
+
+    .PARAMETER Host
+    Hostname of the target
+
+    .Example
+    Get-AADIntAccessTokenForSARA -SaveToCache
+    PS C:\>Resolve-AADIntSARAHost -Host www.company.com
+
+    Host            Resolved
+    ----            --------
+    www.company.com     True
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+		[Parameter(Mandatory=$False)]
+        [String]$Host
+
+    )
+    Begin
+    {
+        
+    }
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://api.diagnostics.office.com"
+        
+
+        $body=@{
+	        "Symptom"            = "ResolveHostCheck"
+	        "RequestTimeoutInMs" =  180000
+	        "Parameters" = @( 
+                @{
+			        "Name"                     = "HostName"
+			        "Value"                    = $Host
+			        "ComplianceClassification" = "Identifiable"
+		        }
+		        @{
+                    "Name"                     = "Symptom"
+			        "Value"                    = "ResolveHostCheck"
+			        "ComplianceClassification" = "Identifiable"
+		        }
+                
+	        )
+	        "UseDiagnosticService"   = $true
+	        
+        }
+        
+        $response = Call-AnalysisAPI -Body ($body | ConvertTo-Json) -AccessToken $AccessToken -Url "https://api.diagnostics.office.com/v1/cloudcheck"
+
+        $isResolved = $false
+        if($response.ProcessingStatus -eq "Succeeded")
+        {
+			$isResolved = $response.MessageTitle.StartsWith("We succeeded")
+        }
+
+        [pscustomobject][ordered]@{
+            "Host" = $Host
+            "Resolved" = $isResolved
+        }
+
+    }
+}

