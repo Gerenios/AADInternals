@@ -18,7 +18,7 @@ function Get-UserPRTToken
 
     .EXAMPLE
     PS C:\> Get-AADIntUserPRTToken
-    eyJ4NWMiOi...; path=/; domain=login.microsoftonline.com; secure; httponly
+    eyJ4NWMiOi...
 #>
     [cmdletbinding()]
     Param(
@@ -101,17 +101,16 @@ function Get-UserPRTToken
                 Throw "Error getting PRT: $($response.code). $($response.description)"
             }
 
-            # Return the last one
-            $tokens = $response.response.data
-            if($tokens.Count -gt 1)
+            # Get the index of the x-ms-RefreshTokenCredential data or throw error
+            $token_index = $response.response.name.IndexOf("x-ms-RefreshTokenCredential")
+            if($token_index -lt 0)
             {
-                return $tokens[$tokens.Count - 1]
+                throw "Could not find the x-ms-RefreshTokenCredential cookie in response"
             }
-            else
-            {
-                return $tokens
-            }
-                
+
+            # Return the data for x-ms-RefreshTokenCredential
+            $tokens = $response.response[$token_index].data
+            return $tokens
         }
         else
         {
@@ -121,8 +120,15 @@ function Get-UserPRTToken
             {
                 Write-Verbose "Found $($tokens.Count) token(s)."
 
-                # Return the last one
-                $token = $tokens[$tokens.Count - 1]["data"]
+                # Get the index of the x-ms-RefreshTokenCredential data or throw error
+                $token_index = $tokens.name.IndexOf("x-ms-RefreshTokenCredential")
+                if($token_index -lt 0)
+                {
+                    throw "Could not find the x-ms-RefreshTokenCredential cookie in response"
+                }
+
+                # Return the data for x-ms-RefreshTokenCredential
+                $token = $tokens[$token_index]["data"]
                 
                 return $token.Split(";")[0]
             }
