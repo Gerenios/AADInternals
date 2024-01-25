@@ -46,17 +46,17 @@ function New-SAMLToken
     The password of the .pfx file
     
     .Example
-    PS C:\>$saml = New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword -Password "mypassword"
+    PS C:\>$saml = New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword "mypassword"
 
     .Example
     PS C:\>$cert = Load-AADIntCertificate -FileName "MyCert.pfx" -Password "mypassword"
     PS C:\>$saml = New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -Certificate $cert
 
     .Example
-    PS C:\>$saml = New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword -Password "mypassword"
+    PS C:\>$saml = New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword "mypassword"
 
     .Example
-    PS C:\>$saml = New-AADIntSAMLToken -UPN "My PC" -DeviceGUID (New-Guid) -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword -Password "mypassword"
+    PS C:\>$saml = New-AADIntSAMLToken -UPN "My PC" -DeviceGUID (New-Guid) -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword "mypassword"
 
 #>
     [cmdletbinding()]
@@ -265,7 +265,7 @@ function New-SAML2Token
     The password of the .pfx file
     
     .Example
-    PS C:\>New-AADIntSAML2Token -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName "MyCert.pfx" -PfxPassword -Password "mypassword"
+    PS C:\>New-AADIntSAML2Token -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName "MyCert.pfx" -PfxPassword "mypassword"
 
     .Example
     PS C:\>$cert=Get-AADIntCertificate -FileName "MyCert.pfx" -Password "mypassword"
@@ -536,7 +536,7 @@ function Open-Office365Portal
     Which browser to be used. Can be "IE", "Chrome", or "Edge". Defaults to "Edge"
     
     .Example
-    PS C:\>Open-AADIntOffice365Portal -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName "MyCert.pfx" -PfxPassword -Password "mypassword"
+    PS C:\>Open-AADIntOffice365Portal -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName "MyCert.pfx" -PfxPassword "mypassword"
 
     .Example
     PS C:\>$cert=Get-AADIntCertificate -FileName "MyCert.pfx" -Password "mypassword"
@@ -567,7 +567,9 @@ function Open-Office365Portal
         [switch]$UseBuiltInCertificate,
         
         [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
-        [Parameter(Mandatory=$False)]
+        [Parameter(ParameterSetName='Certificate',Mandatory=$False)]
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$True)]
+        [Parameter(Mandatory=$True)]
         [String]$Issuer,
 
         [Parameter(ParameterSetName='Certificate',Mandatory=$True)]
@@ -598,7 +600,7 @@ function Open-Office365Portal
         {
             $Certificate = Load-Certificate -FileName "$PSScriptRoot\any_sts.pfx" -Password ""
         }
-        elseif($Certificate -eq $null) # Load the ceftificate
+        elseif($Certificate -eq $null) # Load the certificate
         {
             try
             {
@@ -631,7 +633,8 @@ function Open-Office365Portal
                         <input name="wctx" type="hidden" value="" />
                         <input name="wresult" type="hidden" value="$([System.Net.WebUtility]::HtmlEncode($wsfed))">
                         To login automatically, the javascript needs to be enabled.. So just click the button! <br>
-                        <button type="submit">Login to Office 365</button>                    </form>
+                        <button type="submit">Login to Office 365</button>
+                    </form>
                 </body>
             </html>
 "@
