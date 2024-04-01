@@ -1584,13 +1584,23 @@ function Get-TenantDomains
     )
     Process
     {
+        # Get Tenant Region Scope/Subscope from Open ID configuration
+        Try {$openIdConfig = Invoke-RestMethod -UseBasicParsing "https://login.microsoftonline.com/$Domain/.well-known/openid-configuration"}
+        catch {$openIdConfig = $null}
+        if($openIdConfig.tenant_region_sub_scope -eq "DOD") 
+            {$uri = "https://autodiscover-s-dod.office365.us/autodiscover/autodiscover.svc"} #DoD
+        elseif($openIdConfig.tenant_region_sub_scope -eq "DODCON") 
+            {$uri = "https://autodiscover-s.office365.us/autodiscover/autodiscover.svc"} # GCC-High
+        else 
+            {$uri = "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"} #Commercial/WW
+        
         # Create the body
         $body=@"
 <?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:exm="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:ext="http://schemas.microsoft.com/exchange/services/2006/types" xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
 	<soap:Header>
 		<a:Action soap:mustUnderstand="1">http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation</a:Action>
-		<a:To soap:mustUnderstand="1">https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc</a:To>
+		<a:To soap:mustUnderstand="1">$uri</a:To>
 		<a:ReplyTo>
 			<a:Address>http://www.w3.org/2005/08/addressing/anonymous</a:Address>
 		</a:ReplyTo>
@@ -1611,7 +1621,7 @@ function Get-TenantDomains
             "User-Agent" =   "AutodiscoverClient"
         }
         # Invoke
-        $response = Invoke-RestMethod -UseBasicParsing -Method Post -uri "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc" -Body $body -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Method Post -uri $uri -Body $body -Headers $headers
 
         # Return
 		$domains = $response.Envelope.body.GetFederationInformationResponseMessage.response.Domains.Domain
