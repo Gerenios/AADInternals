@@ -1624,7 +1624,7 @@ function Get-TenantDomains
         $response = Invoke-RestMethod -UseBasicParsing -Method Post -uri $uri -Body $body -Headers $headers
 
         # Return
-		$domains = $response.Envelope.body.GetFederationInformationResponseMessage.response.Domains.Domain
+		$domains = @($response.Envelope.body.GetFederationInformationResponseMessage.response.Domains.Domain)
 		if($Domain -notin $domains)
         {
             $domains += $Domain
