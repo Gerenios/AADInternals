@@ -1,5 +1,67 @@
 ﻿# This script contains functions for Graph API at https://graph.windows.net
 # Office 365 / Azure AD v2, a.k.a. AzureAD module uses this API
+function Get-DynamicAbusableGroups
+{
+<#
+.SYNOPSIS
+Return Entra ID groups with dynamic membership rule that contains attributes that can be modified by users. 
+Related articles:
+https://medium.com/r3d-buck3t/abusing-dynamic-groups-in-azuread-part-1-ff12e328c8c0
+https://www.mnemonic.io/resources/blog/abusing-dynamic-groups-in-azure-ad-for-privilege-escalation/
+
+.DESCRIPTION
+Return Entra ID groups with dynamic membership rule that contains attributes that can be modified by users using the given Access Token
+
+.Parameter AccessToken
+The Access Token. If not given, tries to use cached Access Token.
+
+.Example
+PS C:\>$token=Get-AADIntAccessTokenForAADGraph
+PS C:\>Get-DynamicAbusableGroups -AccessToken $token
+
+#>
+    [cmdletbinding()]
+    Param(
+    [Parameter(Mandatory=$False)]
+    [String]$AccessToken
+    )
+    Process
+    {
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+        $abusableCondsUser = @("ageGroup","jobTitle","city","givenName","displayName","companyName", "country","department","employeeType","mailNickname","mail","state")
+      
+        $results=Call-GraphAPI -AccessToken $AccessToken -Command groups
+        $dynamicGroups = $results | Where-Object groupTypes -contains "DynamicMembership"
+        $userReg = 'user\.(.+?)\s'
+        $abusableGroupsOutput = @{}
+        foreach($dynamicGroup in $dynamicGroups){
+            $abusable = $false
+            $groupId = $dynamicGroup.objectId
+            $groupTempList = @()
+            $userMatches = $dynamicGroup.membershipRule | Select-String -Pattern $userReg -AllMatches
+            foreach($userMatch in $userMatches.Matches)
+            {
+                $matchType = $userMatch.Groups[1]
+                if($abusableCondsUser.Contains($matchType.value))
+                {                    
+                    $abusable = $true
+                }
+            }
+            if($abusable)
+            {
+                $abusableGroupsOutput.Add($groupId,$dynamicGroup.membershipRule)
+            }
+        }
+        
+        $abusableGroupsOutput.keys | % {
+            New-object psobject -Property @{
+                'groupId' = $_
+                'abusableRule' = $abusableGroupsOutput[$_]    
+            }
+        }
+        return $abusableGroupsOutput
+    }
+}
 
 function Get-AADUsers
 {
