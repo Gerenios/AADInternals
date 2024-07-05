@@ -226,6 +226,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AzureADFeatures"
     "Set-AzureADFeature"
     "Add-SyncFabricServicePrincipal"
+    "Get-DynamicAbusableGroups"
 
     # ProvisioningAPI.ps1
     "Set-DomainAuthentication"
