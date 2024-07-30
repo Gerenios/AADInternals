@@ -1023,7 +1023,8 @@ function Get-UserPRTKeys
         [Parameter(ParameterSetName='CloudAP'    ,Mandatory=$True)]
         [switch]$CloudAP,
 
-        [Parameter(ParameterSetName='CloudAP'    ,Mandatory=$True)]
+        [Parameter(ParameterSetName='CloudAP'        ,Mandatory=$True)]
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$True)]
         [Parameter(Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
 
