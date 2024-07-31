@@ -1,7 +1,14 @@
 ﻿# This file contains functions for various Active Directory related operations
 
 # Import the Native Methods dll
-Add-Type -path "$PSScriptRoot\Win32Ntv.dll"
+try
+{
+    Add-Type -path "$PSScriptRoot\Win32Ntv.dll"
+}
+catch
+{
+    Write-Warning "Could not load Win32Ntv.dll (probably blocked by Anti Virus)"
+}
 
 # Hash and encryption algorithms
 $ALGS=@{
@@ -573,9 +580,14 @@ function Get-LSASecrets
 #>
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$False)]
+        [Parameter(ParameterSetName='Users',Mandatory=$False)]
+        #[Parameter(ParameterSetName='Default',Mandatory=$False)]
         [String[]]$Users,
-        [Parameter(ParameterSetName='Account',Mandatory=$False)]
+        [Parameter(ParameterSetName='Account',Mandatory=$True)]
+        #[Parameter(ParameterSetName='Default',Mandatory=$False)]
+        [String]$Service,
+        [Parameter(ParameterSetName='Service',Mandatory=$True)]
+        #[Parameter(ParameterSetName='Default',Mandatory=$False)]
         [String]$AccountName
         )
     Begin
@@ -640,19 +652,34 @@ function Get-LSASecrets
             # Get the password Blobs for each system account
             #
 
-            # Get service account names and gMSA names
+            # Get service account names
             $gmsaNames = @{}
             $serviceAccounts = @{}
-            foreach($service in Get-ServiceAccountNames)
+            $serviceAccountNames = Get-ServiceAccountNames
+
+            # If service name was provided, find it's account
+            if(![string]::IsNullOrEmpty($Service))
             {
-                $svcAccount = $service.AccountName
+                $AccountName = $serviceAccountNames | Where-Object "Service" -eq $Service | Select-Object -ExpandProperty "AccountName"
+
+                # If not found, just return $null
+                if([string]::IsNullOrEmpty($AccountName))
+                {
+                    return $null
+                }
+            }
+
+            # Loop through the service account names and get SA & gMSA names
+            foreach($saName in $serviceAccountNames)
+            {
+                $svcAccount = $saName.AccountName
                 if(![string]::IsNullOrEmpty($svcAccount) -and !$svcAccount.ToUpper().StartsWith("NT AUTHORITY\") -and !$svcAccount.ToUpper().StartsWith("NT SERVICE\") -and !$svcAccount.ToUpper().StartsWith("\DRIVER\") -and !$svcAccount.ToUpper().Equals("LOCALSYSTEM") )
                 {
                     if($svcAccount.EndsWith('$'))
                     {
-                        $svcAccount = $svcAccount.Substring(0,$svcAccount.Length-1)
+                        $svcAccount = $svcAccount.TrimEnd('$')
                     }
-                    $serviceAccounts[$service.Service] = $svcAccount
+                    $serviceAccounts[$saName.Service] = $svcAccount
                     $parts = $svcAccount.Split('\')
 
                     $gmsaName = Get-GMSASecretName -Type GMSA -AccountName $parts[1] -DomainName $parts[0] 
@@ -746,7 +773,7 @@ function Get-LSASecrets
                         # Strip the dollar sign
                         if($account.EndsWith('$'))
                         {
-                            $account = $account.Substring(0,$account.Length-1)
+                            $account = $account.TrimEnd('$')
                         }
                     }
                     elseif($user.StartsWith("_SC_")) # Service accounts doesn't have password Blob - just dump the data after the header
@@ -948,14 +975,18 @@ function Get-UserMasterkeys
 #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false, ParameterSetName="credentials")]
+        [Parameter(Mandatory=$true, ParameterSetName="password")]
+        [Parameter(Mandatory=$true, ParameterSetName="systemkey")]
         [String]$UserName,
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false)]
         [String]$SID,
         [Parameter(Mandatory=$true, ParameterSetName="password")]
         [String]$Password,
         [Parameter(Mandatory=$true, ParameterSetName="systemkey")]
         [byte[]]$SystemKey,
+        [Parameter(Mandatory=$true, ParameterSetName="credentials")]
+        [pscredential]$Credentials,
         [Parameter(Mandatory=$false)]
         [String]$UsersFolder="C:\Users"
 
@@ -963,10 +994,38 @@ function Get-UserMasterkeys
     Process
     {
         $retVal=@{}
-        
-        #$bSID=[System.Security.Principal.SecurityIdentifier]::new($SID)
 
-        $keysPath="$UsersFolder\$userName\AppData\Roaming\Microsoft\Protect\$SID"
+        # Populate username and password from credentials
+        if($Credentials)
+        {
+            $UserName = $Credentials.UserName
+            $Password = $Credentials.GetNetworkCredential().Password
+        }
+
+        # Strip the domain part
+        $s = $UserName.IndexOf("\")
+        if($s -gt 0)
+        {
+            $UserName = $UserName.Substring($s+1)
+        }
+        
+        $keysPath="$UsersFolder\$userName\AppData\Roaming\Microsoft\Protect\"
+
+        # If SID not provided, get one from the keysPath. There should be only one..
+        if([string]::IsNullOrEmpty($SID))
+        {
+            $SIDs = Get-ChildItem -Path $keysPath -Filter "S-1-5-21-*"
+            if($SIDs.Count -gt 1)
+            {
+                Throw "More than one credentials found, please provide SID"
+            }
+            else
+            {
+                $SID = $SIDs.Name
+            }
+        }
+        
+        $keysPath += $SID
 
         $fileNames=Get-ChildItem -Path $keysPath -Hidden | select -ExpandProperty Name
         
@@ -1198,7 +1257,14 @@ function Decrypt-MasterkeyBlob
             Write-Verbose "Derived key:          $(Convert-ByteArrayToHex -Bytes $derivedKey)`n`n"
 
             # Decode the masterkey using the derived key
-            $decMasterKey = [AADInternals.Native]::getMasterkey($derivedKey, $Data, $Salt, $Iterations)
+            try
+            {
+                $decMasterKey = [AADInternals.Native]::getMasterkey($derivedKey, $Data, $Salt, $Iterations)
+            }
+            catch
+            {
+                return $null
+            } # Okay(ish)
 
         }
         else
@@ -1250,14 +1316,26 @@ function Get-LocalUserCredentials
     param(
         [Parameter(Mandatory=$true)]
         [String]$UserName,
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false)]
         [System.Collections.Hashtable]$MasterKeys,
         [Parameter(Mandatory=$false)]
-        [String]$UsersFolder="C:\Users"
+        [String]$UsersFolder="C:\Users",
+        [Parameter(Mandatory=$false)]
+        [byte[]]$Entropy,
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("LocalMachine","CurrentUser")]
+        [string]$Scope = 'LocalMachine'
     )
     Process
     {
         $retVal=@()
+
+        # Strip the domain part
+        $s = $UserName.IndexOf("\")
+        if($s -gt 0)
+        {
+            $UserName = $UserName.Substring($s+1)
+        }
         
         $localPath =   "$UsersFolder\$userName\AppData\Local\Microsoft\Credentials"
         $roamingPath = "$UsersFolder\$userName\AppData\Roaming\Microsoft\Credentials"
@@ -1268,21 +1346,29 @@ function Get-LocalUserCredentials
         # Get the local credentials
         foreach($fileName in $localNames)
         {
-            
-            Write-Verbose "Found credentials file: $("$localPath\$fileName")`n`n"
-            $binCredentials = Get-BinaryContent "$localPath\$fileName" 
+            try
+            {            
+                Write-Verbose "Found credentials file: $("$localPath\$fileName")`n`n"
+                $binCredentials = Get-BinaryContent "$localPath\$fileName" 
 
-            $retVal += Parse-CredentialsBlob -Data $binCredentials -MasterKeys $MasterKeys
+                $retVal += Parse-CredentialsBlob -Data $binCredentials -MasterKeys $MasterKeys -Entropy $Entropy -Scope $Scope
+            }
+            catch
+            {} #Okay
         }
 
         # Get the roaming credentials
         foreach($fileName in $roamingNames)
         {
-            
-            Write-Verbose "Found credentials file: $("$roamingPath\$fileName")`n`n"
-            $binCredentials = Get-BinaryContent "$roamingPath\$fileName"
+            try
+            {
+                Write-Verbose "Found credentials file: $("$roamingPath\$fileName")`n`n"
+                $binCredentials = Get-BinaryContent "$roamingPath\$fileName"
 
-            $retVal += Parse-CredentialsBlob -Data $binCredentials -MasterKeys $MasterKeys
+                $retVal += Parse-CredentialsBlob -Data $binCredentials -MasterKeys $MasterKeys
+            }
+            catch
+            {} #Okay
         }
 
         return $retVal
@@ -1299,124 +1385,136 @@ function Parse-CredentialsBlob
     param(
         [Parameter(Mandatory=$true)]
         [byte[]]$Data,
-        [Parameter(Mandatory=$true)]
-        [System.Collections.Hashtable]$MasterKeys
+        [Parameter(Mandatory=$false)]
+        [System.Collections.Hashtable]$MasterKeys,
+        [Parameter(Mandatory=$false)]
+        [byte[]]$Entropy,
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("LocalMachine","CurrentUser")]
+        [string]$Scope = 'LocalMachine'
     )
     Begin
     {
-        $persistenceTxt = @("none", "session", "local_machine", "enterprise");
+        $persistenceTxt = @("none", "session", "local_machine", "enterprise")
+        Add-Type -AssemblyName System.Security
     }
     Process
     {
-        # Parse and decrypt the DPAPI blob
+        # Parse and the DPAPI blob
         $DPAPIBlob = Parse-DPAPIBlob -Data $Data[12..$($data.Length)]
 
-        # Get the masterkey guid from DPAPI blob
-        $mkGuid = $DPAPIBlob.MasterKeyGuid
-
-        # Get the correct masterkey
-        $masterKey = $MasterKeys[$mkGuid]
-
-        if(!$masterKey)
+        if($MasterKeys)
         {
-            Write-Error "DPAPI masterkey $mkGuid not found!"
-            return $null
-        }
+            # Get the masterkey guid from DPAPI blob
+            $mkGuid = $DPAPIBlob.MasterKeyGuid
 
-        # Decrypt the credentials blob
-        $cBlob = Decrypt-DPAPIBlob -Data $DPAPIBlob.EncryptedData -MasterKey $masterKey -Salt $DPAPIBlob.Salt
+            # Get the correct masterkey
+            $masterKey = $MasterKeys[$mkGuid]
 
-        if($cBlob)
-        {
-
-            Write-Verbose "Decrypted Data: $(Convert-ByteArrayToHex -Bytes $cBlob)`n`n"
-
-            # 
-            # Parse the credentials blob
-            $p=0
-            $crFlags =  [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $crSize =   [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $crUnk0 =   [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-
-            $type =     [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $flags =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $Time =     [datetime]::FromFileTimeUtc([System.BitConverter]::ToInt64($cBlob,$p));$p+=8
-            $unk0 =     [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $persist =  [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $atCount =  [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $unk1 =     [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $unk2 =     [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-
-            $tgLen =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $target =   ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$tgLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$tgLen
-
-            $alLen =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $alias =    ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$alLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$alLen
-
-            $cmLen =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $comment =  ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$cmLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$cmLen
-
-            $ukLen =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $unkData =  ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$ukLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$ukLen
-
-            $usLen =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $userName = ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$usLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$usLen
-
-            $cbLen =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-            $crData =   [byte[]]$cBlob[$p..($p+$cbLen-1)];$p+=$cbLen
-
-            $crDataTxt =     [text.encoding]::Unicode.GetString($crData).trim(@(0x00,0x0a,0x0d))
-            $crDataTxtUtf8 = [text.encoding]::UTF8.GetString($crData).trim(@(0x00,0x0a,0x0d))
-        
-            $crAttrs=@{}
-
-            for($a = 0 ; $a -lt $atCount)
+            if(!$masterKey)
             {
-                $atFlag =  [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-                $kwLen =   [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-                $keyWord = ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$kwLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$kwLen
-
-                $vaLen =   [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
-                $value =   ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$vaLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$vaLen
-            
-                $crAttrs[$keyWord]=$value
+                throw "DPAPI masterkey $mkGuid not found!"
             }
 
-            Write-Verbose "***CREDENTIALS BLOB***"
-            Write-Verbose "Target:        $target"
-            Write-Verbose "Last Written:  $time"
-            Write-Verbose "Persistence:   $($persistenceTxt[$persist])"
-            Write-Verbose "Alias:         $alias"
-            Write-Verbose "Comment:       $comment"
-            Write-Verbose "User name:     $userName"
-            Write-Verbose "Secret:        $(Convert-ByteArrayToHex -Bytes $crData)"
-            Write-Verbose "SecretTxt:     $crDataTxt"
-            Write-Verbose "SecretTxtUtf8: $crDataTxtUtf8"
-            Write-Verbose "Attributes:    $crAttrs`n`n`n"
-        
-        
+            # Decrypt the credentials blob
+            $cBlob = Decrypt-DPAPIBlob -Data $DPAPIBlob.EncryptedData -MasterKey $masterKey -Salt $DPAPIBlob.Salt
 
-            # Create a return object
-            $attributes = [ordered]@{
-                "Target" =        $target
-                "Persistance" =   $persistenceTxt[$persist]
-                "Edited" =        $time
-                "Alias" =         $alias
-                "Comment" =       $comment
-                "UserName" =      $userName
-                "Secret" =        $crData
-                "SecretTxt" =     $crDataTxt
-                "SecretTxtUtf8" = $crDataTxtUtf8
-                "Attributes" =    $crAttrs
+            if($cBlob)
+            {
+
+                Write-Verbose "Decrypted Data: $(Convert-ByteArrayToHex -Bytes $cBlob)`n`n"
+
+                # 
+                # Parse the credentials blob
+                $p=0
+                $crFlags =  [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $crSize =   [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $crUnk0 =   [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+
+                $type =     [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $flags =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $Time =     [datetime]::FromFileTimeUtc([System.BitConverter]::ToInt64($cBlob,$p));$p+=8
+                $unk0 =     [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $persist =  [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $atCount =  [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $unk1 =     [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $unk2 =     [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+
+                $tgLen =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $target =   ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$tgLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$tgLen
+
+                $alLen =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $alias =    ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$alLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$alLen
+
+                $cmLen =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $comment =  ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$cmLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$cmLen
+
+                $ukLen =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $unkData =  ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$ukLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$ukLen
+
+                $usLen =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $userName = ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$usLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$usLen
+
+                $cbLen =    [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                $crData =   [byte[]]$cBlob[$p..($p+$cbLen-1)];$p+=$cbLen
+
+                $crDataTxt =     [text.encoding]::Unicode.GetString($crData).trim(@(0x00,0x0a,0x0d))
+                $crDataTxtUtf8 = [text.encoding]::UTF8.GetString($crData).trim(@(0x00,0x0a,0x0d))
+        
+                $crAttrs=@{}
+
+                for($a = 0 ; $a -lt $atCount)
+                {
+                    $atFlag =  [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                    $kwLen =   [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                    $keyWord = ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$kwLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$kwLen
+
+                    $vaLen =   [System.BitConverter]::ToInt32($cBlob,$p);$p+=4
+                    $value =   ([text.encoding]::Unicode.GetString($cBlob[$p..$($p+$vaLen-1)])).trim(@(0x00,0x0a,0x0d)); $p+=$vaLen
+            
+                    $crAttrs[$keyWord]=$value
                 }
 
+                Write-Verbose "***CREDENTIALS BLOB***"
+                Write-Verbose "Target:        $target"
+                Write-Verbose "Last Written:  $time"
+                Write-Verbose "Persistence:   $($persistenceTxt[$persist])"
+                Write-Verbose "Alias:         $alias"
+                Write-Verbose "Comment:       $comment"
+                Write-Verbose "User name:     $userName"
+                Write-Verbose "Secret:        $(Convert-ByteArrayToHex -Bytes $crData)"
+                Write-Verbose "SecretTxt:     $crDataTxt"
+                Write-Verbose "SecretTxtUtf8: $crDataTxtUtf8"
+                Write-Verbose "Attributes:    $crAttrs`n`n`n"
+        
+        
+
+                # Create a return object
+                $attributes = [ordered]@{
+                    "Target" =        $target
+                    "Persistance" =   $persistenceTxt[$persist]
+                    "Edited" =        $time
+                    "Alias" =         $alias
+                    "Comment" =       $comment
+                    "UserName" =      $userName
+                    "Secret" =        $crData
+                    "SecretTxt" =     $crDataTxt
+                    "SecretTxtUtf8" = $crDataTxtUtf8
+                    "Attributes" =    $crAttrs
+                    }
+
                 
-            return New-Object PSObject -Property $attributes
+                return New-Object PSObject -Property $attributes
+            }
+            else
+            {
+                Write-Error "Could not decrypt the DPAPI blob."
+                return $null
+            }
         }
         else
         {
-            Write-Error "Could not decrypt the DPAPI blob."
-            return $null
+            [Security.Cryptography.ProtectedData]::Unprotect($DPAPIBlob,$Entropy,$Scope)
         }
     }
 }

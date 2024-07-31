@@ -76,7 +76,8 @@ function Get-AccessTokenFromCache
             # Check that the audience of the access token is correct
             $tAudience=(Read-Accesstoken -AccessToken $AccessToken).aud.TrimEnd("/")
 
-            if(($tAudience -ne $tResource) -and ($Force -eq $False))
+            # The audience might be the GUID
+            if((($tAudience -ne $tResource) -and ($Script:RESIDs[$tAudience] -ne $tResource)) -and ($Force -eq $False))
             {
                 # Wrong audience
                 Write-Verbose "ACCESS TOKEN HAS WRONG AUDIENCE: $tAudience. Exptected: $tResource."
@@ -255,6 +256,7 @@ function Get-AccessTokenForMSGraph
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [switch]$SaveToCache,
+        [switch]$SaveToMgCache,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
@@ -262,7 +264,7 @@ function Get-AccessTokenForMSGraph
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Tenant $Tenant -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Credentials $Credentials -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Tenant $Tenant -OTPSecretKey $OTPSecretKey -TAP $TAP -SaveToMgCache $SaveToMgCache
     }
 }
 
@@ -1668,6 +1670,8 @@ function Get-AccessToken
         [Parameter(Mandatory=$False)]
         [bool]$SaveToCache,
         [Parameter(Mandatory=$False)]
+        [bool]$SaveToMgCache,
+        [Parameter(Mandatory=$False)]
         [bool]$IncludeRefreshToken=$false,
         [Parameter(Mandatory=$False)]
         [bool]$ForceMFA=$false,
@@ -1696,7 +1700,9 @@ function Get-AccessToken
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        [Parameter(Mandatory=$False)]
+        [string]$RedirectUri
     )
     Begin
     {
@@ -1777,11 +1783,11 @@ function Get-AccessToken
                     ($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -eq "https://enrollment.manage.microsoft.com/") <# MDM #>
                 )  
                 {
-                    $OAuthInfo = Prompt-Credentials -Resource $Resource -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA -ForceNGCMFA $ForceNGCMFA -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP
+                    $OAuthInfo = Prompt-Credentials -Resource $Resource -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA -ForceNGCMFA $ForceNGCMFA -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectUri
                 }
                 else
                 {
-                    $OAuthInfo = Prompt-Credentials -Resource "https://graph.windows.net" -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA -ForceNGCMFA $ForceNGCMFA -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP
+                    $OAuthInfo = Prompt-Credentials -Resource "https://graph.windows.net" -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA -ForceNGCMFA $ForceNGCMFA -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectUri
                 }
 
                 # Just return null
@@ -1843,6 +1849,47 @@ function Get-AccessToken
 			Add-AccessTokenToCache -AccessToken $access_token -RefreshToken $refresh_token -ShowCache $false
         }
 
+        if($SaveToMgCache -and $OAuthInfo -ne $null -and $access_token -ne $null)
+        {
+            Write-Verbose "Saving access token to MS Graph SDK cache"
+
+            # Import the module if needed
+            $MgModule = "Microsoft.Graph.Authentication"
+            if(!(Get-Module -Name $MgModule))
+            {
+                try
+                {
+                    # Import-Module doesn't throw an error, just prints it out.
+                    Import-Module -Name $MgModule -ErrorVariable "moduleImportError" -ErrorAction SilentlyContinue
+                }
+                catch
+                {
+                    Throw "$MgModule module could not be imported!"
+                }
+                if($moduleImportError)
+                {
+                    Throw "$MgModule module could not be imported!"
+                }
+            }
+
+            # Initialize the graph session
+            [Microsoft.Graph.PowerShell.Authentication.Common.GraphSessionInitializer]::InitializeSession()
+
+            # Create the AuthContext
+            $authContext = [Microsoft.Graph.PowerShell.Authentication.AuthContext]::new()
+            $authContext.PSHostVersion = (Get-Host).Version
+            $authContext.Environment = "Global"
+
+            $authContext.AuthType = [Microsoft.Graph.PowerShell.Authentication.AuthenticationType]::UserProvidedAccessToken
+            $authContext.TokenCredentialType = [Microsoft.Graph.PowerShell.Authentication.TokenCredentialType]::UserProvidedAccessToken
+            $authContext.ContextScope = [Microsoft.Graph.PowerShell.Authentication.ContextScope]::Process
+
+            # Initialize the GraphSession and store the access token
+            $graphSession = [Microsoft.Graph.PowerShell.Authentication.GraphSession]::Instance
+            $graphSession.InMemoryTokenCache = [Microsoft.Graph.PowerShell.Authentication.Core.TokenCache.InMemoryTokenCache]::new([text.encoding]::UTF8.GetBytes($access_token))
+            $graphSession.AuthContext = $authContext
+        }
+
         # Return
         if([string]::IsNullOrEmpty($access_token))
         {
@@ -1850,7 +1897,7 @@ function Get-AccessToken
         }
 
         # Don't print out token if saved to cache!
-        if($SaveToCache)
+        if($SaveToCache -or $SaveToMgCache)
         {
             $pat = Read-Accesstoken -AccessToken $access_token
             $attributes=[ordered]@{
@@ -1860,6 +1907,10 @@ function Get-AccessToken
                 "Client" =   $ClientID
             }
             Write-Host "AccessToken saved to cache."
+            if($SaveToMgCache)
+            {
+                Write-Host "You may now use MS Graph SDK commands, e.g. Get-MgUser"
+            }
             return New-Object psobject -Property $attributes
         }
         else

@@ -430,7 +430,6 @@ function Get-HybridHealthServiceAgentInfo
     TenantId        : 5d898b21-4478-4ee0-a2be-ad4dfb540b09
     ServiceId       : 59f626ab-92cd-4658-b12f-12a604f5f1c2
     ServiceMemberId : 0bfc0715-1ed2-44c7-89ec-bf7842cc4575
-    ClientId        : 0d88eaa8-08a4-4b2c-b5ce-49a9ea02d1d7
     MachineId       : 279a0323-4647-494c-ac3a-fc13545f3c33
 #>
     [cmdletbinding()]
@@ -457,7 +456,6 @@ function Get-HybridHealthServiceAgentInfo
             $attributes["TenantId"]        = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\ADHealthAgent"                              -Name "TenantId"
             $attributes["ServiceId"]       = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\ADHealthAgent\$Service"                     -Name "ServiceId"
             $attributes["ServiceMemberId"] = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\ADHealthAgent\$Service"                     -Name "ServiceMemberId"
-            $attributes["ClientId"]        = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\ADHealthAgent\$Service"                     -Name "ClientId"
             $attributes["MachineId"]       = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\Microsoft Online\Reporting\MonitoringAgent" -Name "MachineIdentity"
             $attributes["Server"]          = $env:COMPUTERNAME
         }

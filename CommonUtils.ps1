@@ -38,7 +38,14 @@ Function Get-AzureWireServerAddress
     param()
     Begin
     {
-        Add-Type -path "$PSScriptRoot\Win32Ntv.dll"
+        try
+		{
+			Add-Type -path "$PSScriptRoot\Win32Ntv.dll"
+		}
+		catch
+		{
+			Write-Warning "Could not load Win32Ntv.dll (probably blocked by Anti Virus)"
+		}
     }
     Process
     {
@@ -2221,9 +2228,9 @@ function Parse-CertBlob
         # Parse the header
         $p = 0;
         $version =  [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        if($version -ne 3)
+        if($version -notin @(3,4))
         {
-            Throw "Unsupported version ($Version), expected 3"
+            Throw "Unsupported version ($Version), expected 3 or 4"
         }
         $unk1     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
         $tpLen    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
@@ -2682,6 +2689,26 @@ function Set-UserAgent
         Set-Setting -Setting "User-Agent" -Value $userAgents[$Device]
     }
 }
+
+# Gets AADInternals User-Agent value
+# Feb 13 2024
+function Get-UserAgent
+{
+    
+    [cmdletbinding()]
+    param()
+    Process
+    {
+        $userAgent = Get-Setting -Setting "User-Agent"
+        if($userAgent -eq $null)
+        {
+            $userAgent = "AADInternals"
+        }
+
+        return $userAgent
+    }
+}
+
 
 # Return the string between Start and End
 # May 29th 2023

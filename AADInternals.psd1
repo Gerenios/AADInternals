@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.9.3'
+	ModuleVersion = '0.9.4'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -132,7 +132,6 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\PSRP.ps1"
         ".\PSRP_utils.ps1"
         ".\PTA.ps1"
-        ".\PTASpy.ps1"
         ".\SARA.ps1"
         ".\SARA_utils.ps1"
         ".\SPMT.ps1"
@@ -465,6 +464,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-TeamsAvailability"
     "Get-Translation"
     "Get-MyTeams"
+    "Get-TeamsExternalUserInformation"
 
     # Teams_utils.ps1
     "Get-TeamsUserSettings"
