@@ -1356,5 +1356,153 @@ function Get-MyTeams
     }
 }
 
+# Get the external user information
+# May 22nd 2024
+function Get-TeamsExternalUserInformation
+{
+<#
+    .SYNOPSIS
+    Returns the external user information.
+
+    .DESCRIPTION
+    Returns the external user information using Teams API.
 
 
+    .Parameter AccessToken
+    The access token used to get the information.
+    
+    .Parameter ObjectId
+    The Entra ID Object ID of the target user.
+
+    .Parameter UserPrincipalName
+    The user principal name of the target user.
+
+    .EXAMPLE
+    PS\:>Get-AADIntAccessTokenForTeams -SaveToCache
+
+    PS\:>Get-AADIntTeamsExternalUserInformation -ObjectId "fe401a12-879c-4e5b-8b51-03e1985fa62f"
+
+    tenantId          : dcc7d7bf-e3f5-4778-b6e0-aa7207bdb033
+    isShortProfile    : False
+    accountEnabled    : True
+    featureSettings   : @{coExistenceMode=TeamsOnly}
+    userPrincipalName : johnd@company.com
+    givenName         : JohnD@company.com
+    surname           : 
+    email             : JohnD@company.com
+    displayName       : John Doe
+    type              : Federated
+    mri               : 8:orgid:84bdccdb-eaba-4545-9729-4eff71b76841
+    objectId          : fe401a12-879c-4e5b-8b51-03e1985fa62f
+
+    .EXAMPLE
+    PS\:>Get-AADIntAccessTokenForTeams -SaveToCache
+
+    PS\:>Get-AADIntTeamsExternalUserInformation -UserPrincipalname = "johnd@company.com"
+
+    tenantId          : dcc7d7bf-e3f5-4778-b6e0-aa7207bdb033
+    isShortProfile    : False
+    accountEnabled    : True
+    featureSettings   : @{coExistenceMode=TeamsOnly}
+    userPrincipalName : johnd@company.com
+    givenName         : JohnD@company.com
+    surname           : 
+    email             : JohnD@company.com
+    displayName       : John Doe
+    type              : Federated
+    mri               : 8:orgid:84bdccdb-eaba-4545-9729-4eff71b76841
+    objectId          : fe401a12-879c-4e5b-8b51-03e1985fa62f
+
+    .EXAMPLE
+    PS\:>Get-AADIntAccessTokenForTeams -SaveToCache
+
+    PS\:>Get-AADIntTeamsExternalUserInformation -MRI "8:orgid:84bdccdb-eaba-4545-9729-4eff71b76841"
+
+    tenantId          : dcc7d7bf-e3f5-4778-b6e0-aa7207bdb033
+    isShortProfile    : False
+    accountEnabled    : True
+    featureSettings   : @{coExistenceMode=TeamsOnly}
+    userPrincipalName : johnd@company.com
+    givenName         : JohnD@company.com
+    surname           : 
+    email             : JohnD@company.com
+    displayName       : John Doe
+    type              : Federated
+    mri               : 8:orgid:84bdccdb-eaba-4545-9729-4eff71b76841
+    objectId          : fe401a12-879c-4e5b-8b51-03e1985fa62f
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken,
+        [Parameter(ParameterSetName='ObjectId',Mandatory=$True)]
+        [Guid]$ObjectId,
+        [Parameter(ParameterSetName='UserPrincipalName',Mandatory=$True)]
+        [String]$UserPrincipalName,
+        [Parameter(ParameterSetName='MRI',Mandatory=$True)]
+        [String]$MRI
+    )
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://api.spaces.skype.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" 
+
+        # Get the settings
+        try
+        {
+            $teamsSettings = Get-TeamsUserSettings -AccessToken $AccessToken
+            $apiUrl =        $teamsSettings.regionGtms.middleTier
+        }
+        catch
+        {
+            $apiUrl = "https://teams.microsoft.com/api/mt/part/amer-01"
+        }
+
+        if([string]::IsNullOrEmpty($MRI))
+        {
+            if($UserPrincipalName)
+            {
+                try
+                {
+                    $extUserResponse = Find-TeamsExternalUser -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName
+                    if($extUserResponse -is [System.Array])
+                    {
+                        $MRI = $extUserResponse[0].mri
+                    }
+                    else
+                    {
+                        $MRI = $extUserResponse.mri
+                    }
+                }
+                catch
+                {} # Okay(ish)
+
+                if([string]::IsNullOrEmpty($MRI))
+                {
+                    throw "User $UserPrincipalName not found"
+                }
+            }
+            else
+            {
+                $MRI = "8:orgid:$ObjectId"
+            }
+        }
+
+        $body = "[""$MRI""]"
+
+        $headers = @{
+            "Authorization" = "Bearer $AccessToken"
+        }
+
+        try
+        {
+            $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$apiurl/beta/users/fetchFederated?edEnabled=true " -Headers $headers -ContentType "application/json" -Body $body
+        }
+        catch
+        {
+            Write-Error $_.Exception.Message
+        }
+
+        $response.value
+    }
+}

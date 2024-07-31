@@ -220,8 +220,8 @@ function Get-SyncCredentials
                 $KeyMgr = New-Object -TypeName Microsoft.DirectoryServices.MetadirectoryServices.Cryptography.KeyManager
 
                 $KeyMgr.LoadKeySet($entropy, $instance_id, $key_id)
-                $key = $null
-                $KeyMgr.GetActiveCredentialKey([ref]$key)
+                #$key = $null
+                #$KeyMgr.GetActiveCredentialKey([ref]$key)
                 $key2 = $null
                 $KeyMgr.GetKey(1, [ref]$key2)
 
@@ -577,7 +577,7 @@ function Get-DecryptedConfigPassword
         [Parameter(Mandatory=$true)]
         [byte[]]$Key,
         [Parameter(Mandatory=$true)]
-        [guid]$InitialVector
+        [byte[]]$InitialVector
     )
     Process
     {
@@ -605,7 +605,7 @@ function Get-DecryptedConfigPassword
 
 # Encrypts AD or AAD password with the given key and IV
 # May 3rd 2020
-function New-DecryptedConfigPassword
+function New-EncryptedConfigPassword
 {
     [cmdletbinding()]
     Param(
@@ -614,7 +614,7 @@ function New-DecryptedConfigPassword
         [Parameter(Mandatory=$true)]
         [byte[]]$Key,
         [Parameter(Mandatory=$true)]
-        [guid]$InitialVector
+        [byte[]]$InitialVector
     )
     Process
     {
@@ -625,18 +625,18 @@ function New-DecryptedConfigPassword
         $aes=New-Object -TypeName System.Security.Cryptography.AesCryptoServiceProvider
         $aes.Mode = "CBC"
         $aes.Key =  $Key
-        $aes.IV =   $iv.ToByteArray()
-        $de=$aes.CreateEncryptor()
+        $aes.IV =   $initialVector
+        $en=$aes.CreateEncryptor()
         
         # Encrypt the data    
         $data = "<encrypted-attributes><attribute name=""password"">$NewPassword</attribute></encrypted-attributes>"
         $binData = [text.encoding]::Unicode.GetBytes($data)
-        $decData = $de.TransformFinalBlock($binData,0,$binData.Length)
+        $encData = $en.TransformFinalBlock($binData,0,$binData.Length)
 
-        Write-Verbose "DecryptedConfigPassword: $data"
+        Write-Verbose "EncryptedConfigPassword: $(Convert-ByteArrayToHex -Bytes $encData)"
 
         # Return
-        return $decData
+        return $encData
 
     }
 }
@@ -672,79 +672,63 @@ function Get-SyncEncryptionKey
     param(
         [Parameter(Mandatory=$true)]
         [guid]$Entropy,
-        [Parameter(Mandatory=$true)]
-        [guid]$InstanceId
+        [Parameter(Mandatory=$false)]
+        [guid]$InstanceId,
+        [Parameter(Mandatory=$false)]
+        [int]$KeySetId = 1
     )
 
     # Define the return variable
     $retVal = $null
    
-    # Fetch the full name of the ADSync user. Should be in the format DOMAIN\AAD_xxxxxxxxxxxx
-    $FullName=(Get-WmiObject Win32_Service -Filter "Name='ADSync'").StartName
-    $userName = $FullName.split("\")[1]
+    # Get the stored password for the ADSync service
+    $ServiceSecret=Get-LSASecrets -Service "ADSync"
 
-    # Get user's SID
-    $userSID=(Get-WmiObject win32_useraccount -Filter "Name='$userName'").SID
-
-    
-    # Get the stored password for the ADSync service -> this is the password of DOMAIN\AAD_xxxxxxxxxxxx user!
-    $LSAUserName = "_SC_ADSync"
-    $LSASecret=Get-LSASecrets -Users "_SC_ADSync"
-    $password=$LSASecret.PasswordTxt
-
-    Write-Verbose "UserName: $FullName"
-    Write-Verbose "SID:      $userSID"
-    Write-Verbose "Password: $password`n`n"
+    Write-Verbose "UserName: $($ServiceSecret.Account)"
+    Write-Verbose "Password: $($ServiceSecret.PasswordTxt)`n`n"
 
     # As we now know the password of the user, we can get user masterkeys without system masterkey
-    # Get user's masterkeys and decode them with username and password
-    #$masterKeys=Get-UserMasterkeys -UserName $userName -SID $userSID -Password $password
-
-    # Get the system key
-    $systemKey = Get-LSABackupKeys | Where-Object name -eq "RSA"
-    
-    # Get the system masterkeys
-    $masterKeys = Get-SystemMasterkeys -SystemKey $systemKey.Key
-
-    # Get the user's masterkeys
-    $usrMasterKeys = Get-UserMasterkeys -UserName $userName -SystemKey $systemKey.Key -SID $userSID
-
-    # Merge the keys
-    foreach($key in $usrMasterKeys.Keys)
-    {
-        $masterKeys[$key]=$usrMasterKeys[$key]
-    }
+    # Get user's masterkeys and decode them with password
+    $masterKeys = Get-UserMasterkeys -Credentials $ServiceSecret.Credentials
 
     # Get user's credentials with the masterkeys
-    $credentials = Get-LocalUserCredentials -UserName $userName -MasterKeys $masterKeys
+    $credentials = Get-LocalUserCredentials -UserName $ServiceSecret.Credentials.UserName -MasterKeys $masterKeys
 
-    # Try to find the correct credential entry
-    foreach($cred in $credentials)
+    $targetCred = $null
+
+    # If instance id not provided, just get the first one
+    if($InstanceId -eq $null)
     {
-        $target = $cred.Target
-        # Check the target, we are looking for:
-        # LegacyGeneric:target=Microsoft_AzureADConnect_KeySet_{00000000-0000-0000-0000-0000000000}_100000
-        if($target.toLower().Contains(([guid]$instanceid).ToString()))
+        $targetCred = $credentials[0]
+    }
+    else
+    {
+        # Try to find the correct credential entry
+        foreach($cred in $credentials)
         {
-            $keySetId = [int]$target.Split("_")[4]
-            # The keyset is actually a DPAPIBlob, so decrypt it using a native DPAPI method in LOCAL MACHINE context
-            $keySet = [AADInternals.Native]::getDecryptedData($cred.Secret,$entropy.toByteArray())
-            
-            Write-Verbose "KeySet ($keySetId): $(Convert-ByteArrayToHex -Bytes $keySet)"
+            # Check the target, we are looking for:
+            $targetKeySet = "LegacyGeneric:target=Microsoft_AzureADConnect_KeySet_{$($instanceid.ToString().ToUpper())}_$([System.BitConverter]::GetBytes([uint64]$KeySetId)[0..5] -join '')"
 
-            # Parse the keyset
-            $key = Parse-KeySetBlob -Data $keySet
-
-            # Check whether the id and guid matches
-            if($key.Id -eq $keySetId -and $key.Guid -eq $instanceId)
+            if($cred.Target -eq $targetKeySet)
             {
-                $retVal = $key
+                $targetCred = $cred
+                break
             }
-            
         }
     }
 
-    return $retVal
+    try
+    {
+        # The keyset is actually a DPAPIBlob, so decrypt it using a native DPAPI method in LOCAL MACHINE context
+        $keySet = [Security.Cryptography.ProtectedData]::Unprotect($targetCred.Secret,$entropy.toByteArray(),'LocalMachine')
+        Write-Verbose "KeySet: $(Convert-ByteArrayToHex -Bytes $keySet)"
+
+        # Parse the keyset
+        $key = Parse-KeySetBlob -Data $keySet
+    }
+    catch{} # Okay
+
+    return $key
 }
 
 # Parses the MMSK key set blob
@@ -761,7 +745,7 @@ function Parse-KeySetBlob
         # Parse the KeySet
         $p=4 # Skip the MMSK string at the beginning
         $version =       [System.BitConverter]::ToInt32($Data,$p);$p+=4
-        $id =            [System.BitConverter]::ToInt32($Data,$p);$p+=4
+        $id =            [System.BitConverter]::ToInt32($Data[($p+3)..($p)]);$p+=4
         $guid =          [guid][byte[]]$Data[$p..$($p+15)]; $p+=16
         $unk0 =          [System.BitConverter]::ToInt32($Data,$p);$p+=4
         $unk1 =          [System.BitConverter]::ToInt32($Data,$p);$p+=4
@@ -791,15 +775,13 @@ function Parse-KeySetBlob
         Write-Verbose "Key:      $(Convert-ByteArrayToHex -Bytes $key)`n`n"
 
         $attributes=[ordered]@{
-            "Id" =       $id
-            "Guid" =     $guid
-            "CryptAlg" = $enAlg
-            "Key" =      $key
+            "KeySetId"   = $id
+            "InstanceId" = $guid
+            "CryptAlg"   = $enAlg
+            "Key"        = $key
         }
-        
 
         return New-Object PSObject -Property $attributes
-        
     }
 }
 
@@ -838,7 +820,7 @@ function Get-SyncEncryptionKeyInfo
     $SQLreader.Close()
     $SQLClient.Close()
 
-    return New-Object PSObject @{Entropy = $entropy; InstanceId = $instance_id}
+    return New-Object PSObject ([ordered]@{Entropy = $entropy; InstanceId = $instance_id})
 }
 
 # Gets the db connection string from the registry

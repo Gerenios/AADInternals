@@ -112,16 +112,20 @@ function Invoke-ReconAsOutsider
         {
             throw "Domain $DomainName is not registered to Azure AD"
         }
+
+        $openIDConfiguration = Get-OpenIDConfiguration -Domain $DomainName
+
         $tenantName =   ""
         $tenantBrand =  ""
-        $tenantRegion = (Get-OpenIDConfiguration -Domain $DomainName).tenant_region_scope
+        $tenantRegion = $openIDConfiguration.tenant_region_scope
+        $tenantSubscope = Get-TenantSubscope -OpenIDConfiguration $openIDConfiguration
         $tenantSSO =    ""
         
         Write-Verbose "`n*`n* EXAMINING TENANT $tenantId`n*"
 
         
         Write-Verbose "Getting domains.."
-        $domains = Get-TenantDomains -Domain $DomainName
+        $domains = Get-TenantDomains -Domain $DomainName -SubScope $tenantSubscope
         Write-Verbose "Found $($domains.count) domains!"
         
 
@@ -148,7 +152,7 @@ function Invoke-ReconAsOutsider
             $c++
 
             # Check if this is "the initial" domain
-            if([string]::IsNullOrEmpty($tenantName) -and $domain.ToLower() -match "^[^.]*\.onmicrosoft.com$")
+            if([string]::IsNullOrEmpty($tenantName) -and $domain.ToLower() -match '^[^.]*\.onmicrosoft.((com)|(us))$')
             {
                 $tenantName = $domain
                 Write-Verbose "TENANT NAME: $tenantName"
@@ -157,7 +161,7 @@ function Invoke-ReconAsOutsider
             # Check if the tenant has the Desktop SSO (aka Seamless SSO) enabled
             if([string]::IsNullOrEmpty($tenantSSO))
             {
-                $tenantSSO = HasDesktopSSO -Domain $domain
+                $tenantSSO = HasDesktopSSO -Domain $domain -SubScope $tenantSubscope
             }
 
             if(-not $Single -or ($Single -and $DomainName -eq $domain))
@@ -168,23 +172,23 @@ function Invoke-ReconAsOutsider
                 if($exists)
                 {
                     # Check the MX record
-                    $hasCloudMX = HasCloudMX -Domain $domain
+                    $hasCloudMX = HasCloudMX -Domain $domain -SubScope $tenantSubscope
 
                     # Check the SPF record
-                    $hasCloudSPF = HasCloudSPF -Domain $domain
+                    $hasCloudSPF = HasCloudSPF -Domain $domain -SubScope $tenantSubscope
 
                     # Check the DMARC record
                     $hasDMARC = HasDMARC -Domain $domain
 					
 					# Check the DKIM record
-					$hasCloudDKIM = HasCloudDKIM -Domain $domain
+					$hasCloudDKIM = HasCloudDKIM -Domain $domain -SubScope $tenantSubscope
 					
 					# Check the MTA-STS record
-					$hasCloudMTASTS = HasCloudMTASTS -Domain $domain
+					$hasCloudMTASTS = HasCloudMTASTS -Domain $domain -SubScope $tenantSubscope
                 }
 
                 # Get the federation information
-                $realmInfo = Get-UserRealmV2 -UserName "nn@$domain"
+                $realmInfo = Get-UserRealmV2 -UserName "nn@$domain" -SubScope $tenantSubscope
                 if([string]::IsNullOrEmpty($tenantBrand))
                 {
                     $tenantBrand = $realmInfo.FederationBrandName
@@ -243,6 +247,10 @@ function Invoke-ReconAsOutsider
         Write-Host "Tenant name:        $tenantName"
         Write-Host "Tenant id:          $tenantId"
         Write-Host "Tenant region:      $tenantRegion"
+        if(![string]::IsNullOrEmpty($tenantSubscope))
+        {
+            Write-Host "Tenant sub region:  $tenantSubscope"
+        }
         
         # DesktopSSO status not definitive with a single domain
         if(!$Single -or $tenantSSO -eq $true)
@@ -370,13 +378,15 @@ function Invoke-UserEnumerationAsOutsider
     {
         foreach($User in $UserName)
         {
+            $tenantSubscope = Get-TenantSubscope -Domain $UserName.Split("@")[1]
+
             # If the user is external, change to correct format
             if($Method -eq "Normal" -and $External)
             {
                 $User="$($User.Replace("@","_"))#EXT#@$domain"
             }
 
-            new-object psobject -Property ([ordered]@{"UserName"=$User;"Exists" = $(DoesUserExists -User $User -Method $Method)})
+            new-object psobject -Property ([ordered]@{"UserName"=$User;"Exists" = $(DoesUserExists -User $User -Method $Method -SubScope $tenantSubscope)})
         }
     }
 }

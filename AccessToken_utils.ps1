@@ -49,6 +49,11 @@ $FOCIs = @{
     "e9b154d0-7658-433b-bb25-6b8e0a8a7c59" = "Outlook Lite"
 }
 
+# Resource ids
+$RESIDs = @{
+    "00000003-0000-0000-c000-000000000000" = "https://graph.windows.net"
+}
+
 # Stored tokens (access & refresh)
 $tokens=@{}
 $refresh_tokens=@{}
@@ -135,11 +140,13 @@ function Get-LoginInformation
             $UserName = "nn@$Domain"
         }
 
+        $subScope = Get-TenantSubscope -Domain $UserName.Split("@")[1]
+
         # Gather login information using different APIs
-        $realm1=Get-UserRealm -UserName $UserName          # common/userrealm API 1.0
-        $realm2=Get-UserRealmExtended -UserName $UserName  # common/userrealm API 2.0
-        $realm3=Get-UserRealmV2 -UserName $UserName        # GetUserRealm.srf (used in the old Office 365 login experience)
-        $realm4=Get-CredentialType -UserName $UserName     # common/GetCredentialType (used in the "new" Office 365 login experience)
+        $realm1=Get-UserRealm -UserName $UserName -SubScope $subScope         # common/userrealm API 1.0
+        $realm2=Get-UserRealmExtended -UserName $UserName -SubScope $subScope # common/userrealm API 2.0
+        $realm3=Get-UserRealmV2 -UserName $UserName -SubScope $subScope       # GetUserRealm.srf (used in the old Office 365 login experience)
+        $realm4=Get-CredentialType -UserName $UserName -SubScope $subScope    # common/GetCredentialType (used in the "new" Office 365 login experience)
 
         # Create a return object
         $attributes = @{
@@ -209,14 +216,16 @@ function Get-UserRealm
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [String]$UserName
-
+        [String]$UserName,
+        [Parameter(Mandatory=$False)]
+        [Microsoft.PowerShell.Commands.WebRequestSession]$webSession,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
-      
         # Call the API
-        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/common/userrealm/$UserName"+"?api-version=1.0")
+        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("$(Get-TenantLoginUrl -SubScope $SubScope)/common/userrealm/$UserName"+"?api-version=1.0") -WebSession $webSession -Headers @{"User-agent" = Get-UserAgent}
 
         # Verbose
         Write-Verbose "USER REALM $($userRealm | Out-String)"
@@ -266,14 +275,14 @@ function Get-UserRealmExtended
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [String]$UserName
-
+        [String]$UserName,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
-      
         # Call the API
-        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/common/userrealm/$UserName"+"?api-version=2.0")
+        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("$(Get-TenantLoginUrl -SubScope $SubScope)/common/userrealm/$UserName"+"?api-version=2.0") -Headers @{"User-agent" = Get-UserAgent}
 
         # Verbose
         Write-Verbose "USER REALM $($userRealm | Out-String)"
@@ -322,14 +331,14 @@ function Get-UserRealmV2
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [String]$UserName
-
+        [String]$UserName,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
-      
-        # Call the API
-        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/GetUserRealm.srf?login=$UserName")
+       # Call the API
+        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("$(Get-TenantLoginUrl -SubScope $SubScope)/GetUserRealm.srf?login=$UserName") -Headers @{"User-agent" = Get-UserAgent}
 
         # Verbose
         Write-Verbose "USER REALM: $($userRealm | Out-String)"
@@ -394,20 +403,25 @@ function Get-CredentialType
         [Parameter(Mandatory=$False)]
         [String]$FlowToken,
         [Parameter(Mandatory=$False)]
-        [String]$OriginalRequest
+        [String]$OriginalRequest,
+        [Parameter(Mandatory=$False)]
+        [Microsoft.PowerShell.Commands.WebRequestSession]$webSession,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
         # Create a body for REST API request
         $body = @{
             "username"=$UserName
-            "isOtherIdpSupported"  = $true
-	        "checkPhones"          = $true
-	        "isRemoteNGCSupported" = $false
-	        "isCookieBannerShown"  = $false
-	        "isFidoSupported"      = $false
-            "originalRequest"      = $OriginalRequest
-            "flowToken"            = $FlowToken
+            "isOtherIdpSupported"   = $true
+	        "checkPhones"           = $true
+	        "isRemoteNGCSupported"  = $true
+	        "isCookieBannerShown"   = $false
+	        "isFidoSupported"       = $true
+            "isAccessPassSupported" = $true
+            "originalRequest"       = $OriginalRequest
+            "flowToken"             = $FlowToken
         }
 
         # TAP support can only be requested if originalRequest is provided. Otherwise we'll get error code 6000.
@@ -419,10 +433,11 @@ function Get-CredentialType
         
       
         # Call the API
-        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("https://login.microsoftonline.com/common/GetCredentialType") -ContentType "application/json; charset=UTF-8" -Method POST -Body ($body|ConvertTo-Json)
+        $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("$(Get-TenantLoginUrl -SubScope $SubScope)/common/GetCredentialType") -ContentType "application/json; charset=UTF-8" -Method POST -Body ($body|ConvertTo-Json) -WebSession $webSession -Headers @{"User-agent" = Get-UserAgent}
 
-        # Verbose
-        Write-Verbose "CREDENTIAL TYPE: $($userRealm | Out-String)"
+        # Verbose & Debug
+        Write-Verbose "CREDENTIAL TYPE: Exist=$($userRealm.IfExistsResult), Federated=$(![string]::IsNullOrEmpty($userRealm.Credentials.FederationRedirectUrl))"
+        Write-Debug "CREDENTIAL TYPE: $($userRealm | Out-String)"
 
         # Return
         $userRealm
@@ -490,7 +505,7 @@ function Get-OpenIDConfiguration
 
       
         # Call the API
-        $openIdConfig=Invoke-RestMethod -UseBasicParsing "https://login.microsoftonline.com/$domain/.well-known/openid-configuration"
+        $openIdConfig=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/$domain/.well-known/openid-configuration" -Headers @{"User-agent" = Get-UserAgent}
 
         # Return
         $openIdConfig
@@ -539,7 +554,7 @@ function Get-TenantID
 
             Try
             {
-                $TenantId = (Invoke-RestMethod -UseBasicParsing -Uri "https://odc.officeapps.live.com/odc/v2.1/federationprovider?domain=$domain").TenantId
+                $TenantId = (Invoke-RestMethod -UseBasicParsing -Uri "https://odc.officeapps.live.com/odc/v2.1/federationprovider?domain=$domain" -Headers @{"User-agent" = Get-UserAgent}).TenantId
             }
             catch
             {
@@ -767,165 +782,6 @@ function Get-OAuthInfoUsingSAML
     }
 }
 
-# Return OAuth information for the given user
-function Get-OAuthInfo
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(Mandatory=$True)]
-        [String]$Resource,
-        [Parameter(Mandatory=$False)]
-        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894",
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant="common"
-    )
-    Begin
-    {
-        # Create the headers. We like to be seen as Outlook.
-        $headers = @{
-            "User-Agent" = "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 10.0; WOW64; Trident/7.0; .NET4.0C; .NET4.0E; Tablet PC 2.0; Microsoft Outlook 16.0.4266)"
-        }
-
-        if([string]::IsNullOrEmpty($Tenant))
-        {
-            $Tenant="common"
-        }
-    }
-    Process
-    {
-        # Get the user realm
-        $userRealm = Get-UserRealm($Credentials.UserName)
-
-        # Check the authentication type
-        if($userRealm.account_type -eq "Unknown")
-        {
-            Write-Error "User type  of $($Credentials.Username) is Unknown!"
-            return $null
-        }
-        elseif($userRealm.account_type -eq "Managed")
-        {
-            # If authentication type is managed, we authenticate directly against Microsoft Online
-            # with user name and password to get access token
-
-            # Create a body for REST API request
-            $body = @{
-                "resource"=$Resource
-                "client_id"=$ClientId
-                "grant_type"="password"
-                "username"=$Credentials.UserName
-                "password"=$Credentials.GetNetworkCredential().Password
-                "scope"="openid"
-            }
-
-            # Debug
-            Write-Debug "AUTHENTICATION BODY: $($body | Out-String)"
-
-            # Set the content type and call the Microsoft Online authentication API
-            $contentType="application/x-www-form-urlencoded"
-            try
-            {
-                $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
-            }
-            catch
-            {
-                Throw ($_.ErrorDetails.Message | convertfrom-json).error_description
-            }
-        }
-        else
-        {
-            # If authentication type is Federated, we must first authenticate against the identity provider
-            # to fetch SAML token and then get access token from Microsoft Online
-
-            # Get the federation metadata url from user realm
-            $federation_metadata_url=$userRealm.federation_metadata_url
-
-            # Call the API to get metadata
-            [xml]$response=Invoke-RestMethod -UseBasicParsing -Uri $federation_metadata_url 
-
-            # Get the url of identity provider endpoint.
-            # Note! Tested only with AD FS - others may or may not work
-            $federation_url=($response.definitions.service.port | where name -eq "UserNameWSTrustBinding_IWSTrustFeb2005Async").address.location
-
-            # login.live.com
-            # TODO: Fix
-            #$federation_url=$response.EntityDescriptor.RoleDescriptor[1].PassiveRequestorEndpoint.EndpointReference.Address
-
-            # Set credentials and other needed variables
-            $username=$Credentials.UserName
-            $password=$Credentials.GetNetworkCredential().Password
-            $created=(Get-Date).ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
-            $expires=(Get-Date).AddMinutes(10).ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
-            $message_id=(New-Guid).ToString()
-            $user_id=(New-Guid).ToString()
-
-            # Set headers
-            $headers = @{
-                "SOAPAction"="http://schemas.xmlsoap.org/ws/2005/02/trust/RST/Issue"
-                "Host"=$federation_url.Split("/")[2]
-                "client-request-id"=(New-Guid).toString()
-            }
-
-            # Debug
-            Write-Debug "FED AUTHENTICATION HEADERS: $($headers | Out-String)"
-            
-            # Create the SOAP envelope
-            $envelope=@"
-                <s:Envelope xmlns:s='http://www.w3.org/2003/05/soap-envelope' xmlns:a='http://www.w3.org/2005/08/addressing' xmlns:u='http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd'>
-	                <s:Header>
-		                <a:Action s:mustUnderstand='1'>http://schemas.xmlsoap.org/ws/2005/02/trust/RST/Issue</a:Action>
-		                <a:MessageID>urn:uuid:$message_id</a:MessageID>
-		                <a:ReplyTo>
-			                <a:Address>http://www.w3.org/2005/08/addressing/anonymous</a:Address>
-		                </a:ReplyTo>
-		                <a:To s:mustUnderstand='1'>$federation_url</a:To>
-		                <o:Security s:mustUnderstand='1' xmlns:o='http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd'>
-			                <u:Timestamp u:Id='_0'>
-				                <u:Created>$created</u:Created>
-				                <u:Expires>$expires</u:Expires>
-			                </u:Timestamp>
-			                <o:UsernameToken u:Id='uuid-$user_id'>
-				                <o:Username>$username</o:Username>
-				                <o:Password>$password</o:Password>
-			                </o:UsernameToken>
-		                </o:Security>
-	                </s:Header>
-	                <s:Body>
-		                <trust:RequestSecurityToken xmlns:trust='http://schemas.xmlsoap.org/ws/2005/02/trust'>
-			                <wsp:AppliesTo xmlns:wsp='http://schemas.xmlsoap.org/ws/2004/09/policy'>
-				                <a:EndpointReference>
-					                <a:Address>urn:federation:MicrosoftOnline</a:Address>
-				                </a:EndpointReference>
-			                </wsp:AppliesTo>
-			                <trust:KeyType>http://schemas.xmlsoap.org/ws/2005/05/identity/NoProofKey</trust:KeyType>
-			                <trust:RequestType>http://schemas.xmlsoap.org/ws/2005/02/trust/Issue</trust:RequestType>
-		                </trust:RequestSecurityToken>
-	                </s:Body>
-                </s:Envelope>
-"@
-            # Debug
-            Write-Debug "FED AUTHENTICATION: $envelope"
-
-            # Set the content type and call the authentication service            
-            $contentType="application/soap+xml"
-            [xml]$xmlResponse=Invoke-RestMethod -UseBasicParsing -Uri $federation_url -ContentType $contentType -Method POST -Body $envelope -Headers $headers
-
-            # Get the SAML token from response and encode it with Base64
-            $samlToken=$xmlResponse.Envelope.Body.RequestSecurityTokenResponse.RequestedSecurityToken.Assertion.OuterXml
-            $encodedSamlToken= [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($samlToken))
-
-            $jsonResponse = Get-OAuthInfoUsingSAML -SAMLToken $samlToken -Resource $Resource -ClientId $ClientId
-        }
-        
-        # Debug
-        Write-Debug "AUTHENTICATION JSON: $($jsonResponse | Out-String)"
-
-        # Return
-        $jsonResponse 
-    }
-}
-
 # Parse access token and return it as PS object
 function Read-Accesstoken
 {
@@ -1096,17 +952,12 @@ function Prompt-Credentials
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        [Parameter(Mandatory=$False)]
+        [string]$RedirectURI
     )
     Process
     {
-        # User-Agent
-        $userAgent = Get-Setting -Setting "User-Agent"
-        if([string]::IsNullOrEmpty($userAgent))
-        {
-            $userAgent = "AADInternals"
-        }
-
         # Set AMR values as needed
         $amr = $null
         if($ForceMFA)
@@ -1120,9 +971,10 @@ function Prompt-Credentials
 
         # If we have credentials, try first using ROPC flow
         $response = $null
-        if($Credentials -and [string]::IsNullOrEmpty($amr))
+        if($Credentials -and [string]::IsNullOrEmpty($amr) -and [string]::IsNullOrEmpty((Get-CredentialType -UserName $Credentials.UserName).Credentials.FederationRedirectUrl))
         {
-            Write-Verbose "Credentials provided and no MFA enforced, trying ROPC flow."
+
+            Write-Verbose "Domain not federated, credentials provided, and no MFA enforced. Trying ROPC flow."
 
             # Create a body for REST API request
             $body = @{
@@ -1138,10 +990,14 @@ function Prompt-Credentials
             Write-Debug "AUTHENTICATION BODY: $($body | Out-String)"
 
             # Set the content type and call the Microsoft Online authentication API
-            $contentType="application/x-www-form-urlencoded"
+			# Headers
+			$headers = @{
+				"Content-Type" = "application/x-www-form-urlencoded"
+				"User-Agent"   = Get-UserAgent
+			}
             try
             {
-                $response=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
+                $response=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -Method POST -Body $body -Headers $headers
             }
             catch
             {
@@ -1158,22 +1014,28 @@ function Prompt-Credentials
             }
 
             # Get the authorization code
-            $authorizationCode = Get-AuthorizationCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant -AMR $amr -RefreshTokenCredential $RefreshTokenCredential -UserAgent $userAgent -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP
+            $authorizationCode = Get-AuthorizationCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant -AMR $amr -RefreshTokenCredential $RefreshTokenCredential -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectURI
 
             if($authorizationCode)
             {
+
+                if([string]::IsNullOrEmpty($RedirectURI))
+                {
+                    $RedirectURI = Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
+                }
+
                 # Construct the body for auth code grant
                 $body = @{
                     client_id    = $ClientId
                     grant_type   = "authorization_code"
                     code         = $authorizationCode
-                    redirect_uri = Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
+                    redirect_uri = $RedirectURI
                 }
 
                 # Headers
                 $headers = @{
                     "Content-Type" = "application/x-www-form-urlencoded"
-                    "User-Agent"   = $userAgent
+                    "User-Agent"   = Get-UserAgent
                 }
                 
                 $response = Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token" -Method POST -Body $body -Headers $headers
@@ -1580,17 +1442,42 @@ function Get-TenantDomains
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [String]$Domain
+        [String]$Domain,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
+        # Get Tenant Region subscope from Open ID configuration if not provided
+        if([string]::IsNullOrEmpty($SubScope))
+        {
+            $SubScope = Get-TenantSubscope -Domain $Domain
+        }
+
+        # Use the correct url
+        switch($SubScope)
+        {
+            "DOD" # DoD
+            {
+                $uri = "https://autodiscover-s-dod.office365.us/autodiscover/autodiscover.svc"
+            }
+            "DODCON" # GCC-High
+            {
+                $uri = "https://autodiscover-s.office365.us/autodiscover/autodiscover.svc"
+            }
+            default # Commercial/GCC
+            {
+                $uri = "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"
+            }
+        }
+
         # Create the body
         $body=@"
 <?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:exm="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:ext="http://schemas.microsoft.com/exchange/services/2006/types" xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
 	<soap:Header>
 		<a:Action soap:mustUnderstand="1">http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation</a:Action>
-		<a:To soap:mustUnderstand="1">https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc</a:To>
+		<a:To soap:mustUnderstand="1">$uri</a:To>
 		<a:ReplyTo>
 			<a:Address>http://www.w3.org/2005/08/addressing/anonymous</a:Address>
 		</a:ReplyTo>
@@ -1608,10 +1495,10 @@ function Get-TenantDomains
         $headers=@{
             "Content-Type" = "text/xml; charset=utf-8"
             "SOAPAction" =   '"http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation"'
-            "User-Agent" =   "AutodiscoverClient"
+            "User-Agent" =   Get-UserAgent
         }
         # Invoke
-        $response = Invoke-RestMethod -UseBasicParsing -Method Post -uri "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc" -Body $body -Headers $headers
+        $response = Invoke-RestMethod -UseBasicParsing -Method Post -uri $uri -Body $body -Headers $headers
 
         # Return
 		$domains = $response.Envelope.body.GetFederationInformationResponseMessage.response.Domains.Domain
@@ -2654,8 +2541,6 @@ function Get-AuthorizationCode
         [Parameter(Mandatory=$False)]
         [string]$RefreshTokenCredential,
         [Parameter(Mandatory=$False)]
-        [string]$UserAgent="AADInternals",
-        [Parameter(Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(Mandatory=$False)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
@@ -2666,10 +2551,97 @@ function Get-AuthorizationCode
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        [Parameter(Mandatory=$False)]
+        [string]$RedirectURI
     )
     Begin
     {
+        # Function for processing ADFS authentication
+        function Process-ADFSLogin
+        {
+            [cmdletbinding()]
+            Param(
+                [Parameter(Mandatory=$False)]
+                [System.Management.Automation.PSCredential]$Credentials,
+                [Parameter(Mandatory=$False)]
+                [String]$UserName,
+                [Parameter(Mandatory=$False)]
+                [Microsoft.PowerShell.Commands.WebRequestSession]$webSession,
+                [Parameter(Mandatory=$True)]
+                [String]$FederationRedirectUrl
+            )
+            Process
+            {
+                # If authentication type is Federated, we must first authenticate against the identity provider
+                # to fetch SAML token and then get access token from Microsoft Online
+    
+                if($Credentials)
+                {
+                    $UserName = $Credentials.UserName
+                }
+                
+                # Only ADFS is supported
+                if(!$FederationRedirectUrl.Contains("/adfs/"))
+                {
+                    Throw "Only ADFS federation is supported."
+                }
+    
+                # Loop until we get a correct password or get CTRL+C
+                $passwordOk = $false
+                while(-not $passwordOk)
+                {
+                    # Set credentials
+                    if($Credentials)
+                    {
+                        $password = $Credentials.GetNetworkCredential().Password
+                        # Set Credentials to $null to avoid authentication loop
+                        $Credentials = $null
+                    }
+                    # Prompt for password
+                    else
+                    {
+                        $password = Read-HostPassword -Prompt "Password"
+                    }
+
+                    if($password -eq $null)
+                    {
+                        return $null
+                    }
+
+                    # Set the parameters
+                    $body = @{
+                        "UserName"   = $UserName
+                        "Kmsi"	     = ""
+                        "AuthMethod" = "FormsAuthentication"
+                        "Password"	 = $password
+                    }
+                    try 
+                    {
+                        # Authenticate
+                        $response = Invoke-WebRequest2 -Uri $FederationRedirectUrl -Method POST -Body $body -Headers $Headers -WebSession $webSession
+                        [xml]$xmlResponse = $response.content
+                        
+                        # Extract WS-Fed parameters
+                        $body=@{}
+                        foreach($input in $xmlResponse.html.body.form.input)
+                        {
+                            $body[$input.name] = $input.value
+                        }
+                        $url = "https://login.microsoftonline.com/login.srf"
+
+                        return Invoke-WebRequest2 -Uri $url -WebSession $webSession -Method Post -MaximumRedirection 0 -ErrorAction SilentlyContinue -Body $body -Headers @{"User-Agent"="Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+                    }
+                    catch
+                    {
+                        $_
+                        # Failed, probably just wrong password
+                    }
+                    
+                }
+            }
+        }
+
         # Function for processing password & TAP
         function Process-Login
         {
@@ -2858,7 +2830,40 @@ function Get-AuthorizationCode
                             # Something severe
                             if($config.strServiceExceptionMessage)
                             {
-                                throw $config.strServiceExceptionMessage
+                                # Wrong redirect URI
+                                if($config.strServiceExceptionMessage.StartsWith("AADSTS50011"))
+                                {
+                                    Write-Verbose "Invalid redirect URI, trying to get correct one"
+                                    $newRedirectURI=""
+                                    try
+                                    {
+                                        $url = "https://login.microsoftonline.com/common/oauth2/authorize?client_id=$ClientID&response_type=code"
+                                        $response = Invoke-WebRequest2 -Uri $url -WebSession $LoginSession -Method Get -MaximumRedirection 0 -Headers $Headers -ErrorAction SilentlyContinue
+
+                                        # Parse from the Location header
+                                        if($response.StatusCode -eq 302)
+                                        {
+                                            $newRedirectURI = $response.Headers.Location.Substring(0,$response.Headers.Location.IndexOf("?"))
+                                            Write-Verbose "Redirect URI: $newRedirectURI"
+                                            Write-Warning "Wrong RedirectURI $RedirectURI for client $ClientID."
+                                            Write-Warning "Try again with switch -RedirectURI $newRedirectURI"
+                                        }
+                                        else
+                                        {
+                                            Write-Error $config.strServiceExceptionMessage
+                                        }
+
+                                        return $null
+                                    }
+                                    catch
+                                    {
+                                        throw $config.strServiceExceptionMessage
+                                    }
+                                }
+                                else
+                                {
+                                    throw $config.strServiceExceptionMessage
+                                }
                             }
                             # Wrong password etc
                             elseif($config.sErrorCode -ne $null)
@@ -2891,7 +2896,7 @@ function Get-AuthorizationCode
                         # Ok, we got the code!
                         302
                         {
-                        $passwordOk = $true
+                            $passwordOk = $true
                         }
 
                     }
@@ -2920,12 +2925,15 @@ function Get-AuthorizationCode
         }
 
         # Get redirect url
-        $auth_redirect= Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
-                        
+        if([string]::IsNullOrEmpty($RedirectURI))
+        {
+            $RedirectURI = Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
+        }
+                                
         # Create the url
         $loginEndPoint = "https://login.microsoftonline.com"
         $request_id=(New-Guid).ToString()
-        $url="$loginEndPoint/$Tenant/oauth2/authorize?resource=$Resource&client_id=$ClientId&response_type=code&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=openid profile&response_mode=query&sso_reload=True"
+        $url="$loginEndPoint/$Tenant/oauth2/authorize?resource=$Resource&client_id=$ClientId&response_type=code&redirect_uri=$RedirectURI&client-request-id=$request_id&prompt=login&scope=openid profile&response_mode=query&sso_reload=True"
 
         # Authentication Method References (AMR), "mfa" or "ngcmfa" will enforce MFA
         # Ref: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-oapx/0fc398ca-88d0-4118-ae60-c3033e396e60
@@ -2936,7 +2944,7 @@ function Get-AuthorizationCode
 
         # Headers
         $headers = @{
-            "User-Agent" = $UserAgent
+            "User-Agent" = Get-UserAgent
         }
         # Set RefreshTokenCredential for device authentication
         if($RefreshTokenCredential)
@@ -2966,18 +2974,12 @@ function Get-AuthorizationCode
         }
 
         # Get credential type
-        $credType = Get-CredentialType -UserName $userName -FlowToken $config.sFT -OriginalRequest $config.sCtx
-
-        # Check the credential type (managed vs federated)
-        if($credType.Credentials.FederationRedirectUrl)
-        {
-            throw "Federated identities are not supported."
-        }
+        $credType = Get-CredentialType -UserName $userName -FlowToken $config.sFT -OriginalRequest $config.sCtx -webSession $LoginSession
 
         # Check whether we are throttling
         if($credType.ThrottleStatus -eq 1)
         {
-            Throw "Requests throttled. Wait a minute and try again."
+            Write-Warning "Requests throttled. If authentication fails, wait a minute and try again."
         }
 
         # Does the user exist?
@@ -2986,114 +2988,178 @@ function Get-AuthorizationCode
             Throw "We couldn't find an account with that username." 
         }
 
-        # Ask which account to use (MSA or AAD)
-        # MSA not supported at the moment, so skip this
-        <#
-        $accountType = 0 # AAD
-        if($credType.IfExistsResult -eq 6)
-        {
-            $options = @(
-                    New-Object System.Management.Automation.Host.ChoiceDescription "&1 Work or school account"
-                    New-Object System.Management.Automation.Host.ChoiceDescription "&2 Personal account"
-                )
-            $accountType = $host.UI.PromptForChoice("Choose account","It looks like this email is used with more than one account from Microsoft. Which one do you want to use?",$options,0)
-        }
-        #>
+        # Check the credential type (managed vs federated)
+        $isFederated = ![string]::IsNullOrEmpty($credType.Credentials.FederationRedirectUrl)
 
-        # Choose authentication method
-        $authOptions = @()
-        $nAuthOption = 0
-        $pwdOption = -2
-        $cbaOption = -2
-        $tapOption = -2
-
-        # Password?
-        if($credType.Credentials.HasPassword -eq $True)
+        # Do the federated domain authentication
+        if($isFederated)
         {
-            Write-Verbose "Password enabled."
-            $pwdOption = $nAuthOption
-            $nAuthOption++
-            $authOptions += New-Object System.Management.Automation.Host.ChoiceDescription "&$nAuthOption Password" 
-            
-        }
-
-        # Temporary Access Pass (TAP)?
-        if($credType.Credentials.HasAccessPass -eq $True)
-        {
-            Write-Verbose "Temporary Access Pass enabled."
-            $tapOption = $nAuthOption
-            $nAuthOption++
-            $authOptions += New-Object System.Management.Automation.Host.ChoiceDescription "&$nAuthOption Temporary Access Pass"
-        }
-
-        # Certificate Based Authentication (CBA)?
-        if($credType.Credentials.HasCertAuth -eq $True)
-        {
-            Write-Verbose "CBA enabled."
-            if($Certificate)
+            # Create WS-Fed response
+            $response = Process-ADFSLogin -Credentials $Credentials -UserName $userName -webSession $loginSession -FederationRedirectUrl $credType.Credentials.FederationRedirectUrl
+           
+            switch($response.StatusCode)
             {
-                $cbaOption = $nAuthOption
-                $nAuthOption++
-                $authOptions += New-Object System.Management.Automation.Host.ChoiceDescription "&$nAuthOption Certificate"
-            }
-            else
-            {
-                Write-Verbose "No certificate provided, skipping CBA."
-            }
-        }
+                # We got an error or MFA prompt
+                200
+                {
+                    $config = Parse-LoginMicrosoftOnlineComConfig -Body $response.Content
 
-        # No supported authentication options found :(
-        if($authOptions.Count -eq 0)
-        {
-            Throw "No supported authentication options found!"
+                    # Something severe
+                    if($config.strServiceExceptionMessage)
+                    {
+                        throw $config.strServiceExceptionMessage
+                    }
+                    # Wrong password etc
+                    elseif($config.sErrorCode -ne $null)
+                    {
+                        # When using TAP for MFA, the correct error code is not returned
+                        if($config.sErrorCode -eq "InvalidAccessPass")
+                        {
+                            $AADError = "130503: Your Temporary Access Pass is incorrect. If you don't know your pass, contact your administrator."
+                        }
+                        # Get error text from Azure AD
+                        else
+                        {
+                            $AADError = Get-Error -ErrorCode $config.sErrorCode
+                        }
+                        # We don't want to loop with provided password/TAP so throw the error
+                        if($isTAP -and (-not [string]::IsNullOrEmpty($TAP)))
+                        {
+                            Throw $AADError
+                        }
+
+                        Write-Host $AADError -ForegroundColor Red
+                    }
+                    # MFA
+                    elseif($config.arrUserProofs -ne $null)
+                    {
+                        $MFA = $true
+                    }
+                }
+                # Ok, we got the code!
+                302
+                {
+                    $passwordOk = $true
+                }
+
+            }
+
+            #$config   = $loginResponse.Config
+            #$MFA      = $loginResponse.MFA
+            #$response = $loginResponse.Response
         }
-        # Just one option so use that
-        elseif($authOptions.Count -eq 1)
-        {
-            $authOption = 0
-        }
-        # If we have TAP and it's available, use that
-        elseif($tapOption -ge 0 -and -not [string]::IsNullOrEmpty($TAP))
-        {
-            $authOption = $tapOption
-        }
-        # Prompt for options
+        # Do the managed domain authentication
         else
         {
-            $authOption = $host.UI.PromptForChoice("Authentication options","Choose authentication method",[System.Management.Automation.Host.ChoiceDescription[]]$authOptions,0)
-        }
-        
-        switch($authOption)
-        {
-            $pwdOption
+            # Ask which account to use (MSA or AAD)
+            # MSA not supported at the moment, so skip this
+            <#
+            $accountType = 0 # AAD
+            if($credType.IfExistsResult -eq 6)
             {
-                $cPWD = $true
+                $options = @(
+                        New-Object System.Management.Automation.Host.ChoiceDescription "&1 Work or school account"
+                        New-Object System.Management.Automation.Host.ChoiceDescription "&2 Personal account"
+                    )
+                $accountType = $host.UI.PromptForChoice("Choose account","It looks like this email is used with more than one account from Microsoft. Which one do you want to use?",$options,0)
             }
-            $cbaOption
-            {
-                $cCBA = $true
-            }
-            $tapOption
-            {
-                $cTAP = $true
-            }
-            default
-            {
-                return $null
-            }
-        }
+            #>
 
-        # PWD & TAP
-        if($cPWD -or $cTAP)
-        {
-            $loginResponse = Process-Login -Credentials $Credentials -Config $config -IsTAP ($cTAP -eq $true) -TAP $TAP
-            if($loginResponse -eq $null)
+            # Choose authentication method
+            $authOptions = @()
+            $nAuthOption = 0
+            $pwdOption = -2
+            $cbaOption = -2
+            $tapOption = -2
+
+            # Password?
+            if($credType.Credentials.HasPassword -eq $True)
             {
-                return $null
+                Write-Verbose "Password enabled."
+                $pwdOption = $nAuthOption
+                $nAuthOption++
+                $authOptions += New-Object System.Management.Automation.Host.ChoiceDescription "&$nAuthOption Password" 
+                
             }
-            $config   = $loginResponse.Config
-            $MFA      = $loginResponse.MFA
-            $response = $loginResponse.Response
+
+            # Temporary Access Pass (TAP)?
+            if($credType.Credentials.HasAccessPass -eq $True)
+            {
+                Write-Verbose "Temporary Access Pass enabled."
+                $tapOption = $nAuthOption
+                $nAuthOption++
+                $authOptions += New-Object System.Management.Automation.Host.ChoiceDescription "&$nAuthOption Temporary Access Pass"
+            }
+
+            # Certificate Based Authentication (CBA)?
+            if($credType.Credentials.HasCertAuth -eq $True)
+            {
+                Write-Verbose "CBA enabled."
+                if($Certificate)
+                {
+                    $cbaOption = $nAuthOption
+                    $nAuthOption++
+                    $authOptions += New-Object System.Management.Automation.Host.ChoiceDescription "&$nAuthOption Certificate"
+                }
+                else
+                {
+                    Write-Verbose "No certificate provided, skipping CBA."
+                }
+            }
+
+            # No supported authentication options found :(
+            if($authOptions.Count -eq 0)
+            {
+                Throw "No supported authentication options found!"
+            }
+            # Just one option so use that
+            elseif($authOptions.Count -eq 1)
+            {
+                $authOption = 0
+            }
+            # If we have TAP and it's available, use that
+            elseif($tapOption -ge 0 -and -not [string]::IsNullOrEmpty($TAP))
+            {
+                $authOption = $tapOption
+            }
+            # Prompt for options
+            else
+            {
+                $authOption = $host.UI.PromptForChoice("Authentication options","Choose authentication method",[System.Management.Automation.Host.ChoiceDescription[]]$authOptions,0)
+            }
+            
+            switch($authOption)
+            {
+                $pwdOption
+                {
+                    $cPWD = $true
+                }
+                $cbaOption
+                {
+                    $cCBA = $true
+                }
+                $tapOption
+                {
+                    $cTAP = $true
+                }
+                default
+                {
+                    return $null
+                }
+            }
+
+            # PWD & TAP
+            if($cPWD -or $cTAP)
+            {
+                $loginResponse = Process-Login -Credentials $Credentials -Config $config -IsTAP ($cTAP -eq $true) -TAP $TAP
+                if($loginResponse -eq $null)
+                {
+                    return $null
+                }
+                $config   = $loginResponse.Config
+                $MFA      = $loginResponse.MFA
+                $response = $loginResponse.Response
+            }
         }
 
         if($MFA)
@@ -3167,7 +3233,7 @@ function Get-AuthorizationCode
             }
 
             $headers = @{
-                "User-Agent"   = $userAgent
+                "User-Agent"   = Get-UserAgent
                 "canary"       = $config.apiCanary
                 "Content-Type" = "application/json; charset=utf-8"
             }
@@ -3260,7 +3326,7 @@ function Get-AuthorizationCode
                             $url = $config.urlEndAuth
 
                             $headers = @{
-                                "User-Agent"   = $userAgent
+                                "User-Agent"   = Get-UserAgent
                                 "canary"       = $config.apiCanary
                                 "Content-Type" = "application/json; charset=utf-8"
                             }
@@ -3282,7 +3348,7 @@ function Get-AuthorizationCode
                             $url = "$($config.urlEndAuth)?authMethodId=$mfaMethod&pollCount=$p"
 
                             $headers = @{
-                                "User-Agent"     = $userAgent
+                                "User-Agent"     = Get-UserAgent
                                 "x-ms-sessionId" = $response.SessionId
                                 "x-ms-flowToken" = $response.FlowToken
                                 "x-ms-ctx"       = $response.Ctx
@@ -3294,7 +3360,7 @@ function Get-AuthorizationCode
                         {
                             # SAS/ProcessAuth
                             $headers = @{
-                                "User-Agent"   = $userAgent
+                                "User-Agent"   = Get-UserAgent
                                 "Content-Type" = "application/x-www-form-urlencoded"
                             }
 
@@ -3325,7 +3391,7 @@ function Get-AuthorizationCode
         # Some weird redirect again
         if($response.Content.Contains("https://device.login.microsoftonline.com"))
         {
-            Write-Warning "Got an error, try using another User-Agent, current is: $(Get-Setting -Setting "User-Agent")"
+            Write-Warning "Got an error, try using another User-Agent, current is: $(Get-UserAgent)"
             throw "Got unexpected redirect to https://device.login.microsoftonline.com"
         }
 
@@ -3333,8 +3399,13 @@ function Get-AuthorizationCode
         $config = Parse-LoginMicrosoftOnlineComConfig -Body $response.Content
         if($config.strServiceExceptionMessage)
         {
-            Write-Warning "Got an error, try using another User-Agent, current is: $(Get-Setting -Setting "User-Agent")"
+            Write-Warning "Got an error, try using another User-Agent, current is: $(Get-UserAgent)"
             throw $config.strServiceExceptionMessage
+        }
+        elseif($config.sErrorCode -ne $null)
+        {
+            $AADError = Get-Error -ErrorCode $config.sErrorCode
+            throw $AADError
         }
 
         $authorizationCode = Parse-CodeFromResponse -Response $response
@@ -3343,3 +3414,55 @@ function Get-AuthorizationCode
     }
 }
 
+# May 21st 2024
+# Return tenant subscope from Open ID configuration
+function Get-TenantSubscope
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Domain',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(ParameterSetName='Config',Mandatory=$True)]
+        [PSObject]$OpenIDConfiguration
+    )
+    Process
+    {
+        # Get Tenant Region subscope from Open ID configuration
+        if($OpenIDConfiguration -eq $null)
+        {
+            $OpenIDConfiguration = Get-OpenIDConfiguration -Domain $Domain
+        }
+
+        return $OpenIDConfiguration.tenant_region_sub_scope
+    }
+}
+
+# May 21st 2024
+# Return tenant login url based on the subscope
+function Get-TenantLoginUrl
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$SubScope
+    )
+    Process
+    {
+        # Use the correct url
+        switch($SubScope)
+        {
+            "DOD" # DoD
+            {
+                return "https://login.microsoftonline.us"
+            }
+            "DODCON" # GCC-High
+            {
+                return "https://login.microsoftonline.us"
+            }
+            default # Commercial/GCC
+            {
+                return "https://login.microsoftonline.com"
+            }
+        }
+    }
+}

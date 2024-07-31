@@ -6,12 +6,31 @@ function HasCloudMX
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [String]$Domain
+        [String]$Domain,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
+        # Use the correct filter
+        switch($SubScope)
+        {
+            "DOD" # DoD
+            {
+                $filter = "*.protection.office365.us"
+            }
+            "DODCON" # GCC-High
+            {
+                $filter = "*.protection.office365.us"
+            }
+            default # Commercial/GCC
+            {
+                $filter = "*.mail.protection.outlook.com"
+            }
+        }
+
         $results=Resolve-DnsName -Name $Domain -Type MX -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | Select-Object nameexchange | Select-Object -ExpandProperty nameexchange
-        $filteredResults=$results -like "*.mail.protection.outlook.com"
+        $filteredResults=$results -like $filter
 
         return ($filteredResults -eq $true) -and ($filteredResults.Count -gt 0)
     }
@@ -24,13 +43,32 @@ function HasCloudSPF
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [String]$Domain
+        [String]$Domain,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
+        # Use the correct filter
+        switch($SubScope)
+        {
+            "DOD" # DoD
+            {
+                $filter = "*include:spf.protection.office365.us*"
+            }
+            "DODCON" # GCC-High
+            {
+                $filter = "*include:spf.protection.office365.us*"
+            }
+            default # Commercial/GCC
+            {
+                $filter = "*include:spf.protection.outlook.com*"
+            }
+        }
+
         $results=Resolve-DnsName -Name $Domain -Type txt -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | Select-Object strings | Select-Object -ExpandProperty strings 
 
-        return ($results -like "*include:spf.protection.outlook.com*").Count -gt 0
+        return ($results -like $filter).Count -gt 0
     }
 }
 
@@ -61,10 +99,28 @@ function HasCloudDKIM
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [String]$Domain
+        [String]$Domain,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
+        # Use the correct filter
+        switch($SubScope)
+        {
+            "DOD" # DoD
+            {
+                $filter = "*_domainkey.*.onmicrosoft.us*"
+            }
+            "DODCON" # GCC-High
+            {
+                $filter = "*_domainkey.*.onmicrosoft.us*"
+            }
+            default # Commercial/GCC
+            {
+                $filter = "*_domainkey.*.onmicrosoft.com*"
+            }
+        }
         $selectors = @("selector1", "selector2")
         foreach ($selector in $selectors)
         {
@@ -72,7 +128,7 @@ function HasCloudDKIM
             {
                 $results = Resolve-DnsName -Name "$selector._domainkey.$($Domain)" -Type CNAME -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue
 
-                if($results.NameHost -like "*_domainkey.*.onmicrosoft.com*")
+                if($results.NameHost -like $filter)
                 {
                     return $true
                 }
@@ -87,32 +143,54 @@ function HasCloudDKIM
 # Aug 14rd 2023
 function HasCloudMTASTS {
     param (
-        [string]$Domain
+        [Parameter(Mandatory=$True)]
+        [string]$Domain,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
-
-    $url = "https://mta-sts.$Domain/.well-known/mta-sts.txt"
-    $mtaStsFound = $false
-    $outlookMxFound = $false
-
-    try {
-        $mtaStsResponse = Invoke-WebRequest -Uri $url -ErrorAction Stop
-        $mtaStsContent = $mtaStsResponse.Content
-        $mtaStsLines = $mtaStsContent -split "`r?`n"
-
-        foreach ($line in $mtaStsLines) {
-            if ($line -like "version: STSv1") {
-                $mtaStsFound = $true
+    Process
+    {
+        # Use the correct filter
+        switch($SubScope)
+        {
+            "DOD" # DoD
+            {
+                $filter = "*include:spf.protection.office365.us*"
             }
-            if ($line -like "*mx: *.mail.protection.outlook.com*") {
-                $outlookMxFound = $true
+            "DODCON" # GCC-High
+            {
+                $filter = "*mx: *.mail.protection.office365.us*"
+            }
+            default # Commercial/GCC
+            {
+                $filter = "*mx: *.mail.protection.outlook.com*"
             }
         }
-    } catch {
+
+        $url = "https://mta-sts.$Domain/.well-known/mta-sts.txt"
         $mtaStsFound = $false
         $outlookMxFound = $false
-    }
 
-    return ($mtaStsFound -eq $true) -and ($outlookMxFound -eq $true)
+        try {
+            $mtaStsResponse = Invoke-WebRequest -UseBasicParsing -Uri $url -ErrorAction Stop -Headers @{"User-agent" = Get-UserAgent}
+            $mtaStsContent = $mtaStsResponse.Content
+            $mtaStsLines = $mtaStsContent -split "`r?`n"
+
+            foreach ($line in $mtaStsLines) {
+                if ($line -like "version: STSv1") {
+                    $mtaStsFound = $true
+                }
+                if ($line -like $filter) {
+                    $outlookMxFound = $true
+                }
+            }
+        } catch {
+            $mtaStsFound = $false
+            $outlookMxFound = $false
+        }
+
+        return ($mtaStsFound -eq $true) -and ($outlookMxFound -eq $true)
+    }
 }
 
 # Checks whether the domain has DesktopSSO enabled
@@ -122,11 +200,13 @@ function HasDesktopSSO
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [String]$Domain
+        [String]$Domain,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
-        (Get-CredentialType -UserName "nn@$domain").EstsProperties.DesktopSsoEnabled -eq "True"
+        (Get-CredentialType -UserName "nn@$domain" -SubScope $Subscope).EstsProperties.DesktopSsoEnabled -eq "True"
     }
 }
 
@@ -137,11 +217,13 @@ function HasCBA
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [String]$UserName
+        [String]$UserName,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
-        (Get-CredentialType -UserName $UserName).Credentials.HasCertAuth -eq "True"
+        (Get-CredentialType -UserName $UserName -SubScope $SubScope).Credentials.HasCertAuth -eq "True"
     }
 }
 
@@ -157,16 +239,24 @@ function DoesUserExists
         [String]$User,
         [Parameter(Mandatory=$False)]
         [ValidateSet("Normal","Login","Autologon","RST2")]
-        [String]$Method="Normal"
+        [String]$Method="Normal",
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
         $exists = $false 
 
+        # Get Tenant Region subscope from Open ID configuration if not provided
+        if([string]::IsNullOrEmpty($SubScope))
+        {
+            $SubScope = Get-TenantSubscope -Domain $User.Split("@")[1]
+        }
+
         if($Method -eq "Normal")
         {
             # Get the credential type information
-            $credType=Get-CredentialType -UserName $User 
+            $credType=Get-CredentialType -UserName $User -SubScope $SubScope
 
             # Works only if desktop sso (aka. Seamless SSO) is enabled
             # Since August 2021 this seems to work for all tenants!
@@ -205,7 +295,7 @@ function DoesUserExists
 
                 try
                 {
-                    $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Method POST -Body $body -Headers $headers
+                    $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "$(Get-TenantLoginUrl -SubScope $SubScope)/common/oauth2/token" -ContentType "application/x-www-form-urlencoded" -Method POST -Body $body -Headers @{"User-agent" = Get-UserAgent}
                     $exists = $True # May be should change password..?
                 }
                 catch
@@ -227,7 +317,7 @@ function DoesUserExists
                 if($Method -eq "RST2")
                 {
                     # RST2
-                    $url = "https://login.microsoftonline.com/RST2.srf"
+                    $url = "$(Get-TenantLoginUrl -SubScope $SubScope)/RST2.srf"
                     $endPoint = "sharepoint.com"
                 }
                 else
@@ -266,6 +356,10 @@ function DoesUserExists
                     $exists = $True
                 }
                 elseif($errorDetails.StartsWith("AADSTS700016")) # Application with identifier '{appIdentifier}' was not found in the directory '{tenantName}'. This can happen if the application has not been installed by the administrator of the tenant or consented to by any user in the tenant. You may have sent your authentication request to the wrong tenant.
+                {
+                    $exists = $True
+                }
+                elseif($errorDetails.StartsWith("AADSTS70046")) # The session has expired or is invalid due to re-authentication checks by conditional access. (= Blocked due to risky sign-in)
                 {
                     $exists = $True
                 }

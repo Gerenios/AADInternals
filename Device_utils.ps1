@@ -170,9 +170,12 @@ function Get-ServiceAccountNames
             $svcName    = $service.PSChildName
             $svcAccount = $service.GetValue("ObjectName")
 
-            Write-Debug "Service: '$svcName', AccountName: '$svcAccount'"
+            if(![string]::IsNullOrEmpty($svcAccount))
+            {
+                Write-Debug "Service: '$svcName', AccountName: '$svcAccount'"
 
-            New-Object psobject -Property ([ordered]@{"Service" = $svcName; "AccountName" = $svcAccount})
+                New-Object psobject -Property ([ordered]@{"Service" = $svcName; "AccountName" = $svcAccount})
+            }
         }
     }
 }

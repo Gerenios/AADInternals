@@ -40,8 +40,7 @@ function Export-ADFSCertificates
             $Configuration = Export-ADFSConfiguration -Local
             if(!$Configuration)
             {
-                Write-Error "Error retrieving the configuration."
-                return
+                Throw "Error retrieving the configuration."
             }
         }
         if(!$Key)
@@ -49,8 +48,7 @@ function Export-ADFSCertificates
             $Key = Export-ADFSEncryptionKey -Local -Configuration $Configuration
             if(!$Key)
             {
-                Write-Error "Error retrieving the key."
-                return
+                Throw "Error retrieving the key."
             }
         }
 
@@ -473,8 +471,8 @@ function Export-ADFSEncryptionKey
             # If auto certificate rollover is disabled, certificates are in AD FS servers' certificate stores and KDM key not needed.
             if(-not (Get-AdfsProperties).AutoCertificateRollover)
             {
-                Write-Warning "Auto certificate rollover not enabled. DKM key not needed."
-                return $null
+                Write-Verbose "Auto certificate rollover not enabled. DKM key not needed."
+                return "<empty>"
             }
 
             $ADFSUser    = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\adfssrv" -Name "ObjectName" | Select-Object -ExpandProperty "ObjectName"

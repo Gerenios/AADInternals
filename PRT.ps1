@@ -1156,11 +1156,16 @@ function Get-UserPRTKeys
                     "use" = "ngc"
                 }
 
+                # Get the nonce
+                $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://login.microsoftonline.com/Common/oauth2/token" -Body "grant_type=srv_challenge"
+                $nonce = $response.Nonce
+
                 $assertion_pld = [ordered]@{
                     "iss" = $assertion_iss
                     "aud" = $assertion_aud
                     "iat" = $assertion_iat
                     "exp" = $assertion_exp
+                    "request_nonce" = $nonce
                     "scope" = "openid aza ugs"
                 }
 
