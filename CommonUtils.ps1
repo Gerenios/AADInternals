@@ -2891,6 +2891,11 @@ Function Invoke-WebRequest2
             $arguments["WebSession"] = $WebSession
         }
 
+        # PSVersions >= 7 set undeclared OutFile as empty string which makes the Invoke-WebRequest fail
+        if(($PSVersionTable.PSVersion.Major -ge 7) -and ($arguments["OutFile"] -eq "")) 
+        {
+            $arguments.Remove("OutFile")
+        }    
         # PSVersions >= 7 doesn't respect the ErrorAction SilentlyContinue so we need to use SkipHttpErrorCheck
         if(($PSVersionTable.PSVersion.Major -ge 7) -and ($ErrorActionPreference -eq "SilentlyContinue"))
         {
