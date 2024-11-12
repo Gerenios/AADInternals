@@ -1236,7 +1236,8 @@ function Get-UserPRTKeys
 
                 if ($IncludePartialTGT)
                 {
-                    $tgt = Decrypt-JWE -JWE $response.tgt_client_key -SessionKey $sessionKey
+                    $tgt_cloud = ConvertFrom-Json $response.tgt_cloud
+                    $tgt = Decrypt-JWE -JWE $tgt_cloud.clientKey -SessionKey $sessionKey
                     $response | Add-Member -NotePropertyName "decrypted_tgt_client_key" -NotePropertyValue (Convert-ByteArrayToB64 -Bytes $tgt)
                 }
 
