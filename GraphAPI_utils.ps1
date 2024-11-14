@@ -35,6 +35,11 @@ function Call-GraphAPI
         }
         $Headers["Authorization"] = "Bearer $AccessToken"
 
+        if([string]::IsNullOrEmpty($Headers["User-Agent"]))
+        {
+            $Headers["User-Agent"] = Get-UserAgent
+        }
+
         # Call the API
         $response = Invoke-RestMethod -UseBasicParsing -Uri "https://graph.windows.net/$TenantId/$Command`?api-version=$ApiVersion$(if(![String]::IsNullOrEmpty($QueryString)){"&$QueryString"})" -ContentType "application/json; charset=utf-8; odata.metadata=none" -Method $Method -Body $Body -Headers $Headers -ErrorAction SilentlyContinue
 

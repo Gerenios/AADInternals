@@ -41,7 +41,9 @@ function Join-DeviceToIntune
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
-        [String]$DeviceName
+        [String]$DeviceName,
+        [Parameter(Mandatory=$False)]
+        [guid]$ZtdCorrelationId
     )
     Process
     {
@@ -61,7 +63,7 @@ function Join-DeviceToIntune
         
         try
         {
-            $joinInfo = Enroll-DeviceToMDM -AccessToken $AccessToken -DeviceName $DeviceName -BPRT $BPRT
+            $joinInfo = Enroll-DeviceToMDM -AccessToken $AccessToken -DeviceName $DeviceName -BPRT $BPRT -ZtdCorrelationId $ZtdCorrelationId
         }
         catch
         {

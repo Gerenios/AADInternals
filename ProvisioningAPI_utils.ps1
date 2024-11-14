@@ -133,8 +133,12 @@ function Call-ProvisioningAPI
     )
     Process
     {
+        $Headers=@{
+            "User-Agent" = Get-UserAgent
+        }
+        
         # Call the API
-        Invoke-RestMethod -UseBasicParsing -Uri "https://provisioningapi.microsoftonline.com/provisioningwebservice.svc" -ContentType "application/soap+xml" -Method POST -Body $envelope
+        Invoke-RestMethod -UseBasicParsing -Uri "https://provisioningapi.microsoftonline.com/provisioningwebservice.svc" -ContentType "application/soap+xml" -Method POST -Body $envelope -Headers $Headers
     }
 }
 

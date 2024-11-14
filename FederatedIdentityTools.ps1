@@ -46,17 +46,17 @@ function New-SAMLToken
     The password of the .pfx file
     
     .Example
-    PS C:\>$saml = New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword -Password "mypassword"
+    PS C:\>$saml = New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword "mypassword"
 
     .Example
     PS C:\>$cert = Load-AADIntCertificate -FileName "MyCert.pfx" -Password "mypassword"
     PS C:\>$saml = New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -Certificate $cert
 
     .Example
-    PS C:\>$saml = New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword -Password "mypassword"
+    PS C:\>$saml = New-AADIntSAMLToken -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword "mypassword"
 
     .Example
-    PS C:\>$saml = New-AADIntSAMLToken -UPN "My PC" -DeviceGUID (New-Guid) -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword -Password "mypassword"
+    PS C:\>$saml = New-AADIntSAMLToken -UPN "My PC" -DeviceGUID (New-Guid) -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName ".\MyCert.pfx" -PfxPassword "mypassword"
 
 #>
     [cmdletbinding()]
@@ -265,7 +265,7 @@ function New-SAML2Token
     The password of the .pfx file
     
     .Example
-    PS C:\>New-AADIntSAML2Token -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName "MyCert.pfx" -PfxPassword -Password "mypassword"
+    PS C:\>New-AADIntSAML2Token -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName "MyCert.pfx" -PfxPassword "mypassword"
 
     .Example
     PS C:\>$cert=Get-AADIntCertificate -FileName "MyCert.pfx" -Password "mypassword"
@@ -536,7 +536,7 @@ function Open-Office365Portal
     Which browser to be used. Can be "IE", "Chrome", or "Edge". Defaults to "Edge"
     
     .Example
-    PS C:\>Open-AADIntOffice365Portal -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName "MyCert.pfx" -PfxPassword -Password "mypassword"
+    PS C:\>Open-AADIntOffice365Portal -ImmutableId "Ah2J42BsPUOBoUcsCYn7vA==" -Issuer "http://mysts.company.com/adfs/ls" -PfxFileName "MyCert.pfx" -PfxPassword "mypassword"
 
     .Example
     PS C:\>$cert=Get-AADIntCertificate -FileName "MyCert.pfx" -Password "mypassword"
@@ -567,7 +567,9 @@ function Open-Office365Portal
         [switch]$UseBuiltInCertificate,
         
         [Parameter(ParameterSetName='UseAnySTS',Mandatory=$True)]
-        [Parameter(Mandatory=$False)]
+        [Parameter(ParameterSetName='Certificate',Mandatory=$False)]
+        [Parameter(ParameterSetName='FileAndPassword',Mandatory=$True)]
+        [Parameter(Mandatory=$True)]
         [String]$Issuer,
 
         [Parameter(ParameterSetName='Certificate',Mandatory=$True)]
@@ -598,7 +600,7 @@ function Open-Office365Portal
         {
             $Certificate = Load-Certificate -FileName "$PSScriptRoot\any_sts.pfx" -Password ""
         }
-        elseif($Certificate -eq $null) # Load the ceftificate
+        elseif($Certificate -eq $null) # Load the certificate
         {
             try
             {
@@ -681,49 +683,6 @@ function Open-Office365Portal
         {
             Start-Process msedge.exe -ArgumentList "-inprivate $("file:///$html")"
         }
-    }
-}
-
-
-# Gets immutable id from AD user
-function Get-ImmutableID
-{
-<#
-    .SYNOPSIS
-    Gets Immutable ID using user's AD object
-
-    .DESCRIPTION
-    Gets Immutable ID using user's AD object
-
-    .Parameter ADUser
-    Users AD object.
-
-    .Example
-    PS C:\>$user=Get-ADUser "myuser"
-    PS C:\>$immutableId=Get-AADIntImmutableID -ADUser $user
-
-#>
-    [cmdletbinding()]
-    Param(
-    
-        [Parameter(Mandatory=$True)]
-        $ADUser
-        
-    )
-    Process
-    {
-        
-        if($ADUser.GetType().ToString() -ne "Microsoft.ActiveDirectory.Management.ADUser")
-        {
-            Write-Error "ADUser is wrong type. Must be Microsoft.ActiveDirectory.Management.ADUser"
-            return
-        }
-
-        # Convert GUID to Base64
-        $guid=$ADUser.ObjectGUID.ToString()
-        $ImmutableId=[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.getBytes($guid))
-
-        return $ImmutableId
     }
 }
 
@@ -921,5 +880,124 @@ function Get-ADFSIssuer
         }
 
         return $Issuer
+    }
+}
+
+# Finds backdoors using AADInternals default certificate
+function Find-Backdoor
+{
+<#
+    .SYNOPSIS
+    Finds federated domain backdoors.
+
+    .DESCRIPTION
+    Lists all federated domains and their current and next signing certificate thumbprints.
+    If AADInternals backdoor is found, a warning is given.
+
+    .Parameter AccessToken
+    Access Token
+    
+    .Example
+    PS C:\>Find-AADIntBackdoor
+
+    WARNING: Domain company.myo365.site SigningCertificate is AADInternals backdoor!
+
+    Domain         : company.myo365.site
+    Subject        : CN=hack.o365domain.org, O=Gerenios, S=Pirkanmaa, C=fi
+    NextSubject    : 
+    Thumbprint     : 4B56E1F1B80024359E34010D9AAB3CED9C67FF5E
+    NextThumbprint : 
+    Issuer         : http://any.sts/B231A11F
+
+    .Example
+    PS C:\>Find-AADIntBackdoor
+
+    WARNING: Domain company.com NextSigningCertificate is AADInternals backdoor!
+
+    Domain         : company.com
+    Subject        : CN=ADFS Signing - sts.company.com
+    NextSubject    : CN=hack.o365domain.org, O=Gerenios, S=Pirkanmaa, C=fi
+    Thumbprint     : 2566A9000AA424DE73925D42C7D5115479C18CED
+    NextThumbprint : 4B56E1F1B80024359E34010D9AAB3CED9C67FF5E
+    Issuer         : http://sts.company.com/adfs/services/trust
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$AccessToken
+    )
+    Begin
+    {
+        
+
+        # Checks whether the given thumbprint matches AADInternals backdoor cert
+        function IsBackdoor
+        {
+            [cmdletbinding()]
+            Param(
+                [Parameter(Mandatory=$True)]
+                [String]$Thumbprint
+            )
+            if([string]::IsNullOrEmpty($Thumbprint))
+            {
+                return $false
+            }
+            else
+            {
+                return $Thumbprint -eq "4B56E1F1B80024359E34010D9AAB3CED9C67FF5E"
+            }
+        }
+    }
+    Process
+    {
+        # Get from cache if not provided
+        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
+
+        $domains = Get-Domains -AccessToken $AccessToken
+
+        foreach($domain in ($domains | Select-Object -ExpandProperty "Domain"))
+        {
+            if($domain.Authentication -eq "Federated")
+            {
+                $federationSettings = Get-DomainFederationSettings -AccessToken $AccessToken -DomainName $domain.Name
+                
+                if(![string]::IsNullOrEmpty($federationSettings.SigningCertificate))
+                {
+                    $cert       = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new([byte[]](Convert-B64ToByteArray -B64 $federationSettings.SigningCertificate))
+                    $certThumb  = $cert.Thumbprint 
+
+                    if(IsBackdoor -Thumbprint $certThumb)
+                    {
+                        Write-Warning "Domain $($domain.Name) SigningCertificate is AADInternals backdoor!"
+                    }
+                }
+
+                if(![string]::IsNullOrEmpty($federationSettings.NextSigningCertificate))
+                {
+                    $nextCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new([byte[]](Convert-B64ToByteArray -B64 $federationSettings.NextSigningCertificate))
+                    $nextCertThumb = $nextCert.Thumbprint
+
+                    if(IsBackdoor -Thumbprint $nextCertThumb)
+                    {
+                        Write-Warning "Domain $($domain.Name) NextSigningCertificate is AADInternals backdoor!"
+                    }
+                }
+
+                [pscustomobject][ordered]@{
+                    "Domain"         = $domain.Name
+                    "Subject"        = $cert.Subject
+                    "NextSubject"    = $nextCert.Subject
+                    "Thumbprint"     = $certThumb
+                    "NextThumbprint" = $nextCertThumb
+                    "Issuer"         = $federationSettings.IssuerUri
+                }
+            }
+        }
+
+        
+
+        
+
     }
 }

@@ -3,264 +3,11 @@
 # Constants
 $const_bom = [byte[]]@(0xEF,0xBB,0xBF)
 
-$DPAPI_ENTROPY_CNG_KEY_PROPERTIES  = @(0x36,0x6A,0x6E,0x6B,0x64,0x35,0x4A,0x33,0x5A,0x64,0x51,0x44,0x74,0x72,0x73,0x75,0x00) # "6jnkd5J3ZdQDtrsu" + null terminator 
-$DPAPI_ENTROPY_CNG_KEY_BLOB		   = @(0x78,0x54,0x35,0x72,0x5A,0x57,0x35,0x71,0x56,0x56,0x62,0x72,0x76,0x70,0x75,0x41,0x00) # "xT5rZW5qVVbrvpuA" + null terminator
-$DPAPI_ENTROPY_CAPI_KEY_PROPERTIES = @(0x48,0x6a,0x31,0x64,0x69,0x51,0x36,0x6b,0x70,0x55,0x78,0x37,0x56,0x43,0x34,0x6d,0x00) # "Hj1diQ6kpUx7VC4m" + null terminator
-
 # Unix epoch time (1.1.1970)
 $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millisecond 0
 
 # Configuration settings
 $config = @{}
-
-# Gets Azure and Azure Stack WireServer ip address using DHCP
-# Nov 18 2021
-Function Get-AzureWireServerAddress
-{
-<#
-    .SYNOPSIS
-    Gets Azure and Azure Stack WireServer ip address using DHCP
-
-    .DESCRIPTION
-    Gets Azure and Azure Stack WireServer ip address using DHCP. If DHCP query fails, returns the default address (168.63.129.16)
-
-    .Example
-    Get-AADIntAzureWireServerAddress
-
-    168.63.129.16
-
-
-    
-    
-#>
-    [cmdletbinding()]
-
-    param()
-    Begin
-    {
-        try
-		{
-			Add-Type -path "$PSScriptRoot\Win32Ntv.dll"
-		}
-		catch
-		{
-			Write-Warning "Could not load Win32Ntv.dll (probably blocked by Anti Virus)"
-		}
-    }
-    Process
-    {
-        # Get adapter that are up
-        $adapters = Get-NetAdapter | Where AdminStatus -eq "Up" 
-
-        # Loop through the adapters
-        foreach($adapter in $adapters)
-        {
-            # Get IPv4 interfaces that have DHCP enabled
-            if((Get-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4).Dhcp -eq "Enabled")
-            {
-                # Try to query for the address (uses DHCP option 245 and "WindowsAzureGuestAgent" as RequestIdString)
-                $ipAddress = [AADInternals.Native]::getWireServerIpAddress($adapter.InterfaceGuid)
-            }
-
-            # Return if we found the address
-            if($ipAddress)
-            {
-                return $ipAddress.ToString()
-            }
-        }
-        Write-Warning "WireServer address not found with DHCP, returning default address 168.63.129.16"
-        return "168.63.129.16"
-    }
-}
-
-
-
-# Gets property value using reflection
-# Oct 14 2021
-Function Get-ReflectionProperty
-{
-    [cmdletbinding()]
-
-    param(
-        [parameter(Mandatory=$true,ValueFromPipeline)]
-        [psobject]$TypeObject,
-        [parameter(Mandatory=$false)]
-        [psobject]$ValueObject,
-        [parameter(Mandatory=$true)]
-        [String]$PropertyName
-    )
-    Process
-    {
-        if(!$ValueObject)
-        {
-            $ValueObject = $TypeObject
-        }
-
-        $propertyInfo = $TypeObject.GetProperty($PropertyName,[System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
-        return $propertyInfo.GetValue($ValueObject, $null)
-    }
-}
-
-# Gets property value using reflection
-# Oct 14 2021
-Function Set-ReflectionProperty
-{
-    [cmdletbinding()]
-
-    param(
-        [parameter(Mandatory=$true,ValueFromPipeline)]
-        [psobject]$TypeObject,
-        [parameter(Mandatory=$false)]
-        [psobject]$ValueObject,
-        [parameter(Mandatory=$true)]
-        [String]$PropertyName,
-        [parameter(Mandatory=$true)]
-        [psobject]$Value
-    )
-    Process
-    {
-        if(!$ValueObject)
-        {
-            $ValueObject = $TypeObject
-        }
-
-        $propertyInfo = $TypeObject.GetProperty($PropertyName,[System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
-        return $propertyInfo.SetValue($ValueObject, $Value,$null)
-    }
-}
-
-# Gets object properties using reflection
-# Oct 14 2021
-Function Get-ReflectionProperties
-{
-    [cmdletbinding()]
-
-    param(
-        [parameter(Mandatory=$true,ValueFromPipeline)]
-        [psobject]$TypeObject
-    )
-    Process
-    {
-        $properties = $TypeObject.GetProperties([System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
-
-        foreach($property in $properties)
-        {
-            New-Object psobject -Property ([ordered]@{
-                    "Name"  = $property.Name
-                    "Write" = $property.CanWrite
-                    "Type"  = $property.PropertyType
-                })
-        }
-    }
-}
-
-# Gets field value using reflection
-# Feb 24 2022
-Function Get-ReflectionField
-{
-    [cmdletbinding()]
-
-    param(
-        [parameter(Mandatory=$true,ValueFromPipeline)]
-        [psobject]$TypeObject,
-        [parameter(Mandatory=$false)]
-        [psobject]$ValueObject,
-        [parameter(Mandatory=$true)]
-        [String]$FieldName
-    )
-    Process
-    {
-        if(!$ValueObject)
-        {
-            $ValueObject = $TypeObject
-        }
-        $fieldInfo = $TypeObject.GetField($FieldName,[System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
-        return $fieldInfo.GetValue($ValueObject)
-    }
-}
-
-# Gets object properties using reflection
-# Feb 24 2022
-Function Get-ReflectionFields
-{
-    [cmdletbinding()]
-
-    param(
-        [parameter(Mandatory=$true,ValueFromPipeline)]
-        [psobject]$TypeObject
-    )
-    Process
-    {
-        $fields = $TypeObject.GetFields([System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
-
-        foreach($field in $fields)
-        {
-            New-Object psobject -Property ([ordered]@{
-                    "Name"  = $field.Name
-                    "Type"  = $field.FieldType
-                    "Attributes" = $field.Attributes
-                })
-        }
-    }
-}
-
-# Invokes the given method
-# Feb 24 2022
-Function Invoke-ReflectionMethod
-{
-    [cmdletbinding()]
-
-    param(
-        [parameter(Mandatory=$true,ValueFromPipeline)]
-        [psobject]$TypeObject,
-        [parameter(Mandatory=$False)]
-        [psobject]$GenericType,
-        [parameter(Mandatory=$False)]
-        [psobject]$ValueObject,
-        [parameter(Mandatory=$true)]
-        [String]$Method,
-        [parameter(Mandatory=$False)]
-        [Object[]]$Parameters = @()
-    )
-    Process
-    {
-        $methodInfo = $TypeObject.GetMethod($Method, [System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
-        if($methodInfo.IsGenericMethodDefinition)
-        {
-            $genericMethod = $methodInfo.MakeGenericMethod($GenericType)
-            return $genericMethod.Invoke($ValueObject,$Parameters)
-        }
-        else
-        {
-            return $methodInfo.Invoke($ValueObject,$Parameters)
-        }
-    }
-}
-
-# Gets object methods using reflection
-# Feb 24 2022
-Function Get-ReflectionMethods
-{
-    [cmdletbinding()]
-
-    param(
-        [parameter(Mandatory=$true,ValueFromPipeline)]
-        [psobject]$TypeObject
-    )
-    Process
-    {
-        $methods = $TypeObject.GetMethods([System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::Static)
-
-        foreach($method in $methods)
-        {
-            New-Object psobject -Property ([ordered]@{
-                    "Name"  = $method.Name
-                    "Static" = $method.IsStatic
-                    "Attributes" = $method.Attributes
-                })
-        }
-    }
-}
 
 Function Convert-ByteArrayToB64
 {
@@ -716,11 +463,15 @@ Function Parse-KeyBLOB
     [cmdletbinding()]
 
     param(
-        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [parameter(Mandatory=$false,ValueFromPipeline)]
         [Byte[]]$Key
     )
     process
     {
+        if($key -eq $null)
+        {
+            return $null
+        }
         # https://docs.microsoft.com/en-us/windows/win32/api/bcrypt/ns-bcrypt-bcrypt_rsakey_blob
         # https://docs.microsoft.com/en-us/windows/win32/seccrypto/base-provider-key-blobs
 
@@ -869,94 +620,6 @@ Function Get-Error
         $message = Get-StringBetween -String $response -Start '<td>Message</td><td>'    -End '</td>'
        
         return "$code`: $message"
-    }
-}
-
-# Create a new self-signed certificate
-# Jan 31st 2021
-function New-Certificate
-{
-<#
-    .SYNOPSIS
-    Creates a new self signed certificate.
-
-    .DESCRIPTION
-    Creates a new self signed certificate for the given subject name and returns it as System.Security.Cryptography.X509Certificates.X509Certificate2 or exports directly to .pfx and .cer files.
-    The certificate is valid for 100 years.
-
-    .Parameter SubjectName
-    The subject name of the certificate, MUST start with CN=
-
-    .Parameter Export
-    Export the certificate (PFX and CER) instead of returning the certificate object. The .pfx file does not have a password.
-  
-    .Example
-    PS C:\>$certificate = New-AADIntCertificate -SubjectName "CN=MyCert"
-
-    .Example
-    PS C:\>$certificate = New-AADIntCertificate -SubjectName "CN=MyCert"
-
-    PS C:\>$certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-Content MyCert.pfx -Encoding Byte
-
-    .Example
-    PS C:\>$certificate = New-AADIntCertificate -SubjectName "CN=MyCert"
-
-    PS C:\>$certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert) | Set-Content MyCert.cer -Encoding Byte
-
-    .Example
-    PS C:\>New-AADIntCertificate -SubjectName "CN=MyCert" -Export
-
-    Certificate successfully exported:
-      CN=MyCert.pfx
-      CN=MyCert.cer
-#>
-    [cmdletbinding()]
-
-    param(
-        [parameter(Mandatory=$true,ValueFromPipeline)]
-        [ValidatePattern("[c|C][n|N]=.+")] # Must start with CN=
-        [String]$SubjectName,
-        [Switch]$Export
-    )
-    Process
-    {
-        # Create a private key
-        $rsa = [System.Security.Cryptography.RSA]::Create(2048)
-
-        # Initialize the Certificate Signing Request object
-        $req = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($SubjectName, $rsa, [System.Security.Cryptography.HashAlgorithmName]::SHA256,[System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
-        $req.CertificateExtensions.Add([System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($true,$false,0,$true))
-        $req.CertificateExtensions.Add([System.Security.Cryptography.X509Certificates.X509SubjectKeyIdentifierExtension]::new($req.PublicKey,$false))
-
-        # Create a self-signed certificate
-        $selfSigned = $req.CreateSelfSigned((Get-Date).ToUniversalTime().AddMinutes(-5),(Get-Date).ToUniversalTime().AddYears(100))
-        
-
-        # Store the private key to so that it can be exported
-        $cspParameters = [System.Security.Cryptography.CspParameters]::new()
-        $cspParameters.ProviderName =    "Microsoft Enhanced RSA and AES Cryptographic Provider"
-        $cspParameters.ProviderType =    24
-        $cspParameters.KeyContainerName ="AADInternals"
-            
-        # Set the private key
-        $privateKey = [System.Security.Cryptography.RSACryptoServiceProvider]::new(2048,$cspParameters)
-        $privateKey.ImportParameters($rsa.ExportParameters($true))
-        $selfSigned.PrivateKey = $privateKey
-
-        if($Export)
-        {
-            Set-BinaryContent -Path "$SubjectName.pfx" -Value $selfSigned.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)
-            Set-BinaryContent -Path "$SubjectName.cer" -Value $selfSigned.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
-
-            # Print out information
-            Write-Host "Certificate successfully exported:"
-            Write-Host "  $SubjectName.pfx"
-            Write-Host "  $SubjectName.cer"
-        }
-        else
-        {
-            return $selfSigned
-        }
     }
 }
 
@@ -1670,158 +1333,6 @@ function Remove-Bytes
     }
 }
 
-# Parses the given Cng blob
-# Dec 17th 2021
-function Parse-CngBlob
-{
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [byte[]]$Data,
-        [Parameter(Mandatory=$false)]
-        [switch]$Decrypt,
-        [Parameter(Mandatory=$false)]
-        [switch]$LocalMachine
-    )
-    Begin
-    {
-        Add-Type -AssemblyName System.Security
-    }
-    Process
-    {
-        # Parse the header
-        $version =  [System.BitConverter]::ToInt32($Data,0)
-        if($version -ne 1)
-        {
-            Throw "Unsupported version ($Version), expected 1"
-        }
-        $unknown =  [System.BitConverter]::ToInt32($Data,4)
-        $nameLen =  [System.BitConverter]::ToInt32($Data,8)
-        $type    =  [System.BitConverter]::ToInt32($Data,12)
-
-        $publicPropertiesLen  = [System.BitConverter]::ToInt32($Data,16)
-        $privatePropertiesLen = [System.BitConverter]::ToInt32($Data,20)
-        $privateKeyLen        = [System.BitConverter]::ToInt32($Data,24)
-        
-        $unknownArray = $Data[28..43]
-        
-        $name = [text.encoding]::Unicode.GetString($Data, 44, $nameLen)
-
-        Write-Debug "Version:                   $version"
-        Write-Debug "Unknown:                   $unknown"
-        Write-Debug "Name length:               $nameLen"
-        Write-Debug "Type:                      $type"
-        Write-Debug "Public properties length:  $publicPropertiesLen"
-        Write-Debug "Private properties length: $privatePropertiesLen"
-        Write-Debug "Private key length:        $privateKeyLen"
-        Write-Debug "Unknown array:             $(Convert-ByteArrayToHex -Bytes $unknownArray)"
-        Write-Debug "Name:                      $name`n`n"
-
-        Write-Verbose "Parsing Cng key: $name"
-
-        # Set the position
-        $p = 44+$nameLen
-
-        # Parse public properties
-        $publicProperties = @{}
-        $publicPropertiesTotal = 0
-        while($publicPropertiesTotal -lt $publicPropertiesLen)
-        {
-            $pubStructLen         = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-            $pubStructType        = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-            $pubStructUnk         = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-            $pubStructNameLen     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-            $pubStructPropertyLen = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-
-            $pubStructName        = [text.encoding]::Unicode.GetString($Data, $p, $pubStructNameLen); $p += $pubStructNameLen
-            $pubStructProperty    = $Data[$p..$($p + $pubStructPropertyLen - 1)]; $p += $pubStructPropertyLen
-
-            $publicPropertiesTotal += $pubStructLen
-
-            if([string]::IsNullOrEmpty($pubStructName))
-            {
-                $pubStructName = "Public Key"
-            }
-            elseif($pubStructName -eq "Modified")
-            {
-               $fileTimeUtc =  [System.BitConverter]::ToInt64($pubStructProperty,0)
-               Remove-Variable pubStructProperty
-               $pubStructProperty = [datetime]::FromFileTimeUtc($fileTimeUtc)
-            }
-
-            Write-Debug "Public property struct length: $pubStructLen"
-            Write-Debug "Public property struct type:   $pubStructType"
-            Write-Debug "Public property unknown:       $pubStructUnk"
-            Write-Debug "Public property name length:   $pubStructNameLen"
-            Write-Debug "Public property length:        $pubStructPropertyLen"
-            Write-Debug "Public property name:          $pubStructName"
-
-            if($pubStructName -eq "Modified")
-            {
-                Write-Verbose "Modified:        $($pubStructProperty.ToUniversalTime().ToString("s", [cultureinfo]::InvariantCulture))z`n`n"
-            }
-            else
-            {
-                Write-Debug "Public property:               $(Convert-ByteArrayToHex -Bytes $pubStructProperty)`n`n"
-            }
-
-            $publicProperties[$pubStructName] = $pubStructProperty
-        }
-        
-        # Parse private properties
-        $privateProperties = @{}
-        $privatePropertiesTotal = 0
-
-        $privatePropertiesBlob = $Data[$p..$($p + $privatePropertiesLen -1)]
-        $privateKeyBlob        = $Data[$($p + $privatePropertiesLen)..$($p + $privatePropertiesLen + $privateKeyLen -1)]
-        
-        $attributes = [ordered]@{
-            "Name"          = $name
-            "PublicKeyBlob" = $publicProperties["Public Key"]
-            "PrivateKeyBlob" = @()
-            "RSAParameters" = Parse-KeyBLOB -Key $publicProperties["Public Key"]
-        }
-        if($Decrypt)
-        {
-            $dpapiScope = "CurrentUser"
-            
-            if($LocalMachine)
-            {
-                $CurrentUser = "{0}\{1}" -f $env:USERDOMAIN,$env:USERNAME
-        
-                $dpapiScope = "LocalMachine"
-                # Elevate to get access to the DPAPI keys
-                if([AADInternals.Native]::copyLsassToken())
-                {
-                    Write-Warning "Running as LOCAL SYSTEM. You MUST restart PowerShell to restore $CurrentUser rights."
-                }
-                else
-                {
-                    Write-Error "Could not elevate, unable to decrypt. MUST be run as administrator!"
-                    return
-                }
-            }
-            
-            # Decrypt the private key properties using DPAPI
-            $decPrivateProperties = [Security.Cryptography.ProtectedData]::Unprotect($privatePropertiesBlob, $DPAPI_ENTROPY_CNG_KEY_PROPERTIES, $dpapiScope)
-            $attributes["PrivateKeyProperties"] = $decPrivateProperties
-
-            # Decrypt the private key blob using DPAPI
-            $decPrivateBlob = [Security.Cryptography.ProtectedData]::Unprotect($privateKeyBlob, $DPAPI_ENTROPY_CNG_KEY_BLOB, $dpapiScope)
-            $attributes["PrivateKeyBlob"] = $decPrivateBlob
-
-            # Convert to RSAFULLPRIVATEBLOB to get all parameters
-            $fullPrivateBlob = [AADInternals.Native]::convertKey($decPrivateBlob,"RSAPRIVATEBLOB", "RSAFULLPRIVATEBLOB")
-            $attributes["FullPrivateKeyBlob"] = $fullPrivateBlob
-            $attributes["RSAParameters"] = Parse-KeyBLOB -Key $fullPrivateBlob
-            
-        }
-
-        return New-Object psobject -Property $attributes
-        
-    }
-}
-
 # Splits the given string to the given line lenght using the given separator
 # Dec 17th 2021
 function Split-String
@@ -1995,195 +1506,6 @@ Function New-PfxFile
     }
 }
 
-
-# Checks is the current user running as Administrator
-# Feb 6th 2022
-function Test-LocalAdministrator  
-{
-    [cmdletbinding()]
-
-    param(
-        [parameter(Mandatory=$False)]
-        [switch]$Throw,
-        [parameter(Mandatory=$False)]
-        [switch]$Warn
-    )
-    Process
-    {  
-        $isAdmin = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
-
-        if(!$isAdmin -and $Warn)
-        {
-            Write-Warning "The PowerShell session is not elevated, please run as Administrator."
-        }
-        elseif(!$isAdmin -and $Throw)
-        {
-            Throw "The PowerShell session is not elevated, please run as Administrator."
-        }
-        return $isAdmin
-    }
-}
-
-
-# Parses the given CAPI blob
-# Mar 3th 2022
-function Parse-CapiBlob
-{
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [byte[]]$Data,
-        [Parameter(Mandatory=$false)]
-        [switch]$Decrypt,
-        [Parameter(Mandatory=$false)]
-        [switch]$LocalMachine
-    )
-    Begin
-    {
-        Add-Type -AssemblyName System.Security
-    }
-    Process
-    {
-        # Parse the header
-        $version =  [System.BitConverter]::ToInt32($Data,0)
-        if($version -ne 2)
-        {
-            Throw "Unsupported version ($Version), expected 2"
-        }
-        $unk1          = [System.BitConverter]::ToInt32($Data,4)
-        $nameLen       = [System.BitConverter]::ToInt32($Data,8)
-        $unk2          = [System.BitConverter]::ToInt32($Data,12)
-        $unk3          = [System.BitConverter]::ToInt32($Data,16)
-        $publicKeyLen  = [System.BitConverter]::ToInt32($Data,20)
-        $privateKeyLen = [System.BitConverter]::ToInt32($Data,24)
-        $unk4          = [System.BitConverter]::ToInt32($Data,28)
-        $unk5          = [System.BitConverter]::ToInt32($Data,32)
-        $privatePropertiesLen = [System.BitConverter]::ToInt32($Data,36)
-
-        $name = [text.encoding]::Ascii.GetString($Data, 40, $nameLen-1)
-
-        Write-Verbose "Parsing CAPI key: $name"
-
-        # Set the position
-        $p = 40+$nameLen
-
-        $unkArray = $Data[$p..($p + 20 -1)]; $p += 20
-
-        # Public key CAPI blob
-        $publicKeyBlob = $Data[$p..$($p + $publicKeyLen - 1)]; $p += $publicKeyLen
-        
-        # Get the private key and private properties blobs
-        $privateKeyBlob        = $Data[$p..$($p + $privateKeyLen -1)] ; $p += $privateKeyLen
-        $privatePropertiesBlob = $Data[$p..$($p + $privatePropertiesLen -1)] 
-
-        $attributes = [ordered]@{
-            "Name"           = $name
-            "PrivateKeyBlob" = @()
-            "RSAParameters"  = Parse-CAPIKeyBLOB -Key $publicKeyBlob
-        }
-        if($Decrypt)
-        {
-            $dpapiScope = "CurrentUser"
-            
-            if($LocalMachine)
-            {
-                $CurrentUser = "{0}\{1}" -f $env:USERDOMAIN,$env:USERNAME
-        
-                $dpapiScope = "LocalMachine"
-                # Elevate to get access to the DPAPI keys
-                if([AADInternals.Native]::copyLsassToken())
-                {
-                    Write-Warning "Running as LOCAL SYSTEM. You MUST restart PowerShell to restore $CurrentUser rights."
-                }
-                else
-                {
-                    Write-Error "Could not elevate, unable to decrypt. MUST be run as administrator!"
-                    return
-                }
-            }
-            
-            # Decrypt the private key properties using DPAPI
-            $decPrivateProperties = [Security.Cryptography.ProtectedData]::Unprotect($privatePropertiesBlob, $DPAPI_ENTROPY_CAPI_KEY_PROPERTIES, $dpapiScope)
-            $attributes["PrivateKeyProperties"] = $decPrivateProperties
-
-            # Decrypt the private key blob using DPAPI
-            $decPrivateBlob = [Security.Cryptography.ProtectedData]::Unprotect($privateKeyBlob, $null, $dpapiScope)
-            
-            # Parse the CAPI blob
-            $attributes["RSAParameters"] = Parse-CAPIKeyBLOB -Key $decPrivateBlob
-        }
-
-        return New-Object psobject -Property $attributes
-        
-    }
-}
-
-# Parses the given CAPI Key BLOB and returns RSAParameters
-# Mar 8th 2022
-Function Parse-CAPIKeyBLOB
-{
-    [cmdletbinding()]
-    param(
-        [parameter(Mandatory=$true,ValueFromPipeline)]
-        [Byte[]]$Key
-    )
-    process
-    {
-        $magic    = [text.encoding]::ASCII.GetString($Key[0..3])
-        $modlen   = [bitconverter]::ToUInt32($Key,4)
-        $bitlen   = [bitconverter]::ToUInt32($Key,8)
-        $unknown  = [bitconverter]::ToUInt32($Key,12)
-        $publen   = 4
-
-        $headerLen = 4 * [System.Runtime.InteropServices.Marshal]::SizeOf([uint32]::new())
-
-        # Parse RSA1
-        $p = $headerLen
-        $pubexp  = $Key[($p)..($p + $publen -1)]; $p += $publen
-        $modulus = $key[($p)..($p + $modlen -9)]; $p += $modlen
-        
-        # Parse RSA2 (RSAPRIVATEBLOB)
-        if($magic -eq "RSA2") 
-        {
-            $prime1 =           $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
-            $p += 4
-            $prime2 =           $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
-            $p += 4
-            $exponent1 =        $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
-            $p += 4
-            $exponent2 =        $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
-            $p += 4
-            $coefficient =      $key[($p)..($p-1 + $bitlen/16)] ; $p += $bitlen/16
-            $p += 4
-            $privateExponent =  $key[($p)..($p-1 + $bitlen/8)] 
-        }
-        
-        $attributes=@{
-            "D" =        $privateExponent
-            "DP" =       $exponent1
-            "DQ" =       $exponent2
-            "Exponent" = $pubexp
-            "InverseQ" = $coefficient
-            "Modulus" =  $modulus
-            "P" =        $prime1
-            "Q"=         $prime2
-        }
-
-        # Reverse
-        foreach($name in $attributes.Keys)
-        {
-            if($attributes[$name])
-            {
-                [Array]::Reverse($attributes[$name])
-            }
-        }
-
-        [System.Security.Cryptography.RSAParameters]$RSAParameters = New-Object psobject -Property $attributes
-
-        return $RSAParameters
-    }
-}
-
 # Gets a substring from a string between given "tags"
 # May 23rd 2022
 Function Get-Substring
@@ -2210,112 +1532,6 @@ Function Get-Substring
             return
         }
         return $String.Substring($s,$e-$s)
-    }
-}
-
-# Parses the given Cert BLOB and returns the parsed attributes
-# Aug 17th 2022
-function Parse-CertBlob
-{
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [byte[]]$Data
-    )
-    
-    Process
-    {
-        # Parse the header
-        $p = 0;
-        $version =  [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        if($version -notin @(3,4))
-        {
-            Throw "Unsupported version ($Version), expected 3 or 4"
-        }
-        $unk1     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $tpLen    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $tpBin    = $Data[$p..($p+$tpLen-1)]; $p += $tpLen
-
-        $unk3     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk4     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk5Len  = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk5     = $Data[$p..($p+$unk5Len-1)]; $p += $unk5Len
-
-        $unk6     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk7     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk8Len  = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk8     = $Data[$p..($p+$unk8Len-1)]; $p += $unk8Len
-
-        $unk9     = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk10    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $keyFileLen  = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $keyFile  = $Data[$p..($p+$keyFileLen-1)]; $p += $keyFileLen
-
-        $unk12    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk13    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk14Len = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk14    = $Data[$p..($p+$unk14Len-1)]; $p += $unk14Len
-
-        $unk15    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk16    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk17    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk18    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk19    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk20    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk21    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk22    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk23    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk24    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk25    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk26    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk27    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk28    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-
-        # Read the key name
-        $s = $p
-        while($Data[$p] -ne 0 -and $Data[$p+1] -eq 0)
-        {
-            $p+=2
-        }
-        $p+=2
-        $keyName = [System.Text.Encoding]::Unicode.GetString($Data,$s,$p-$s)
-
-        $unk29    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-
-        # Read the provider
-        $s = $p
-        while($Data[$p] -ne 0 -and $Data[$p+1] -eq 0)
-        {
-            $p+=2
-        }
-        $p+=2
-        $provider = [System.Text.Encoding]::Unicode.GetString($Data,$s,$p-$s)
-
-        $unk30    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk31    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk32    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk33Len = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk33    = $Data[$p..($p+$unk33Len-1)]; $p += $unk33Len
-        $domain   = [System.Text.Encoding]::Unicode.GetString($unk33)
-
-        $unk34    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $unk35    = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-
-        # Read the der
-        $derLen   = [System.BitConverter]::ToInt32($Data,$p); $p += 4
-        $der      = $Data[$p..($p+$derLen-1)]; $p += $derLen
-
-        $attributes=[ordered]@{
-            "KeyFileName" = (Convert-ByteArrayToHex -Bytes $keyFile).ToUpper()
-            "KeyName"     = $keyName
-            "Provider"    = $provider
-            "Domain"      = $domain
-            "DER"         = $der
-            "Thumbprint"  = (Convert-ByteArrayToHex -Bytes $tpBin).ToUpper()
-        }
-
-        return New-Object psobject -Property $attributes
-        
     }
 }
 
@@ -2891,6 +2107,12 @@ Function Invoke-WebRequest2
             $arguments["WebSession"] = $WebSession
         }
 
+        # PSVersions >= 7 set undeclared OutFile as empty string which makes the Invoke-WebRequest fail
+        if(($PSVersionTable.PSVersion.Major -ge 7) -and ($arguments["OutFile"] -eq "")) 
+        {
+            $arguments.Remove("OutFile")
+        }
+
         # PSVersions >= 7 doesn't respect the ErrorAction SilentlyContinue so we need to use SkipHttpErrorCheck
         if(($PSVersionTable.PSVersion.Major -ge 7) -and ($ErrorActionPreference -eq "SilentlyContinue"))
         {
@@ -2898,4 +2120,199 @@ Function Invoke-WebRequest2
         }
         Invoke-WebRequest @arguments
     }
+}
+
+# Aug 23th 2019
+# Calculates MD4 hashes from given passwords
+function Get-MD4{
+    PARAM(
+        [String]$String,
+        [Byte[]]$bArray,
+        [Switch]$UpperCase,
+        [Switch]$AsByteArray # Added by Nestori Syynimaa Aug 23th 2019
+    )
+    
+    # Author: Larry.Song@outlook.com
+    # Reference: https://tools.ietf.org/html/rfc1320
+    # MD4('abc'): 
+    #     a448017aaf21d8525fc10ae87aa6729d UTF-8
+    #     e0fba38268d0ec66ef1cb452d5885e53 Unicode
+    $Array = [byte[]]@()
+    if($String)
+    {
+        $Array = [System.Text.Encoding]::Unicode.GetBytes($String) # Edited by Nestori Syynimaa Nov 16th 2018
+    }
+    if($bArray)
+    {
+        $Array = $bArray
+    }
+    # padding 100000*** to length 448, last (64 bits / 8) 8 bytes fill with original length
+    # at least one (512 bits / 8) 64 bytes array
+    $M = New-Object Byte[] (([math]::Floor($Array.Count/64) + 1) * 64)
+    # copy original byte array, start from index 0
+    $Array.CopyTo($M, 0)
+    # padding bits 1000 0000
+    $M[$Array.Count] = 0x80
+    # padding bits 0000 0000 to fill length (448 bits /8) 56 bytes
+    # Default value is 0 when creating a new byte array, so, no action
+    # padding message length to the last 64 bits
+    @([BitConverter]::GetBytes($Array.Count * 8)).CopyTo($M, $M.Count - 8)
+
+    # message digest buffer (A,B,C,D)
+    $A = [Convert]::ToUInt32('0x67452301', 16)
+    $B = [Convert]::ToUInt32('0xefcdab89', 16)
+    $C = [Convert]::ToUInt32('0x98badcfe', 16)
+    $D = [Convert]::ToUInt32('0x10325476', 16)
+    
+    # There is no unsigned number shift in C#, have to define one.
+    Add-Type -TypeDefinition @'
+public class Shift
+{
+  public static uint Left(uint a, int b)
+    {
+        return ((a << b) | (((a >> 1) & 0x7fffffff) >> (32 - b - 1)));
+    }
+}
+'@
+
+    # define 3 auxiliary functions
+    function FF([uint32]$X, [uint32]$Y, [uint32]$Z)
+    {
+        (($X -band $Y) -bor ((-bnot $X) -band $Z))
+    }
+    function GG([uint32]$X, [uint32]$Y, [uint32]$Z)
+    {
+        (($X -band $Y) -bor ($X -band $Z) -bor ($Y -band $Z))
+    }
+    function HH([uint32]$X, [uint32]$Y, [uint32]$Z){
+        ($X -bxor $Y -bxor $Z)
+    }
+    # processing message in one-word blocks
+    for($i = 0; $i -lt $M.Count; $i += 64)
+    {
+        # Save a copy of A/B/C/D
+        $AA = $A
+        $BB = $B
+        $CC = $C
+        $DD = $D
+
+        # Round 1 start
+        $A = [Shift]::Left(($A + (FF -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 0)..($i + 3)], 0)) -band [uint32]::MaxValue, 3)
+        $D = [Shift]::Left(($D + (FF -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 4)..($i + 7)], 0)) -band [uint32]::MaxValue, 7)
+        $C = [Shift]::Left(($C + (FF -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 8)..($i + 11)], 0)) -band [uint32]::MaxValue, 11)
+        $B = [Shift]::Left(($B + (FF -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 12)..($i + 15)], 0)) -band [uint32]::MaxValue, 19)
+
+        $A = [Shift]::Left(($A + (FF -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 16)..($i + 19)], 0)) -band [uint32]::MaxValue, 3)
+        $D = [Shift]::Left(($D + (FF -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 20)..($i + 23)], 0)) -band [uint32]::MaxValue, 7)
+        $C = [Shift]::Left(($C + (FF -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 24)..($i + 27)], 0)) -band [uint32]::MaxValue, 11)
+        $B = [Shift]::Left(($B + (FF -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 28)..($i + 31)], 0)) -band [uint32]::MaxValue, 19)
+
+        $A = [Shift]::Left(($A + (FF -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 32)..($i + 35)], 0)) -band [uint32]::MaxValue, 3)
+        $D = [Shift]::Left(($D + (FF -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 36)..($i + 39)], 0)) -band [uint32]::MaxValue, 7)
+        $C = [Shift]::Left(($C + (FF -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 40)..($i + 43)], 0)) -band [uint32]::MaxValue, 11)
+        $B = [Shift]::Left(($B + (FF -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 44)..($i + 47)], 0)) -band [uint32]::MaxValue, 19)
+
+        $A = [Shift]::Left(($A + (FF -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 48)..($i + 51)], 0)) -band [uint32]::MaxValue, 3)
+        $D = [Shift]::Left(($D + (FF -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 52)..($i + 55)], 0)) -band [uint32]::MaxValue, 7)
+        $C = [Shift]::Left(($C + (FF -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 56)..($i + 59)], 0)) -band [uint32]::MaxValue, 11)
+        $B = [Shift]::Left(($B + (FF -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 60)..($i + 63)], 0)) -band [uint32]::MaxValue, 19)
+        # Round 1 end
+        # Round 2 start
+        $A = [Shift]::Left(($A + (GG -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 0)..($i + 3)], 0) + 0x5A827999) -band [uint32]::MaxValue, 3)
+        $D = [Shift]::Left(($D + (GG -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 16)..($i + 19)], 0) + 0x5A827999) -band [uint32]::MaxValue, 5)
+        $C = [Shift]::Left(($C + (GG -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 32)..($i + 35)], 0) + 0x5A827999) -band [uint32]::MaxValue, 9)
+        $B = [Shift]::Left(($B + (GG -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 48)..($i + 51)], 0) + 0x5A827999) -band [uint32]::MaxValue, 13)
+
+        $A = [Shift]::Left(($A + (GG -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 4)..($i + 7)], 0) + 0x5A827999) -band [uint32]::MaxValue, 3)
+        $D = [Shift]::Left(($D + (GG -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 20)..($i + 23)], 0) + 0x5A827999) -band [uint32]::MaxValue, 5)
+        $C = [Shift]::Left(($C + (GG -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 36)..($i + 39)], 0) + 0x5A827999) -band [uint32]::MaxValue, 9)
+        $B = [Shift]::Left(($B + (GG -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 52)..($i + 55)], 0) + 0x5A827999) -band [uint32]::MaxValue, 13)
+
+        $A = [Shift]::Left(($A + (GG -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 8)..($i + 11)], 0) + 0x5A827999) -band [uint32]::MaxValue, 3)
+        $D = [Shift]::Left(($D + (GG -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 24)..($i + 27)], 0) + 0x5A827999) -band [uint32]::MaxValue, 5)
+        $C = [Shift]::Left(($C + (GG -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 40)..($i + 43)], 0) + 0x5A827999) -band [uint32]::MaxValue, 9)
+        $B = [Shift]::Left(($B + (GG -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 56)..($i + 59)], 0) + 0x5A827999) -band [uint32]::MaxValue, 13)
+
+        $A = [Shift]::Left(($A + (GG -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 12)..($i + 15)], 0) + 0x5A827999) -band [uint32]::MaxValue, 3)
+        $D = [Shift]::Left(($D + (GG -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 28)..($i + 31)], 0) + 0x5A827999) -band [uint32]::MaxValue, 5)
+        $C = [Shift]::Left(($C + (GG -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 44)..($i + 47)], 0) + 0x5A827999) -band [uint32]::MaxValue, 9)
+        $B = [Shift]::Left(($B + (GG -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 60)..($i + 63)], 0) + 0x5A827999) -band [uint32]::MaxValue, 13)
+        # Round 2 end
+        # Round 3 start
+        $A = [Shift]::Left(($A + (HH -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 0)..($i + 3)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 3)
+        $D = [Shift]::Left(($D + (HH -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 32)..($i + 35)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 9)
+        $C = [Shift]::Left(($C + (HH -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 16)..($i + 19)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 11)
+        $B = [Shift]::Left(($B + (HH -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 48)..($i + 51)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 15)
+
+        $A = [Shift]::Left(($A + (HH -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 8)..($i + 11)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 3)
+        $D = [Shift]::Left(($D + (HH -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 40)..($i + 43)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 9)
+        $C = [Shift]::Left(($C + (HH -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 24)..($i + 27)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 11)
+        $B = [Shift]::Left(($B + (HH -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 56)..($i + 59)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 15)
+
+        $A = [Shift]::Left(($A + (HH -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 4)..($i + 7)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 3)
+        $D = [Shift]::Left(($D + (HH -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 36)..($i + 39)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 9)
+        $C = [Shift]::Left(($C + (HH -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 20)..($i + 23)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 11)
+        $B = [Shift]::Left(($B + (HH -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 52)..($i + 55)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 15)
+
+        $A = [Shift]::Left(($A + (HH -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 12)..($i + 15)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 3)
+        $D = [Shift]::Left(($D + (HH -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 44)..($i + 47)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 9)
+        $C = [Shift]::Left(($C + (HH -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 28)..($i + 31)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 11)
+        $B = [Shift]::Left(($B + (HH -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 60)..($i + 63)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 15)
+        # Round 3 end
+        # Increment start
+        $A = ($A + $AA) -band [uint32]::MaxValue
+        $B = ($B + $BB) -band [uint32]::MaxValue
+        $C = ($C + $CC) -band [uint32]::MaxValue
+        $D = ($D + $DD) -band [uint32]::MaxValue
+        # Increment end
+    }
+    # Output start
+    $A = ('{0:x8}' -f $A) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
+    $B = ('{0:x8}' -f $B) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
+    $C = ('{0:x8}' -f $C) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
+    $D = ('{0:x8}' -f $D) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
+    # Output end
+
+    
+    if($AsByteArray)
+    {
+        return [byte[]]("$A$B$C$D" -replace '..', '0x$&,' -split ',' -ne '')
+    }
+    else
+    {
+        if($UpperCase)
+        {
+            return "$A$B$C$D".ToUpper()
+        }
+        else
+        {
+            return "$A$B$C$D"
+        }
+    }
+}
+
+# Sep 25th 2024
+# Calculates a thumbprint for the given certificate
+function Get-Thumbprint
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName = "String",Mandatory=$True)]
+        [String]$Certificate,
+        [Parameter(ParameterSetName = "Bytes",Mandatory=$True)]
+        [byte[]]$Bytes
+    )
+    if($Bytes -eq $null)
+    {
+        if([string]::IsNullOrEmpty($Certificate))
+        {
+            return $null
+        }
+        else
+        {
+            $bytes = [byte[]](Convert-B64ToByteArray -B64 $Certificate)
+        }
+    }
+    
+    return [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($bytes).Thumbprint
 }
