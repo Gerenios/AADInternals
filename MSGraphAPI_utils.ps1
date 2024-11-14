@@ -32,6 +32,11 @@ function Call-MSGraphAPI
         }
         $Headers["Authorization"] = "Bearer $AccessToken"
 
+        if([string]::IsNullOrEmpty($Headers["User-Agent"]))
+        {
+            $Headers["User-Agent"] = Get-UserAgent
+        }
+
         # Create the url
         $url = "https://graph.microsoft.com/$($ApiVersion)/$($API)?$(if(![String]::IsNullOrEmpty($QueryString)){"&$QueryString"})"
 

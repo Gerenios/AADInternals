@@ -13,7 +13,9 @@ function Get-AccessTokenFromCache
         [Parameter(Mandatory=$True)]
         [String]$Resource,
         [switch]$IncludeRefreshToken,
-        [boolean]$Force=$false
+        [boolean]$Force=$false,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
@@ -24,16 +26,38 @@ function Get-AccessTokenFromCache
         if([string]::IsNullOrEmpty($AccessToken))
         {
             # Check if cache entry is empty
-            if([string]::IsNullOrEmpty($Script:tokens["$ClientId-$tResource"]))
+            # The audience can be resource name or resource id
+            if($Script:tokens.ContainsKey("$ClientId-$tResource"))
+            {
+                $cacheKey = "$ClientId-$tResource"
+            }
+            else
+            {
+                # Loop through the resource ids
+                foreach($resId in $Script:RESIDs.Keys)
+                {
+                    if($Script:RESIDs[$resId] -eq $tResource)
+                    {
+                        if($Script:tokens.ContainsKey("$ClientId-$resId"))
+                        {
+                            $cacheKey = "$ClientId-$resId"
+                        }
+                        break
+                    }
+                }
+                
+            }
+            
+            if([string]::IsNullOrEmpty($cacheKey))
             {
                 # If token not found, try to find other tokens with the same resource
                 Write-Verbose "Access token for $ClientId-$tResource not found. Trying to find other clients for the resource"
-                foreach($key in $Script:tokens.Keys)
+                foreach($cacheKey in $Script:tokens.Keys)
                 {
-                    if($key.EndsWith($tResource))
+                    if($cacheKey.EndsWith($tResource) -or ($resId -ne $null -and $cacheKey.EndsWith($Script:RESIDs[$resId])))
                     {
-                        Write-Verbose "Found token for ClientId $($key.Substring(0,36))"
-                        $retVal=$Script:tokens[$key]
+                        Write-Verbose "Found token for ClientId $($cacheKey.Substring(0,36))"
+                        $retVal=$Script:tokens[$cacheKey]
                         break
                     }
                 }
@@ -43,18 +67,18 @@ function Get-AccessTokenFromCache
                 {
                     Write-Verbose "Access token for $ClientId-$tResource not found. Trying to find refresh token for other FOCI clients"
                     # Loop through cached refresh tokens
-                    foreach($key in $Script:refresh_tokens.Keys)
+                    foreach($cacheKey in $Script:refresh_tokens.Keys)
                     {
                         # Extract the client id
-                        [guid]$rtClientId = $key.Substring(0,36)
+                        [guid]$rtClientId = $cacheKey.Substring(0,36)
                         
                         if(IsFOCI -ClientId $rtClientId)
                         {
                             Write-Verbose "Using refresh token for ClientId $rtClientId"
                             # If FOCI client, get access token with it's refresh_token
-                            $tenantId  = (Read-Accesstoken -AccessToken $Script:tokens[$key]).tid
-                            $refresh_token = $Script:refresh_tokens[$key]
-                            $retVal = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientID -RefreshToken $refresh_token -TenantId $tenantId -SaveToCache $True
+                            $tenantId  = (Read-Accesstoken -AccessToken $Script:tokens[$cacheKey]).tid
+                            $refresh_token = $Script:refresh_tokens[$cacheKey]
+                            $retVal = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientID -RefreshToken $refresh_token -TenantId $tenantId -SaveToCache $True -SubScope $SubScope
                             break
                         }
                     }
@@ -68,7 +92,7 @@ function Get-AccessTokenFromCache
             }
             else
             {
-                $retVal=$Script:tokens["$ClientId-$tResource"]
+                $retVal=$Script:tokens[$cacheKey]
             }
         }
         else
@@ -76,7 +100,7 @@ function Get-AccessTokenFromCache
             # Check that the audience of the access token is correct
             $tAudience=(Read-Accesstoken -AccessToken $AccessToken).aud.TrimEnd("/")
 
-            # The audience might be the GUID
+            # The audience might be a GUID
             if((($tAudience -ne $tResource) -and ($Script:RESIDs[$tAudience] -ne $tResource)) -and ($Force -eq $False))
             {
                 # Wrong audience
@@ -1702,7 +1726,11 @@ function Get-AccessToken
         [Parameter(Mandatory=$False)]
         [string]$TAP,
         [Parameter(Mandatory=$False)]
-        [string]$RedirectUri
+        [string]$RedirectUri,
+        [Parameter(Mandatory=$False)]
+        [string]$ESTSAUTH,
+        [Parameter(Mandatory=$False)]
+        [string]$SubScope
     )
     Begin
     {
@@ -1764,7 +1792,7 @@ function Get-AccessToken
             # Get token using BPRT
             $OAuthInfo = @{
                 "refresh_token" = $BPRT
-                "access_token"  = Get-AccessTokenWithRefreshToken -Resource "urn:ms-drs:enterpriseregistration.windows.net" -ClientId "b90d5b8f-5503-4153-b545-b31cecfaece2" -TenantId "Common" -RefreshToken $BPRT
+                "access_token"  = Get-AccessTokenWithRefreshToken -Resource "urn:ms-drs:enterpriseregistration.windows.net" -ClientId "b90d5b8f-5503-4153-b545-b31cecfaece2" -TenantId "Common" -RefreshToken $BPRT -SubScope $SubScope
                 }
             $access_token = $OAuthInfo.access_token
         }
@@ -1775,6 +1803,11 @@ function Get-AccessToken
                 # Get token using SAML token
                 $OAuthInfo = Get-OAuthInfoUsingSAML -SAMLToken $SAMLToken -ClientId $ClientId -Resource "https://graph.windows.net"
             }
+            elseif(![string]::IsNullOrEmpty($ESTSAUTH))
+            {
+                # Get token using ESTSAUTH
+                $OAuthInfo = Prompt-Credentials -Resource $Resource -ClientId $ClientId -Tenant $Tenant -RedirectURI $RedirectUri -SubScope $SubScope -ESTSAUTH $ESTSAUTH
+            }
             else
             {
                 # Prompt for credentials
@@ -1783,11 +1816,11 @@ function Get-AccessToken
                     ($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -eq "https://enrollment.manage.microsoft.com/") <# MDM #>
                 )  
                 {
-                    $OAuthInfo = Prompt-Credentials -Resource $Resource -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA -ForceNGCMFA $ForceNGCMFA -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectUri
+                    $OAuthInfo = Prompt-Credentials -Resource $Resource -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA -ForceNGCMFA $ForceNGCMFA -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectUri -SubScope $SubScope
                 }
                 else
                 {
-                    $OAuthInfo = Prompt-Credentials -Resource "https://graph.windows.net" -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA -ForceNGCMFA $ForceNGCMFA -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectUri
+                    $OAuthInfo = Prompt-Credentials -Resource "https://graph.windows.net" -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA -ForceNGCMFA $ForceNGCMFA -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectUri -SubScope $SubScope
                 }
 
                 # Just return null
@@ -1798,8 +1831,6 @@ function Get-AccessToken
                 
             }
             
-            # We need to get access token using the refresh token
-
             # Save the refresh token and other variables
             $RefreshToken= $OAuthInfo.refresh_token
             $ParsedToken=  Read-Accesstoken($OAuthInfo.access_token)
@@ -1812,9 +1843,17 @@ function Get-AccessToken
 				Add-AccessTokenToCache -AccessToken $OAuthInfo.access_token -RefreshToken $OAuthInfo.refresh_token -ShowCache $false
             }
 
-            # Get the access token from response
-            $access_token = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientId -TenantId $tenant_id -RefreshToken $RefreshToken -SaveToCache $SaveToCache
-            
+            # If the token client id or resource is different than requested, get correct one using refresh token
+            if(($ParsedToken.appid -ne $ClientId) -or ($ParsedToken.aud -ne $Resource))
+            {
+                $tokens = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientId -TenantId $tenant_id -RefreshToken $RefreshToken -SaveToCache $SaveToCache -IncludeRefreshToken $true -SubScope $SubScope
+                $OAuthInfo = [pscustomobject]@{
+                    "access_token" = $tokens[0]
+                    "refresh_token" = $tokens[1]
+                }
+            }
+
+            $access_token = $OAuthInfo.access_token
         }
 
         # Check is this current, new, or deprecated FOCI client
@@ -1844,6 +1883,7 @@ function Get-AccessToken
             }
         }
 
+        # Save the final tokens to cache
         if($SaveToCache -and $OAuthInfo -ne $null -and $access_token -ne $null)
         {
 			Add-AccessTokenToCache -AccessToken $access_token -RefreshToken $refresh_token -ShowCache $false
@@ -1859,14 +1899,9 @@ function Get-AccessToken
             {
                 try
                 {
-                    # Import-Module doesn't throw an error, just prints it out.
-                    Import-Module -Name $MgModule -ErrorVariable "moduleImportError" -ErrorAction SilentlyContinue
+                    Import-Module -Name $MgModule
                 }
                 catch
-                {
-                    Throw "$MgModule module could not be imported!"
-                }
-                if($moduleImportError)
                 {
                     Throw "$MgModule module could not be imported!"
                 }
@@ -1917,7 +1952,7 @@ function Get-AccessToken
         {
             if($IncludeRefreshToken) # Include refreshtoken
             {
-                return @($access_token,$OAuthInfo.refresh_token)
+                return @($access_token,$refresh_token)
             }
             else
             {
@@ -1955,7 +1990,9 @@ function Get-AccessTokenWithRefreshToken
         [Parameter(Mandatory=$False)]
         [bool]$SaveToCache = $false,
         [Parameter(Mandatory=$False)]
-        [bool]$IncludeRefreshToken = $false
+        [bool]$IncludeRefreshToken = $false,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
@@ -1974,7 +2011,7 @@ function Get-AccessTokenWithRefreshToken
         }
         else
         {
-            $url = "https://login.microsoftonline.com/$TenantId/oauth2/token"
+            $url = "$(Get-TenantLoginUrl -SubScope $SubScope)/$TenantId/oauth2/token"
         }
 
         # Debug
@@ -2336,17 +2373,18 @@ function Get-AccessTokenUsingAADGraph
 }
 
 # Apr 22th 2022
+# Shows users stored in ESTS cookie
 function Unprotect-EstsAuthPersistentCookie
 {
 <#
     .SYNOPSIS
-    Decrypts and dumps users stored in ESTSAUTHPERSISTENT 
+    Decrypts and dumps users stored in ESTSAUTH or ESTSAUTHPERSISTENT 
 
     .DESCRIPTION
-    Decrypts and dumps users stored in ESTSAUTHPERSISTENT using login.microsoftonline.com/forgetUser
+    Decrypts and dumps users stored in ESTSAUTH or ESTSAUTHPERSISTENT using login.microsoftonline.com/forgetUser
 
     .Parameter Cookie
-    Value of ESTSAUTHPERSISTENT cookie
+    Value of ESTSAUTH or ESTSAUTHPERSISTENT cookie
     
     .Example
     PS C:\>Unprotect-AADIntEstsAuthPersistentCookie -Cookie 0.ARMAqlCH3MZuvUCNgTAd4B7IRffhvoluXopNnz3s1gEl...
@@ -2381,17 +2419,127 @@ function Unprotect-EstsAuthPersistentCookie
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True,ValueFromPipeline)]
-        [String]$Cookie
+        [String]$Cookie,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
+        Remove-UserFromEstsAuthPersistentCookie -Cookie $Cookie -SessionID "00000000-0000-0000-0000-000000000000" -ShowContent $true
+        <#
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+        $cookieDomain = $loginUrl.Split("/")[2]
         
-        $session.Cookies.Add((New-Object System.Net.Cookie("ESTSAUTHPERSISTENT", $Cookie, "/", ".login.microsoftonline.com")))
-        Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/forgetuser?sessionid=$((New-Guid).toString())" -WebSession $session
+        $session.Cookies.Add((New-Object System.Net.Cookie("ESTSAUTHPERSISTENT", $Cookie, "/", $cookieDomain )))
+        Invoke-RestMethod -UseBasicParsing -Uri "$loginUrl/forgetuser?sessionid=00000000-0000-0000-0000-000000000000" -WebSession $session
+        #>
     }
 }
 
+# Apr 22th 2022
+# Removes a user from the ESTS cookie
+function Remove-UserFromEstsAuthPersistentCookie
+{
+<#
+    .SYNOPSIS
+    Removes the given user from ESTSAUTH or ESTSAUTHPERSISTENT 
+
+    .DESCRIPTION
+    Removes the given user from ESTSAUTH or ESTSAUTHPERSISTENT using login.microsoftonline.com/forgetUser
+
+    The signed in user or the only user can't be removed.
+
+    .Parameter Cookie
+    Value of ESTSAUTH or ESTSAUTHPERSISTENT cookie
+
+    .Parameter SessionID
+    The session ID to be removed
+
+    .Parameter UserName
+    The user to be removed
+
+    .Parameter ShowContent
+    If true, shows the content of the cookie instead of returning new cookie
+    
+    .Example
+    PS C:\>$ESTSCookie = Remove-AADIntUserFromEstsAuthPersistentCookie -UserName "user@company.com" -Cookie "0.ARMAqlCH3MZuvUCNgTAd4B7IRffhvoluXopNnz3s1gEl..."
+
+    
+#>
+
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Cookie,
+        [Parameter(ParameterSetName='ID',Mandatory=$True)]
+        [String]$SessionID,
+        [Parameter(ParameterSetName='User',Mandatory=$True)]
+        [String]$UserName,
+        [Parameter(Mandatory=$False)]
+        [boolean]$ShowContent=$False,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
+    )
+    Process
+    {
+        if(![string]::IsNullOrEmpty($UserName))
+        {
+            # Get the list of users
+            $users = Unprotect-EstsAuthPersistentCookie -Cookie $Cookie
+            if($users.Count -eq 1)
+            {
+                Write-Warning "The only user can't be removed."
+            }
+            foreach($user in $users)
+            {
+                if($user.login -eq $UserName)
+                {
+                    $SessionID = $user.sessionID
+                    if($user.isSigned)
+                    {
+                        Write-Warning "Signed in user can't be removed"
+                    }
+                    break
+                }
+            }
+
+            if([string]::IsNullOrEmpty($SessionID))
+            {
+                throw "User $username not stored in the given token"
+            }
+        }
+
+        $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+        $loginUrl = Get-TenantLoginUrl -SubScope $SubScope
+        $cookieDomain = $loginUrl.Split("/")[2]
+        
+        $session.Cookies.Add((New-Object System.Net.Cookie("ESTSAUTHPERSISTENT", $Cookie, "/", $cookieDomain )))
+        $response = Invoke-WebRequest2 -Uri "$loginUrl/forgetuser?sessionid=$sessionID" -WebSession $session -ErrorAction SilentlyContinue
+
+        # Dump the content
+        if($ShowContent)
+        {
+            return $response.content | ConvertFrom-Json 
+        }
+        else
+        {
+            # Return the new cookie
+            # For some reason, the web session is not updated with the new cookie :(
+            #$ESTSCookie = $session.Cookies.GetCookies($loginurl).Item("ESTSAUTHPERSISTENT").value
+            try
+            {
+                $ESTSCookie = Get-StringBetween -Start "ESTSAUTHPERSISTENT=" -End ";" -String $response.Headers.'Set-Cookie'
+            }
+            catch
+            {
+                Write-Warning "No ESTSAUTHPERSISTENT cookie was returned. The removed user/session didn't exist, the user was signed in, or there was just one user."
+            }
+
+            return $ESTSCookie
+        }
+
+    }
+}
 
 # Returns access token using Azure Instance Metadata Service (IMDS)
 # Nov 8th 2022
@@ -2488,5 +2636,62 @@ function Get-AccessTokenUsingIMDS
         
         # Return
         $response.access_token
+    }
+}
+
+# Gets app consent info
+# Sep 13th 2024
+function Get-AppConsentInfo
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$ClientId,
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(Mandatory=$False)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [Parameter(Mandatory=$False)]
+        [string]$PfxFileName,
+        [Parameter(Mandatory=$False)]
+        [string]$PfxPassword,
+        [Parameter(Mandatory=$False)]
+        [string]$OTPSecretKey,
+        [Parameter(Mandatory=$False)]
+        [string]$TAP,
+        [Parameter(Mandatory=$False)]
+        [string]$RefreshTokenCredential
+    )
+    Process
+    {
+        # Get the config using the provided credentials
+        $config = Get-AuthorizationCode -ClientId $ClientId -Tenant "common" -AppConsent -OTPSecretKey $OTPSecretKey -TAP $TAP -RefreshTokenCredential $RefreshTokenCredential -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword -Credentials $Credentials
+
+        if($config -eq $null)
+        {
+            Throw "Unable to get app information"
+        }
+
+        $appInfo = [pscustomobject][ordered]@{
+            "Name" = $config.sAppName
+            "VerifiedPublisher" = $config.sAppVerifiedPublisherName
+            "WebSite" = $config.sAppWebsite
+            "Created" = $config.sAppCreatedDate
+            #"Settings" = $config.urlAppSettings
+            "TermsOfService" = $config.urlAppTermsOfService
+            "PrivacyStatement" = $config.urlAppPrivacyStatement
+            "Logo" = $config.urlAppLogo
+            "InDifferentTenant" = $config.fAppInDifferentTenant
+            "Scopes" = $config.arrScopes
+            "ReplyUrls" = $config.arrAppReplyUrls
+        }
+        
+        if([string]::IsNullOrEmpty($appInfo.Name))
+        {
+            Write-Warning "No information returned, maybe app is already consented?"
+        }
+        else
+        {
+            return $appInfo
+        }
     }
 }

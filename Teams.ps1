@@ -1395,7 +1395,6 @@ function Get-TeamsExternalUserInformation
     mri               : 8:orgid:84bdccdb-eaba-4545-9729-4eff71b76841
     objectId          : fe401a12-879c-4e5b-8b51-03e1985fa62f
 
-    .EXAMPLE
     PS\:>Get-AADIntAccessTokenForTeams -SaveToCache
 
     PS\:>Get-AADIntTeamsExternalUserInformation -UserPrincipalname = "johnd@company.com"
@@ -1414,6 +1413,23 @@ function Get-TeamsExternalUserInformation
     objectId          : fe401a12-879c-4e5b-8b51-03e1985fa62f
 
     .EXAMPLE
+    PS\:>Get-AADIntAccessTokenForTeams -SaveToCache
+
+    PS\:>Get-AADIntTeamsExternalUserInformation -ObjectId "fe401a12-879c-4e5b-8b51-03e1985fa62f"
+
+    tenantId          : dcc7d7bf-e3f5-4778-b6e0-aa7207bdb033
+    isShortProfile    : False
+    accountEnabled    : True
+    featureSettings   : @{coExistenceMode=TeamsOnly}
+    userPrincipalName : johnd@company.com
+    givenName         : JohnD@company.com
+    surname           : 
+    email             : JohnD@company.com
+    displayName       : John Doe
+    type              : Federated
+    mri               : 8:orgid:84bdccdb-eaba-4545-9729-4eff71b76841
+    objectId          : fe401a12-879c-4e5b-8b51-03e1985fa62f
+
     PS\:>Get-AADIntAccessTokenForTeams -SaveToCache
 
     PS\:>Get-AADIntTeamsExternalUserInformation -MRI "8:orgid:84bdccdb-eaba-4545-9729-4eff71b76841"

@@ -76,7 +76,9 @@ function Enroll-DeviceToMDM
         [Parameter(Mandatory=$True)]
         [String]$DeviceName,
         [Parameter(Mandatory=$True)]
-        [bool]$BPRT
+        [bool]$BPRT,
+        [Parameter(Mandatory=$False)]
+        [object]$ZtdCorrelationId 
     )
     Process
     {
@@ -105,6 +107,7 @@ function Enroll-DeviceToMDM
             "User-Agent"   = "ENROLLClient"
         }
 
+
         # Create the CSR request body
         $csrBody=@"
 <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:u="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:wst="http://docs.oasis-open.org/ws-sx/ws-trust/200512" xmlns:ac="http://schemas.xmlsoap.org/ws/2006/12/authorization">
@@ -126,22 +129,25 @@ function Enroll-DeviceToMDM
 			<wsse:BinarySecurityToken ValueType="http://schemas.microsoft.com/windows/pki/2009/01/enrollment#PKCS10" EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd#base64binary">$csr</wsse:BinarySecurityToken>
 			<ac:AdditionalContext xmlns="http://schemas.xmlsoap.org/ws/2006/12/authorization">
 				<ac:ContextItem Name="UXInitiated">
-					<ac:Value>(($BPRT -eq $false).ToString().ToLower())</ac:Value>
+					<ac:Value>$(($BPRT -eq $false).ToString().ToLower())</ac:Value>
 				</ac:ContextItem>
 				<ac:ContextItem Name="HWDevID">
 					<ac:Value>$HWDevID</ac:Value>
 				</ac:ContextItem>
-                <ac:ContextItem Name="BulkAADJ">
+				<ac:ContextItem Name="OfflineAutoPilotEnrollmentCorrelator">
+					<ac:Value>$ZtdCorrelationId</ac:Value>
+				</ac:ContextItem>
+				<ac:ContextItem Name="BulkAADJ">
 					<ac:Value>$($BPRT.ToString().ToLower())</ac:Value>
 				</ac:ContextItem>
 				<ac:ContextItem Name="Locale">
 					<ac:Value>en-US</ac:Value>
 				</ac:ContextItem>
 				<ac:ContextItem Name="TargetedUserLoggedIn">
-					<ac:Value>$(($BPRT -eq $false).ToString().ToLower())</ac:Value>
+					<ac:Value>$((($BPRT -eq $false) -or ($ZtdCorrelationId -eq $null)).ToString().ToLower())</ac:Value>
 				</ac:ContextItem>
 				<ac:ContextItem Name="EnrollmentData">
-					<ac:Value></ac:Value>
+					<ac:Value>$ZtdCorrelationId</ac:Value>
 				</ac:ContextItem>
 				<ac:ContextItem Name="OSEdition">
 					<ac:Value>4</ac:Value>
@@ -166,6 +172,12 @@ function Enroll-DeviceToMDM
 				</ac:ContextItem>
 				<ac:ContextItem Name="ApplicationVersion">
 					<ac:Value>10.0.18363.0</ac:Value>
+				</ac:ContextItem>
+				<ac:ContextItem Name="NotInOobe">
+					<ac:Value>true</ac:Value>
+				</ac:ContextItem>
+				<ac:ContextItem Name="RequestVersion">
+					<ac:Value>5.0</ac:Value>
 				</ac:ContextItem>
 			</ac:AdditionalContext>
 		</wst:RequestSecurityToken>
