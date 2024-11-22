@@ -13,7 +13,7 @@ function Get-LocalDeviceTransportKeys
         [String]$IdpDomain,
         [Parameter(Mandatory=$True)]
         [String]$TenantId,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$UserEmail
     )
     Begin
