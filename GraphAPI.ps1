@@ -15,10 +15,14 @@ Return Entra ID groups with dynamic membership rule that contains attributes tha
 
 .Parameter AccessToken
 The Access Token. If not given, tries to use cached Access Token
-.
+
 .Example
 PS C:\>Get-AADIntAccessTokenForAADGraph -SaveToCache
 PS C:\>Get-AADIntDynamicAbusableGroups
+
+abusableRule                                               groupId                             
+------------                                               -------                             
+(user.userType -eq "Member") -or (user.city -eq "Redmond") 69d8fc52-d45e-47a2-972a-6c99e057ead1
 #>
     [cmdletbinding()]
     Param(

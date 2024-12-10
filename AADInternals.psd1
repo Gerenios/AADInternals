@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.9.5'
+	ModuleVersion = '0.9.6'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -170,6 +170,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AccessTokenForSPOMigrationTool"
     "Get-AccessTokenForAccessPackages"
     "Get-AppConsentInfo"
+    "Get-ESTSAUTHCookies"
     
     # AccessToken_utils.ps1
     "Get-LoginInformation"
@@ -392,6 +393,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-Configuration"
     "Set-Setting"
     "Set-UserAgent"
+    "Convert-ObjectIDtoSID"
+    "Convert-SIDtoObjectID"
 
     # Teams.ps1
     "Get-SkypeToken"

@@ -2316,3 +2316,282 @@ function Get-Thumbprint
     
     return [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($bytes).Thumbprint
 }
+
+
+# Parses the oid values of the given certificate
+# Dec 23rd 2021
+function Parse-CertificateOIDs
+{
+
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True,ValueFromPipeline)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
+    )
+    Process
+    {
+        function Get-OidRawValue
+        {
+            Param([byte[]]$RawValue)
+            Process
+            {
+                # Quick-and-dirty DER decoder
+                if($RawValue.Length -gt 3 -and ($RawValue[2] -eq $RawValue.Length-3 ))
+                {
+                    # 04 81 10 xxx
+                    return $RawValue[3..($RawValue.Length-1)] 
+                }
+                elseif($RawValue.Length -gt 2 -and ($RawValue[1] -eq $RawValue.Length-2 ))
+                {
+                    # 04 10 xxx
+                    return $RawValue[2..($RawValue.Length-1)] 
+                }
+                else
+                {
+                    return $RawValue
+                }
+            }
+        }
+        $retVal = New-Object psobject
+        foreach($ext in $Certificate.Extensions)
+        {
+            switch($ext.Oid.Value)
+            {
+               #
+               # Device Certificates
+               # 
+               "1.2.840.113556.1.5.284.2" {
+                    $retVal | Add-Member -NotePropertyName "DeviceId" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
+                    break
+               }
+
+               # "The objectGuid of the user object ([MS-ADSC] section 2.268) on the directory server that corresponds to the authenticating user."
+               # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dvrj/850786b9-2525-4047-a5ff-8c3093b46b88
+               # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dvre/76747b5c-06c2-4c73-9207-8ebb6ee891ea
+               # I.e. the object ID in AAD of the user who joined/registered the device
+               "1.2.840.113556.1.5.284.3" {
+                    $retVal | Add-Member -NotePropertyName "AuthUserObjectId" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
+                    break
+               }
+               "1.2.840.113556.1.5.284.5" {
+                    $retVal | Add-Member -NotePropertyName "TenantId" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
+                    break
+               }
+               "1.2.840.113556.1.5.284.8" {
+                    # Tenant region
+                    # AF = Africa
+                    # AS = Asia
+                    # AP = Australia/Pasific
+                    # EU = Europe
+                    # ME = Middle East
+                    # NA = North America
+                    # SA = South America
+                    $retVal | Add-Member -NotePropertyName "Region" -NotePropertyValue ([text.encoding]::UTF8.getString([byte[]](Get-OidRawValue -RawValue $ext.RawData)))
+                    break
+               }
+               "1.2.840.113556.1.5.284.7" {
+                    # JoinType
+                    # 0 = Registered
+                    # 1 = Joined
+                    $retVal | Add-Member -NotePropertyName "JoinType" -NotePropertyValue ([int]([text.encoding]::UTF8.getString([byte[]](Get-OidRawValue -RawValue $ext.RawData))))
+                    break
+               }
+
+               #
+               # Web App Proxy certificates
+               #
+               "1.3.6.1.4.1.311.82.1"{
+                    $retVal | Add-Member -NotePropertyName "AgentId" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
+                    break
+               }
+
+               #
+               # Intune Certificates Ref. https://github.com/ralish/CertUiExts
+               # 
+               "1.2.840.113556.5.4" {
+                    $retVal | Add-Member -NotePropertyName "IntuneDeviceId" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
+                    break
+               }
+               "1.2.840.113556.5.6" {
+                    $retVal | Add-Member -NotePropertyName "AccountId" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
+                    break
+               }
+               "1.2.840.113556.5.10" {
+                    $retVal | Add-Member -NotePropertyName "AuthUserObjectId" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
+                    break
+               }
+               "1.2.840.113556.5.11" {
+                    $retVal | Add-Member -NotePropertyName "Unknown" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
+                    break
+               }
+               "1.2.840.113556.5.14" {
+                    $retVal | Add-Member -NotePropertyName "TenantId" -NotePropertyValue ([guid][byte[]](Get-OidRawValue -RawValue $ext.RawData))
+                    break
+               }
+               "1.2.840.113556.5.24" {
+                    $retVal | Add-Member -NotePropertyName "Hash" -NotePropertyValue (Convert-ByteArrayToHex -bytes ([byte[]](Get-OidRawValue -RawValue $ext.RawData)))
+                    break
+               }
+            }
+        }
+
+        return $retVal
+    }
+}
+
+function New-JWT
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='PrivateKey', Mandatory=$True)]
+        [System.Security.Cryptography.RSA]$PrivateKey,
+        [Parameter(ParameterSetName='Key',Mandatory=$True)]
+        [Byte[]]$Key,
+        [Parameter(Mandatory=$True)]
+        [System.Collections.Specialized.OrderedDictionary]$Header,
+        [Parameter(Mandatory=$True)]
+        [System.Collections.Specialized.OrderedDictionary]$Payload
+    )
+    Process
+    {
+        # Construct the header
+        $txtHeader =  $Header  | ConvertTo-Json -Compress
+        $txtPayload = $Payload | ConvertTo-Json -Compress
+
+        # Convert to B64 and strip the padding
+        $b64Header =  Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.getBytes($txtHeader )) -NoPadding
+        $b64Payload = Convert-ByteArrayToB64 -Bytes ([text.encoding]::UTF8.getBytes($txtPayload)) -NoPadding
+
+        # Construct the JWT data to be signed
+        $binData = [text.encoding]::UTF8.GetBytes(("{0}.{1}" -f $b64Header,$b64Payload))
+
+        # Get the signature
+        $Binsig = Sign-JWT -PrivateKey $PrivateKey -Key $Key -Data $binData
+        $B64sig = Convert-ByteArrayToB64 -Bytes $Binsig -UrlEncode
+
+        # Construct the JWT
+        $jwt = "{0}.{1}.{2}" -f $b64Header,$b64Payload,$B64sig
+
+        # Return
+        return $jwt
+    }
+}
+
+# Aug 21st 2020
+function Sign-JWT
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [System.Security.Cryptography.RSA]$PrivateKey,
+        [Parameter(Mandatory=$False)]
+        [Byte[]]$Key,
+        [Parameter(Mandatory=$True)]
+        [byte[]]$Data
+    )
+    Process
+    {
+        if($PrivateKey)
+        {
+            # Sign the JWT (RS256)
+            $signature = $PrivateKey.SignData($Data, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+        }
+        else
+        {
+            # Sign the JWT (HS256)
+            $hmac = New-Object System.Security.Cryptography.HMACSHA256 -ArgumentList @(,$Key)
+            $signature = $hmac.ComputeHash($Data)
+            $hmac.Dispose()
+        }
+
+        # Return
+        return $signature
+    }
+}
+
+# Converts EntraID ObjectID to Security Identifier (SID)
+# Dec 3rd 2024 
+function Convert-ObjectIDtoSID
+{
+<#
+    .SYNOPSIS
+    Converts Entra ID ObjectID to Entra ID SID
+
+    .DESCRIPTION
+    Converts Entra ID ObjectID to Entra ID SID used in Entra ID joined devices and access tokens. The resulting SID always starts with S-1-12-1
+
+    .Parameter ObjectID
+    Entra ID ObjectID
+    
+    .Example
+    PS C:\>Convert-AADIntObjectIDtoSID -ObjectID "e06e3596-82c0-4f31-ac5a-439a308e3dc2"
+    S-1-12-1-3765319062-1328644800-2588105388-3258814000
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True,ValueFromPipeline)]
+        [GUID]$ObjectID
+    )
+    Process
+    {
+        # Ref: https://github.com/okieselbach/Intune/blob/master/Convert-AzureAdObjectIdToSid.ps1
+        $SID = New-Object uint32[] 4
+        [System.Buffer]::BlockCopy($ObjectID.ToByteArray(), 0, $SID, 0, 16)
+
+        return "S-1-12-1-$SID".Replace(' ', '-')
+    }
+
+}
+
+# Converts EntraID ObjectID to Security Identifier (SID)
+# Dec 3rd 2024 
+function Convert-SIDtoObjectID
+{
+<#
+    .SYNOPSIS
+    Converts Entra ID SID to Entra ID ObjectID
+
+    .DESCRIPTION
+    Converts Entra ID SID used in Entra ID joined devices and access tokens to Entra ID ObjectID. The SID must start with S-1-12-1
+
+    .Parameter SID
+    Entra ID SID
+    
+    .Example
+    PS C:\>Convert-AADIntSIDtoObjectID -SID "S-1-12-1-3765319062-1328644800-2588105388-3258814000"
+    e06e3596-82c0-4f31-ac5a-439a308e3dc2
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True,ValueFromPipeline)]
+        [string]$SID
+    )
+    Process
+    {
+        # Ref: https://github.com/okieselbach/Intune/blob/master/Convert-AzureAdSidToObjectId.ps1
+        $invalidSID = $false
+        if(-not $SID.StartsWith("S-1-12-1-"))
+        {
+            $invalidSID = $true
+        }
+        else
+        {
+            try
+            {
+                $parts = [UInt32[]]$SID.Substring(9).Split('-')
+                $guid = New-Object Byte[] 16
+                [System.Buffer]::BlockCopy($parts,0,$guid,0,16)
+
+                return [guid]$guid
+            }
+            catch
+            {
+                $invalidSID = $true
+            }
+        }
+        if($invalidSID)
+        {
+            Throw "Invalid SID. SID must start with S-1-12-1"
+        }
+    }
+}
