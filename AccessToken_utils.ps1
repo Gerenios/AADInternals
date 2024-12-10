@@ -2147,7 +2147,9 @@ function Get-AuthorizationCode
         [Parameter(Mandatory=$False)]
         [string]$SubScope,
         [Parameter(Mandatory=$False)]
-        [string]$ESTSAUTH
+        [string]$ESTSAUTH,
+        [Parameter(Mandatory=$False)]
+        [switch]$DumpESTSAUTH
     )
     Begin
     {
@@ -3069,18 +3071,23 @@ function Get-AuthorizationCode
         $authorizationCode = Parse-CodeFromResponse -Response $response
         
         # Try to dump the ESTS cookies
-        try
+        if($DumpESTSAUTH)
         {
-            foreach($cookie in $LoginSession.Cookies.GetCookies((Get-TenantLoginUrl -SubScope $SubScope)))
+            $ESTSCookies = @{}
+            try
             {
-                $estsCookies = "ESTSAUTH","ESTSAUTHPERSISTENT"
-                if($cookie.Name -in $estsCookies)
+                foreach($cookie in $LoginSession.Cookies.GetCookies((Get-TenantLoginUrl -SubScope $SubScope)))
                 {
-                    Write-Verbose "$($cookie.Name): $($cookie.Value)"
+                    if($cookie.Name -in ("ESTSAUTH","ESTSAUTHPERSISTENT"))
+                    {
+                        $ESTSCookies[$cookie.Name] = $cookie.Value
+                    }
                 }
             }
+            catch {}
+
+            return [pscustomobject]$ESTSCookies
         }
-        catch {}
 
         return $authorizationCode
     }

@@ -1899,9 +1899,14 @@ function Get-AccessToken
             {
                 try
                 {
-                    Import-Module -Name $MgModule
+                    # Import-Module doesn't throw an error, just prints it out.
+                    Import-Module -Name $MgModule -ErrorVariable "moduleImportError" -ErrorAction SilentlyContinue
                 }
                 catch
+                {
+                    Throw "$MgModule module could not be imported!"
+                }
+                if($moduleImportError)
                 {
                     Throw "$MgModule module could not be imported!"
                 }
@@ -2426,13 +2431,6 @@ function Unprotect-EstsAuthPersistentCookie
     Process
     {
         Remove-UserFromEstsAuthPersistentCookie -Cookie $Cookie -SessionID "00000000-0000-0000-0000-000000000000" -ShowContent $true
-        <#
-        $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-        $cookieDomain = $loginUrl.Split("/")[2]
-        
-        $session.Cookies.Add((New-Object System.Net.Cookie("ESTSAUTHPERSISTENT", $Cookie, "/", $cookieDomain )))
-        Invoke-RestMethod -UseBasicParsing -Uri "$loginUrl/forgetuser?sessionid=00000000-0000-0000-0000-000000000000" -WebSession $session
-        #>
     }
 }
 
@@ -2525,7 +2523,6 @@ function Remove-UserFromEstsAuthPersistentCookie
         {
             # Return the new cookie
             # For some reason, the web session is not updated with the new cookie :(
-            #$ESTSCookie = $session.Cookies.GetCookies($loginurl).Item("ESTSAUTHPERSISTENT").value
             try
             {
                 $ESTSCookie = Get-StringBetween -Start "ESTSAUTHPERSISTENT=" -End ";" -String $response.Headers.'Set-Cookie'
@@ -2643,6 +2640,35 @@ function Get-AccessTokenUsingIMDS
 # Sep 13th 2024
 function Get-AppConsentInfo
 {
+<#
+    .SYNOPSIS
+    Shows the consent information of the given application client id.
+
+    .DESCRIPTION
+    Shows the consent information of the given application client id by using authorization code flow.
+
+    .Parameter ClientId
+    The ClientId of the application which consent information you'd like to see
+       
+    .Example
+    PS C:\>$creds = Get-Credential
+    PS C:\>Get-AppConsentInfo -Credentials $creds -ClientId "5a2d9517-0fe6-48ea-b09c-3c5ae4a3e7dc"
+    
+    Name              : www.myo365.site
+    VerifiedPublisher : Gerenios Oy
+    WebSite           : www.gerenios.com
+    Created           : 10/26/2017
+    TermsOfService    : 
+    PrivacyStatement  : 
+    Logo              : https://secure.aadcdn.microsoftonline-p.com/c1c6b6c8-okmfqodscgr7krbq5-p48zooio1tqm9g2zcpryoikta/appbranding/ppgci70
+                        wmk0edve-emzqa3tqk03sidrimjcehxhp-c/1033/bannerlogo?ts=636706112039062792
+    InDifferentTenant : True
+    Scopes            : {@{label=Sign you in and read your profile; description=Allows you to sign in to the app with your work account and 
+                        let the app read your profile. It also allows the app to read basic company information.; adminLabel=Sign in and rea
+                        d user profile; adminDescription=Allows users to sign in to the app, and allows the app to read the profile of signe
+                        d-in users. It also allow the app to read basic company information of signed-in users.}}
+    ReplyUrls         : {https://www.gerenios.com}
+#>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
@@ -2693,5 +2719,63 @@ function Get-AppConsentInfo
         {
             return $appInfo
         }
+    }
+}
+
+# Dec 12th 2024
+# Returns ESTSAUTH cookies
+function Get-ESTSAUTHCookies
+{
+<#
+    .SYNOPSIS
+    Returns ESTSAUTH and ESTSAUTHPERSISTENT cookies
+
+    .DESCRIPTION
+    Returns ESTSAUTH and ESTSAUTHPERSISTENT cookies
+   
+    .Example
+    PS C:\>$ESTSCookies = Get-AADIntESTSAUTHCookies
+    PS C:\>Get-AADIntAccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net" -ESTSAUTH $ESTSCookies.ESTSAUTHPERSISTENT
+#>
+
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [String]$Resource = "https://graph.windows.net",
+        [Parameter(Mandatory=$False)]
+        [String]$ClientId = "1b730954-1685-4b74-9bfd-dac224a7b894",
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant = "Common",
+        [Parameter(Mandatory=$False)]
+        [bool]$ForceMFA=$false,
+        [Parameter(Mandatory=$False)]
+        [bool]$ForceNGCMFA=$false,
+        [Parameter(Mandatory=$False)]
+        [string]$RefreshTokenCredential,
+        [Parameter(Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(Mandatory=$False)]
+        [string]$OTPSecretKey,
+        [Parameter(Mandatory=$False)]
+        [string]$TAP,
+        [Parameter(Mandatory=$False)]
+        [string]$RedirectURI,
+        [Parameter(Mandatory=$False)]
+        [string]$SubScope
+    )
+    Process
+    {
+        # Set AMR values as needed
+        $amr = $null
+        if($ForceMFA)
+        {
+            $amr = "mfa"
+        }
+        elseif($ForceNGCMFA)
+        {
+            $amr = "ngcmfa"
+        }
+
+        Get-AuthorizationCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant -AMR $amr -RefreshTokenCredential $RefreshTokenCredential -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectURI -SubScope $SubScope -DumpESTSAUTH
     }
 }
