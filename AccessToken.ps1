@@ -1650,6 +1650,66 @@ function Get-AccessTokenForWHfB
     }
 }
 
+# Gets an access token for compliance.microsoft.com
+# Dec 13th 2024
+function Get-AccessTokenForCompliance
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for compliance.microsoft.com
+
+    .DESCRIPTION
+    Gets OAuth Access Token for compliance.microsoft.com
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
+    .Example
+    PS C:\>Get-AADIntAccessTokenForCompliance -SaveToCache
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$False)]
+        [string]$OTPSecretKey,
+        [Parameter(Mandatory=$False)]
+        [string]$TAP
+    )
+    Process
+    {
+        Get-AccessToken -Resource "80ccca67-54bd-44ab-8625-4b79c4dc7775" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+    }
+}
+
 # Gets the access token for provisioning API and stores to cache
 # Refactored Jun 8th 2020
 function Get-AccessToken
@@ -1753,6 +1813,7 @@ function Get-AccessToken
             "04b07795-8ddb-461a-bbee-02f9e1bf7b46" # Azure CLI
             "ecd6b820-32c2-49b6-98a6-444530e5a77a" # Edge
             "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
+            "9ba1a5c7-f17a-4de9-a1f1-6178c8d51223" # Microsoft Intune Company Portal
         )
     }
     Process
@@ -2724,18 +2785,29 @@ function Get-AppConsentInfo
 
 # Dec 12th 2024
 # Returns ESTSAUTH cookies
-function Get-ESTSAUTHCookies
+function Get-ESTSAUTHCookie
 {
 <#
     .SYNOPSIS
-    Returns ESTSAUTH and ESTSAUTHPERSISTENT cookies
+    Returns ESTSAUTH or ESTSAUTHPERSISTENT cookie
 
     .DESCRIPTION
-    Returns ESTSAUTH and ESTSAUTHPERSISTENT cookies
+    Returns ESTSAUTH or ESTSAUTHPERSISTENT cookie
+
+    .PARAMETER Persistent
+    Get ESTSAUTHPERSISTENT cookie
    
     .Example
-    PS C:\>$ESTSCookies = Get-AADIntESTSAUTHCookies
-    PS C:\>Get-AADIntAccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net" -ESTSAUTH $ESTSCookies.ESTSAUTHPERSISTENT
+    PS C:\>$ESTSAUTH = Get-AADIntESTSAUTHCookie
+    PS C:\>Get-AADIntAccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net" -ESTSAUTH $ESTSAUTH
+
+    .Example
+    PS C:\>$ESTSAUTH = Get-AADIntESTSAUTHCookie -Persistent
+    PS C:\>Get-AADIntAccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net" -ESTSAUTH $ESTSAUTH
+
+    .Example
+    PS C:\>$ESTSAUTH = Get-AADIntESTSAUTHCookie -Persistent -ForceMFA
+    PS C:\>Get-AADIntAccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net" -ESTSAUTH $ESTSAUTH
 #>
 
     [cmdletbinding()]
@@ -2747,9 +2819,9 @@ function Get-ESTSAUTHCookies
         [Parameter(Mandatory=$False)]
         [String]$Tenant = "Common",
         [Parameter(Mandatory=$False)]
-        [bool]$ForceMFA=$false,
+        [switch]$ForceMFA,
         [Parameter(Mandatory=$False)]
-        [bool]$ForceNGCMFA=$false,
+        [switch]$ForceNGCMFA,
         [Parameter(Mandatory=$False)]
         [string]$RefreshTokenCredential,
         [Parameter(Mandatory=$False)]
@@ -2761,7 +2833,9 @@ function Get-ESTSAUTHCookies
         [Parameter(Mandatory=$False)]
         [string]$RedirectURI,
         [Parameter(Mandatory=$False)]
-        [string]$SubScope
+        [string]$SubScope,
+        [Parameter(Mandatory=$False)]
+        [switch]$Persistent
     )
     Process
     {
@@ -2776,6 +2850,6 @@ function Get-ESTSAUTHCookies
             $amr = "ngcmfa"
         }
 
-        Get-AuthorizationCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant -AMR $amr -RefreshTokenCredential $RefreshTokenCredential -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectURI -SubScope $SubScope -DumpESTSAUTH
+        Get-AuthorizationCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant -AMR $amr -RefreshTokenCredential $RefreshTokenCredential -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectURI -SubScope $SubScope -DumpESTSAUTH -KMSI $Persistent
     }
 }
