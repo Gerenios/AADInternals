@@ -1695,6 +1695,7 @@ function Get-AuthRedirectUrl
         $oobClients = @(
             "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Microsoft Office
             "29d9ed98-a469-4536-ade2-f981bc1d605e" # Microsoft Authentication Broker
+            "9ba1a5c7-f17a-4de9-a1f1-6178c8d51223" # Microsoft Intune Company Portal
             )
     }
     Process
@@ -2149,7 +2150,9 @@ function Get-AuthorizationCode
         [Parameter(Mandatory=$False)]
         [string]$ESTSAUTH,
         [Parameter(Mandatory=$False)]
-        [switch]$DumpESTSAUTH
+        [switch]$DumpESTSAUTH,
+        [Parameter(Mandatory=$False)]
+        [boolean]$KMSI
     )
     Begin
     {
@@ -2254,7 +2257,9 @@ function Get-AuthorizationCode
                 [Parameter(Mandatory=$False)]
                 [string]$TAP,
                 [Parameter(Mandatory=$False)]
-                [string]$SubScope
+                [string]$SubScope,
+                [Parameter(Mandatory=$False)]
+                [boolean]$KMSI
             )
             Process
             {
@@ -2303,6 +2308,10 @@ function Get-AuthorizationCode
                         "flowToken"  = $config.sFT
                         "canary"     = $config.canary
                         "client_id"  = $ClientId
+                    }
+                    if($KMSI)
+                    {
+                        $body["LoginOptions"] = 1
                     }
                     if($isTAP)
                     {
@@ -2805,7 +2814,7 @@ function Get-AuthorizationCode
             # PWD & TAP
             if($cPWD -or $cTAP)
             {
-                $loginResponse = Process-Login -Credentials $Credentials -Config $config -IsTAP ($cTAP -eq $true) -TAP $TAP -SubScope $SubScope
+                $loginResponse = Process-Login -Credentials $Credentials -Config $config -IsTAP ($cTAP -eq $true) -TAP $TAP -SubScope $SubScope -KMSI $KMSI
                 if($loginResponse -eq $null)
                 {
                     return $null
@@ -3073,20 +3082,25 @@ function Get-AuthorizationCode
         # Try to dump the ESTS cookies
         if($DumpESTSAUTH)
         {
-            $ESTSCookies = @{}
+            $cookieName = "ESTSAUTH"
+            if($KMSI)
+            {
+                $cookieName += "PERSISTENT"
+            }
+
+            Write-Verbose "Trying to dump $cookieName cookie"
+
             try
             {
                 foreach($cookie in $LoginSession.Cookies.GetCookies((Get-TenantLoginUrl -SubScope $SubScope)))
                 {
-                    if($cookie.Name -in ("ESTSAUTH","ESTSAUTHPERSISTENT"))
+                    if($cookie.Name -eq $cookieName)
                     {
-                        $ESTSCookies[$cookie.Name] = $cookie.Value
+                        return $cookie.Value
                     }
                 }
             }
             catch {}
-
-            return [pscustomobject]$ESTSCookies
         }
 
         return $authorizationCode
