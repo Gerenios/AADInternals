@@ -1,6 +1,7 @@
 ﻿# Checks whether the domain has MX records pointing to MS cloud
 # Jun 16th 2020
 # Aug 30th 2022: Fixed by maxgrim
+# Feb 17th 2024: Added mx.microsoft domain support by Michael Morten Sonne
 function HasCloudMX
 {
     [cmdletbinding()]
@@ -25,14 +26,22 @@ function HasCloudMX
             }
             default # Commercial/GCC
             {
-                $filter = "*.mail.protection.outlook.com"
+                $filter = "*.mail.protection.outlook.com", "*.mx.microsoft"
             }
         }
 
-        $results=Resolve-DnsName -Name $Domain -Type MX -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | Select-Object nameexchange | Select-Object -ExpandProperty nameexchange
-        $filteredResults=$results -like $filter
+        $results = Resolve-DnsName -Name $Domain -Type MX -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | Select-Object -ExpandProperty nameexchange
+        $filteredResults = @()
 
-        return ($filteredResults -eq $true) -and ($filteredResults.Count -gt 0)
+        foreach ($result in $results) {
+            foreach ($f in $filter) {
+                if ($result -like $f) {
+                    $filteredResults += $result
+                }
+            }
+        }
+
+        return $filteredResults.Count -gt 0
     }
 }
 
