@@ -163,8 +163,7 @@ function Get-SPOSiteUsers
                 $attributes["IsShareByEmailGuestUser"] = $entry.content.properties.IsShareByEmailGuestUser.'#Text' -eq "true"
                 $attributes["IsSiteAdmin"] = $entry.content.properties.IsSiteAdmin.'#Text' -eq "true"
                 $attributes["NameId"] = $entry.content.properties.UserId.NameId
-                $attributes["NameIdIssuer"] = $entry.content.properties.UserId.NameIdIssuer
-            
+                $attributes["NameIdIssuer"] = $entry.content.properties.UserId.NameIdIssuer            
 
                 if($entry.content.properties.UserPrincipalName.GetType().Name  -eq "String")
                 {
@@ -563,7 +562,6 @@ function Get-SPOSettings
         $headers=@{
             "Authorization" = "Bearer $AccessToken"
         }
-
         
         # Invoke the request
         $response=Invoke-RestMethod -UseBasicParsing -Uri "https://$Tenant-admin.sharepoint.com/_vti_bin/client.svc/ProcessQuery" -Method Post -Body $body -Headers $headers
@@ -572,7 +570,6 @@ function Get-SPOSettings
         {
             $response[4]
         }
-
     }
 }
 
@@ -775,7 +772,6 @@ function Get-SPOSiteFile
 
             return $fileInformation
         }
-
     }
 }
 

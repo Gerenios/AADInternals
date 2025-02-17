@@ -65,7 +65,6 @@ function Approve-MSPartnerDelegatedAdminRequest
                 )
 		        "userPrincipalName" = $null
 	        }
-
         }
 
         try
@@ -205,7 +204,6 @@ function Get-AccessTokenUsingAdminAPI
         }
     }
 }
-
 
 # Approves the delegated admin request
 # Dec 11th 2021

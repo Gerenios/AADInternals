@@ -114,7 +114,6 @@ Function New-B2CToken
     }
 }
 
-
 # Creates a new B2C refresh token
 # Sep 12th 2023
 Function New-B2CRefreshToken

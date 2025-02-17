@@ -58,4 +58,3 @@ function Register-PTAAgent
         return Register-ProxyAgent -AccessToken $AccessToken -MachineName $MachineName -FileName $FileName -AgentType PTA -UpdateTrust $UpdateTrust -PfxFileName $PfxFileName -PfxPassword $PfxPassword -Bootstrap $Bootstrap
     }
 }
-

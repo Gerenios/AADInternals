@@ -98,10 +98,7 @@ function Get-HybridHealthServiceMemberCredentials
             }
         }
 
-        
-
         return New-Object psobject -Property $creds
-               
     }
 }
 
@@ -149,8 +146,7 @@ function Get-HybridHealthServiceAccessToken
         # Invoke the command 
         $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://s1.adhybridhealth.azure.com/oauth2/token" -Body $body
 
-        return $response.access_token
-               
+        return $response.access_token               
     }
 }
 
@@ -405,7 +401,6 @@ function Send-ADFSServiceBusMessage
             Write-Verbose "Closing websocket"
             $socket.Dispose()
         }
-
     }
 }
 

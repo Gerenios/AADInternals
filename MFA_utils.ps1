@@ -12,8 +12,6 @@ function Get-OathCounter
     }
 }
 
-
-
 # Generates a new time-based OTP for MFA
 # Jun 26th 2020
 function Generate-tOTP
@@ -49,8 +47,7 @@ function Generate-tOTP
             $TimeStep = 30 # Can't be zero, so default to 30 seconds
         }
         
-        $Seconds = ($Seconds + $TimeShift) / $TimeStep
-        
+        $Seconds = ($Seconds + $TimeShift) / $TimeStep        
 
         [byte[]]$timeBytes = @( 0,0,0,0, # Integer has only 4 bytes so the first four are zeros
                             [byte](([int]$Seconds -shr 24) -band 255),
@@ -101,8 +98,7 @@ function Generate-hOTP
         [byte[]]$decodedSecret = From-Base32String -Secret $SecretKey
         $HmacSHA1 = [Security.Cryptography.HMACSHA1]::new($decodedSecret)
         $hmacSize = 20
-        $hash=$HmacSHA1.ComputeHash($TimeBytes)
-        
+        $hash=$HmacSHA1.ComputeHash($TimeBytes)        
 
         if ($divider -gt 0) 
         {
@@ -118,8 +114,7 @@ function Generate-hOTP
             $retVal = $retVal -bor ($hash[$Position + 3] -band 255)
             $retVal = $retVal % $divider
          
-            return $retVal
-  
+            return $retVal  
         }
         else
         {
@@ -169,8 +164,7 @@ function From-Base32String
             $bigInteger = ($bigInteger -shl 5) -bor ('ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.IndexOf($char))
         }
 
-        [byte[]]$secretAsBytes = $bigInteger.ToByteArray()
-    
+        [byte[]]$secretAsBytes = $bigInteger.ToByteArray()    
 
         # BigInteger sometimes adds a 0 byte to the end,
         # if the positive number could be mistaken as a two's complement negative number.
@@ -179,13 +173,11 @@ function From-Base32String
             $secretAsBytes = $secretAsBytes[0..($secretAsBytes.Count - 2)]
         }
 
-
         # BigInteger stores bytes in Little-Endian order, 
         # but we need them in Big-Endian order.
         [array]::Reverse($secretAsBytes)
 
         return [byte[]]$secretAsBytes
-
     }
 }
 
@@ -211,7 +203,6 @@ function To-Base32String
         })
 
         return $Base32Secret
-
     }
 }
 
@@ -249,16 +240,13 @@ function Parse-AuthApps
         }
 
         return $apps
-
     }
 }
-
 
 # Gets MFA App Registration information (i.e. url, activation code, and session context)
 # Jul 1st 2020
 function Get-MFAAppRegistrationInfo
 {
-
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
@@ -329,8 +317,7 @@ function Get-MFAAppRegistrationInfo
         Write-Verbose "Registration info:`n$response"
 
         # Return
-        return $response
-        
+        return $response        
     }
 }
 
@@ -362,7 +349,6 @@ function Send-MFAAppNewActivation
             }
             $Url+=$PfPaWs;
         }
-
 
         # Create the headers
         $headers=@{
@@ -396,8 +382,7 @@ function Send-MFAAppNewActivation
         Write-Verbose "Activation info:`n$activationInformation"
 
         # Return
-        return $activationInformation
-        
+        return $activationInformation        
     }
 }
 
@@ -429,7 +414,6 @@ function Send-MFAAppNewActivationConfirmation
             $Url+=$PfPaWs;
         }
 
-
         # Create the headers
         $headers=@{
             "SOAPAction" =   "http://www.phonefactor.com/PfPaWs/ConfirmActivation"
@@ -455,8 +439,7 @@ function Send-MFAAppNewActivationConfirmation
         Write-Verbose "Confirmation Activation: $($response.Envelope.Body.ConfirmActivationResponse.ConfirmActivationResult)"
 
         # Return
-        return $response.Envelope.Body.ConfirmActivationResponse.ConfirmActivationResult -eq "true"
-        
+        return $response.Envelope.Body.ConfirmActivationResponse.ConfirmActivationResult -eq "true"        
     }
 }
 
@@ -488,7 +471,6 @@ function Add-MFAAppAddDevice
             "Sec-Fetch-Mode" = "cors"
             "Sec-Fetch-Dest" = "empty"
             "Content-Type" =   "application/json"
-
         }
         if($Type -eq "APP")
         {
@@ -527,8 +509,7 @@ function Add-MFAAppAddDevice
         Write-Verbose "Verification context: $($response.VerificationContext)"
         
         # Return
-        return $response.VerificationContext
-        
+        return $response.VerificationContext        
     }
 }
 
@@ -561,7 +542,6 @@ function Verify-MFAAppAddDevice
             "Sec-Fetch-Mode" = "cors"
             "Sec-Fetch-Dest" = "empty"
             "Content-Type" =   "application/json"
-
         }
 
         if($Type -eq "APP")
@@ -604,7 +584,6 @@ function Verify-MFAAppAddDevice
         Write-Verbose "Data Updates: $dataUpdates"
 
         # Return
-        return $dataUpdates
-        
+        return $dataUpdates        
     }
 }

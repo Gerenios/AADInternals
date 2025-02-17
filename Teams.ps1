@@ -76,7 +76,6 @@ function Set-TeamsAvailability
         }
 
         Invoke-RestMethod -UseBasicParsing -Method Put -Uri "https://presence.teams.microsoft.com/v1/me/forceavailability/" -Headers $headers -Body $body -ContentType "application/json"
-
     }
 }
 
@@ -138,7 +137,6 @@ function Set-TeamsStatusMessage
         }
 
         Invoke-RestMethod -UseBasicParsing -Method Put -Uri "https://presence.teams.microsoft.com/v1/me/publishnote" -Headers $headers -Body ($body | ConvertTo-Json -Compress) -ContentType "application/json;charset=utf-8"
-
     }
 }
 
@@ -211,8 +209,7 @@ function Search-TeamsUser
 
         $response=Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://substrate.office.com/search/api/v1/suggestions" -Headers $headers -Body $body -ContentType "application/json"
 
-        $response.Groups.Suggestions 
-
+        $response.Groups.Suggestions
     }
 }
 
@@ -485,7 +482,6 @@ function Send-TeamsMessage
         $posted=$epoch.AddMilliseconds($response.OriginalArrivalTime)
 
         return New-Object psobject -Property @{"ClientMessageID" = $ClientMessageId; "Sent" = $posted}
-
     }
 }
 
@@ -556,7 +552,6 @@ function Get-TeamsMessages
         foreach($conversation in $conversations.conversations)
         {
             $id = $conversation.id
-
             
             try
             {
@@ -589,15 +584,9 @@ function Get-TeamsMessages
             {
                 Write-Verbose "$(($_.ErrorDetails.Message | ConvertFrom-Json).message)"
             }
-            
-            
-
-
-        }
-  
+        }  
     }
 }
-
 
 # Deletes Teams messages
 # Oct 16th 2020
@@ -684,11 +673,9 @@ function Remove-TeamsMessages
                 }
                 catch{
                     Write-Warning "MessageId $($message.Id):`n$(($_.ErrorDetails.Message | ConvertFrom-Json).message)"
-                }
-               
+                }               
             }
-        }
-   
+        }   
     }
 }
 
@@ -839,15 +826,12 @@ function Set-TeamsMessageEmotion
                     }
                 }
             }
-
         }
         catch{
             Throw $_
-        }
- 
+        } 
     }
 }
-
 
 # Get a teams message with clientmessageid
 # Oct 26th 2020
@@ -908,8 +892,7 @@ function Get-TeamsMemberships
 
         $membershipInfo = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://teams.microsoft.com/api/csa/api/v1/teams/users/me?isPrefetch=false&enableMembershipSummary=true" -Headers $headers
         
-        return $membershipInfo
-  
+        return $membershipInfo  
     }
 }
 
@@ -1001,8 +984,7 @@ function Add-TeamsMember
         if($response.value.updatedUsers[0].errorType)
         {
             Write-Error $response.value.updatedUsers[0].errorType
-        }
-        
+        }        
     }
 }
 
@@ -1068,10 +1050,8 @@ function Find-TeamsExternalUser
         {
             Write-Error $_.Exception.Message
         }
-
     }
 }
-
 
 # Get the availability of the user
 # Feb 2nd 2022
@@ -1171,8 +1151,6 @@ function Get-TeamsAvailability
         $response.presence
     }
 }
-
-
 
 # Translate the given text to given language
 # Mar 21st 2022
@@ -1327,7 +1305,6 @@ function Get-MyTeams
             $teams = $response
         }
         
-
         foreach($team in $teams)
         {
             $site = Call-MSGraphAPI -AccessToken $AccessToken -API "groups/$($team.id)/sites/root" -QueryString '$select=webUrl'

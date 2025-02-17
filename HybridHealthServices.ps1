@@ -201,8 +201,7 @@ function Get-HybridHealthServices
         $response = Invoke-RestMethod -UseBasicParsing -Method Get -Uri $url -Headers $headers
 
         # Return services
-        $response.value
-        
+        $response.value        
     }
 }
 
@@ -249,8 +248,7 @@ function Remove-HybridHealthService
         $response = Invoke-RestMethod -UseBasicParsing -Method Delete -Uri "https://management.azure.com/providers/Microsoft.ADHybridHealthService/services/$ServiceName`?api-version=2014-01-01" -Headers $headers
 
         # Return the service object
-        $response
-        
+        $response        
     }
 }
 
@@ -804,5 +802,5 @@ function Register-HybridHealthServiceAgent
         
         Write-Host "Agent info saved to         ""$fileName.json"""
         Write-Host "Client sertificate saved to ""$fileName.pfx"""
-     }
+    }
 }

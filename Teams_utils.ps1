@@ -22,7 +22,6 @@ function Get-TeamsUserSettings
 # May 11th 2021
 function Get-TeamsRecipients
 {
-
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
@@ -54,7 +53,6 @@ function Get-TeamsRecipients
             "Authentication" =      "skypetoken=$skypeToken"
             "x-ms-client-version" = "27/1.0.0.2020101241"
         }
-
         
         $recipientInfo = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$apiUrl/beta/users/fetch?isMailAddress=true&canBeSmtpAddress=false&enableGuest=true&includeIBBarredUsers=true&skypeTeamsInfo=true" -Headers $headers -Body ([String[]]$Recipients|ConvertTo-Json) -ContentType "application/json"
         $msgRecipients = $recipientInfo.Value

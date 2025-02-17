@@ -173,6 +173,5 @@ function Update-SPOSiteFile
 
         # Replace the target file
         Send-SPOFiles -Site $Site -FolderName $FolderName -Files @($fileInformation.Name) -UserName $UserName -TimeCreated $TimeCreated -TimeLastModified $TimeLastModified -Id $fileInformation.Id -LocalFile $File
-        
     }
 }

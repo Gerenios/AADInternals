@@ -80,7 +80,6 @@ function Get-RecentLocations
         }
         
         Invoke-RestMethod -UseBasicParsing -Uri "https://ocws.officeapps.live.com/ocs/locations/recent?apps=$Apps&show=$Show" -Headers $headers
-
     }
 }
 

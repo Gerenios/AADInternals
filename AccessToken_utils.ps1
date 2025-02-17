@@ -428,9 +428,7 @@ function Get-CredentialType
         if(![string]::IsNullOrEmpty($OriginalRequest))
         {
             $body["isAccessPassSupported"] = $true
-        }
-
-        
+        }       
       
         # Call the API
         $userRealm=Invoke-RestMethod -UseBasicParsing -Uri ("$(Get-TenantLoginUrl -SubScope $SubScope)/common/GetCredentialType") -ContentType "application/json; charset=UTF-8" -Method POST -Body ($body|ConvertTo-Json) -WebSession $webSession -Headers @{"User-agent" = Get-UserAgent}
@@ -484,9 +482,7 @@ function Get-OpenIDConfiguration
     cloud_graph_host_name                 : graph.windows.net
     msgraph_host                          : graph.microsoft.com
     rbac_url                              : https://pas.windows.net
-
-    
-   
+ 
 #>
     [cmdletbinding()]
     Param(
@@ -560,7 +556,6 @@ function Get-TenantID
             {
                 return $null
             }
-
         }
         else
         {
@@ -713,10 +708,8 @@ function Is-AccessTokenValid
                 
                 $signatureValid = $rsa.VerifyData($dataBin, $signBytes,[System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
 
-                $rsa.Dispose() 
-                  
-            }
-                
+                $rsa.Dispose()                  
+            }                
         }
         else
         {
@@ -726,8 +719,6 @@ function Is-AccessTokenValid
         return $signatureValid 
     }
 }
-
-
 
 # Gets OAuth information using SAML token
 function Get-OAuthInfoUsingSAML
@@ -1028,7 +1019,6 @@ function Read-Accesstoken
         [Switch]$ShowDate,
         [Parameter()]
         [Switch]$Validate
-
     )
     Process
     {
@@ -1081,7 +1071,6 @@ function Read-Accesstoken
             {
                 Write-Verbose "Access Token is not expired"
             }
-
         }
 
         # Debug
@@ -1091,7 +1080,6 @@ function Read-Accesstoken
         $payloadObj
     }
 }
-
 
 # Prompts for credentials and gets the access token
 # Supports MFA.
@@ -1141,7 +1129,6 @@ function Prompt-Credentials
         $response = $null
         if($Credentials -and [string]::IsNullOrEmpty($amr) -and [string]::IsNullOrEmpty((Get-CredentialType -UserName $Credentials.UserName).Credentials.FederationRedirectUrl))
         {
-
             Write-Verbose "Domain not federated, credentials provided, and no MFA enforced. Trying ROPC flow."
 
             # Create a body for REST API request
@@ -1214,9 +1201,6 @@ function Prompt-Credentials
         return $response
     }
 }
-
-
-
 
 ## GENERAL ADMIN API FUNCTIONS
 
@@ -1383,7 +1367,6 @@ function Create-AuthorizationHeader
     }
 }
 
-
 # Gets Microsoft online services' public keys
 # May 18th 2020
 function Get-APIKeys
@@ -1405,7 +1388,6 @@ function Get-APIKeys
         {
             $keys.keys
         }
-        
     }
 }
 
@@ -1469,8 +1451,7 @@ function Get-Cache
             }
 
             New-Object psobject -Property $attributes
-        }
-        
+        }        
     }
 }
 
@@ -1579,8 +1560,6 @@ function Add-RefreshTokenToCache
         $Script:refresh_tokens["$ClientId-$Resource"] = $RefreshToken
     }
 }
-
-
 
 # Gets other domains of the given tenant
 # Jun 15th 2020
@@ -1811,7 +1790,6 @@ function Get-RSTToken
         $now = Get-Date
         $created = $now.toUniversalTime().toString("o")
         $expires = $now.addMinutes(10).toUniversalTime().toString("o")
-
         
         $body=@"
 <?xml version='1.0' encoding='UTF-8'?>
@@ -1904,7 +1882,6 @@ function Get-RSTToken
         throw $errorDetails
     }
 }
-
 
 # Checks whether the client is a FOCI clientid 
 # Apr 25th 2023
@@ -2237,8 +2214,7 @@ function Get-AuthorizationCode
                     {
                         $_
                         # Failed, probably just wrong password
-                    }
-                    
+                    }                    
                 }
             }
         }
@@ -2519,9 +2495,7 @@ function Get-AuthorizationCode
                         {
                             $passwordOk = $true
                         }
-
-                    }
-        
+                    }        
                 }
 
                 return [pscustomobject]@{
@@ -2607,7 +2581,6 @@ function Get-AuthorizationCode
         {
             $url+="&amr_values=$AMR"
         }
-
         
         # Set RefreshTokenCredential for device authentication
         if($RefreshTokenCredential)
@@ -2704,7 +2677,6 @@ function Get-AuthorizationCode
                 {
                     $passwordOk = $true
                 }
-
             }
 
             #$config   = $loginResponse.Config

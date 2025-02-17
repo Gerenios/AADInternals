@@ -365,7 +365,6 @@ function Join-DeviceToAzureAD
                 Write-Host "  $sid $(Convert-SIDtoObjectID -SID $sid)"
             }
         }
-
     }
 }
 
@@ -762,7 +761,6 @@ function Get-UserPRTKeys
                 $tgt = Decrypt-JWE -JWE $response.tgt_client_key -SessionKey $sessionKey
                 $response | Add-Member -NotePropertyName "decrypted_tgt_client_key" -NotePropertyValue (Convert-ByteArrayToB64 -Bytes $tgt)
             }
-
         }
         catch
         {
@@ -1103,7 +1101,6 @@ function Get-DeviceTransportKey
                     "e"   = Convert-ByteArrayToB64 -Bytes $parsedKey.Exponent
                     "n"   = Convert-ByteArrayToB64 -Bytes $parsedKey.Modulus
                 }
-
             }
             else
             {
@@ -1118,7 +1115,6 @@ function Get-DeviceTransportKey
             }
 
             $export | ConvertTo-Json | Set-Content "$DeviceId-TKPUB.json" -Encoding UTF8
-
 
             # Print out information
             Write-Host "Device TKPUB key successfully exported:"
@@ -1201,8 +1197,6 @@ function Set-DeviceTransportKey
     )
     Process
     {
-        
-
         if([string]::IsNullOrEmpty($ObjectId) -and [string]::IsNullOrEmpty($DeviceId))
         {
             Write-Error "ObjectId or DeviceId required!"

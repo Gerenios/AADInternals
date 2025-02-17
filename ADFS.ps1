@@ -71,7 +71,6 @@ function Unprotect-ADFSRefreshToken
     }
     Process
     {
-
         # Separate token and signature
         $tokenParts        = $RefreshToken.Split(".")
         $enc_refresh_token = (Convert-B64ToByteArray -B64 $tokenParts[0])
@@ -154,9 +153,7 @@ function Unprotect-ADFSRefreshToken
     {
         Unload-PrivateKey -PrivateKey $privateKey_encryption
     }
-
 }
-
 
 # Create a new ADFS RefreshToken
 # Oct 28th 2021
@@ -390,8 +387,6 @@ function New-ADFSAccessToken
 
     .DESCRIPTION
     Creates a new AccessToken and signs it with the given certificates.
-
-
 #>
     [cmdletbinding()]
     Param(
@@ -459,11 +454,9 @@ function New-ADFSAccessToken
         $jwt = New-JWT -PrivateKey $privateKey_signing -Header $header -Payload $payLoad
 
         return $jwt
-
     }
     End
     {
         Unload-PrivateKey -PrivateKey $privateKey_signing
     }
-
 }

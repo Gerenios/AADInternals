@@ -310,7 +310,6 @@ function Get-OAuthGrants
     --                                   -----------            ----------                           ------                                                                                                                        
     8b16b029-bb31-48c8-b4df-5ee419596688 Password Rule Settings 5cf42378-d67d-4f36-ba46-e8b86229381d {@{name=BannedPasswordCheckOnPremisesMode; value=Audit}, @{name=EnableBannedPasswordCheckOnPremises; value=True}, @{name=En...
 
-
 #>
     [cmdletbinding()]
     Param(
@@ -408,7 +407,6 @@ function Get-ServicePrincipals
             # Call the Provisioning API
             Get-ServicePrincipals2 -AccessToken $AccessToken
         }
-
     }
 }
 
@@ -705,8 +703,6 @@ function Get-AzureADFeatures
         }
 
         $retVal
-        
-        
     }
 }
 
@@ -944,16 +940,13 @@ function Set-AzureADFeature
             
             throw $response.'odata.error'.message.value
         }
-
         
         [pscustomobject][ordered]@{
             "Feature" = $feature
             "Enabled" = Get-AzureADFeature -AccessToken $AccessToken -Feature $feature
-        }
-        
+        }        
     }
 }
-
 
 # Adds Microsoft.Azure.SyncFabric service principal
 # Dec 4th 2023
@@ -988,7 +981,6 @@ function Add-SyncFabricServicePrincipal
     {
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
-        
         $body = @{
             "accountEnabled"            = "True"
 	        "appId"                     = "00000014-0000-0000-c000-000000000000"
@@ -1008,7 +1000,5 @@ function Add-SyncFabricServicePrincipal
                 "ObjectId"    = $result.objectId
             }
         }
-        
-
     }
 }

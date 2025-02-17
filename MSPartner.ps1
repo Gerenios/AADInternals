@@ -656,6 +656,5 @@ function Find-MSPartners
                 break
             }
         }
-
     }
 }

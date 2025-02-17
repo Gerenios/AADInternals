@@ -36,7 +36,5 @@ function Invoke-MSPartnerAPI
 
         # Strip the BOM and convert to json
         [text.encoding]::UTF8.getString([byte[]](Remove-BOM -ByteArray $responseBytes)) | ConvertFrom-Json
-
-
     }
 }

@@ -22,7 +22,6 @@ function Call-AnalysisAPI
                 "Authorization" = $(Create-AuthorizationHeader -AccessToken $AccessToken -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://api.diagnostics.office.com")
                 "x-ms-sara-api-version" = "schema-v1"
                 "User-Agent" = "saraclient"
-
         }
         
         try
@@ -59,8 +58,3 @@ function Call-AnalysisAPI
         $response
     }
 }
-
-
-
-
-			

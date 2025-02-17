@@ -72,8 +72,7 @@ function Get-Sids{
             }
 
             # Query the AD using Get-WmiObject so we don't have to parse each object as with DirectorySearcher
-            Get-WmiObject win32_useraccount -Filter $Filter | Where-Object Disabled -eq $false | Select-Object domain,name,fullname,sid
-            
+            Get-WmiObject win32_useraccount -Filter $Filter | Where-Object Disabled -eq $false | Select-Object domain,name,fullname,sid            
         }
     }
 }
@@ -211,7 +210,6 @@ function Encrypt-Kerberos
 			 
             $k1=$Key
 
-
             # Confounder (8 bytes)
             $stuff = Get-RandomBytes -Bytes 8
 
@@ -245,9 +243,7 @@ function Encrypt-Kerberos
             $checksum = ($hmacsha1.ComputeHash($plaintext))[0..11]
 
             [byte[]]$cipherText = $cipherText+$checksum
-
         }
-
 
         return $cipherText
     }
@@ -334,7 +330,6 @@ function Decrypt-Kerberos
             # Strip the confounder
             $plainText = $plainText[16..($plainText.Count)]
         }
-
 
         if(@(Compare-Object $checksum $compare -SyncWindow 0).Length -gt 0)
         {
@@ -635,7 +630,6 @@ function Get-AccessTokenWithKerberosTicket
         [xml]$message = $response
         $dssoToken = $message.Envelope.Body.RequestSecurityTokenResponse.RequestedSecurityToken.Assertion.DesktopSsoToken
 
-
         # Step 2: get the access token using dssoToken
         $samlAssertion="<saml:Assertion xmlns:saml=`"urn:oasis:names:tc:SAML:1.0:assertion`"><DesktopSsoToken>$dssoToken</DesktopSsoToken></saml:Assertion>"
 
@@ -704,7 +698,6 @@ function Get-ServerSignature
         return $signature
     }
 }
-
 
 function Get-NFold
 {
@@ -1108,7 +1101,6 @@ function DK
             EncChallengeClient = 54
             EncChallengeKdc = 55
 
-
             DigestEncrypt = -18
             DigestOpaque = -19
             Krb5SignedPath = -21
@@ -1160,8 +1152,7 @@ Function Align-Size
             $Size += 8 - $diff
         }
         
-        return $Size
-        
+        return $Size        
     }
 }
 
@@ -1185,8 +1176,7 @@ Function Get-AlignBytes
         else
         {
             return
-        }
-        
+        }        
     }
 }
 

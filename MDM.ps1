@@ -337,7 +337,6 @@ function Start-DeviceIntuneCallback
                 "./cimv2/MDM_ConfigSetting/MDM_ConfigSetting.SettingName=%22ClientDeploymentErrorCode%22/SettingValue" = ""
                 "./cimv2/MDM_ConfigSetting/MDM_ConfigSetting.SettingName=%22ClientHealthLastSyncTime%22/SettingValue" = ""
 
-
                 "./DevInfo/DevId" = $DeviceName
                 "./DevInfo/Man" =   "Microsoft Corporation"
                 "./DevInfo/Mod" =   "Virtual Machine"
@@ -401,10 +400,6 @@ function Start-DeviceIntuneCallback
                 "./Vendor/MSFT/PassportForWork/Biometrics/UseBiometrics" = "true"
                 "./Vendor/MSFT/PassportForWork/Biometrics/FacialFeaturesUseEnhancedAntiSpoofing" = "true"
 
-
-
-
-
                 "./Vendor/MSFT/DeviceStatus/TPM/SpecificationVersion" = "2.0"
 
                 "./Vendor/MSFT/DeviceStatus/DomainName" = ""
@@ -451,8 +446,7 @@ function Start-DeviceIntuneCallback
                 "./Vendor/MSFT/DMClient/HWDevID" = $hwId
 
                 "./Vendor/MSFT/HealthAttestation/Status" = "3" # DHA-Data is ready for pic up
-                "./Vendor/MSFT/Update/FailedUpdates" = ""
-                
+                "./Vendor/MSFT/Update/FailedUpdates" = ""                
 
                 "./Vendor/MSFT/Office/Installation/CurrentStatus" = "" # XML of current Office 365 installation status on the device
 
@@ -465,11 +459,8 @@ function Start-DeviceIntuneCallback
                 "./Device/Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/FirstSyncStatus/TimeOutUntilSyncFailure" = "60"
                 "./Device/Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/FirstSyncStatus/ServerHasFinishedProvisioning" = "true" 
                 "./Device/Vendor/MSFT/DMClient/Provider/MS%20DM%20Server/FirstSyncStatus/WasDeviceSuccessfullyProvisioned" = "1" # 0=failure, 1=success, 2=in progress
-
-                
             }
 
-        
         # Initial commands
         $commands = @()
         $commands += New-Object psobject -Property @{"Type" = "Alert"; "Data" = "1201"; CmdID = 1 }
@@ -517,8 +508,6 @@ function Start-DeviceIntuneCallback
             $commands = New-SyncMLAutoresponse -DeviceName $DeviceName -Commands $commands -MsgID $msgId -Settings $settings
 
         }
-        
-
     }
 }
 
@@ -597,12 +586,9 @@ function Remove-DeviceFromIntune
             }
         }
 
-        return $response
-            
+        return $response            
     }
 }
-
-
 
 # Get's device compliance
 # Sep 11th 2020
@@ -679,7 +665,6 @@ function Get-DeviceCompliance
             "Authorization" = "Bearer $AccessToken"
             "Accept" =        "application/json;odata=nometadata"
         }
-
         
         # Get the object Id if not given
         if(!$All -and !$My -and [string]::IsNullOrEmpty($ObjectId))
@@ -712,12 +697,8 @@ function Get-DeviceCompliance
         {
             return $response
         }
-
     }
 }
-
-
-
 
 # Set's device compliance
 # Sep 11th 2020
@@ -794,7 +775,5 @@ function Set-DeviceCompliant
         Invoke-RestMethod -UseBasicParsing -Method Patch -Uri "https://graph.windows.net/$tenantId/devices/$ObjectId`?api-version=1.61-internal" -Headers $headers -Body ($body|ConvertTo-Json) -ContentType "application/json"
 
         Get-DeviceCompliance -ObjectId $ObjectId -AccessToken $AccessToken
-
     }
 }
-

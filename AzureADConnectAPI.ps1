@@ -127,9 +127,6 @@ function Get-SyncConfiguration
         {
             return New-Object PSObject -Property $attributes
         }
-
-        
-
     }
 }
 
@@ -320,8 +317,7 @@ function Set-PasswordHashSyncEnabled
                     Write-Error "Could not disable Password Hash Sync"
                 }
             }
-        }
-        
+        }        
     }
 }
 
@@ -509,7 +505,6 @@ function Get-SyncFeatures
     }
 }
 
-
 # Update dirsync features
 # Nov 3rd 2021
 function Update-SyncFeatures
@@ -560,9 +555,7 @@ function Update-SyncFeatures
         else
         {
             # Create a return object
-            $res=$xml_doc.Envelope.Body.GetCompanyConfigurationResponse.GetCompanyConfigurationResult
-
-            
+            $res=$xml_doc.Envelope.Body.GetCompanyConfigurationResponse.GetCompanyConfigurationResult            
         }
     }
 }
@@ -762,7 +755,6 @@ function Set-AzureADObject
         
         # Convert binary response to XML
         $xml_doc=BinaryToXml -xml_bytes $response -Dictionary (Get-XmlDictionary -Type WCF)
-
         
         if(IsRedirectResponse($xml_doc))
         {
@@ -779,7 +771,6 @@ function Set-AzureADObject
         $xml_doc.Envelope.Body.ProvisionAzureADSyncObjectsResponse.ProvisionAzureADSyncObjectsResult.SyncObjectResults.AzureADSyncObjectResult
     }
 }
-
 
 # Removes the given Azure AD Object
 function Remove-AzureADObject
@@ -868,7 +859,6 @@ function Remove-AzureADObject
     }
 }
 
-
 # Finalize Azure AD Sync
 function Finalize-Export
 {
@@ -893,8 +883,6 @@ function Finalize-Export
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         # Create the body block
-        
-
         $body=@"
         <FinalizeExport xmlns="http://schemas.microsoft.com/online/aws/change/2010/01">
 			<totalExported>$count</totalExported>
@@ -1078,11 +1066,9 @@ function Get-SyncObjects
                 # Return
                 New-Object -TypeName PSObject -Property $details
             }
-
         }
     }
 }
-
 
 # Set's user's password
 function Set-UserPassword
@@ -1276,11 +1262,7 @@ function Set-UserPassword
         else
         {
             # Return
-
             return $xml_doc.Envelope.Body.ProvisionCredentialsResponse.ProvisionCredentialsResult.Results.SyncCredentialsChangeResult
-
-            
-
         }
     }
 }
@@ -1550,7 +1532,6 @@ function Set-DesktopSSO
 "@
         $results=Invoke-RestMethod -UseBasicParsing -Uri $url -Body $body -Method Post -ContentType "application/xml; charset=utf-8"
 
-
         $attributes=@{
             "ErrorMessage" = $results.DesktopSsoEnablementResult.ErrorMessage
             "IsSuccessful" = $($results.DesktopSsoEnablementResult.IsSuccessful -eq "true")
@@ -1558,8 +1539,7 @@ function Set-DesktopSSO
 
         $setPwd=Read-Host -Prompt "Would you like to set the password of computer account $ComputerName to `"$Password`" also in your ON-PREM ACTIVE DIRECTORY (yes/no)?"
         if($setPwd -eq "yes")
-        {
-            
+        {            
             try
             {
                 $computer = Get-ADComputer $ComputerName
@@ -1714,7 +1694,6 @@ function Get-KerberosDomainSyncConfig
             }
 
             return New-Object psobject -Property $attributes
-
         }
     }
 }
@@ -1792,7 +1771,6 @@ function Get-KerberosDomain
             }
 
             return New-Object psobject -Property $attributes
-
         }
     }
 }
@@ -1801,7 +1779,6 @@ function Get-KerberosDomain
 # May 11th 2020
 function Get-MonitoringTenantCertificate
 {
-
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$False)]
@@ -1846,10 +1823,8 @@ function Get-MonitoringTenantCertificate
         {
             # Create a return object
             $res=$xml_doc.Envelope.Body.GetMonitoringTenantCertificateResponse.GetMonitoringTenantCertificateResult
-
             
             return $res
-
         }
     }
 }
@@ -1924,7 +1899,6 @@ function Get-WindowsCredentialsSyncConfig
                 "EnableWindowsLegacyCredentials" =      $res.EnableWindowsLegacyCredentials -eq "true"
                 "EnableWindowsSupplementaCredentials" = $res.EnableWindowsSupplementaCredentials -eq "true"
                 "SecretEncryptionCertificate" =         $res.SecretEncryptionCertificate
-
             }
 
             try
@@ -2024,14 +1998,9 @@ function Get-SyncDeviceConfiguration
             }
 
             return New-Object psobject -Property @{"CloudPublicIssuerCertificates" = $cloudCerts; "PublicIssuerCertificates" = $certs}
-
-            
-
         }
     }
 }
-
-
 
 # Get sync capabilities
 # May 12th 2020
@@ -2106,7 +2075,6 @@ function Get-SyncCapabilities
                 "ADSyncBlackList" =        $blacklist
                 "ADSyncBlackListEnabled" = $cap.BlackList.Enabled
                 }
-
         }
     }
 }

@@ -66,7 +66,6 @@ function Start-CloudShell
                 Write-Verbose "User settings received!"
             }
 
-
             # Get the shell info
             $shellInfo = New-CloudShell -AccessToken $AccessToken
             Write-Verbose "Created shell $($shellInfo.uri)"
@@ -126,7 +125,6 @@ function Start-CloudShell
             # Clear the console and set the Ctlr+C to be used as an input (so that we can stop things running in cloud)
             [console]::TreatControlCAsInput = $true
             [console]::Clear()
-
                 
             # The main loop
             do
@@ -168,8 +166,7 @@ function Start-CloudShell
                     SendToSocket -Socket $socket -Token $token -Bytes $keyBytes
                 }
 
-            } Until (!$connection -or $socket_in.IsFaulted -eq "True")
-           
+            } Until (!$connection -or $socket_in.IsFaulted -eq "True")       
         }
         Catch
         {
@@ -177,7 +174,6 @@ function Start-CloudShell
         }
         Finally
         {
-
             # Return the original Ctrl+C
             [console]::TreatControlCAsInput = $CtrlC
 
@@ -186,8 +182,5 @@ function Start-CloudShell
                 $socket.Dispose()
             }
         }
-
-        
-
     }
 }

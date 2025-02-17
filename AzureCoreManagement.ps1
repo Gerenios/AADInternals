@@ -73,7 +73,6 @@ function Grant-AzureUserAccessAdminRole
     .Example
     $at=Get-AADIntAccessTokenForAzureCoreManagement
     C:\PS>Grant-AADIntAzureUserAccessAdminRole -AccessToken $at
-
    
 #>
     [cmdletbinding()]
@@ -95,7 +94,6 @@ function Grant-AzureUserAccessAdminRole
         Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://management.azure.com/providers/Microsoft.Authorization/elevateAccess?api-version=2015-07-01" -Headers $headers
     }
 }
-
 
 # Lists user's Subscriptions
 # Jun 2nd 2020
@@ -139,8 +137,7 @@ function Get-AzureSubscriptions
         foreach($value in $response.value)
         {
             $value | Select subscriptionId,displayName,state
-        }
-        
+        }        
     }
 }
 
@@ -203,11 +200,9 @@ function Get-AzureResourceGroups
         foreach($value in $response.value)
         {
             $value | Select name,location,tags
-        }
-        
+        }        
     }
 }
-
 
 # Lists azure subscription VMs
 # Jun 2nd 2020
@@ -250,7 +245,6 @@ function Get-AzureVMs
     PRODUCTION    Server1  westus     c7d98db7-ccb5-491f-aaeb-e71f0df478b6 Server1      AdminUSer     Standard_DS1_v2 Windows
     TEST          Server2  eastus     ae34dfcc-ad89-4e53-b0b4-20d453bdfcef Server2      AdminUSer     Standard_DS1_v2 Windows
     TEST          Server3  eastus     f8f6a7c5-9927-47f9-a790-84c866f5719c Server3      AzureUser     Standard_B1ms   Linux
-
    
 #>
     [cmdletbinding()]
@@ -296,11 +290,9 @@ function Get-AzureVMs
                 $attributes["OS"] = "Linux"
             }
             New-Object psobject -Property $attributes
-        }
-        
+        }        
     }
 }
-
 
 # Runs a given script on the given Azure VM
 # Jun 2nd 2020
@@ -464,7 +456,6 @@ function Invoke-AzureVMScript
                             Write-Host $output.message 
                         }
                     }
-
                 }
                 else
                 {
@@ -473,12 +464,9 @@ function Invoke-AzureVMScript
                 
                 break
             }
-        }
-        
+        }        
     }
 }
-
-
 
 # Runs a given script on the given Azure VM
 # Jun 3rd 2020
@@ -571,7 +559,6 @@ function Get-AzureVMRdpSettings
                             Write-Error $output.message
                         }
                     }
-
                 }
                 else
                 {
@@ -580,8 +567,7 @@ function Get-AzureVMRdpSettings
                 
                 break
             }
-        }
-        
+        }        
     }
 }
 
@@ -624,11 +610,9 @@ function Get-AzureRoleAssignmentId
         $response = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://management.azure.com/subscriptions/$SubscriptionId/providers/Microsoft.Authorization/roleDefinitions?`$filter=roleName eq '$RoleName'&api-version=2018-01-01-preview" -Headers $headers
 
         # Return the ID
-        $response.value[0].name
-        
+        $response.value[0].name        
     }
 }
-
 
 # Assigns a role to a given user
 # Jun 3rd 2020
@@ -773,11 +757,9 @@ function Get-AzureTenants
                 "Domains" = $value.domains
             }
             New-Object psobject -Property $attributes
-        }
-        
+        }        
     }
 }
-
 
 # Invokes an Azure query
 # Jan 22nd 2021
@@ -821,8 +803,7 @@ function Invoke-AzureQuery
         # Invoke the command.
         $response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "https://management.azure.com/batch?api-version=2015-11-01" -Headers $headers -Body $body
 
-        return $response
-        
+        return $response        
     }
 }
 
@@ -925,7 +906,6 @@ function Get-AzureDiagnosticSettingsDetails
         }
     }
 }
-
 
 # Set diagnostic settings
 # Jan 22nd 2021
@@ -1057,8 +1037,7 @@ function Set-AzureDiagnosticSettingsDetails
                         "days" =    $RetentionDays
                         "enabled" = $RetentionEnabled
                         }
-                    }
-                
+                    }                
             }
             else
             {
@@ -1087,7 +1066,6 @@ function Set-AzureDiagnosticSettingsDetails
         
         # Invoke the command.
         $response = Invoke-RestMethod -UseBasicParsing -Method Put -Uri "https://management.azure.com/providers/microsoft.aadiam/diagnosticSettings/$Name`?api-version=2017-04-01" -Headers $headers -Body ($body | ConvertTo-Json -Depth 5)
-
         
         # Return
         foreach($value in $response.properties.logs)
@@ -1099,10 +1077,7 @@ function Set-AzureDiagnosticSettingsDetails
                 "Retention Days" =    $value.retentionPolicy.days
             }
             New-Object psobject -Property $attributes
-        }
-
-
-        
+        }        
     }
 }
 
@@ -1137,8 +1112,6 @@ function Get-AzureDiagnosticSettings
     EventHubAuthorizationRuleId : 
     EventHubName                : 
     ServiceBusRuleId            : 
-
-
    
 #>
     [cmdletbinding()]
@@ -1159,7 +1132,6 @@ function Get-AzureDiagnosticSettings
             "x-ms-path-query" =   "/providers/microsoft.aadiam/diagnosticSettings?api-version=2017-04-01-preview"
         }
 
-
         $response = Invoke-RestMethod -UseBasicParsing -Method Get -Uri "https://management.azure.com/api/invoke" -Headers $headers
 
         # Return
@@ -1174,8 +1146,7 @@ function Get-AzureDiagnosticSettings
                 "ServiceBusRuleId" =            $value.properties.serviceBusRuleId
             }
             New-Object psobject -Property $attributes
-        }
-        
+        }        
     }
 }
 
@@ -1233,8 +1204,7 @@ function Remove-AzureDiagnosticSettings
         {
             Write-Verbose "Removing diagnostic settings ""$($settings.name)"""
             Set-AzureDiagnosticSettingsDetails -AccessToken $AccessToken -Name $($settings.name) -Logs "AuditLogs","SignInLogs","NonInteractiveUserSignInLogs","ServicePrincipalSignInLogs","ManagedIdentitySignInLogs","ProvisioningLogs","ADFSSignInLogs","RiskyUsers","UserRiskEvents" -Enabled $False -RetentionEnabled $False -RetentionDays 0 | Out-Null
-        }
-        
+        }        
     }
 }
 
@@ -1307,7 +1277,5 @@ function Get-AzureDirectoryActivityLog
             $response = Invoke-RestMethod -Uri $response.nextLink -Headers $headers
         }
         $response.value
-       
-
     }
 }

@@ -516,6 +516,4 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
 
 	# Default prefix for commands exported from this module. Override the default prefix using Import-Module -Prefix.
 	DefaultCommandPrefix = 'AADInt'
-
 }
-

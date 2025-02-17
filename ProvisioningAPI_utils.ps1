@@ -331,7 +331,6 @@ function Get-SkuAndServiceName
     }
 }
 
-
 # Creates a <namespace:parameter> -element
 function Add-Element
 {

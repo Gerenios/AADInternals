@@ -78,12 +78,10 @@ function Call-MSGraphAPI
             }
 
             # Return
-            $response.value
-            
+            $response.value            
         }
         else
         {
-
             # Return
             if($response.psobject.properties.name -match "Value")
             {
@@ -94,7 +92,5 @@ function Call-MSGraphAPI
                 return $response
             }
         }
-
     }
 }
-

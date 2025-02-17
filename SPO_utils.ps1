@@ -36,7 +36,6 @@ function Get-SPOAuthenticationHeader
                 "Accept-Encoding" = "gzip, deflate, br"
                 "Accept-Language" = "en-US,en;q=0.9"
                 "Accept" = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3"
-
         }
 
         # Step 1: Go to the requested site
@@ -746,8 +745,6 @@ function Get-SPOIDCRL
             # Get the BPOSIDCRL token
             $BPOSIDCRL = Get-RSTToken -Url "https://login.microsoftonline.com/RST2.srf" -EndpointAddress "sharepoint.com" -UserName $UserName -Password $Password
         }
-
-
 
         $headers=@{
             "Authorization" = "BPOSIDCRL $BPOSIDCRL"

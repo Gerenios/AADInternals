@@ -24,7 +24,6 @@ function Get-MessageAsBase64
 
         return $retVal
     }
-
 }
 
 # Function to create token objects
@@ -39,8 +38,7 @@ function Token
 
     )
     Process
-    {
-    
+    {    
         $Token=[PSCustomObject]@{
             PSTypeName = "Token"
             Code = $Code
@@ -183,7 +181,6 @@ function Get-Token
         }
         
         $retVal
-
     }
 } 
 
@@ -225,11 +222,9 @@ function XML2WBXML
         $EXT_2 =            0xC2
     }
     Process
-    {
-        
+    {        
         $Script:CurrentCodePage = 0
     
-
         # Parses the given XMLElement
         function Parse{
         Param(
@@ -248,7 +243,6 @@ function XML2WBXML
             $retVal += Get-Element $Element -O365 $O365 -SyncML $SyncML
 
             return $retVal
-        
         }
 
         # Parses the given XMLElement
@@ -277,7 +271,6 @@ function XML2WBXML
 
             return $retVal
         }
-
         function Get-Content{
         Param(
                 [Parameter(Mandatory=$True)]
@@ -506,7 +499,6 @@ function WBXML2XML
                 $Script:WBXML_position+=$intValue+1
 
                 $retval = "<EXT_1>$([System.Net.WebUtility]::HtmlEncode($stringValue))</EXT_1>"
-
                 
             }
             elseif($next -eq $EXT_2) # Special handling for EXT_2
@@ -527,12 +519,10 @@ function WBXML2XML
                     $intValue = $byteValue
                     $Script:WBXML_position+=1
                 }#>
-                $retval = "<EXT_2>$hexString</EXT_2>"
-                
+                $retval = "<EXT_2>$hexString</EXT_2>"                
             }
             else
             {
-
                 $hasContent = ($next -band 0x40) -eq 0x40
                 $currentToken = $next -band 0x3f
 
@@ -628,8 +618,7 @@ function WBXML2XML
             $retVal +=  [convert]::ToBase64String($bytes)#[System.Text.Encoding]::UTF8.GetString($bytes)
             $retVal += "]]>"
 
-            return $retVal
-       
+            return $retVal       
         }
 
         function Get-CDATALength()
@@ -845,7 +834,6 @@ function O365WBXML2XML
         }
 
         $retVal+="</frames>"
-        
         
         # Return
         $retVal
@@ -1078,9 +1066,7 @@ function Shift-ByteArrayLeft
 
             # Set the seven first bits to current byte with the saved bit
             $Bytes[$i] = ($next -shr 1) -bor $lastBit
-        }
-
-        
+        }        
     }
 }
 
@@ -1105,9 +1091,7 @@ function Shift-ByteArrayRight
 
             # Set the seven first bits to current byte with the saved bit
             $Bytes[$i] = ($previous -shl 1) + $firstBit
-        }
-
-        
+        }        
     }
 }
 
@@ -1201,7 +1185,6 @@ $EASErrors=@{
     "179" = "InvalidSmartForwardParameters"
     "183" = "InvalidRecipients"
     "184" = "OneOrMoreExceptionsFailed"
-
 }
 
 # ActiveSync WBXML CodePages and tokens

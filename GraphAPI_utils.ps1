@@ -52,7 +52,5 @@ function Call-GraphAPI
         {
             return $response
         }
-
     }
 }
-

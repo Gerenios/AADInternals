@@ -46,8 +46,6 @@ function Get-ODAuthenticationCookie
                 "X-GeoMoveOptions" = "HttpRedirection"
                 "X-IDCRL_ACCEPTED" ="t"
                 "X-UserScenario"= "AUO,SignIn"
-                
-
         }
 
         # Call the authentication API
@@ -55,7 +53,6 @@ function Get-ODAuthenticationCookie
         
         # Return the SPOIDCRL cookie
         ($response.headers["Set-Cookie"].split(";"))[0]
-
     }
 }
 
@@ -83,7 +80,6 @@ function Invoke-ODCommand
         [PSObject][ref]$ResponseHeaders,
         [Parameter(Mandatory=$False)]
         [boolean]$Mac=$False
-
     )
     Process
     {
@@ -379,7 +375,6 @@ public class QuickXorHash : System.Security.Cryptography.HashAlgorithm
 "@
 Add-Type -TypeDefinition $xorhash_code -Language CSharp	
 Remove-Variable $xorhash_code
-
 
 # Calculates XorHash for OneDrive files
 # Dec 9th 2019

@@ -12,8 +12,6 @@ function Create-WebSession
     )
     Process 
     {
-        
-        
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
         # login.live.com: MSPRequ=lt=1540361812&co=1&id=N; secure= ;path=/;HTTPOnly=;version=1,uaid=bf4b7f37ec1d4084aa68952b9edebb6b; domain=login.live.com;secure= ;path=/;HTTPOnly= ;version=1,MSPOK=$uuid-f4f5ef25-7343-4de8-84cb-266ea1b47bc2; domain=login.live.com;secure= ;path=/;HTTPOnly= ;version=1
@@ -41,8 +39,7 @@ function Create-WebSession
                         Write-Verbose "COOKIE [$Domain]: $webCookie"
                     }
                 }
-            }
-            
+            }            
         }
         elseif($domain.EndsWith(".sharepoint.com")) # Sharepoint
         {
@@ -264,7 +261,6 @@ function Get-AccessTokenForAzureMgmtAPI
                 $code = $html.SelectSingleNode("//input[@name='code']").value
                 $state = $html.SelectSingleNode("//input[@name='state']").value
 
-
                 # Step L3: Login to login.microsoftonline.com with code and state
                 $body = @{
                     "code" = $code
@@ -275,8 +271,7 @@ function Get-AccessTokenForAzureMgmtAPI
                 $html = $response.Content
                 $s=$html.IndexOf('$Config=')
                 $e=$html.IndexOf('};',$s+8)
-                $config=$html.Substring($s+8,$e-$s-7) | ConvertFrom-Json
-            
+                $config=$html.Substring($s+8,$e-$s-7) | ConvertFrom-Json            
 
                 # Step L4: Get code, id_token, and state information
                 $body=@{
@@ -408,7 +403,6 @@ function Get-AccessTokenForAzureMgmtAPI
             # Return
             $accessToken = $token.oAuthToken.authHeader.Split(" ")[1]
             $refreshToken = $token.oAuthToken.refreshToken
-
         }
 
         # Save the tokens to cache
@@ -477,7 +471,6 @@ function Get-DelegationToken
         {
             throw "AccessToken has expired"
         }
-
 
         $Headers=@{
             "x-ms-client-request-id" = (New-Guid).ToString()
@@ -578,12 +571,9 @@ function Call-AzureManagementAPI
         $response=Invoke-RestMethod -UseBasicParsing -Uri "https://portal.azure.com/api/$command" -Method Post -Headers $headers
     
         # Return
-        return $response
-       
+        return $response       
     }
 }
-
-
 
 # Prompts for credentials and gets the access token
 # Supports MFA, federation, etc.

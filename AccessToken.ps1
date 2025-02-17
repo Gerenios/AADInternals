@@ -44,8 +44,7 @@ function Get-AccessTokenFromCache
                         }
                         break
                     }
-                }
-                
+                }                
             }
             
             if([string]::IsNullOrEmpty($cacheKey))
@@ -222,7 +221,6 @@ function Get-AccessTokenForAADGraph
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
         [string]$TAP
-
     )
     Process
     {
@@ -666,8 +664,6 @@ function Get-AccessTokenForOneDrive
     }
 }
 
-
-
 # Gets an access token for Azure Core Management
 # May 29th 2020
 function Get-AccessTokenForAzureCoreManagement
@@ -870,7 +866,6 @@ function Get-AccessTokenForMySignins
         return Get-AccessToken -ClientId 1b730954-1685-4b74-9bfd-dac224a7b894 -Resource "0000000c-0000-0000-c000-000000000000" -ForceMFA $true -Credentials $Credentials -SaveToCache $SaveToCache -KerberosTicket $KerberosTicket -Domain $Domain -OTPSecretKey $OTPSecretKey -TAP $TAP
     }
 }
-
 
 # Gets an access token for Azure AD Join
 # Aug 26th 2020
@@ -1204,7 +1199,6 @@ function Get-AccessTokenForTeams
         Get-AccessToken -Resource $Resource -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
     }
 }
-
 
 # Gets an access token for Azure AD Management API
 # Nov 11th 2020
@@ -1818,9 +1812,6 @@ function Get-AccessToken
     }
     Process
     {
-
-        
-        
         if(![String]::IsNullOrEmpty($KerberosTicket)) # Check if we got the kerberos token
         {
             # Get token using the kerberos token
@@ -1888,8 +1879,7 @@ function Get-AccessToken
                 if(!$OAuthInfo)
                 {
                     return $null
-                }
-                
+                }                
             }
             
             # Save the refresh token and other variables
@@ -2104,7 +2094,6 @@ function Get-AccessTokenWithRefreshToken
             throw $errorMessage
         }
         
-
         # Debug
         Write-Debug "ACCESS TOKEN RESPONSE: $response"
 
@@ -2176,7 +2165,6 @@ function Get-AccessTokenUsingDeviceCode
             "resource" =   $Resource
         }
 
-
         # Loop while pending or until timeout exceeded
         while($continue)
         {
@@ -2217,7 +2205,6 @@ function Get-AccessTokenUsingDeviceCode
                 return $response
             }
         }
-
     }
 }
 
@@ -2314,7 +2301,6 @@ function Get-AccessTokenWithDeviceSAML
     {
         $headers = @{
         }
-
          
         $ClientId = "1b730954-1685-4b74-9bfd-dac224a7b894" #"dd762716-544d-4aeb-a526-687b73838a22"
         $Resource = "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" #"urn:ms-drs:enterpriseregistration.windows.net"
@@ -2523,7 +2509,6 @@ function Remove-UserFromEstsAuthPersistentCookie
     .Example
     PS C:\>$ESTSCookie = Remove-AADIntUserFromEstsAuthPersistentCookie -UserName "user@company.com" -Cookie "0.ARMAqlCH3MZuvUCNgTAd4B7IRffhvoluXopNnz3s1gEl..."
 
-    
 #>
 
     [cmdletbinding()]
@@ -2595,7 +2580,6 @@ function Remove-UserFromEstsAuthPersistentCookie
 
             return $ESTSCookie
         }
-
     }
 }
 

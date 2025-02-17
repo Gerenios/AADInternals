@@ -39,7 +39,6 @@ function Get-ODDefaultSiteId
 
         # Return
         $response.d.id
-
     }
 }
 

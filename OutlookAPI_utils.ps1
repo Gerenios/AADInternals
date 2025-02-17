@@ -34,8 +34,7 @@ function Call-OutlookAPI
     )
 
     Process
-    {
-    
+    {    
         $headers = @{
             "Authorization" = "Bearer $AccessToken"
             "Accept" = "text/*, multipart/mixed, application/xml, application/json; odata.metadata=none"
@@ -43,7 +42,6 @@ function Call-OutlookAPI
             "X-AnchorMailbox" = (Read-Accesstoken $AccessToken).upn
             "Prefer" = 'exchange.behavior="ActivityAccess"'
         }
-
     
         $url="https://outlook.office.com/api/$Api/$Command"    
 
@@ -55,9 +53,7 @@ function Call-OutlookAPI
         {
             $response=Invoke-RestMethod -UseBasicParsing -Uri $Url -Method $Method -Headers $headers -Body $Request
         }
+        
         $response.value
     }
 }
-
-
-

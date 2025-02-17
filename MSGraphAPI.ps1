@@ -539,7 +539,6 @@ function Get-TenantAuthPolicy
 
         $results = Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy" 
 
-
         return $results
     }
 }
@@ -613,8 +612,6 @@ function Get-TenantGuestAccess
         $attributes["RoleId"] = $roleId
 
         return New-Object psobject -Property $attributes
-
-
     }
 }
 
@@ -673,7 +670,6 @@ function Set-TenantGuestAccess
         Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy/authorizationPolicy" -Method "PATCH" -Body $body
 
         Get-TenantGuestAccess -AccessToken $AccessToken
-
     }
 }
 
@@ -912,8 +908,7 @@ function Add-RolloutPolicyGroups
         else
         {
             $response.responses | select id,status
-        }
-        
+        }        
     }
 }
 
@@ -990,8 +985,7 @@ function Remove-RolloutPolicyGroups
         else
         {
             $response.responses | select id,status
-        }
-        
+        }        
     }
 }
 
@@ -1131,7 +1125,6 @@ function Set-RolloutPolicy
             Write-Error $error.error.message
         }
 
-         
         $response
     }
 }

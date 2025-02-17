@@ -65,13 +65,9 @@ function IsErrorResponse
         {
             # Got error, so throw an exception
             throw $error.Node.'#text'
-        }
-        
+        }        
     }
 }
-
-
-
 
 # Create SOAP envelope for ADSync
 function Create-SyncEnvelope
@@ -190,8 +186,6 @@ function Call-ADSyncAPI
             "x-ms-aadmsods-fimbuildnumber"=    $aadsync_client_build
             "x-ms-aadmsods-tenantid"=          $Tenant_id
             "User-Agent"=""
-																					 
-            
         }
         # Verbose
         Write-Debug "CALL-ADSYNCAPI HEADERS: $($headers | Out-String)"
@@ -331,6 +325,5 @@ Function Create-AADHash {
         
         # Return
         return $retVal
-    }
-    
+    }   
 }

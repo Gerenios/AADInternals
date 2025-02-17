@@ -115,7 +115,6 @@ function Get-EASAutoDiscoverV1
     }
 }
 
-
 function Get-EASOptions
 {
     Param(
@@ -126,7 +125,6 @@ function Get-EASOptions
         )
     Process
     {
-
         $headers = @{
             "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
         }
@@ -489,7 +487,6 @@ function Get-EASSyncStatus
         )
     Process
     {
-
         $headers = @{
             "Authorization" = Create-AuthorizationHeader -Credentials $Credentials -AccessToken $AccessToken -Resource "https://outlook.office365.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
             "Accept"="application/http.wbxml"
@@ -535,7 +532,6 @@ function Get-EASMails
         )
     Process
     {
-
         $settings = Get-EASSettings -Credentials $Credentials -AccessToken $AccessToken
         $anchorMailBox = $settings.AnchorMailBox
 

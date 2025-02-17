@@ -81,9 +81,7 @@ function Get-BootstrapConfiguration
         
         [xml]$xmlResponse = $response.Content
 
-        return $xmlResponse.OuterXml
-
-        
+        return $xmlResponse.OuterXml        
     }
 }
 
@@ -168,7 +166,6 @@ function NewCSRforSync
                                             Add-DERTag -Tag 0x06 -Data @( # Object Identifier
                                                 0x2B, 0x06, 0x01, 0x05, 0x05, 0x07, 0x03, 0x02        # clientAuth (1.3.6.1.5.5.7.3.2)
                                             )
-
                                         )
                                     ) 
                                 )
@@ -183,8 +180,6 @@ function NewCSRforSync
                                         $pksha1
                                     ) 
                                 )
-                        
-                    
                             )
                         )
                     )
@@ -203,7 +198,6 @@ function NewCSRforSync
                                 Add-DERUtf8String -Tag 0x0C -Text $exeName
                             )
                         )
-
                     )
 
                     # Enrolment CSP
@@ -220,10 +214,8 @@ function NewCSRforSync
                             )
                         )
                     )
-
                 )
             )
-
         )
 
         # Sign the CSR
@@ -242,7 +234,6 @@ function NewCSRforSync
                 0x00
                 $signature
             )
-        
         )
         # return
 
@@ -297,8 +288,7 @@ function Connect-ToBus
         [byte[]]$EmptyAMQPHeader = @(0x00, 0x00, 0x00, 0x08, 0x02, 0x00, 0x00, 0x00)
 
         Try
-        {
-            
+        {            
             # Define some needed variables
             $NameSpace = $bootStrap.NameSpace
             $url = "$nameSpace.servicebus.windows.net/`$servicebus/websocket"
@@ -464,11 +454,8 @@ function Connect-ToBus
                 if($close)
                 {
                     $socket.Abort()
-                }
-                
-            }
-
-            
+                }                
+            }            
         }
         catch
         {
@@ -476,14 +463,11 @@ function Connect-ToBus
             Write-Host $Exception -ForegroundColor Red
         }
         Finally{
-
             If ($socket) { 
                 Write-Verbose "Closing websocket"
                 $socket.Dispose()
             }
-
-        }
-        
+        }        
     }
 }
 
@@ -540,13 +524,10 @@ function Connect-ToAuthRelay
 
     )
     Process
-    {
-        
+    {        
         Try
         {
-            $url = "$Hostname/`$servicebus/websocket"
-
-            
+            $url = "$Hostname/`$servicebus/websocket"           
 
             # Create the socket
             $socket = New-Object System.Net.WebSockets.ClientWebSocket
@@ -608,9 +589,7 @@ function Connect-ToAuthRelay
                  #   $Status.status += "`n$hostname InMessage: $($inMessage.Type) $($inMessage.Size). Response: $($response.length)"
                 }
 
-                $close = $false
-
-                
+                $close = $false                
 
                 switch($inMessage.Type)
                 {
@@ -667,10 +646,7 @@ function Connect-ToAuthRelay
                             $SubscriptionId=([System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate).GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName,$false)
                             $ConnectorId=([guid]([System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate).Extensions["1.3.6.1.4.1.311.82.1"].RawData).ToString()
 
-                            $url="https://$proxyUrl/subscriber/websocketconnect?requestId=$((New-Guid).ToString())"
-
-            
-
+                            $url="https://$proxyUrl/subscriber/websocketconnect?requestId=$((New-Guid).ToString())"         
             
                             # Create the socket
                             $socket2 = New-Object System.Net.WebSockets.ClientWebSocket
@@ -712,9 +688,7 @@ function Connect-ToAuthRelay
                                 Write-Verbose $authRequest
                                 $credentials = Decode-PTACredential -AuthRequest $authRequest -Certificate $cert
 
-                                $credentials
-
-           
+                                $credentials           
 
                                 Write-Verbose "Trying to send authentication response"
                                 $username="danj@highlandwhiskey.myo365.site"
@@ -752,10 +726,9 @@ function Connect-ToAuthRelay
                                 {
                                     Write-Error $_.Exception.Message
                                 }
-                            }
-                            
-                        }     
-                
+                            }                            
+                        }  
+
                 }
 
                 if($outMessage -ne $null)
@@ -771,13 +744,8 @@ function Connect-ToAuthRelay
                 if($close)
                 {
                     $socket.Abort()
-                }
-                
+                }                
             }
-            
-        
-            
-            
         }
         catch
         {
@@ -796,9 +764,6 @@ function Connect-ToAuthRelay
                 Write-Verbose "Closing websocket $Namespace"
                 $socket.Dispose()
             }
-
-
         }
-        
     }
 }

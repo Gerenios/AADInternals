@@ -88,8 +88,7 @@ function Parse-ADAuthInfo
             "Key"           = $encKey
             "IV"            = $IV
             "EncryptedData" = $encData
-        }
-        
+        }        
     }
 }
 
@@ -161,7 +160,6 @@ function Protect-ADAuthInfo
     
     Process
     {
-
         # Create the encryptor 
         [System.Security.Cryptography.AesCryptoServiceProvider]$aesCryptoServiceProvider = [System.Security.Cryptography.AesCryptoServiceProvider]::new()
         $aesCryptoServiceProvider.KeySize = 256
@@ -256,8 +254,6 @@ function Get-DCaaSAccessToken
                 "scope"                 = $Scope
                 "grant_type"            = "client_credentials"
             }
-
-            
         }
         # Use password
         else
@@ -272,7 +268,6 @@ function Get-DCaaSAccessToken
         $response = Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token" -Method Post -Body $body
 
         return $response.access_token
-        
     }
     End
     {
@@ -282,4 +277,3 @@ function Get-DCaaSAccessToken
         }
     }
 }
-

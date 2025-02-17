@@ -118,7 +118,6 @@ function New-SAMLToken
         [Parameter(ParameterSetName='FileAndPassword',Mandatory=$False)]
         [string]$PfxPassword
 
-
     )
     Begin
     {
@@ -334,8 +333,7 @@ function New-SAML2Token
         if([String]::IsNullOrEmpty($NotAfter))
         {
             $NotAfter = $NotBefore.AddHours(1)
-        }
-        
+        }        
         
         # Create a new SAML2 assertion
         $identifier = New-Object System.IdentityModel.Tokens.Saml2NameIdentifier($Issuer)
@@ -374,9 +372,7 @@ function New-SAML2Token
         $authenticationStatement = New-Object System.IdentityModel.Tokens.Saml2AuthenticationStatement($authenticationContext)
         $authenticationStatement.AuthenticationInstant = $NotBefore
         $authenticationStatement.SessionIndex = $assertion.Id.Value
-        $assertion.Statements.Add($authenticationStatement)
-
-        
+        $assertion.Statements.Add($authenticationStatement)        
 
         # Sign the assertion
         $ski = New-Object System.IdentityModel.Tokens.SecurityKeyIdentifier((New-Object System.IdentityModel.Tokens.X509RawDataKeyIdentifierClause($Certificate))) 
@@ -392,7 +388,7 @@ function New-SAML2Token
         $strToken=$writer.ToString()
 
         return $strToken
-     }
+    }
 }
 
 # Create WSFed response
@@ -633,7 +629,8 @@ function Open-Office365Portal
                         <input name="wctx" type="hidden" value="" />
                         <input name="wresult" type="hidden" value="$([System.Net.WebUtility]::HtmlEncode($wsfed))">
                         To login automatically, the javascript needs to be enabled.. So just click the button! <br>
-                        <button type="submit">Login to Office 365</button>                    </form>
+                        <button type="submit">Login to Office 365</button>
+                    </form>
                 </body>
             </html>
 "@
@@ -801,7 +798,6 @@ function ConvertTo-Backdoor
                 write-host "Aborted" -ForegroundColor Red
             }
         }
-
     }
 }
 
@@ -845,7 +841,6 @@ function New-Backdoor
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "https://graph.windows.net"
 
         ConvertTo-Backdoor -AccessToken $AccessToken -DomainName $DomainName -Create
-
     }
 }
 
@@ -929,8 +924,6 @@ function Find-Backdoor
     )
     Begin
     {
-        
-
         # Checks whether the given thumbprint matches AADInternals backdoor cert
         function IsBackdoor
         {
@@ -994,10 +987,5 @@ function Find-Backdoor
                 }
             }
         }
-
-        
-
-        
-
     }
 }

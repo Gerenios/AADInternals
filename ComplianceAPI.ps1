@@ -64,7 +64,6 @@ function Search-UnifiedAuditLog
     )
     Process
     {
-
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -Resource "80ccca67-54bd-44ab-8625-4b79c4dc7775"
 
         $body=@{

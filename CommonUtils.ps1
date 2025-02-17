@@ -11,7 +11,6 @@ $config = @{}
 
 Function Convert-ByteArrayToB64
 {
-
     [cmdletbinding()]
 
     param(
@@ -38,7 +37,6 @@ Function Convert-ByteArrayToB64
 
 Function Convert-B64ToByteArray
 {
-
     [cmdletbinding()]
 
     param(
@@ -59,7 +57,6 @@ Function Convert-B64ToByteArray
 
 Function Convert-B64ToText
 {
-
     [cmdletbinding()]
 
     param(
@@ -73,7 +70,6 @@ Function Convert-B64ToText
 
 Function Convert-TextToB64
 {
-
     [cmdletbinding()]
 
     param(
@@ -87,7 +83,6 @@ Function Convert-TextToB64
 
 Function Convert-ByteArrayToHex
 {
-
     [cmdletbinding()]
 
     param(
@@ -108,7 +103,6 @@ Function Convert-ByteArrayToHex
 
 Function Convert-HexToByteArray
 {
-
     [cmdletbinding()]
 
     param(
@@ -126,11 +120,9 @@ Function Convert-HexToByteArray
     $Bytes
 }
 
-
 # Converts OID string to bytes
 function Convert-OidToBytes
 {
-
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True,ValueFromPipeline)]
@@ -171,19 +163,16 @@ function Convert-OidToBytes
             {
                 $bytes += [byte]$digit
             }
-
         }
 
         # Return
         return [byte[]]$bytes
-
     }
 }
 
 # Converts byte array to oid string
 function Convert-BytesToOid
 {
-
     [cmdletbinding()]
     Param(
         [Parameter(ParameterSetName = "Bytes",Mandatory=$True,ValueFromPipeline)]
@@ -226,7 +215,6 @@ function Convert-BytesToOid
                     $value = $mByte[$a-1] -band 0x7f # Strip the first byte
                     $value *= [math]::pow(128, $mByte.Count-$a)
                     $digit += $value
-
                 }
             }
             else
@@ -301,7 +289,6 @@ function Load-Certificate
     }
 }
 
-
 # Loads the private key from the given Certificate
 function Load-PrivateKey
 {
@@ -375,11 +362,9 @@ function Unload-PrivateKey
         catch
         {
             Write-Verbose "Could not unload Private Key from the certificate store. That's probably just okay: ""$($_.Exception.InnerException.Message)"""
-        }
-        
+        }        
     }
 }
-
 
 function Get-CompressedByteArray {
 
@@ -398,7 +383,6 @@ function Get-CompressedByteArray {
         return $output.ToArray()
     }
 }
-
 
 function Get-DecompressedByteArray {
 
@@ -459,7 +443,6 @@ function Get-DeDeflatedByteArray {
 # Parses the given RSA Key BLOB and returns RSAParameters
 Function Parse-KeyBLOB
 {
-
     [cmdletbinding()]
 
     param(
@@ -536,7 +519,6 @@ Function Parse-KeyBLOB
 # Feb 6th 2022
 Function Convert-RSAToPEM
 {
-
     [cmdletbinding()]
 
     param(
@@ -553,7 +535,6 @@ Function Convert-RSAToPEM
         $pemWriter.Writer.Dispose()
 
         return $PEM
-
     }
 }
 
@@ -576,7 +557,6 @@ Function Convert-PEMToRSA
         $pemReader.Reader.Dispose()
 
         return $RSAParameters
-
     }
 }
 
@@ -701,7 +681,6 @@ function Get-RC4{
             $s[$j] = $swap
         }
 
-
         $output = New-Object byte[] ($Data.Length)
 
         $i = 0
@@ -724,10 +703,8 @@ function Get-RC4{
         }
 
         return $output
-
     }
 }
-
 
 function Parse-Asn1
 {
@@ -771,7 +748,6 @@ function Parse-Asn1
             $size = $Data[$p+1]
             $tSize = $size + 2
         }
-
         
         # Calculate start and end
         $start = $p
@@ -963,18 +939,12 @@ function Parse-Asn1
             $tData = @()
             While($p -lt $end)
             {
-
                 $element = Parse-Asn1 -Data $Data -Pos $p -Level ($Level+1) 
 
                 $p += $element.Size
-                $tData += $element
-                
-                
-            }
-        
-        }
-        
-                
+                $tData += $element                
+            }        
+        }      
 
         return New-Object psobject -Property @{ "Type" = $tType; "Data" = $tData ; "DataLength" = $size; "Size" = $tSize}
     }
@@ -1007,8 +977,6 @@ function Encode-Asn1
 
         switch($Data.Type)
         {
-            
-
             {$_.startsWith("APP #")}{
                     $appNum = [byte]$_.Split("#")[1]
                     $appNum += 0x60
@@ -1128,8 +1096,7 @@ function Encode-Asn1
                 }
             default {
                 Throw "Unknown type: $_"
-                }
-            
+                }            
         }
     }
 }
@@ -1144,8 +1111,7 @@ function Get-RandomBytes
     )
     Process
     {
-        $returnBytes = New-Object byte[] $Bytes
-        
+        $returnBytes = New-Object byte[] $Bytes        
 
         for($c = 0; $c -lt $Bytes ; $c++)
         {
@@ -1165,8 +1131,7 @@ function Get-Digest
         [String]$Data
     )
     Process
-    {
-        
+    {        
         # Compute SHA1 digest        
         $SHA1 =   [System.Security.Cryptography.SHA1Managed]::Create()
         $digest = $SHA1.ComputeHash([text.encoding]::UTF8.GetBytes($Data))
@@ -1464,7 +1429,6 @@ Function New-KeyBLOB
         }
         
         return $blob
-
     }
 }
 
@@ -1925,7 +1889,6 @@ function Get-UserAgent
     }
 }
 
-
 # Return the string between Start and End
 # May 29th 2023
 function Get-StringBetween
@@ -2273,7 +2236,6 @@ public class Shift
     $D = ('{0:x8}' -f $D) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
     # Output end
 
-    
     if($AsByteArray)
     {
         return [byte[]]("$A$B$C$D" -replace '..', '0x$&,' -split ',' -ne '')
@@ -2316,7 +2278,6 @@ function Get-Thumbprint
     
     return [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($bytes).Thumbprint
 }
-
 
 # Parses the oid values of the given certificate
 # Dec 23rd 2021
@@ -2540,7 +2501,6 @@ function Convert-ObjectIDtoSID
 
         return "S-1-12-1-$SID".Replace(' ', '-')
     }
-
 }
 
 # Converts EntraID ObjectID to Security Identifier (SID)

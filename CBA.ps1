@@ -235,7 +235,6 @@ function Get-LoginParametersUsingCBA
             }
         }
 
-
         Write-Host "Logged in as $($config.sPOST_Username)" -ForegroundColor Green
 
         # Make a request to login.microsoftonline.com/kmsi to get code and id_token

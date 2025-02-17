@@ -59,8 +59,7 @@ function Get-SelfServicePurchaseProducts
                 "Id"        = $item.productID
                 "Status"    = $item.policyValue
             })
-        }
-        
+        }        
     }
 }
 
@@ -150,7 +149,5 @@ function Set-SelfServicePurchaseProduct
         {
             throw $_
         }
-
-        
     }
 }

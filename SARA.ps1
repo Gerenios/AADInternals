@@ -117,45 +117,37 @@ function Get-SARAUserInfo
                     "Name"                     = "ScenarioSymptom"
 			        "Value"                    = "TenantUserInfo"
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
 @{
                     "Name"                     = "UserPuid"
 			        "Value"                    = ""
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
 @{
                     "Name"                     = "CorrelationId"
 			        "Value"                    = ""
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
                 @{
                     "Name"                     = "TargetService"
 			        "Value"                    = "Exchange"
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
 @{
                     "Name"                     = "IsMsaUser"
 			        "Value"                    = $False
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
 @{
                     "Name"                     = "MailboxClient"
 			        "Value"                    = "Outlook"
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
 @{
                     "Name"                     = "TestHook"
 			        "Value"                    = ""
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
-
 	        )
         }
         
@@ -179,13 +171,9 @@ function Get-SARAUserInfo
                         $userInformation[$item.Name] = $item.InnerText
                     }
                     $item = $item.NextSibling
-                }
-                
-            }
-
-            
+                }                
+            }            
         }
-
 
         #
         # CasMailbox
@@ -216,7 +204,6 @@ function Get-SARAUserInfo
                     "Name"                     = "ScenarioSymptom"
 			        "Value"                    = "CasMailbox"
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
 	        )
         }
@@ -255,7 +242,6 @@ function Get-SARAUserInfo
                     "Name"                     = "ScenarioSymptom"
 			        "Value"                    = "GetUser"
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
 	        )
         }
@@ -277,14 +263,12 @@ function Get-SARAUserInfo
                     $userInformation[$item.Name] = $item.InnerText
                 
                     $item = $item.NextSibling
-                }
-                
+                }                
             }
             else
             {
                 Write-Warning $additionalInfo.ErrorInfo.Split("`n")[0]
             }
-
         }
 
         New-Object psobject -Property $userInformation
@@ -324,8 +308,6 @@ function Get-SARATenantInfo
         $tenantInfo = [ordered]@{
                 "Domain" = $UserName.Split("@")[1]
             }
-
-
         # 
         # ExchangeHybridTenant Check
         #
@@ -357,7 +339,6 @@ function Get-SARATenantInfo
                     "Name"                     = "ScenarioSymptom"
 			        "Value"                    = "ExchangeHybridTenant"
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
 	        )
         }
@@ -394,8 +375,7 @@ function Get-SARATenantInfo
                 }
                 $tenantInfo["IsHybrid"]                        = $additionalInfo.isHybrid
                 $tenantInfo["OrganizationRelationShips"]       = $orgRels
-                $tenantInfo["OnPremOrganizationRelationShips"] = $onPrems
-                
+                $tenantInfo["OnPremOrganizationRelationShips"] = $onPrems                
             }
             else
             {
@@ -403,7 +383,6 @@ function Get-SARATenantInfo
             }
         }
         }
-
 
         # 
         # DirSyncCheck
@@ -431,19 +410,15 @@ function Get-SARATenantInfo
                     "Name"                     = "ScenarioSymptom"
 			        "Value"                    = "DirSyncCheck"
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
 	        )
         }
-
             $response = Call-AnalysisAPI -Body ($body | ConvertTo-Json) -AccessToken $AccessToken -Url "https://api.diagnostics.office.com/v1/cloudcheck"
 
             $tenantInfo["DirSync"] = $response.MessageToAdmin
-
         }
         # Return
         New-Object psobject -Property $tenantInfo
-
     }
 }
 
@@ -498,24 +473,19 @@ function Get-SARAFreeBusyInformation
                     "Name"                     = "ScenarioSymptom"
 			        "Value"                    = "FreeBusyTenantUserInfo"
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
                 @{
                     "Name"                     = "TargetSmtpAddress"
 			        "Value"                    = $TargetUser
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
-
-
 	        )
         }
         
         $response = Call-AnalysisAPI -Body ($body | ConvertTo-Json) -AccessToken $AccessToken -Url "https://api.diagnostics.office.com/v1/cloudcheck"
 
         if($response.ProcessingStatus -eq "Succeeded")
-        {
-            
+        {            
             $additionalInfo = $response.AdditionalInfo | ConvertFrom-Json
 
             if($additionalInfo.IsSuccess -eq "true")
@@ -525,14 +495,10 @@ function Get-SARAFreeBusyInformation
             else
             {
                 Write-Error $response.MessageToUser
-            }
-            
+            }            
         }
-
-
     }
 }
-
 
 # Aug 30th 2023
 # Uses SARA to test if provided port is available
@@ -581,7 +547,6 @@ function Test-SARAPort
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://api.diagnostics.office.com"
         
-
         $body=@{
 	        "Symptom"            = "PortCheck"
 	        "RequestTimeoutInMs" =  180000
@@ -610,11 +575,9 @@ function Test-SARAPort
                     "Name"                     = "ScenarioSymptom"
 			        "Value"                    = "Port"
 			        "ComplianceClassification" = "Identifiable"
-
 		        }
 	        )
 	        "UseDiagnosticService"   = $true
-
         }
         
         $response = Call-AnalysisAPI -Body ($body | ConvertTo-Json) -AccessToken $AccessToken -Url "https://api.diagnostics.office.com/v1/cloudcheck"
@@ -634,7 +597,6 @@ function Test-SARAPort
         }
     }
 }
-
 
 # Aug 30th 2023
 # Uses SARA to resolve DNS name
@@ -678,7 +640,6 @@ function Resolve-SARAHost
         # Get from cache if not provided
         $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -Resource "https://api.diagnostics.office.com"
         
-
         $body=@{
 	        "Symptom"            = "ResolveHostCheck"
 	        "RequestTimeoutInMs" =  180000
@@ -695,8 +656,7 @@ function Resolve-SARAHost
 		        }
                 
 	        )
-	        "UseDiagnosticService"   = $true
-	        
+	        "UseDiagnosticService"   = $true	        
         }
         
         $response = Call-AnalysisAPI -Body ($body | ConvertTo-Json) -AccessToken $AccessToken -Url "https://api.diagnostics.office.com/v1/cloudcheck"
@@ -711,6 +671,5 @@ function Resolve-SARAHost
             "Host" = $Host
             "Resolved" = $isResolved
         }
-
     }
 }

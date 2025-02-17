@@ -2,7 +2,6 @@
 # This file contains functions for Azure AD / Office 365 kill chain
 #
 
-
 # Invokes information gathering as an outsider
 # Jun 16th 2020
 function Invoke-ReconAsOutsider
@@ -122,13 +121,11 @@ function Invoke-ReconAsOutsider
         $tenantSSO =    ""
         
         Write-Verbose "`n*`n* EXAMINING TENANT $tenantId`n*"
-
         
         Write-Verbose "Getting domains.."
         $domains = Get-TenantDomains -Domain $DomainName -SubScope $tenantSubscope
         Write-Verbose "Found $($domains.count) domains!"
         
-
         # Create an empty list
         $domainInformation = @()
 
@@ -282,7 +279,6 @@ function Invoke-ReconAsOutsider
         
         return $domainInformation
     }
-
 }
 
 
@@ -511,7 +507,6 @@ function Invoke-ReconAsGuest
 
         # Return
         return $tenantInformation
-
     }
 }
 
@@ -546,7 +541,6 @@ function Invoke-UserEnumerationAsGuest
     Users:        5
     Groups:       2
     Roles:        0
-
 #>
     [cmdletbinding()]
     Param(
@@ -867,7 +861,6 @@ function Invoke-UserEnumerationAsGuest
     }
 }
 
-
 # Invokes information gathering as an internal user
 # Aug 4th 2020
 function Invoke-ReconAsInsider
@@ -1028,8 +1021,7 @@ function Invoke-ReconAsInsider
         if($tenantInformation.skuInfo.enterprisePremiumE5)
         {
             $tenantSku += "Premium E5"
-        }
-        
+        }        
 
         # Set the extra tenant information
         $tenantInformation |Add-Member -NotePropertyName "companyInformation"     -NotePropertyValue $companyInformation
@@ -1059,11 +1051,9 @@ function Invoke-ReconAsInsider
         Write-Host "MS Partner DAP enabled?      $($tenantInformation.partnerDAPEnabled)"
         Write-Host "MS Partner contracts:        $($tenantInformation.partnerContracts.Count)"             
         Write-Host "MS Partners:                 $($tenantInformation.partners.Count)"
-            
-
+        
         # Return
         return $tenantInformation
-
     }
 }
 
@@ -1104,8 +1094,6 @@ function Invoke-UserEnumerationAsInsider
     proxyAddresses                  : {smtp:User@company.onmicrosoft.com, SMTP:User@company.com}
     businessPhones                  : {+1234567890}
     identities                      : {@{signInType=userPrincipalName; issuer=company.onmicrosoft.com; issuerAssignedId=User@company.com}} 
-
-
 
 #>
     [cmdletbinding()]
@@ -1287,8 +1275,7 @@ function Invoke-Phishing
         [Parameter(ParameterSetName='Mail',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$SMTPCredentials,
 
-        [Switch]$SaveToCache
-        
+        [Switch]$SaveToCache        
     )
     Begin
     {
@@ -1374,7 +1361,6 @@ function Invoke-Phishing
             }
         }
         
-
         $continue = $true
         $interval = $authResponse.interval
         $expires =  $authResponse.expires_in
@@ -1465,7 +1451,6 @@ function Invoke-Phishing
         if(!$SaveToCache)
         {
             return New-Object psobject -Property $attributes
-        }
-        
+        }        
     }
 }

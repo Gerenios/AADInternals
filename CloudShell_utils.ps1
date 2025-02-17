@@ -26,7 +26,6 @@ function New-CloudShell
         
         # return
         return $response.properties
-
     }
 }
 
@@ -59,7 +58,6 @@ function Get-CloudShellAuthToken
         
         # return
         return $response.token
-
     }
 }
 
@@ -103,7 +101,6 @@ function Get-CloudShellSettings
         
         # return
         return $response
-
     }
 }
 
@@ -133,7 +130,6 @@ function Get-UserCloudShellSettings
         
         # return
         return $response
-
     }
 }
 
@@ -187,7 +183,6 @@ function Set-UserCloudShellSettings
         
         # return
         return $response
-
     }
 }
 
@@ -217,6 +212,5 @@ function Remove-UserCloudShellSettings
         
         # return
         return $response
-
     }
 }

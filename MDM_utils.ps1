@@ -60,8 +60,7 @@ function Get-MDMEnrollmentService
         }
 
         # Return
-        return $serviceUri
-            
+        return $serviceUri            
     }
 }
 
@@ -106,7 +105,6 @@ function Enroll-DeviceToMDM
             "Content-Type" = "application/soap+xml; charset=utf-8"
             "User-Agent"   = "ENROLLClient"
         }
-
 
         # Create the CSR request body
         $csrBody=@"
@@ -230,8 +228,7 @@ function Enroll-DeviceToMDM
             $cert
         )
         
-        return $joinInfo
-            
+        return $joinInfo            
     }
 }
 
@@ -326,7 +323,6 @@ function New-SyncMLAutoresponse
                         Write-Warning " < No data ($MsgID): $command"
                     #}
                 }
-
             }
             else
             {
@@ -502,8 +498,6 @@ $meta
                 }
             }
         }
-
-
 
         # Construct the body
 
@@ -709,7 +703,6 @@ function Invoke-SyncMLRequest
         return $xml
     }
 }
-
 
 # Gets the object id of the device using device id
 # Sep 11th 2020

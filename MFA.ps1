@@ -82,8 +82,7 @@ function Set-UserMFA
         {
             Write-Error 'Invalid phone number format! Use the following format: "+CCC NNNNNNN" where CCC is the country code and NNNN the phonenumber without the leading zero.'
             return
-        }
-        
+        }        
         
         $command="SetUser"
 
@@ -418,9 +417,7 @@ function Set-UserMFAApps
 
                 Write-Error "$($property): $error"
             }
-
         }
-
     }
 }
 
@@ -512,10 +509,7 @@ function Get-UserMFA2
             $attributes["App$count-AppOathTokenTimeDrift"]=$app.OathTokenTimeDrift
             $attributes["App$count-AppPhoneAppVersion"]=$app.PhoneAppVersion
             $attributes["App$count-AppTimeInterval"]=$app.TimeInterval
-
         }
-
-            
 
         # Get the default method
         foreach($method in $user.StrongAuthenticationMethods.StrongAuthenticationMethod)
@@ -530,7 +524,6 @@ function Get-UserMFA2
         New-Object PSObject -Property $attributes
     }
 }
-
 
 # Jun 24th 2020
 function Get-UserMFA
@@ -616,8 +609,6 @@ function Get-UserMFA
         }
 
         $attributes["AppDetails"]=Parse-AuthApps -appDetails $appDetails
-
-            
 
         # Get the default method
         foreach($method in $user.strongAuthenticationDetail.methods)
@@ -756,8 +747,7 @@ function New-OTP
         # Return
         $otpFormatted = "{0:000 000}" -f $OTP
 
-        return New-Object psobject -Property ([ordered]@{"OTP" = $otpFormatted; "Valid" = "$(30-($now % 30))s"})
-        
+        return New-Object psobject -Property ([ordered]@{"OTP" = $otpFormatted; "Valid" = "$(30-($now % 30))s"})        
     }
 }
 
@@ -800,7 +790,6 @@ function New-OTPSecret
             }
         }
 
-
         # Copy to clipboard
         if($Clipboard)
         {
@@ -811,7 +800,6 @@ function New-OTPSecret
 
         # Return
         return $secret
-
     }
 }
 
@@ -942,8 +930,6 @@ function Register-MFAApp
         $actInfo | Add-Member -NotePropertyName "DefaultMethod"        -NotePropertyValue $updates.DefaultMethod
 
         # Return
-        return $actInfo
-
-        
+        return $actInfo        
     }
 }
