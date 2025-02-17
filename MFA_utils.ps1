@@ -217,8 +217,7 @@ function Parse-AuthApps
         $appDetails
     )
     Process
-    {
-       
+    {       
         $apps=@()
         foreach($app in $appDetails)
         {
