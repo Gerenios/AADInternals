@@ -86,14 +86,14 @@ function HasDMARC
         try
         {
             $results=Resolve-DnsName -Name "_dmarc.$Domain" -Type txt -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | Select-Object strings | Select-Object -ExpandProperty strings 
-        }catch{}
+        } catch{ }
 
         return ($results -like "v=DMARC1*").Count -gt 0
     }
 }
 
 # Checks whether the domain has DKIM records for Exchange Online
-# Aug 14rd 2023
+# Aug 14rd 2023 - added by michaelmsonne
 function HasCloudDKIM
 {
     [cmdletbinding()]
@@ -132,15 +132,14 @@ function HasCloudDKIM
                 {
                     return $true
                 }
-            }catch {}
-        }
-        
+            } catch {}
+        }        
         return $false
     }
 }
 
 # Checks whether the domain has MTA-STS records for Exchange Online
-# Aug 14rd 2023
+# Aug 14rd 2023 - added by michaelmsonne
 function HasCloudMTASTS {
     param (
         [Parameter(Mandatory=$True)]
@@ -226,8 +225,6 @@ function HasCBA
         (Get-CredentialType -UserName $UserName -SubScope $SubScope).Credentials.HasCertAuth -eq "True"
     }
 }
-
-
 
 # Checks whether the user exists in Azure AD or not
 # Jun 16th 2020

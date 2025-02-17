@@ -197,8 +197,7 @@ function Invoke-ReconAsOutsider
                     if($GetRelayingParties)
                     {
                         try
-                        {
-                        
+                        {                        
                             $idpUrl = $realmInfo.AuthUrl.Substring(0,$realmInfo.AuthUrl.LastIndexOf("/")+1)
                             $idpUrl += "idpinitiatedsignon.aspx"
                             Write-Verbose "Getting relaying parties for $domain from $idpUrl"
@@ -210,8 +209,7 @@ function Invoke-ReconAsOutsider
                             for($o = 0; $o -lt $selectElement.Count; $o++)
                             {
                                 $relayingParties[$o] = $selectElement[$o].'#text'
-                            }
-                    
+                            }                    
                         }
                         catch{} # Okay
                     }
@@ -226,8 +224,8 @@ function Invoke-ReconAsOutsider
                     "MX" =      $hasCloudMX
                     "SPF" =     $hasCloudSPF
                     "DMARC" =   $hasDMARC
-					"DKIM" =    $hasCloudDKIM						 
-					"MTA-STS" = $hasCloudMTASTS						   
+                    "DKIM" =    $hasCloudDKIM						 
+                    "MTA-STS" = $hasCloudMTASTS						   
                     "Type" =    $realmInfo.NameSpaceType
                     "STS" =     $authUrl 
                 }
@@ -578,7 +576,7 @@ function Invoke-UserEnumerationAsGuest
                 $options += New-Object System.Management.Automation.Host.ChoiceDescription "&$($choises[$p % $choises.Length]) $($tenantNames[$p])"
             }
             $opt = $host.UI.PromptForChoice("Choose the tenant","Choose the tenant to recon",$options,0)
-            }
+        }
         else
         {
             $opt=0
@@ -610,8 +608,6 @@ function Invoke-UserEnumerationAsGuest
         }
         Write-Verbose "Tenant $Tenant / $tenantDomain selected."
 
-        
-
         # If GroupID is given, dump only the members of that group
         if($GroupId)
         {
@@ -633,7 +629,6 @@ function Invoke-UserEnumerationAsGuest
         }
         else
         {
-
             # If user name not given, try to get one from the access token
             if([string]::IsNullOrEmpty($UserName))
             {
@@ -665,7 +660,7 @@ function Invoke-UserEnumerationAsGuest
             # Create the users object
             $ht_users=@{
                 $user.id = $user
-                }
+        	}
 
             # Create the groups object
             $ht_groups=@{}
@@ -730,7 +725,6 @@ function Invoke-UserEnumerationAsGuest
                             #$itemGroups += $group.id
                         }
                     }
-
                 }
             }
 
@@ -808,7 +802,6 @@ function Invoke-UserEnumerationAsGuest
                             $ht_roles[$role.id] = $role
                         }
                     }
-
                 }
             }
 
@@ -1051,7 +1044,8 @@ function Invoke-ReconAsInsider
         Write-Host "MS Partner DAP enabled?      $($tenantInformation.partnerDAPEnabled)"
         Write-Host "MS Partner contracts:        $($tenantInformation.partnerContracts.Count)"             
         Write-Host "MS Partners:                 $($tenantInformation.partners.Count)"
-        
+            
+
         # Return
         return $tenantInformation
     }
@@ -1451,6 +1445,7 @@ function Invoke-Phishing
         if(!$SaveToCache)
         {
             return New-Object psobject -Property $attributes
-        }        
+        }
+        
     }
 }
