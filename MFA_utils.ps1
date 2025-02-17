@@ -206,7 +206,6 @@ function To-Base32String
     }
 }
 
-
 # Parses authentication apps data
 # Jun 27th 2020
 function Parse-AuthApps
