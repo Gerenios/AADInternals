@@ -93,7 +93,7 @@ function HasDMARC
 }
 
 # Checks whether the domain has DKIM records for Exchange Online
-# Aug 14rd 2023
+# Aug 14rd 2023 by Michael Morten Sonne
 function HasCloudDKIM
 {
     [cmdletbinding()]
@@ -140,7 +140,7 @@ function HasCloudDKIM
 }
 
 # Checks whether the domain has MTA-STS records for Exchange Online
-# Aug 14rd 2023
+# Aug 14rd 2023 by Michael Morten Sonne
 function HasCloudMTASTS {
     param (
         [Parameter(Mandatory=$True)]
