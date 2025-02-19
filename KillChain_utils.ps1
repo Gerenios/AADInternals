@@ -1,6 +1,8 @@
 ﻿# Checks whether the domain has MX records pointing to MS cloud
 # Jun 16th 2020
 # Aug 30th 2022: Fixed by maxgrim
+# Fe. 19th 2025: Add new mx.microsoft check by Michael Morten Sonne
+
 function HasCloudMX
 {
     [cmdletbinding()]
@@ -25,14 +27,25 @@ function HasCloudMX
             }
             default # Commercial/GCC
             {
-                $filter = "*.mail.protection.outlook.com"
+                $filter = @("*.mail.protection.outlook.com","*.mx.microsoft")
             }
         }
 
-        $results=Resolve-DnsName -Name $Domain -Type MX -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | Select-Object nameexchange | Select-Object -ExpandProperty nameexchange
-        $filteredResults=$results -like $filter
+        $results = Resolve-DnsName -Name $Domain -Type MX -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue |
+               Select-Object -ExpandProperty nameexchange
 
-        return ($filteredResults -eq $true) -and ($filteredResults.Count -gt 0)
+        # Normalize $filter into an array
+        if (-not ($filter -is [System.Collections.IEnumerable])) {
+            $filter = @($filter)
+        }
+
+        # Check results
+        $filteredResults = @()
+        foreach ($pat in $filter) {
+            $filteredResults += $results | Where-Object { $_ -like $pat }
+        }
+
+        return $filteredResults.Count -gt 0
     }
 }
 
@@ -93,7 +106,7 @@ function HasDMARC
 }
 
 # Checks whether the domain has DKIM records for Exchange Online
-# Aug 14rd 2023
+# Aug 14rd 2023 by Michael Morten Sonne
 function HasCloudDKIM
 {
     [cmdletbinding()]
@@ -140,7 +153,7 @@ function HasCloudDKIM
 }
 
 # Checks whether the domain has MTA-STS records for Exchange Online
-# Aug 14rd 2023
+# Aug 14rd 2023 by Michael Morten Sonne
 function HasCloudMTASTS {
     param (
         [Parameter(Mandatory=$True)]
