@@ -279,9 +279,9 @@ function Get-PRTDerivedKey
     }
 }
 
-# Get the access token with PRT
+# Get the access token with PRTToken
 # Aug 20th 2020
-function Get-AccessTokenWithPRT
+function Get-AccessTokenWithPRTToken
 {
     [cmdletbinding()]
     Param(
@@ -295,7 +295,8 @@ function Get-AccessTokenWithPRT
         [String]$RedirectUri,
         [switch]$GetNonce,
         [Parameter(Mandatory=$False)]
-        [String]$Tenant
+        [String]$Tenant,[Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
@@ -318,7 +319,7 @@ function Get-AccessTokenWithPRT
         $requestId = $mscrid
         
         # Create url and headers
-        $url = "https://login.microsoftonline.com/$Tenant/oauth2/authorize?resource=$Resource&client_id=$ClientId&response_type=code&redirect_uri=$RedirectUri&client-request-id=$requestId&mscrid=$mscrid"
+        $url = "$(Get-TenantLoginUrl -SubScope $SubScope)/$Tenant/oauth2/authorize?resource=$Resource&client_id=$ClientId&response_type=code&redirect_uri=$RedirectUri&client-request-id=$requestId&mscrid=$mscrid"
 
         # Add sso_nonce if exist
         if($parsedCookie.request_nonce)
@@ -327,12 +328,18 @@ function Get-AccessTokenWithPRT
         }
 
         $headers = @{
-            "User-Agent" = ""
+            "User-Agent" = Get-UserAgent
             "x-ms-RefreshTokenCredential" = $Cookie
             }
 
         # First, make the request to get the authorisation code (tries to redirect so throws an error)
         $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Headers $headers -MaximumRedirection 0 -ErrorAction SilentlyContinue
+
+        $config = Parse-LoginMicrosoftOnlineComConfig -Body $response
+        if($config.sErrorCode)
+        {
+            Throw (Get-Error -ErrorCode $config.sErrorCode)
+        }
 
         $code = Parse-CodeFromResponse -Response $response
         
@@ -349,8 +356,13 @@ function Get-AccessTokenWithPRT
             redirect_uri = $RedirectUri
         }
 
+        if($CAE)
+        {
+            $body["claims"] = Get-CAEClaims
+        }
+
         # Make the second request to get the access token
-        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -Body $body -ContentType "application/x-www-form-urlencoded" -Method Post
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "$(Get-TenantLoginUrl -SubScope $SubScope)/common/oauth2/token" -Body $body -ContentType "application/x-www-form-urlencoded" -Method Post
 
         Write-Debug "ACCESS TOKEN: $($response.access_token)"
         Write-Debug "REFRESH TOKEN: $($response.refresh_token)"
@@ -372,11 +384,68 @@ function Get-AccessTokenWithBPRT
         [Parameter(Mandatory=$True)]
         [String]$Resource,
         [Parameter(Mandatory=$True)]
-        [String]$ClientId
+        [String]$ClientId,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
     )
     Process
     {
-        Get-AccessTokenWithRefreshToken -Resource "urn:ms-drs:enterpriseregistration.windows.net" -ClientId "b90d5b8f-5503-4153-b545-b31cecfaece2" -TenantId "Common" -RefreshToken $BPRT
+        Get-AccessTokenWithRefreshToken -Resource "urn:ms-drs:enterpriseregistration.windows.net" -ClientId "b90d5b8f-5503-4153-b545-b31cecfaece2" -TenantId "Common" -RefreshToken $BPRT -SubScope $SubScope
+    }
+}
+
+# Gets the access token using a signed PRT request
+# Feb 4th 2025
+function Get-AccessTokenWithSignedPRTRequest
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$RefreshToken,
+        [Parameter(Mandatory=$True)]
+        [String]$SessionKey,
+        [Parameter(Mandatory=$False)]
+        [String]$Context="8J+YiEFBREludGVybmFscyBGVFfwn5Kp",
+        [Parameter(Mandatory=$True)]
+        $ClientId,
+        [Parameter(Mandatory=$True)]
+        $Resource,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope,
+        [Parameter(Mandatory=$False)]
+        [bool]$CAE
+    )
+    Process
+    {
+        # Create a signed PRT request
+        $jwt = New-PRTSignedJWE -RefreshToken $RefreshToken -SessionKey $SessionKey -Context $Context -KdfV2 $true -ClientId $ClientId -Resource $Resource -Request
+
+        # Set the body for API call
+        $body = @{
+            "windows_api_version" = "2.0"
+            "grant_type"          = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+            "request"             = $jwt
+            "client_info"         = "1"
+            "tgt"                 = "true"
+        }
+
+        # Set Continuous Access Evaluation (CAE) token claims
+        if($CAE)
+        {
+            $body["claims"] = Get-CAEClaims
+        }
+
+        # Get the encrypted response
+        $jwe = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$(Get-TenantLoginUrl -SubScope $SubScope)/Common/oauth2/token" -Body $body #-Headers $headers -WebSession $session
+
+        # Convert session key to byte array and decrypt JWE
+        $sKey = Convert-B64ToByteArray -B64 $SessionKey
+        $response = [text.encoding]::UTF8.GetString((Decrypt-JWE -JWE $jwe -SessionKey $sKey)) | ConvertFrom-Json
+
+        # Debug
+        Write-Debug "ACCESS TOKEN RESPONSE: $response"
+
+        return $response
     }
 }
 
@@ -688,7 +757,7 @@ Function Decrypt-JWE
         {
             $alg = "RSA-OAEP"
         }
-        elseif($parsedJWE.enc -ne "A256GCM")
+        elseif($parsedJWE.enc -notin "A256GCM","A128CBC-HS256")
         {
             Throw "Unsupported enc: $enc"
         }
@@ -787,7 +856,7 @@ Function Decrypt-JWE
                 else
                 {
                     # De-deflate
-                    if($parsedJWE.zip -eq "Deflate")
+                    if($parsedJWE.zip -in "Deflate","DEF")
                     {
                         $retVal = Get-DeDeflatedByteArray -byteArray $decData
                     }
@@ -937,5 +1006,104 @@ Function New-JWE
         {
             Throw "Unsupported alg: $alg"
         }
+    }
+}
+
+# Creates a PRT signed JWE
+# Feb 4th 2025
+function New-PRTSignedJWE
+{
+
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$RefreshToken,
+
+        [Parameter(Mandatory=$True)]
+        [String]$SessionKey,
+
+        [Parameter(Mandatory=$False)]
+        [String]$Context="8J+YiEFBREludGVybmFscyBGVFfwn5Kp",
+
+        [Parameter(Mandatory=$False)]
+        [bool]$KdfV2 = $true,
+
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope,
+
+        [Parameter(ParameterSetName='PRTToken',Mandatory=$True)]
+        [switch]$PRTToken,
+
+        [Parameter(ParameterSetName='Request',Mandatory=$True)]
+        [switch]$Request,
+
+        [Parameter(ParameterSetName='PRTToken',Mandatory=$False)]
+        [Parameter(ParameterSetName='Request',Mandatory=$True)]
+        [string]$ClientId,
+
+        [Parameter(ParameterSetName='PRTToken',Mandatory=$False)]
+        [Parameter(ParameterSetName='Request',Mandatory=$True)]
+        [string]$Resource
+
+    )
+    Process
+    {
+        # Define variables
+        $ctx   = Convert-B64ToByteArray -B64 $Context
+        $sKey  = Convert-B64ToByteArray -B64 $SessionKey
+        $iat   = [int]((Get-Date).ToUniversalTime() - $epoch).TotalSeconds
+        $nonce = (Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$(Get-TenantLoginUrl -SubScope $SubScope)/Common/oauth2/token" -Body "grant_type=srv_challenge").Nonce
+
+        # Create the header and body
+        $hdr = [ordered]@{
+            "alg" = "HS256"
+            "typ" = "JWT"
+            "ctx" = $Context
+        }
+
+        if($PRTToken)
+        {
+            $pld = [ordered]@{
+                "refresh_token" = $RefreshToken
+                "is_primary"    = "true"
+                "iat"           = $iat
+                "request_nonce" = $nonce
+            }
+        }
+        else
+        {
+            $pld=[ordered]@{
+                #"win_ver"= "10.0.19041.1620"
+                "scope"= "openid aza"
+                "resource" = $resource
+                "request_nonce" = $nonce
+                "refresh_token" = $RefreshToken
+                #"redirect_uri" = "ms-appx-web://Microsoft.AAD.BrokerPlugin/$clientId"
+                "redirect_uri" = Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
+                "iss" =  "aad:brokerplugin"
+                "grant_type" =  "refresh_token"
+                "client_id" = $clientId
+                "aud" = "login.microsoftonline.com"
+            }
+        }
+
+        # Derive the key from session key and context
+        if($KdfV2)
+        {
+            $hdr["kdf_ver"] = 2
+            $derivedContext = Get-KDFv2Context -Context $ctx -Payload $pld
+        }
+        else
+        {
+            $derivedContext = $ctx
+        }
+
+        $key = Get-PRTDerivedKey -Context $derivedContext -SessionKey $sKey
+
+        # Create the JWT
+        $jwt = New-JWT -Key $key -Header $hdr -Payload $pld
+
+        # Return
+        return $jwt
     }
 }

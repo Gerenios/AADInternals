@@ -18,42 +18,29 @@ function Get-SPOSiteGroups
     SharePoint Online authentication header
     
     .Example
-    PS C:\>$auth=Get-AADIntSPOAuthenticationHeader -Site https://company.sharepoint.com
-    PS C:\>Get-AADIntSPOSiteGroups -Site https://company.sharepoint.com/sales -AuthHeader $auth
+    PS C:\>Get-AADIntAccessTokenForSPO -SaveToCache
+    PS C:\>Get-AADIntSPOSiteGroups -Site https://company.sharepoint.com/sales
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
         [String]$Site,
         [Parameter(Mandatory=$False)]
-        [String]$AuthHeader,
-        [Parameter(Mandatory=$False)]
         [String]$AccessToken
     )
     Process
     {
         # Check the site url
-        if($Site.EndsWith("/"))
-        {
-            $Site=$Site.Substring(0,$Site.Length-1)
-        }
+        $Site=$Site.Trim("/")
 
         $siteDomain=$Site.Split("/")[2]
 
-        if(![string]::IsNullOrEmpty($AuthHeader))
-        {
-            # Create a WebSession object
-            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
-        }
-        else
-        {
-            # Get from cache if not provided
-            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource $site -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
-            $headers=@{
-                "Authorization" = "Bearer $AccessToken"
-            }
-        }
-
+		# Get from cache if not provided
+		$AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource $site -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+		$headers=@{
+			"Authorization" = "Bearer $AccessToken"
+		}
+        
         # Invoke the request
         $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/web/sitegroups" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
 
@@ -107,15 +94,13 @@ function Get-SPOSiteUsers
     SharePoint Online authentication header
     
     .Example
-    PS C:\>$auth=Get-AADIntSPOAuthenticationHeader -Site https://company.sharepoint.com
-    PS C:\>Get-AADIntSPOSiteUsers -Site https://company.sharepoint.com/sales -AuthHeader $auth
+    PS C:\>Get-AADIntAccessTokenForSPO -SaveToCache
+    PS C:\>Get-AADIntSPOSiteUsers -Site https://company.sharepoint.com/sales
 #>
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
         [String]$Site,
-        [Parameter(Mandatory=$False)]
-        [String]$AuthHeader,
         [Parameter(Mandatory=$False)]
         [String]$AccessToken
     )
@@ -125,19 +110,11 @@ function Get-SPOSiteUsers
         
         $tenant=$Site.Split("/")[2]
 
-        if(![string]::IsNullOrEmpty($AuthHeader))
-        {
-            # Create a WebSession object
-            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
-        }
-        else
-        {
-            # Get from cache if not provided
-            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
-            $headers=@{
-                "Authorization" = "Bearer $AccessToken"
-            }
-        }
+		# Get from cache if not provided
+		$AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+		$headers=@{
+			"Authorization" = "Bearer $AccessToken"
+		}
 
         # Invoke the request
         $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/web/siteusers" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue
@@ -204,8 +181,8 @@ function Get-SPOUserProperties
     LoginName of the user in format "i:0i.t|00000003-0000-0ff1-ce00-000000000000|app@sharepoint"
     
     .Example
-    PS C:\>$auth=Get-AADIntSPOAuthenticationHeader -Site https://company.sharepoint.com
-    PS C:\>Get-AADIntSPOUserProperties -Site https://company.sharepoint.com/sales -AuthHeader $auth -User "i:0i.t|00000003-0000-0ff1-ce00-000000000000|app@sharepoint"
+    PS C:\>Get-AADIntAccessTokenForSPO -SaveToCache
+    PS C:\>Get-AADIntSPOUserProperties -Site https://company.sharepoint.com/sales -User "i:0i.t|00000003-0000-0ff1-ce00-000000000000|app@sharepoint"
 #>
     [cmdletbinding()]
     Param(
@@ -213,8 +190,6 @@ function Get-SPOUserProperties
         [String]$Site,
         [Parameter(Mandatory=$True)]
         [String]$UserName,
-        [Parameter(Mandatory=$False)]
-        [String]$AuthHeader,
         [Parameter(Mandatory=$False)]
         [String]$AccessToken
     )
@@ -235,19 +210,11 @@ function Get-SPOUserProperties
             $UserName="i:0%23.f|membership|$UserName"
         }
 
-        if(![string]::IsNullOrEmpty($AuthHeader))
-        {
-            # Create a WebSession object
-            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
-        }
-        else
-        {
-            # Get from cache if not provided
-            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
-            $headers=@{
-                "Authorization" = "Bearer $AccessToken"
-            }
-        }
+		# Get from cache if not provided
+		$AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+		$headers=@{
+			"Authorization" = "Bearer $AccessToken"
+		}
 
         # Invoke the request
         $response=Invoke-WebRequest2 -Uri "$Site/_api/sp.userprofiles.peoplemanager/getpropertiesfor(@v)?@v='$UserName'" -Method Get -WebSession $siteSession -Headers $headers -ErrorAction SilentlyContinue 
@@ -312,12 +279,8 @@ function Get-SPOSiteUserProperties
     SharePoint Online Access Token
     
     .Example
-    PS C:\>$auth=Get-AADIntSPOAuthenticationHeader -Site https://company.sharepoint.com
-    PS C:\>Get-AADIntSPOSiteGroups -Site https://company.sharepoint.com/sales -AuthHeader $auth
-
-    .Example
-    PS C:\>$at=Get-AADIntAccessTokenForSPO
-    PS C:\>Get-AADIntSPOSiteGroups -Site https://company.sharepoint.com/sales -AccessToken $at
+    PS C:\>Get-AADIntAccessTokenForSPO -SaveToCache
+    PS C:\>Get-AADIntSPOSiteGroups -Site https://company.sharepoint.com/sales
 #>
     [cmdletbinding()]
     Param(
@@ -326,17 +289,12 @@ function Get-SPOSiteUserProperties
         [Parameter(Mandatory=$True)]
         [String]$UserName,
         [Parameter(Mandatory=$False)]
-        [String]$AuthHeader,
-        [Parameter(Mandatory=$False)]
         [String]$AccessToken
     )
     Process
     {
         # Check the site url
-        if($Site.EndsWith("/"))
-        {
-            $Site=$Site.Substring(0,$Site.Length-1)
-        }
+        $Site=$Site.Trim("/")
 
         $siteDomain=$Site.Split("/")[2]
 
@@ -346,19 +304,11 @@ function Get-SPOSiteUserProperties
             $UserName="i:0%23.f|membership|$UserName"
         }
 
-        if(![string]::IsNullOrEmpty($AuthHeader))
-        {
-            # Create a WebSession object
-            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
-        }
-        else
-        {
-            # Get from cache if not provided
-            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
-            $headers=@{
-                "Authorization" = "Bearer $AccessToken"
-            }
-        }
+		# Get from cache if not provided
+		$AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+		$headers=@{
+			"Authorization" = "Bearer $AccessToken"
+		}
 
         # Invoke the request
         $response=Invoke-WebRequest -UseBasicParsing -Uri "$Site/_api/SP.UserProfiles.PeopleManager/GetPropertiesFor(accountName=@v)?@v='$UserName'" -Method Get -WebSession $siteSession -ErrorAction SilentlyContinue -Headers $headers
@@ -420,12 +370,8 @@ function Set-SPOSiteUserProperty
     Property value
 
     .Example
-    PS C:\>$auth=Get-AADIntSPOAuthenticationHeader -Site https://company.sharepoint.com
-    PS C:\>Set-AADIntSPOUserProperty -Site https://company.sharepoint.com/sales -AuthHeader $auth -UserName user@company.com -Property "AboutMe" -Value "I'm a happy SPO user!"
-
-    .Example
-    PS C:\>$at=Get-AADIntAccessTokenForSPO
-    PS C:\>Set-AADIntSPOUserProperty -Site https://company.sharepoint.com/sales -AccessToken $at -UserName user@company.com -Property "AboutMe" -Value "I'm a happy SPO user!"
+    PS C:\>Get-AADIntAccessTokenForSPO -SaveToCache
+    PS C:\>Set-AADIntSPOUserProperty -Site https://company.sharepoint.com/sales -UserName user@company.com -Property "AboutMe" -Value "I'm a happy SPO user!"
 #>
     [cmdletbinding()]
     Param(
@@ -433,8 +379,6 @@ function Set-SPOSiteUserProperty
         [String]$Site,
         [Parameter(Mandatory=$True)]
         [String]$UserName,
-        [Parameter(Mandatory=$False)]
-        [String]$AuthHeader,
         [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
@@ -452,10 +396,7 @@ function Set-SPOSiteUserProperty
         }
 
         # Check the site url
-        if($Site.EndsWith("/"))
-        {
-            $Site=$Site.Substring(0,$Site.Length-1)
-        }
+        $Site=$Site.Trim("/")
 
         $siteDomain=$Site.Split("/")[2]
 
@@ -465,17 +406,9 @@ function Set-SPOSiteUserProperty
             $UserName="i:0#.f|membership|$UserName"
         }
 
-        if(![string]::IsNullOrEmpty($AuthHeader))
-        {
-            # Create a WebSession object
-            $siteSession = Create-WebSession -SetCookieHeader $AuthHeader -Domain $siteDomain
-        }
-        else
-        {
-            # Get from cache if not provided
-            $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
-            $headers["Authorization"] = "Bearer $AccessToken"
-        }
+		# Get from cache if not provided
+		$AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://$Tenant.sharepoint.com/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+		$headers["Authorization"] = "Bearer $AccessToken"
 
         # Create the body
         $body=@{
@@ -618,10 +551,8 @@ function Set-SPOSiteMembers
         Process
         {
             # Check the site url
-            if($Site.EndsWith("/"))
-            {
-                $Site=$Site.Substring(0,$Site.Length-1)
-            }            
+            $Site=$Site.Trim("/")
+			
             $siteDomain=$Site.Split("/")[2]
 
             # Create a WebSession object

@@ -643,13 +643,7 @@ function Is-AccessTokenValid
             $dataToVerify="{0}.{1}" -f $header,$payload
             $dataBin = [text.encoding]::UTF8.GetBytes($dataToVerify)
 
-            # Remove the Base64 URL encoding from the signature and add padding
-            $signature=$signature.Replace("-","+").Replace("_","/")
-            while ($signature.Length % 4)
-            {
-                $signature += "="
-            }
-            $signBytes = [convert]::FromBase64String($signature)
+            $signBytes = Convert-B64ToByteArray -B64 $signature
 
             # Extract the modulus and exponent from the certificate
             for($a=0;$a -lt $certBin.Length ; $a++)
@@ -739,7 +733,9 @@ function Get-OAuthInfoUsingSAML
         [Parameter(Mandatory=$True)]
         [String]$Resource,
         [Parameter(Mandatory=$False)]
-        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894"
+        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894",
+        [Parameter(Mandatory=$False)]
+        [bool]$CAE
     )
     Begin
     {
@@ -764,6 +760,12 @@ function Get-OAuthInfoUsingSAML
             "scope"="openid"
         }
 
+        # Set Continuous Access Evaluation (CAE) token claims
+        if($CAE)
+        {
+            $body["claims"] = Get-CAEClaims
+        }
+
         # Debug
         Write-Debug "FED AUTHENTICATION BODY: $($body | Out-String)"
 
@@ -782,317 +784,6 @@ function Get-OAuthInfoUsingSAML
     }
 }
 
-# Return OAuth information for the given user
-function Get-OAuthInfo
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(Mandatory=$True)]
-        [String]$Resource,
-        [Parameter(Mandatory=$False)]
-        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894",
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant="common"
-    )
-    Begin
-    {
-        # Create the headers. We like to be seen as Outlook.
-        $headers = @{
-            "User-Agent" = "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 10.0; WOW64; Trident/7.0; .NET4.0C; .NET4.0E; Tablet PC 2.0; Microsoft Outlook 16.0.4266)"
-        }
-
-        if([string]::IsNullOrEmpty($Tenant))
-        {
-            $Tenant="common"
-        }
-    }
-    Process
-    {
-        # Get the user realm
-        $userRealm = Get-UserRealm($Credentials.UserName)
-
-        # Check the authentication type
-        if($userRealm.account_type -eq "Unknown")
-        {
-            Write-Error "User type  of $($Credentials.Username) is Unknown!"
-            return $null
-        }
-        elseif($userRealm.account_type -eq "Managed")
-        {
-            # If authentication type is managed, we authenticate directly against Microsoft Online
-            # with user name and password to get access token
-
-            # Create a body for REST API request
-            $body = @{
-                "resource"=$Resource
-                "client_id"=$ClientId
-                "grant_type"="password"
-                "username"=$Credentials.UserName
-                "password"=$Credentials.GetNetworkCredential().Password
-                "scope"="openid"
-            }
-
-            # Debug
-            Write-Debug "AUTHENTICATION BODY: $($body | Out-String)"
-
-            # Set the content type and call the Microsoft Online authentication API
-            $contentType="application/x-www-form-urlencoded"
-            try
-            {
-                $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
-            }
-            catch
-            {
-                Throw ($_.ErrorDetails.Message | convertfrom-json).error_description
-            }
-        }
-        else
-        {
-            # If authentication type is Federated, we must first authenticate against the identity provider
-            # to fetch SAML token and then get access token from Microsoft Online
-
-            # Get the federation metadata url from user realm
-            $federation_metadata_url=$userRealm.federation_metadata_url
-
-            # Call the API to get metadata
-            [xml]$response=Invoke-RestMethod -UseBasicParsing -Uri $federation_metadata_url 
-
-            # Get the url of identity provider endpoint.
-            # Note! Tested only with AD FS - others may or may not work
-            $federation_url=($response.definitions.service.port | where name -eq "UserNameWSTrustBinding_IWSTrustFeb2005Async").address.location
-
-            # login.live.com
-            # TODO: Fix
-            #$federation_url=$response.EntityDescriptor.RoleDescriptor[1].PassiveRequestorEndpoint.EndpointReference.Address
-
-            # Set credentials and other needed variables
-            $username=$Credentials.UserName
-            $password=$Credentials.GetNetworkCredential().Password
-            $created=(Get-Date).ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
-            $expires=(Get-Date).AddMinutes(10).ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
-            $message_id=(New-Guid).ToString()
-            $user_id=(New-Guid).ToString()
-
-            # Set headers
-            $headers = @{
-                "SOAPAction"="http://schemas.xmlsoap.org/ws/2005/02/trust/RST/Issue"
-                "Host"=$federation_url.Split("/")[2]
-                "client-request-id"=(New-Guid).toString()
-            }
-
-            # Debug
-            Write-Debug "FED AUTHENTICATION HEADERS: $($headers | Out-String)"
-            
-            # Create the SOAP envelope
-            $envelope=@"
-                <s:Envelope xmlns:s='http://www.w3.org/2003/05/soap-envelope' xmlns:a='http://www.w3.org/2005/08/addressing' xmlns:u='http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd'>
-	                <s:Header>
-		                <a:Action s:mustUnderstand='1'>http://schemas.xmlsoap.org/ws/2005/02/trust/RST/Issue</a:Action>
-		                <a:MessageID>urn:uuid:$message_id</a:MessageID>
-		                <a:ReplyTo>
-			                <a:Address>http://www.w3.org/2005/08/addressing/anonymous</a:Address>
-		                </a:ReplyTo>
-		                <a:To s:mustUnderstand='1'>$federation_url</a:To>
-		                <o:Security s:mustUnderstand='1' xmlns:o='http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd'>
-			                <u:Timestamp u:Id='_0'>
-				                <u:Created>$created</u:Created>
-				                <u:Expires>$expires</u:Expires>
-			                </u:Timestamp>
-			                <o:UsernameToken u:Id='uuid-$user_id'>
-				                <o:Username>$username</o:Username>
-				                <o:Password>$password</o:Password>
-			                </o:UsernameToken>
-		                </o:Security>
-	                </s:Header>
-	                <s:Body>
-		                <trust:RequestSecurityToken xmlns:trust='http://schemas.xmlsoap.org/ws/2005/02/trust'>
-			                <wsp:AppliesTo xmlns:wsp='http://schemas.xmlsoap.org/ws/2004/09/policy'>
-				                <a:EndpointReference>
-					                <a:Address>urn:federation:MicrosoftOnline</a:Address>
-				                </a:EndpointReference>
-			                </wsp:AppliesTo>
-			                <trust:KeyType>http://schemas.xmlsoap.org/ws/2005/05/identity/NoProofKey</trust:KeyType>
-			                <trust:RequestType>http://schemas.xmlsoap.org/ws/2005/02/trust/Issue</trust:RequestType>
-		                </trust:RequestSecurityToken>
-	                </s:Body>
-                </s:Envelope>
-"@
-            # Debug
-            Write-Debug "FED AUTHENTICATION: $envelope"
-
-            # Set the content type and call the authentication service            
-            $contentType="application/soap+xml"
-            [xml]$xmlResponse=Invoke-RestMethod -UseBasicParsing -Uri $federation_url -ContentType $contentType -Method POST -Body $envelope -Headers $headers
-
-            # Get the SAML token from response and encode it with Base64
-            $samlToken=$xmlResponse.Envelope.Body.RequestSecurityTokenResponse.RequestedSecurityToken.Assertion.OuterXml
-            $encodedSamlToken= [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($samlToken))
-
-            $jsonResponse = Get-OAuthInfoUsingSAML -SAMLToken $samlToken -Resource $Resource -ClientId $ClientId
-        }
-        
-        # Debug
-        Write-Debug "AUTHENTICATION JSON: $($jsonResponse | Out-String)"
-
-        # Return
-        $jsonResponse 
-    }
-}
-
-# Parse access token and return it as PS object
-function Read-Accesstoken
-{
-<#
-    .SYNOPSIS
-    Extract details from the given Access Token
-
-    .DESCRIPTION
-    Extract details from the given Access Token and returns them as PS Object
-
-    .Parameter AccessToken
-    The Access Token.
-    
-    .Example
-    PS C:\>$token=Get-AADIntReadAccessTokenForAADGraph
-    PS C:\>Parse-AADIntAccessToken -AccessToken $token
-
-    aud                 : https://graph.windows.net
-    iss                 : https://sts.windows.net/f2b2ba53-ed2a-4f4c-a4c3-85c61e548975/
-    iat                 : 1589477501
-    nbf                 : 1589477501
-    exp                 : 1589481401
-    acr                 : 1
-    aio                 : ASQA2/8PAAAALe232Yyx9l=
-    amr                 : {pwd}
-    appid               : 1b730954-1685-4b74-9bfd-dac224a7b894
-    appidacr            : 0
-    family_name         : company
-    given_name          : admin
-    ipaddr              : 107.210.220.129
-    name                : admin company
-    oid                 : 1713a7bf-47ba-4826-a2a7-bbda9fabe948
-    puid                : 100354
-    rh                  : 0QfALA.
-    scp                 : user_impersonation
-    sub                 : BGwHjKPU
-    tenant_region_scope : NA
-    tid                 : f2b2ba53-ed2a-4f4c-a4c3-85c61e548975
-    unique_name         : admin@company.onmicrosoft.com
-    upn                 : admin@company.onmicrosoft.com
-    uti                 : -EWK6jMDrEiAesWsiAA
-    ver                 : 1.0
-
-    .Example
-    PS C:\>Parse-AADIntAccessToken -AccessToken $token -Validate
-
-    Read-Accesstoken : Access Token is expired
-    At line:1 char:1
-    + Read-Accesstoken -AccessToken $at -Validate -verbose
-    + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException
-        + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,Read-Accesstoken
-
-    aud                 : https://graph.windows.net
-    iss                 : https://sts.windows.net/f2b2ba53-ed2a-4f4c-a4c3-85c61e548975/
-    iat                 : 1589477501
-    nbf                 : 1589477501
-    exp                 : 1589481401
-    acr                 : 1
-    aio                 : ASQA2/8PAAAALe232Yyx9l=
-    amr                 : {pwd}
-    appid               : 1b730954-1685-4b74-9bfd-dac224a7b894
-    appidacr            : 0
-    family_name         : company
-    given_name          : admin
-    ipaddr              : 107.210.220.129
-    name                : admin company
-    oid                 : 1713a7bf-47ba-4826-a2a7-bbda9fabe948
-    puid                : 100354
-    rh                  : 0QfALA.
-    scp                 : user_impersonation
-    sub                 : BGwHjKPU
-    tenant_region_scope : NA
-    tid                 : f2b2ba53-ed2a-4f4c-a4c3-85c61e548975
-    unique_name         : admin@company.onmicrosoft.com
-    upn                 : admin@company.onmicrosoft.com
-    uti                 : -EWK6jMDrEiAesWsiAA
-    ver                 : 1.0
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True,ValueFromPipeline)]
-        [String]$AccessToken,
-        [Parameter()]
-        [Switch]$ShowDate,
-        [Parameter()]
-        [Switch]$Validate
-
-    )
-    Process
-    {
-        if([string]::IsNullOrEmpty($AccessToken))
-        {
-            Write-Warning "Unable to read access token (null or empty)"
-            return $null
-        }
-        # Token sections
-        $sections =  $AccessToken.Split(".")
-        if($sections.Count -eq 5)
-        {
-            Write-Warning "JWE token, expected JWS. Unable to parse."
-            return
-        }
-        $header =    $sections[0]
-        $payload =   $sections[1]
-        $signature = $sections[2]
-
-        # Convert the token to string and json
-        $payloadString = Convert-B64ToText -B64 $payload
-        $payloadObj=$payloadString | ConvertFrom-Json
-
-        if($ShowDate)
-        {
-            # Show dates
-            $payloadObj.exp=($epoch.Date.AddSeconds($payloadObj.exp)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
-            $payloadObj.iat=($epoch.Date.AddSeconds($payloadObj.iat)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
-            $payloadObj.nbf=($epoch.Date.AddSeconds($payloadObj.nbf)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
-        }
-
-        if($Validate)
-        {
-            # Check the signature
-            if((Is-AccessTokenValid -AccessToken $AccessToken))
-            {
-                Write-Verbose "Access Token signature successfully verified"
-            }
-            else
-            {
-                Write-Error "Access Token signature could not be verified"
-            }
-
-            # Check the timestamp
-            if((Is-AccessTokenExpired -AccessToken $AccessToken))
-            {
-                Write-Error "Access Token is expired"
-            }
-            else
-            {
-                Write-Verbose "Access Token is not expired"
-            }
-
-        }
-
-        # Debug
-        Write-Debug "PARSED ACCESS TOKEN: $($payloadObj | Out-String)"
-        
-        # Return
-        $payloadObj
-    }
-}
-
-
 # Prompts for credentials and gets the access token
 # Supports MFA.
 function Prompt-Credentials
@@ -1103,7 +794,7 @@ function Prompt-Credentials
         [String]$Resource,
         [Parameter(Mandatory=$False)]
         [String]$ClientId,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory=$True)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
         [bool]$ForceMFA=$false,
@@ -1122,7 +813,9 @@ function Prompt-Credentials
         [Parameter(Mandatory=$False)]
         [string]$SubScope,
         [Parameter(Mandatory=$False)]
-        [string]$ESTSAUTH
+        [string]$ESTSAUTH,
+        [Parameter(Mandatory=$False)]
+        [bool]$CAE
     )
     Process
     {
@@ -1154,6 +847,12 @@ function Prompt-Credentials
                 "scope"="openid"
             }
 
+            # Set Continuous Access Evaluation (CAE) token claims
+            if($CAE)
+            {
+                $body["claims"] = Get-CAEClaims
+            }
+
             # Debug
             Write-Debug "AUTHENTICATION BODY: $($body | Out-String)"
 
@@ -1165,7 +864,7 @@ function Prompt-Credentials
 			}
             try
             {
-                $response=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/common/oauth2/token" -Method POST -Body $body -Headers $headers
+                $response=Invoke-RestMethod -UseBasicParsing -Uri "https://login.microsoftonline.com/$tenant/oauth2/token" -Method POST -Body $body -Headers $headers
             }
             catch
             {
@@ -1199,6 +898,13 @@ function Prompt-Credentials
                     code         = $authorizationCode
                     redirect_uri = $RedirectURI
                 }
+
+                # Set Continuous Access Evaluation (CAE) token claims
+                if($CAE)
+                {
+                    $body["claims"] = Get-CAEClaims
+                }
+
 
                 # Headers
                 $headers = @{
@@ -3157,5 +2863,117 @@ function Get-TenantLoginUrl
                 return "https://login.microsoftonline.com"
             }
         }
+    }
+}
+
+# Jan 13th 2025
+# Get access token using MSAL
+function Get-AccessTokenUsingMSAL
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$TenantId="common",
+        [Parameter(Mandatory=$true)]
+        [String]$Resource,
+        [Parameter(Mandatory=$true)]
+        [String]$ClientId,
+        [Parameter(Mandatory=$false)]
+        [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$SubScope,
+        [Parameter(Mandatory=$false)]
+        [bool]$CAE
+    )
+    Begin
+    {
+        # Load MSAL dll
+        Add-Type -Path "$PSScriptRoot\Microsoft.Identity.Client.dll"
+    }
+    Process
+    {
+        if([string]::IsNullOrEmpty($RedirectUri))
+        {
+            $RedirectUri = Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
+        }
+
+        $options = [Microsoft.Identity.Client.PublicClientApplicationOptions]::new()
+        $options.ClientId    = $ClientId
+        $options.TenantId    = $TenantId
+        $options.RedirectUri = $RedirectUri
+        $options.AzureCloudInstance = Get-MSALAzureScope -SubScope $SubScope
+
+        if($CAE)
+        {
+            $options.ClientCapabilities = [string[]]"cp1"
+        }
+
+        $builder = [Microsoft.Identity.Client.PublicClientApplicationBuilder]::CreateWithApplicationOptions($options)
+        $app = $builder.Build()
+        $tokenParameters = $app.AcquireTokenInteractive([string[]]"$Resource/.default")
+        $result = $tokenParameters.ExecuteAsync()
+
+        return $result.Result
+    }
+}
+
+
+# Jan 13th 2025
+# Returns MSAL Azure Scope based on subscope
+function Get-MSALAzureScope
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$SubScope
+    )
+    Process
+    {
+        # Return AzureCloudInstance
+        # Ref: https://learn.microsoft.com/en-us/dotnet/api/microsoft.identity.client.azurecloudinstance?view=msal-dotnet-latest
+        switch($SubScope)
+        {
+            "DOD" # DoD
+            {
+                return 4
+            }
+            "DODCON" # GCC-High
+            {
+                return 4
+            }
+            default # Commercial/GCC
+            {
+                return 1
+            }
+        }
+    }
+}
+
+# Returns CAE claims
+# Feb 5th 2024
+function Get-CAEClaims
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$SubScope
+    )
+    Process
+    {
+        # Claims
+        $claims = @{
+            "access_token" = @{
+                "xms_cc" = @{
+                    "values" = @("cp1")
+                }
+            }
+            "id_token" = @{
+                "xms_cc" = @{
+                    "values" = @("cp1")
+                }
+            }
+        }
+
+        return ConvertTo-Json -InputObject $claims -Depth 10 -Compress
     }
 }

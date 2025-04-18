@@ -213,6 +213,8 @@ function Get-AccessTokenForAADGraph
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [switch]$SaveToCache,
@@ -221,12 +223,32 @@ function Get-AccessTokenForAADGraph
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
 
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource $Resource -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Credentials $Credentials -Resource $Resource -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -277,6 +299,8 @@ function Get-AccessTokenForMSGraph
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [switch]$SaveToCache,
@@ -284,11 +308,32 @@ function Get-AccessTokenForMSGraph
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Tenant $Tenant -OTPSecretKey $OTPSecretKey -TAP $TAP -SaveToMgCache $SaveToMgCache
+        Get-AccessToken -Credentials $Credentials -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Tenant $Tenant -OTPSecretKey $OTPSecretKey -TAP $TAP -SaveToMgCache $SaveToMgCache -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -341,15 +386,38 @@ function Get-AccessTokenForPTA
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Credentials $Credentials -Resource "https://proxy.cloudwebappproxy.net/registerapp" -ClientId "cb1056e2-e479-49de-ae31-7812af012ed8" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -402,15 +470,38 @@ function Get-AccessTokenForOfficeApps
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        Get-AccessToken -Credentials $Credentials -Resource "https://officeapps.live.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Credentials $Credentials -Resource "https://officeapps.live.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -463,6 +554,8 @@ function Get-AccessTokenForEXO
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [ValidateSet("https://graph.microsoft.com","https://outlook.office365.com","https://outlook.office.com","https://substrate.office.com")]
@@ -470,12 +563,33 @@ function Get-AccessTokenForEXO
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Credentials $Credentials -Resource $Resource -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Credentials $Credentials -Resource $Resource -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -531,6 +645,8 @@ function Get-AccessTokenForEXOPS
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
 
         [Parameter(Mandatory=$False)]
@@ -542,12 +658,33 @@ function Get-AccessTokenForEXOPS
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Credentials $Credentials -Resource "https://outlook.office365.com" -ClientId "a0c73c16-a7e3-4564-9a95-2bdf47383716" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Domain $Domain -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Credentials $Credentials -Resource "https://outlook.office365.com" -ClientId "a0c73c16-a7e3-4564-9a95-2bdf47383716" -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Domain $Domain -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -589,16 +726,39 @@ function Get-AccessTokenForSARA
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
         # Office app has the required rights to Exchange Online
-        Get-AccessToken -Resource "https://api.diagnostics.office.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Resource "https://api.diagnostics.office.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -640,8 +800,8 @@ function Get-AccessTokenForOneDrive
 #>
     [cmdletbinding()]
     Param(
-    [Parameter(Mandatory=$True)]
-        [String]$Tenant,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant="Common",
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(ParameterSetName='PRT',Mandatory=$True)]
@@ -654,15 +814,38 @@ function Get-AccessTokenForOneDrive
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        Get-AccessToken -Resource "https://$Tenant-my.sharepoint.com/" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials  -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Resource "https://$Tenant-my.sharepoint.com/" -ClientId "ab9b8c07-8f02-4f72-87fa-80105867a763" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials  -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -721,17 +904,40 @@ function Get-AccessTokenForAzureCoreManagement
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        Get-AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Resource "https://management.core.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -798,7 +1004,28 @@ function Get-AccessTokenForSPO
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
@@ -807,7 +1034,7 @@ function Get-AccessTokenForSPO
         #$clientId = "9bc3ab49-b65d-410a-85ad-de819febfddc" # SPO Management shell
         $clientId = "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Microsoft Office
 
-        $graphTokens = Get-AccessToken -Resource "https://graph.microsoft.com" -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -IncludeRefreshToken $True -OTPSecretKey $OTPSecretKey -TAP $TAP
+        $graphTokens = Get-AccessToken -Resource "https://graph.microsoft.com" -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -IncludeRefreshToken $True -OTPSecretKey $OTPSecretKey -TAP $TAP -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
 
         # Get SPO root site url
         $response = Call-MSGraphAPI -AccessToken $graphTokens[0] -ApiVersion Beta -API "sites/root" -QueryString "select=webUrl"
@@ -860,14 +1087,37 @@ function Get-AccessTokenForMySignins
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        return Get-AccessToken -ClientId 1b730954-1685-4b74-9bfd-dac224a7b894 -Resource "0000000c-0000-0000-c000-000000000000" -ForceMFA $true -Credentials $Credentials -SaveToCache $SaveToCache -KerberosTicket $KerberosTicket -Domain $Domain -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -ClientId 1b730954-1685-4b74-9bfd-dac224a7b894 -Resource "0000000c-0000-0000-c000-000000000000" -ForceMFA $true -Credentials $Credentials -SaveToCache $SaveToCache -KerberosTicket $KerberosTicket -Domain $Domain -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -935,6 +1185,8 @@ function Get-AccessTokenForAADJoin
         [switch]$UseDeviceCode,
         [Parameter(ParameterSetName='BPRT',Mandatory=$True)]
         [string]$BPRT,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [switch]$SaveToCache,
@@ -942,7 +1194,28 @@ function Get-AccessTokenForAADJoin
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
@@ -952,7 +1225,7 @@ function Get-AccessTokenForAADJoin
         }
         else
         {
-            Get-AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -ForceMFA $ForceMFA -BPRT $BPRT -OTPSecretKey $OTPSecretKey -TAP $TAP
+            Get-AccessToken -ClientID "1b730954-1685-4b74-9bfd-dac224a7b894" -Resource "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -ForceMFA $ForceMFA -BPRT $BPRT -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
         }
     }
 }
@@ -1052,11 +1325,32 @@ function Get-AccessTokenForIntuneMDM
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -Resource $Resource -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword -BPRT $BPRT -ForceMFA $ForceMFA -TransportKeyFileName $TransportKeyFileName -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -ClientId "29d9ed98-a469-4536-ade2-f981bc1d605e" -Resource $Resource -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Certificate $Certificate -PfxFileName $PfxFileName -PfxPassword $PfxPassword -BPRT $BPRT -ForceMFA $ForceMFA -TransportKeyFileName $TransportKeyFileName -OTPSecretKey $OTPSecretKey -TAP $TAP -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -1113,18 +1407,41 @@ function Get-AccessTokenForCloudShell
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
         # First, get an access token for admin.microsoft.com
-        $response = Get-AccessToken -Resource "https://admin.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        $response = Get-AccessToken -Resource "https://admin.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
 
         if([string]::IsNullOrEmpty($response.Tenant))
         {
@@ -1132,7 +1449,7 @@ function Get-AccessTokenForCloudShell
         }
 
         # Get access token for management.core.windows.net using Admin API
-        Get-AccessTokenUsingAdminAPI -AccessToken $access_token -Resource "https://management.core.windows.net/" -SaveToCache $SaveToCache
+        Get-AccessTokenUsingAdminAPI -AccessToken $access_token -Resource "https://management.core.windows.net/" -SaveToCache $SaveToCache -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE
     }
 }
 
@@ -1188,6 +1505,8 @@ function Get-AccessTokenForTeams
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
@@ -1197,11 +1516,32 @@ function Get-AccessTokenForTeams
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        Get-AccessToken -Resource $Resource -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Resource $Resource -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -1262,15 +1602,36 @@ function Get-AccessTokenForAADIAMAPI
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
         # First get the access token for AADGraph
-        $AccessTokens = Get-AccessToken -Resource "https://graph.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -IncludeRefreshToken $True
+        $AccessTokens = Get-AccessToken -Resource "https://graph.windows.net" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -IncludeRefreshToken $True -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
 
         # Get the actual token
-        $AccessToken = Get-AccessTokenWithRefreshToken -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -SaveToCache $SaveToCache -RefreshToken $AccessTokens[1] -TenantId (Read-Accesstoken $AccessTokens[0]).tid
+        $AccessToken = Get-AccessTokenWithRefreshToken -Resource "74658136-14ec-4630-ad9b-26e160ff0fc6" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -SaveToCache $SaveToCache -RefreshToken $AccessTokens[1] -TenantId (Read-Accesstoken $AccessTokens[0]).tid -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE
 
         if(!$SaveToCache)
         {
@@ -1328,17 +1689,40 @@ function Get-AccessTokenForMSCommerce
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        Get-AccessToken -Resource "aeb86249-8ea3-49e2-900b-54cc8e308f85" -ClientId "3d5cffa9-04da-4657-8cab-c7f074657cad" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Resource "aeb86249-8ea3-49e2-900b-54cc8e308f85" -ClientId "3d5cffa9-04da-4657-8cab-c7f074657cad" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -1391,18 +1775,41 @@ function Get-AccessTokenForMSPartner
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
         # The correct client id would be 4990cffe-04e8-4e8b-808a-1175604b879f but that flow doesn't work :(
-        Get-AccessToken -Resource "fa3d9a0c-3fb0-42cc-9193-47c7ecd2edbd" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Resource "fa3d9a0c-3fb0-42cc-9193-47c7ecd2edbd" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -1455,17 +1862,40 @@ function Get-AccessTokenForAdmin
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        Get-AccessToken -Resource "https://admin.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Resource "https://admin.microsoft.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -1518,17 +1948,40 @@ function Get-AccessTokenForOneNote
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        Get-AccessToken -Resource "https://onenote.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Resource "https://onenote.com" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -1581,17 +2034,40 @@ function Get-AccessTokenForAccessPackages
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        Get-AccessToken -Resource "https://elm.iga.azure.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Resource "https://elm.iga.azure.com" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -1621,7 +2097,7 @@ function Get-AccessTokenForWHfB
         [System.Management.Automation.PSCredential]$Credentials,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
-        [String]$Tenant,
+        [String]$Tenant="common",
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
@@ -1630,7 +2106,7 @@ function Get-AccessTokenForWHfB
     Process
     {
         # Prompt credentials as that's the only allowed method
-        $response = Prompt-Credentials -ClientID "dd762716-544d-4aeb-a526-687b73838a22" -Resource "urn:ms-drs:enterpriseregistration.windows.net" -RefreshTokenCredential $PRTToken -ForceNGCMFA $True -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP
+        $response = Prompt-Credentials -ClientID "dd762716-544d-4aeb-a526-687b73838a22" -Resource "urn:ms-drs:enterpriseregistration.windows.net" -RefreshTokenCredential $PRTToken -ForceNGCMFA $True -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -Tenant $Tenant
 
         $parsedAccessToken = Read-Accesstoken -AccessToken $response.access_token
         if([string]::IsNullOrEmpty($parsedAccessToken.DeviceId))
@@ -1696,17 +2172,40 @@ function Get-AccessTokenForCompliance
         [String]$Domain,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
         [string]$OTPSecretKey,
         [Parameter(Mandatory=$False)]
-        [string]$TAP
+        [string]$TAP,
+        
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
     )
     Process
     {
-        Get-AccessToken -Resource "80ccca67-54bd-44ab-8625-4b79c4dc7775" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP
+        Get-AccessToken -Resource "80ccca67-54bd-44ab-8625-4b79c4dc7775" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
     }
 }
 
@@ -1746,7 +2245,7 @@ function Get-AccessToken
         [Parameter(Mandatory=$True)]
         [String]$ClientId,
         [Parameter(Mandatory=$False)]
-        [String]$Tenant,
+        [String]$Tenant="common",
         [Parameter(Mandatory=$False)]
         [String]$KerberosTicket,
         [Parameter(Mandatory=$False)]
@@ -1790,7 +2289,22 @@ function Get-AccessToken
         [Parameter(Mandatory=$False)]
         [string]$ESTSAUTH,
         [Parameter(Mandatory=$False)]
-        [string]$SubScope
+        [string]$SubScope,
+        [Parameter(Mandatory=$False)]
+        [bool]$UseMSAL=$false,
+
+        # PRT + SessionKey
+        [Parameter(Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [bool]$CAE
+
     )
     Begin
     {
@@ -1818,42 +2332,68 @@ function Get-AccessToken
     }
     Process
     {
-
-        
+        # Check the tenant id
+        if([string]::IsNullOrEmpty($Tenant))
+        {
+            $Tenant = "common"
+        }
         
         if(![String]::IsNullOrEmpty($KerberosTicket)) # Check if we got the kerberos token
         {
             # Get token using the kerberos token
-            if([string]::IsNullOrEmpty($Tenant))
-            {
-                $Tenant = "common"
-            }
             $OAuthInfo = Get-AccessTokenWithKerberosTicket -KerberosTicket $KerberosTicket -Domain $Domain -Resource $Resource -ClientId $ClientId -Tenant $Tenant
             $access_token = $OAuthInfo.access_token
         }
         elseif(![String]::IsNullOrEmpty($PRTToken)) # Check if we got a PRT token
         {
             # Get token using the PRT token
-            $OAuthInfo = Get-AccessTokenWithPRT -Cookie $PRTToken -Resource $Resource -ClientId $ClientId  -Tenant $Tenant
+            $OAuthInfo = Get-AccessTokenWithPRTToken -Cookie $PRTToken -Resource $Resource -ClientId $ClientId -Tenant $Tenant -SubScope $SubScope
+            $access_token = $OAuthInfo.access_token
+        }
+        # Check if we got a PRT and session key
+        elseif(![String]::IsNullOrEmpty($Settings) -or (![String]::IsNullOrEmpty($RefreshToken) -and ![String]::IsNullOrEmpty($SessionKey))) 
+        {
+            if($Settings)
+            {
+                $RefreshToken = $Settings.refresh_token
+                $SessionKey   = $Settings.session_key
+            }
+
+            # Get token using the PRT token
+            $OAuthInfo = Get-AccessTokenWithSignedPRTRequest -Resource $Resource -ClientId $ClientId -SubScope $SubScope -RefreshToken $RefreshToken -SessionKey $SessionKey -CAE $CAE
             $access_token = $OAuthInfo.access_token
         }
         elseif($UseDeviceCode) # Check if we want to use device code flow
         {
             # Get token using device code
-            $OAuthInfo = Get-AccessTokenUsingDeviceCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant
+            $OAuthInfo = Get-AccessTokenUsingDeviceCode -Resource $Resource -ClientId $ClientId -Tenant $Tenant -CAE $CAE
             $access_token = $OAuthInfo.access_token
         }
         elseif($UseIMDS) # Check if we want to use IMDS
         {
             # Get token using Azure Instance Metadata Service (IMDS)
-            $access_token = Get-AccessTokenUsingIMDS -ClientId $MsiClientId -ObjectId $MsiObjectId -AzureResourceId $MsiResId -Resource $Resource
+            $OAuthInfo = @{
+                "refresh_token" = $null
+                "access_token"  = Get-AccessTokenUsingIMDS -ClientId $MsiClientId -ObjectId $MsiObjectId -AzureResourceId $MsiResId -Resource $Resource
+                }
+            $access_token = $OAuthInfo.access_token
         }
         elseif(![String]::IsNullOrEmpty($BPRT)) # Check if we got a BPRT
         {
             # Get token using BPRT
             $OAuthInfo = @{
                 "refresh_token" = $BPRT
-                "access_token"  = Get-AccessTokenWithRefreshToken -Resource "urn:ms-drs:enterpriseregistration.windows.net" -ClientId "b90d5b8f-5503-4153-b545-b31cecfaece2" -TenantId "Common" -RefreshToken $BPRT -SubScope $SubScope
+                "access_token"  = Get-AccessTokenWithRefreshToken -Resource "urn:ms-drs:enterpriseregistration.windows.net" -ClientId "b90d5b8f-5503-4153-b545-b31cecfaece2" -TenantId "Common" -RefreshToken $BPRT -SubScope $SubScope -CAE $CAE
+                }
+            $access_token = $OAuthInfo.access_token
+        }
+        elseif($UseMSAL) # Use MSAL
+        {
+            # Get token using Microsoft Authentication Library
+            $response = Get-AccessTokenUsingMSAL -TenantId $Tenant -ClientId $ClientId -Resource $Resource -RedirectUri $RedirectUri -SubScope $SubScope -CAE $CAE
+            $OAuthInfo = @{
+                "refresh_token" = $null
+                "access_token"  = $response.AccessToken
                 }
             $access_token = $OAuthInfo.access_token
         }
@@ -1867,7 +2407,7 @@ function Get-AccessToken
             elseif(![string]::IsNullOrEmpty($ESTSAUTH))
             {
                 # Get token using ESTSAUTH
-                $OAuthInfo = Prompt-Credentials -Resource $Resource -ClientId $ClientId -Tenant $Tenant -RedirectURI $RedirectUri -SubScope $SubScope -ESTSAUTH $ESTSAUTH
+                $OAuthInfo = Prompt-Credentials -Resource $Resource -ClientId $ClientId -Tenant $Tenant -RedirectURI $RedirectUri -SubScope $SubScope -ESTSAUTH $ESTSAUTH -CAE $CAE
             }
             else
             {
@@ -1877,11 +2417,11 @@ function Get-AccessToken
                     ($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -eq "https://enrollment.manage.microsoft.com/") <# MDM #>
                 )  
                 {
-                    $OAuthInfo = Prompt-Credentials -Resource $Resource -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA -ForceNGCMFA $ForceNGCMFA -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectUri -SubScope $SubScope
+                    $OAuthInfo = Prompt-Credentials -Resource $Resource -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA -ForceNGCMFA $ForceNGCMFA -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectUri -SubScope $SubScope -CAE $CAE
                 }
                 else
                 {
-                    $OAuthInfo = Prompt-Credentials -Resource "https://graph.windows.net" -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA -ForceNGCMFA $ForceNGCMFA -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectUri -SubScope $SubScope
+                    $OAuthInfo = Prompt-Credentials -Resource "https://graph.windows.net" -ClientId $ClientId -Tenant $Tenant -ForceMFA $ForceMFA -ForceNGCMFA $ForceNGCMFA -Credentials $Credentials -OTPSecretKey $OTPSecretKey -TAP $TAP -RedirectURI $RedirectUri -SubScope $SubScope -CAE $CAE
                 }
 
                 # Just return null
@@ -1907,7 +2447,7 @@ function Get-AccessToken
             # If the token client id or resource is different than requested, get correct one using refresh token
             if(($ParsedToken.appid -ne $ClientId) -or ($ParsedToken.aud -ne $Resource))
             {
-                $tokens = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientId -TenantId $tenant_id -RefreshToken $RefreshToken -SaveToCache $SaveToCache -IncludeRefreshToken $true -SubScope $SubScope
+                $tokens = Get-AccessTokenWithRefreshToken -Resource $Resource -ClientId $ClientId -TenantId $tenant_id -RefreshToken $RefreshToken -SaveToCache $SaveToCache -IncludeRefreshToken $true -SubScope $SubScope -CAE $CAE
                 $OAuthInfo = [pscustomobject]@{
                     "access_token" = $tokens[0]
                     "refresh_token" = $tokens[1]
@@ -2058,7 +2598,9 @@ function Get-AccessTokenWithRefreshToken
         [Parameter(Mandatory=$False)]
         [bool]$IncludeRefreshToken = $false,
         [Parameter(Mandatory=$False)]
-        [String]$SubScope
+        [String]$SubScope,
+        [Parameter(Mandatory=$False)]
+        [bool]$CAE
     )
     Process
     {
@@ -2069,6 +2611,12 @@ function Get-AccessTokenWithRefreshToken
             "grant_type"=    "refresh_token"
             "refresh_token"= $RefreshToken
             "scope"=         "openid"
+        }
+
+        # Set Continuous Access Evaluation (CAE) token claims
+        if($CAE)
+        {
+            $body["claims"] = Get-CAEClaims
         }
 
         if($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive Sync Engine
@@ -2142,7 +2690,9 @@ function Get-AccessTokenUsingDeviceCode
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
-        [String]$Resource="https://graph.windows.net"
+        [String]$Resource="https://graph.windows.net",
+        [Parameter(Mandatory=$False)]
+        [bool]$CAE
     )
     Process
     {
@@ -2174,6 +2724,12 @@ function Get-AccessTokenUsingDeviceCode
             "grant_type" = "urn:ietf:params:oauth:grant-type:device_code"
             "code" =       $authResponse.device_code
             "resource" =   $Resource
+        }
+
+        # Set Continuous Access Evaluation (CAE) token claims
+        if($CAE)
+        {
+            $body["claims"] = Get-CAEClaims
         }
 
 
@@ -2218,84 +2774,6 @@ function Get-AccessTokenUsingDeviceCode
             }
         }
 
-    }
-}
-
-# Gets the access token using an authorization code
-# Feb 12th 2021
-function Get-AccessTokenWithAuthorizationCode
-{
-    [cmdletbinding()]
-    Param(
-        [String]$Resource,
-        [Parameter(Mandatory=$True)]
-        [String]$ClientId,
-        [Parameter(Mandatory=$True)]
-        [String]$TenantId,
-        [Parameter(Mandatory=$True)]
-        [String]$AuthorizationCode,
-        [Parameter(Mandatory=$False)]
-        [bool]$SaveToCache = $false,
-        [Parameter(Mandatory=$False)]
-        [bool]$IncludeRefreshToken = $false,
-        [Parameter(Mandatory=$False)]
-        [String]$RedirectUri,
-        [Parameter(Mandatory=$False)]
-        [String]$CodeVerifier
-    )
-    Process
-    {
-        $headers = @{
-        }
-
-        # Set the body for API call
-        $body = @{
-            "resource"=      $Resource
-            "client_id"=     $ClientId
-            "grant_type"=    "authorization_code"
-            "code"=          $AuthorizationCode
-            "scope"=         "openid profile email"
-        }
-        if(![string]::IsNullOrEmpty($RedirectUri))
-        {
-            $body["redirect_uri"] = $RedirectUri
-            $headers["Origin"] = $RedirectUri
-        }
-
-        if(![string]::IsNullOrEmpty($CodeVerifier))
-        {
-            $body["code_verifier"] = $CodeVerifier
-            $body["code_challenge_method"] = "S256"
-        }
-
-        if($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive Sync Engine
-        {
-            $url = "https://login.windows.net/common/oauth2/token"
-        }
-        else
-        {
-            $url = "https://login.microsoftonline.com/$TenantId/oauth2/token"
-        }
-        
-        # Debug
-        Write-Debug "ACCESS TOKEN BODY: $($body | Out-String)"
-        
-        # Set the content type and call the API
-        $contentType = "application/x-www-form-urlencoded"
-        $response =    Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType $contentType -Method POST -Body $body -Headers $headers
-
-        # Debug
-        Write-Debug "ACCESS TOKEN RESPONSE: $response"
-
-        # Save the tokens to cache
-        if($SaveToCache)
-        {
-            Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-			Add-AccessTokenToCache -AccessToken $response.access_token -RefreshToken $response.refresh_token -ShowCache $false
-        }
-
-        # Return
-        return $response.access_token    
     }
 }
 
@@ -2713,7 +3191,7 @@ function Get-AppConsentInfo
        
     .Example
     PS C:\>$creds = Get-Credential
-    PS C:\>Get-AppConsentInfo -Credentials $creds -ClientId "5a2d9517-0fe6-48ea-b09c-3c5ae4a3e7dc"
+    PS C:\>Get-AADIntAppConsentInfo -Credentials $creds -ClientId "5a2d9517-0fe6-48ea-b09c-3c5ae4a3e7dc"
     
     Name              : www.myo365.site
     VerifiedPublisher : Gerenios Oy

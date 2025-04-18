@@ -4,7 +4,7 @@
 	RootModule = 'AADInternals.psm1'
 
 	# Version number of this module.
-	ModuleVersion = '0.9.7'
+	ModuleVersion = '0.9.8'
 
 	# Supported PSEditions
 	# CompatiblePSEditions = @()
@@ -19,7 +19,7 @@
 	CompanyName = 'Gerenios Ltd'
 
 	# Copyright statement for this module
-	Copyright = '(c) 2018 - 2024 Nestori Syynimaa (@DrAzureAD). Distributed under MIT license.'
+	Copyright = '(c) 2018 - 2025 Nestori Syynimaa (@DrAzureAD). Distributed under MIT license.'
 
 	# Description of the functionality provided by this module
 	Description = 'The AADInternals PowerShell Module utilises several internal features of Azure Active Directory, Office 365, and related admin tools.
@@ -278,9 +278,6 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-SARATenantInfo"
     "Test-SARAPort"
     "Resolve-SARAHost"
-
-    # SPO_utils.ps1
-    "Get-SPOAuthenticationHeader"
 
     # SPO.ps1
     "Get-SPOSiteUsers"

@@ -569,9 +569,18 @@ Function Convert-PEMToRSA
     process
     {
         $pemReader = [Org.BouncyCastle.OpenSsl.PemReader]::new([System.IO.StringReader]::new($PEM))
-        $keys = $pemReader.ReadObject()
+        $RSA = $pemReader.ReadObject()
 
-        $RSAParameters = [Org.BouncyCastle.Security.DotNetUtilities]::ToRSAParameters($keys.Private)
+        # Certificate
+        if($RSA.GetType().Name -eq "X509Certificate")
+        {
+            $RSAParameters = [Org.BouncyCastle.Security.DotNetUtilities]::ToRSAParameters($RSA.GetPublicKey())
+        }
+        # Privatekey
+        else
+        {
+            $RSAParameters = [Org.BouncyCastle.Security.DotNetUtilities]::ToRSAParameters($RSA.Private)
+        }
 
         $pemReader.Reader.Dispose()
 
@@ -1162,14 +1171,26 @@ function Get-Digest
     [cmdletbinding()]
     Param(
         [Parameter(Mandatory=$True)]
-        [String]$Data
+        [PSObject]$Data
     )
     Process
     {
+        if($Data -is [String])
+        {
+            $binData = [text.encoding]::UTF8.GetBytes([String]$Data)
+        }
+        elseif($Data -is [Byte[]])
+        {
+            $binData = $Data
+        }
+        else
+        {
+            Throw "Data must be either String or ByteArray"
+        }
         
         # Compute SHA1 digest        
         $SHA1 =   [System.Security.Cryptography.SHA1Managed]::Create()
-        $digest = $SHA1.ComputeHash([text.encoding]::UTF8.GetBytes($Data))
+        $digest = $SHA1.ComputeHash($binData)
         
         $SHA1.Dispose()
 
@@ -1693,11 +1714,11 @@ function Get-BinaryContent
         #return [System.IO.File]::ReadAllBytes([System.IO.Path]::GetFullPath($Path))
         if($PSVersionTable.PSVersion.Major -ge 6)
         {
-            Get-Content -Path $Path -AsByteStream -Raw
+            Get-Content -Path $Path -AsByteStream -Raw -ErrorAction $ErrorActionPreference
         }
         else
         {
-            Get-Content -Path $Path -Encoding Byte
+            Get-Content -Path $Path -Encoding Byte -ErrorAction $ErrorActionPreference
         }
     }
 }
@@ -1716,11 +1737,11 @@ function Set-BinaryContent
     {
         if($PSVersionTable.PSVersion.Major -ge 6)
         {
-            Set-Content -Path $Path -Value $Value -AsByteStream
+            Set-Content -Path $Path -Value $Value -AsByteStream -ErrorAction $ErrorActionPreference
         }
         else
         {
-            Set-Content -Path $Path -Value $Value -Encoding Byte
+            Set-Content -Path $Path -Value $Value -Encoding Byte -ErrorAction $ErrorActionPreference
         }
     }
 }
@@ -1869,11 +1890,11 @@ function Set-UserAgent
     Sets the User-Agent AADInternals will use in requests.
 
     .DESCRIPTION
-    Sets a pre configured User-Agent for a specific device that AADInternals will use in requests. Supported devices: 'Windows','MacOS','Linux','iOS','Android'.
+    Sets a pre configured User-Agent for a specific device that AADInternals will use in requests. Supported devices: 'Windows','MacOS','Linux','iOS','Android','Default'.
     To persist, use Save-AADIntConfiguration after setting the User-Agent
 
     .Parameter UserAgent
-    One of 'Windows','MacOS','Linux','iOS','Android'
+    One of 'Windows','MacOS','Linux','iOS','Android','Default'
     
     .Example
     PS C:\>Set-AADIntUserAgent -Device Windows
@@ -1887,7 +1908,7 @@ function Set-UserAgent
     [cmdletbinding()]
     param(
         [parameter(Mandatory=$true)]
-        [ValidateSet('Windows','MacOS','Linux','iOS','Android')]
+        [ValidateSet('Windows','MacOS','Linux','iOS','Android','Default')]
         [string]$Device
     )
     Begin
@@ -1898,6 +1919,7 @@ function Set-UserAgent
             "Linux"   = "Mozilla/5.0 (X11; Linux x86_64)"
             "iOS"     = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X)"
             "Android" = "Mozilla/5.0 (Linux; Android 10)"
+            "Default" = "AADInternals"
         }
     }
     Process
@@ -2593,5 +2615,304 @@ function Convert-SIDtoObjectID
         {
             Throw "Invalid SID. SID must start with S-1-12-1"
         }
+    }
+}
+
+# Create a new self-signed certificate
+# Jan 31st 2021
+function New-Certificate
+{
+<#
+    .SYNOPSIS
+    Creates a new self signed certificate.
+
+    .DESCRIPTION
+    Creates a new self signed certificate for the given subject name and returns it as System.Security.Cryptography.X509Certificates.X509Certificate2 or exports directly to .pfx and .cer files.
+    The certificate is valid for 100 years.
+
+    .Parameter SubjectName
+    The subject name of the certificate, MUST start with CN=
+
+    .Parameter Export
+    Export the certificate (PFX and CER) instead of returning the certificate object. The .pfx file does not have a password.
+  
+    .Example
+    PS C:\>$certificate = New-AADIntCertificate -SubjectName "CN=MyCert"
+
+    .Example
+    PS C:\>$certificate = New-AADIntCertificate -SubjectName "CN=MyCert"
+
+    PS C:\>$certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx) | Set-Content MyCert.pfx -Encoding Byte
+
+    .Example
+    PS C:\>$certificate = New-AADIntCertificate -SubjectName "CN=MyCert"
+
+    PS C:\>$certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert) | Set-Content MyCert.cer -Encoding Byte
+
+    .Example
+    PS C:\>New-AADIntCertificate -SubjectName "CN=MyCert" -Export
+
+    Certificate successfully exported:
+      CN=MyCert.pfx
+      CN=MyCert.cer
+#>
+    [cmdletbinding()]
+
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [ValidatePattern("[c|C][n|N]=.+")] # Must start with CN=
+        [String]$SubjectName,
+        [Switch]$Export
+    )
+    Process
+    {
+        # Create a private key
+        $rsa = [System.Security.Cryptography.RSA]::Create(2048)
+
+        # Initialize the Certificate Signing Request object
+        $req = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new($SubjectName, $rsa, [System.Security.Cryptography.HashAlgorithmName]::SHA256,[System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+        $req.CertificateExtensions.Add([System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($true,$false,0,$true))
+        $req.CertificateExtensions.Add([System.Security.Cryptography.X509Certificates.X509SubjectKeyIdentifierExtension]::new($req.PublicKey,$false))
+
+        # Create a self-signed certificate
+        $selfSigned = $req.CreateSelfSigned((Get-Date).ToUniversalTime().AddMinutes(-5),(Get-Date).ToUniversalTime().AddYears(100))
+        
+
+        # Store the private key to so that it can be exported
+        $cspParameters = [System.Security.Cryptography.CspParameters]::new()
+        $cspParameters.ProviderName =    "Microsoft Enhanced RSA and AES Cryptographic Provider"
+        $cspParameters.ProviderType =    24
+        $cspParameters.KeyContainerName ="AADInternals"
+            
+        # Set the private key
+        $privateKey = [System.Security.Cryptography.RSACryptoServiceProvider]::new(2048,$cspParameters)
+        $privateKey.ImportParameters($rsa.ExportParameters($true))
+        $selfSigned.PrivateKey = $privateKey
+
+        if($Export)
+        {
+            Set-BinaryContent -Path "$SubjectName.pfx" -Value $selfSigned.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)
+            Set-BinaryContent -Path "$SubjectName.cer" -Value $selfSigned.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+
+            # Print out information
+            Write-Host "Certificate successfully exported:"
+            Write-Host "  $SubjectName.pfx"
+            Write-Host "  $SubjectName.cer"
+        }
+        else
+        {
+            return $selfSigned
+        }
+    }
+}
+
+
+# Parse access token and return it as PS object
+function Read-Accesstoken
+{
+<#
+    .SYNOPSIS
+    Extract details from the given Access Token
+
+    .DESCRIPTION
+    Extract details from the given Access Token and returns them as PS Object
+
+    .Parameter AccessToken
+    The Access Token.
+    
+    .Example
+    PS C:\>$token=Get-AADIntReadAccessTokenForAADGraph
+    PS C:\>Parse-AADIntAccessToken -AccessToken $token
+
+    aud                 : https://graph.windows.net
+    iss                 : https://sts.windows.net/f2b2ba53-ed2a-4f4c-a4c3-85c61e548975/
+    iat                 : 1589477501
+    nbf                 : 1589477501
+    exp                 : 1589481401
+    acr                 : 1
+    aio                 : ASQA2/8PAAAALe232Yyx9l=
+    amr                 : {pwd}
+    appid               : 1b730954-1685-4b74-9bfd-dac224a7b894
+    appidacr            : 0
+    family_name         : company
+    given_name          : admin
+    ipaddr              : 107.210.220.129
+    name                : admin company
+    oid                 : 1713a7bf-47ba-4826-a2a7-bbda9fabe948
+    puid                : 100354
+    rh                  : 0QfALA.
+    scp                 : user_impersonation
+    sub                 : BGwHjKPU
+    tenant_region_scope : NA
+    tid                 : f2b2ba53-ed2a-4f4c-a4c3-85c61e548975
+    unique_name         : admin@company.onmicrosoft.com
+    upn                 : admin@company.onmicrosoft.com
+    uti                 : -EWK6jMDrEiAesWsiAA
+    ver                 : 1.0
+
+    .Example
+    PS C:\>Parse-AADIntAccessToken -AccessToken $token -Validate
+
+    Read-Accesstoken : Access Token is expired
+    At line:1 char:1
+    + Read-Accesstoken -AccessToken $at -Validate -verbose
+    + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException
+        + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,Read-Accesstoken
+
+    aud                 : https://graph.windows.net
+    iss                 : https://sts.windows.net/f2b2ba53-ed2a-4f4c-a4c3-85c61e548975/
+    iat                 : 1589477501
+    nbf                 : 1589477501
+    exp                 : 1589481401
+    acr                 : 1
+    aio                 : ASQA2/8PAAAALe232Yyx9l=
+    amr                 : {pwd}
+    appid               : 1b730954-1685-4b74-9bfd-dac224a7b894
+    appidacr            : 0
+    family_name         : company
+    given_name          : admin
+    ipaddr              : 107.210.220.129
+    name                : admin company
+    oid                 : 1713a7bf-47ba-4826-a2a7-bbda9fabe948
+    puid                : 100354
+    rh                  : 0QfALA.
+    scp                 : user_impersonation
+    sub                 : BGwHjKPU
+    tenant_region_scope : NA
+    tid                 : f2b2ba53-ed2a-4f4c-a4c3-85c61e548975
+    unique_name         : admin@company.onmicrosoft.com
+    upn                 : admin@company.onmicrosoft.com
+    uti                 : -EWK6jMDrEiAesWsiAA
+    ver                 : 1.0
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True,ValueFromPipeline)]
+        [String]$AccessToken,
+        [Parameter()]
+        [Switch]$ShowDate,
+        [Parameter()]
+        [Switch]$Validate
+
+    )
+    Process
+    {
+        if([string]::IsNullOrEmpty($AccessToken))
+        {
+            Write-Warning "Unable to read access token (null or empty)"
+            return $null
+        }
+        # Token sections
+        $sections =  $AccessToken.Split(".")
+
+        # Check if this is JWE
+        if($sections.Count -eq 5)
+        {
+            Write-Warning "JWE token, expected JWS. Unable to parse."
+            return
+        }
+        $header =    $sections[0]
+        $payload =   $sections[1]
+        $signature = $sections[2]
+
+        # Convert the token to string and json
+        $payloadString = Convert-B64ToText -B64 $payload
+        $payloadObj=$payloadString | ConvertFrom-Json
+
+        if($ShowDate)
+        {
+            # Show dates
+            $payloadObj.exp=($epoch.Date.AddSeconds($payloadObj.exp)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
+            $payloadObj.iat=($epoch.Date.AddSeconds($payloadObj.iat)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
+            $payloadObj.nbf=($epoch.Date.AddSeconds($payloadObj.nbf)).toString("yyyy-MM-ddTHH:mm:ssZ").Replace(".",":")
+        }
+
+        if($Validate)
+        {
+            # Check the signature
+            if((Is-AccessTokenValid -AccessToken $AccessToken))
+            {
+                Write-Verbose "Access Token signature successfully verified"
+            }
+            else
+            {
+                Write-Error "Access Token signature could not be verified"
+            }
+
+            # Check the timestamp
+            if((Is-AccessTokenExpired -AccessToken $AccessToken))
+            {
+                Write-Error "Access Token is expired"
+            }
+            else
+            {
+                Write-Verbose "Access Token is not expired"
+            }
+
+        }
+
+        # Debug
+        Write-Debug "PARSED ACCESS TOKEN: $($payloadObj | Out-String)"
+        
+        # Return
+        $payloadObj
+    }
+}
+
+# Converts the given B64 encoded RSA cert or private key to PEM
+# Jan 29th 2025
+Function Convert-B64RSAToPem
+{
+    [cmdletbinding()]
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [String]$RSA,
+        [parameter(Mandatory=$false,ValueFromPipeLine)]
+        [ValidateSet("RSA PRIVATE KEY","CERTIFICATE")]
+        [String]$Type = "CERTIFICATE"
+    )
+    Process
+    {
+        $PEM = "-----BEGIN $Type-----`n"
+
+        $p = 0
+        while($p -lt $RSA.Length)
+        {
+            $s = $p
+            $l = 64
+            $c = $RSA.Length - $p
+            if($c -lt 64)
+            {
+                $l = $c
+            }
+            $line = $RSA.Substring($s,$l)
+            $PEM += "$line`n"
+
+            $p += 64
+        }
+
+        $PEM += "-----END $Type-----`n"
+
+        return $PEM
+
+    }
+}
+
+# Gets the thumbprint of the given B64 encoded RSA certificate
+# Jan 29th 2025
+Function Get-B64RSAThumbprint
+{
+    [cmdletbinding()]
+    param(
+        [parameter(Mandatory=$true,ValueFromPipeline)]
+        [String]$RSA
+    )
+    Process
+    {
+        $binRSA = [byte[]](Convert-B64ToByteArray -B64 $RSA)
+        $thumbprint = Get-Digest -Data $binRSA
+
+        return $thumbprint
     }
 }
