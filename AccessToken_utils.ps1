@@ -1369,7 +1369,7 @@ function Get-TenantDomains
         $headers=@{
             "Content-Type" = "text/xml; charset=utf-8"
             "SOAPAction" =   '"http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation"'
-            "User-Agent" =   Get-UserAgent
+            "User-Agent" =   "AutodiscoverClient"
         }
         # Invoke
         $response = Invoke-RestMethod -UseBasicParsing -Method Post -uri $uri -Body $body -Headers $headers
