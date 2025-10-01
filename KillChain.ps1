@@ -269,7 +269,7 @@ function Invoke-ReconAsOutsider
         }
 
         # Cloud sync not definitive, may use different domain name
-        if(DoesUserExists -User "ADToAADSyncServiceAccount@$($tenantName)")
+        if(![string]::IsNullOrEmpty($tenantName) -and (DoesUserExists -User "ADToAADSyncServiceAccount@$($tenantName)"))
         {
             Write-Host "Uses cloud sync:    $true"
         }
