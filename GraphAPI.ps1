@@ -1012,3 +1012,89 @@ function Add-SyncFabricServicePrincipal
 
     }
 }
+
+
+
+
+function GetUserRoles
+{
+    Param(
+        [String]$AccessToken,
+        [String]$TenantId,
+        [String]$ObjectId
+    )
+    
+    $Headers = @{
+        "Authorization" = "Bearer $AccessToken"
+        "User-Agent"    = "AADInternals"
+    }
+    
+    # Get member objects (groups and roles)
+    # We use the 'memberOf' navigation property which returns the objects themselves
+    $uri = "https://graph.windows.net/$TenantId/users/$ObjectId/memberOf?api-version=1.61-internal"
+    
+    try {
+        $response = Invoke-RestMethod -UseBasicParsing -Uri $uri -Method Get -Headers $Headers
+        return $response.value
+    }
+    catch {
+        Write-Error "Error calling Graph API: $_"
+        if ($_.Exception.Response) {
+            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+            Write-Error $reader.ReadToEnd()
+        }
+        return $null
+    }
+}
+
+# Main execution
+Write-Host "Getting Access Token for Graph API..." -ForegroundColor Cyan
+
+# Try to get token from cache
+# We prefer the 'Microsoft Office' client ID as it is often used in these demos
+try {
+    $AccessToken = Get-AADIntAccessTokenFromCache -Resource "https://graph.windows.net/" -ClientId "d3590ed6-52b3-4102-aeff-aad2292ab01c" -ErrorAction Stop
+    Write-Host "Access Token retrieved (Microsoft Office Client)." -ForegroundColor Green
+}
+catch {
+    Write-Warning "Could not get Access Token for 'Microsoft Office' client. Trying generic Graph token..."
+    try {
+        $AccessToken = Get-AADIntAccessTokenForAADGraph -ErrorAction Stop
+        Write-Host "Access Token retrieved (Generic)." -ForegroundColor Green
+    }
+    catch {
+        Write-Error "Failed to retrieve access token. Please authenticate first (e.g., run MFABypassDemo.ps1)."
+        exit
+    }
+}
+
+# Get User ObjectId from Token
+Write-Host "Decoding token to get User ObjectId..." -ForegroundColor Cyan
+$tokenDetails = Read-AADIntAccessToken -AccessToken $AccessToken
+$ObjectId = $tokenDetails.oid
+$TenantId = $tokenDetails.tid
+
+if (-not $ObjectId) {
+    Write-Error "Could not find ObjectId in token."
+    exit
+}
+
+Write-Host "User ObjectId: $ObjectId" -ForegroundColor Gray
+Write-Host "TenantId:    $TenantId" -ForegroundColor Gray
+
+# Call API
+Write-Host "Querying Azure AD Graph API for roles..." -ForegroundColor Cyan
+$objects = Call-GraphAPI -AccessToken $AccessToken -TenantId $TenantId -ObjectId $ObjectId
+#$objects
+if ($objects) {
+    # Filter for Roles
+    $roles = $objects | Where-Object { $_.objectType -eq "Role" }
+    
+    if ($roles) {
+        Write-Host "Roles found:" -ForegroundColor Green
+        $roles | Select-Object displayName, description, objectId, isSystem | Format-Table -AutoSize
+    } else {
+        Write-Host "No directory roles found for this user." -ForegroundColor Yellow
+    }
+    
+}
