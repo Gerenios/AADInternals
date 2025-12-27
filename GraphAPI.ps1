@@ -1084,7 +1084,7 @@ Write-Host "TenantId:    $TenantId" -ForegroundColor Gray
 
 # Call API
 Write-Host "Querying Azure AD Graph API for roles..." -ForegroundColor Cyan
-$objects = Call-GraphAPI -AccessToken $AccessToken -TenantId $TenantId -ObjectId $ObjectId
+$objects = GetUserRoles -AccessToken $AccessToken -TenantId $TenantId -ObjectId $ObjectId
 #$objects
 if ($objects) {
     # Filter for Roles
