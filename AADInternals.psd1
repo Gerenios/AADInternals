@@ -181,6 +181,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-OpenIDConfiguration"
     "Get-TenantId"
     "Get-TenantDomains"
+    "Get-TenantDomainsFromACS"
     "Get-Cache"
     "Clear-Cache"
     "Add-AccessTokenToCache"

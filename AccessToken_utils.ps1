@@ -1290,6 +1290,116 @@ function Add-RefreshTokenToCache
 
 # Gets other domains of the given tenant
 # Jun 15th 2020
+# Gets domains from Access Control Service metadata
+# Jan 10th 2026
+function Get-TenantDomainsFromACS
+{
+<#
+    .SYNOPSIS
+    Gets domains from the tenant using Access Control Service metadata endpoint
+
+    .DESCRIPTION
+    Uses the Azure Access Control Service (ACS) metadata endpoint to retrieve 
+    registered email domains (allowedAudiences) for a tenant. This endpoint returns
+    domains that are registered with the tenant for email routing and federation purposes.
+
+    Requires the tenant's initial domain name (*.onmicrosoft.com or *.onmicrosoft.us for gov clouds).
+
+    .Parameter TenantName
+    The tenant's initial domain name (e.g., company.onmicrosoft.com, company.onmicrosoft.us)
+
+    .Parameter SubScope
+    Optional tenant subscope/region identifier (DOD, DODCON, etc.)
+
+    .Example
+    Get-AADIntTenantDomainsFromACS -TenantName company.onmicrosoft.com
+
+    company.com
+    company.mail.onmicrosoft.com
+    company.onmicrosoft.com
+
+    .Example
+    Get-AADIntTenantDomainsFromACS -TenantName company.onmicrosoft.us -SubScope DOD
+
+    company.com
+    company.mail.onmicrosoft.us
+    company.onmicrosoft.us
+
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$TenantName,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope
+    )
+    Process
+    {
+        try
+        {
+            # Build the ACS metadata endpoint URL based on cloud environment
+            # Reference: https://learn.microsoft.com/en-us/exchange/configure-oauth-authentication-between-exchange-and-exchange-online-organizations-exchange-2013-help
+            # Note: Government clouds use login.microsoftonline.us instead of accounts.accesscontrol
+            switch($SubScope)
+            {
+                "DOD" # DoD
+                {
+                    $uri = "https://login.microsoftonline.us/$TenantName/metadata/json/1"
+                }
+                "DODCON" # GCC-High
+                {
+                    $uri = "https://login.microsoftonline.us/$TenantName/metadata/json/1"
+                }
+                default # Commercial/GCC
+                {
+                    $uri = "https://accounts.accesscontrol.windows.net/$TenantName/metadata/json/1"
+                }
+            }
+            
+            Write-Verbose "Querying ACS metadata endpoint: $uri"
+            
+            # Query the endpoint
+            $response = Invoke-RestMethod -Uri $uri -UseBasicParsing -ErrorAction Stop
+            
+            # Extract domains from allowedAudiences
+            # Format (Commercial): 00000001-0000-0000-c000-000000000000/accounts.accesscontrol.windows.net@<domain>
+            # Format (Gov clouds): 00000001-0000-0000-c000-000000000000/login.microsoftonline.us@<domain>
+            $domains = @()
+            if($response.allowedAudiences)
+            {
+                foreach($audience in $response.allowedAudiences)
+                {
+                    if($audience -match '@(.+)$')
+                    {
+                        $domain = $matches[1]
+                        # Filter out GUID entries (these represent tenant IDs, not domain names)
+                        if($domain -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+                        {
+                            $domains += $domain
+                        }
+                    }
+                }
+            }
+            
+            if($domains.Count -gt 0)
+            {
+                Write-Verbose "Found $($domains.Count) domains from ACS metadata"
+                return ($domains | Sort-Object -Unique)
+            }
+            else
+            {
+                Write-Verbose "No domains found in ACS metadata"
+                return @()
+            }
+        }
+        catch
+        {
+            Write-Verbose "Error querying ACS metadata: $($_.Exception.Message)"
+            return @()
+        }
+    }
+}
+
 function Get-TenantDomains
 {
 <#
@@ -1297,8 +1407,10 @@ function Get-TenantDomains
     Gets other domains from the tenant of the given domain
 
     .DESCRIPTION
-    Uses Exchange Online autodiscover service to retrive other 
-    domains from the tenant of the given domain. 
+    Uses Exchange Online autodiscover service AND Access Control Service (ACS) 
+    metadata endpoint to retrieve all domains from the tenant. Since Microsoft 
+    has limited the autodiscover endpoint, this function now queries both sources
+    and merges the results for comprehensive domain enumeration.
 
     The given domain SHOULD be Managed, federated domains are not always found for some reason. 
     If nothing is found, try to use <domain>.onmicrosoft.com
@@ -1322,31 +1434,39 @@ function Get-TenantDomains
     )
     Process
     {
+        # Collection for all discovered domains
+        $allDomains = @()
+        
         # Get Tenant Region subscope from Open ID configuration if not provided
         if([string]::IsNullOrEmpty($SubScope))
         {
             $SubScope = Get-TenantSubscope -Domain $Domain
         }
 
-        # Use the correct url
-        switch($SubScope)
+        # Method 1: Try autodiscover (may return limited results due to Microsoft mitigation)
+        try
         {
-            "DOD" # DoD
+            Write-Verbose "Querying autodiscover endpoint..."
+            
+            # Use the correct url
+            switch($SubScope)
             {
-                $uri = "https://autodiscover-s-dod.office365.us/autodiscover/autodiscover.svc"
+                "DOD" # DoD
+                {
+                    $uri = "https://autodiscover-s-dod.office365.us/autodiscover/autodiscover.svc"
+                }
+                "DODCON" # GCC-High
+                {
+                    $uri = "https://autodiscover-s.office365.us/autodiscover/autodiscover.svc"
+                }
+                default # Commercial/GCC
+                {
+                    $uri = "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"
+                }
             }
-            "DODCON" # GCC-High
-            {
-                $uri = "https://autodiscover-s.office365.us/autodiscover/autodiscover.svc"
-            }
-            default # Commercial/GCC
-            {
-                $uri = "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"
-            }
-        }
 
-        # Create the body
-        $body=@"
+            # Create the body
+            $body=@"
 <?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:exm="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:ext="http://schemas.microsoft.com/exchange/services/2006/types" xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
 	<soap:Header>
@@ -1365,22 +1485,97 @@ function Get-TenantDomains
 	</soap:Body>
 </soap:Envelope>
 "@
-        # Create the headers
-        $headers=@{
-            "Content-Type" = "text/xml; charset=utf-8"
-            "SOAPAction" =   '"http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation"'
-            "User-Agent" =   "AutodiscoverClient"
+            # Create the headers
+            $headers=@{
+                "Content-Type" = "text/xml; charset=utf-8"
+                "SOAPAction" =   '"http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation"'
+                "User-Agent" =   "AutodiscoverClient"
+            }
+            
+            $response = Invoke-RestMethod -UseBasicParsing -Method Post -uri $uri -Body $body -Headers $headers -ErrorAction Stop
+            $autodiscoverDomains = @($response.Envelope.body.GetFederationInformationResponseMessage.response.Domains.Domain)
+            
+            if($autodiscoverDomains.Count -gt 0)
+            {
+                Write-Verbose "Autodiscover returned $($autodiscoverDomains.Count) domain(s)"
+                $allDomains += $autodiscoverDomains
+            }
         }
-        # Invoke
-        $response = Invoke-RestMethod -UseBasicParsing -Method Post -uri $uri -Body $body -Headers $headers
-
-        # Return
-		$domains = @($response.Envelope.body.GetFederationInformationResponseMessage.response.Domains.Domain)
-		if($Domain -notin $domains)
+        catch
         {
-            $domains += $Domain
+            Write-Verbose "Autodiscover query failed: $($_.Exception.Message)"
         }
-        $domains | Sort-Object
+        
+        # Method 2: Try ACS metadata endpoint (provides comprehensive domain list)
+        try
+        {
+            Write-Verbose "Querying ACS metadata endpoint..."
+            
+            # Try to get tenant name (*.onmicrosoft.com)
+            $tenantName = $null
+            
+            # If the provided domain is already a tenant name, use it
+            if($Domain -match '^[^.]*\.onmicrosoft\.((com)|(us))$')
+            {
+                $tenantName = $Domain
+            }
+            else
+            {
+                # Try to get tenant ID and derive tenant name
+                try
+                {
+                    $tenantId = Get-TenantID -Domain $Domain
+                    if(![string]::IsNullOrEmpty($tenantId))
+                    {
+                        Write-Verbose "Got tenant ID: $tenantId, retrieving tenant name..."
+                        $tenantName = Get-TenantNameByTenantId -TenantId $tenantId -SubScope $SubScope -Domain $Domain
+                    }
+                }
+                catch
+                {
+                    Write-Verbose "Could not determine tenant name: $($_.Exception.Message)"
+                }
+            }
+            
+            # If we have a tenant name, query the ACS metadata endpoint
+            if(![string]::IsNullOrEmpty($tenantName))
+            {
+                Write-Verbose "Using tenant name: $tenantName for ACS query"
+                $acsDomains = Get-TenantDomainsFromACS -TenantName $tenantName -SubScope $SubScope
+                
+                if($acsDomains.Count -gt 0)
+                {
+                    Write-Verbose "ACS metadata returned $($acsDomains.Count) domain(s)"
+                    $allDomains += $acsDomains
+                }
+            }
+            else
+            {
+                Write-Verbose "Could not determine tenant name, skipping ACS query"
+            }
+        }
+        catch
+        {
+            Write-Verbose "ACS metadata query failed: $($_.Exception.Message)"
+        }
+        
+        # Merge, deduplicate and ensure the queried domain is included
+        if($allDomains.Count -gt 0)
+        {
+            $uniqueDomains = $allDomains | Select-Object -Unique | Sort-Object
+            if($Domain -notin $uniqueDomains)
+            {
+                $uniqueDomains = @($uniqueDomains) + @($Domain) | Sort-Object
+            }
+            Write-Verbose "Total unique domains found: $($uniqueDomains.Count)"
+            return $uniqueDomains
+        }
+        else
+        {
+            # If both methods failed, return at least the queried domain
+            Write-Warning "Could not retrieve tenant domains. Returning only the queried domain."
+            return @($Domain)
+        }
     }
 }
 

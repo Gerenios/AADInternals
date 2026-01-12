@@ -1,4 +1,4 @@
-﻿#
+#
 # This file contains functions for Azure AD / Office 365 kill chain
 #
 
@@ -243,6 +243,19 @@ function Invoke-ReconAsOutsider
             }
         }
 
+        # Fallback: If tenant name was not found from autodiscover, try alternative method
+        if([string]::IsNullOrEmpty($tenantName))
+        {
+            Write-Verbose "Tenant name not found from autodiscover, trying alternative method..."
+            $tenantName = Get-TenantNameByTenantId -TenantId $tenantId -SubScope $tenantSubscope -Domain $DomainName
+            
+            # If still not found, give user a hint
+            if([string]::IsNullOrEmpty($tenantName))
+            {
+                Write-Warning "Tenant name lookup requires authentication. Run 'Get-AADIntAccessTokenForMSGraph -SaveToCache' first (can use any tenant)."
+            }
+        }
+
         Write-Host "Tenant brand:       $tenantBrand"
         Write-Host "Tenant name:        $tenantName"
         Write-Host "Tenant id:          $tenantId"
@@ -269,7 +282,7 @@ function Invoke-ReconAsOutsider
         }
 
         # Cloud sync not definitive, may use different domain name
-        if(DoesUserExists -User "ADToAADSyncServiceAccount@$($tenantName)")
+        if(![string]::IsNullOrEmpty($tenantName) -and (DoesUserExists -User "ADToAADSyncServiceAccount@$($tenantName)"))
         {
             Write-Host "Uses cloud sync:    $true"
         }
@@ -280,7 +293,7 @@ function Invoke-ReconAsOutsider
             Write-Host "CBA enabled:        $tenantCBA"
         }
         
-        return $domainInformation
+        return $domainInformation | Format-Table -AutoSize
     }
 
 }

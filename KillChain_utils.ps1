@@ -1,7 +1,8 @@
-﻿# Checks whether the domain has MX records pointing to MS cloud
+# Checks whether the domain has MX records pointing to MS cloud
 # Jun 16th 2020
 # Aug 30th 2022: Fixed by maxgrim
 # Fe. 19th 2025: Add new mx.microsoft check by Michael Morten Sonne
+# January 8th 2026: Added functionality to retrieve Tenant Name from Graph (authentication to dummy tenant required) and DKIM records (unauthenticated)
 
 function HasCloudMX
 {
@@ -31,8 +32,13 @@ function HasCloudMX
             }
         }
 
-        $results = Resolve-DnsName -Name $Domain -Type MX -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue |
-               Select-Object -ExpandProperty nameexchange
+        $dnsResults = Resolve-DnsName -Name $Domain -Type MX -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue
+        
+        # Extract nameexchange property only if results exist and have the property
+        $results = @()
+        if($dnsResults) {
+            $results = $dnsResults | Where-Object { $_.NameExchange } | Select-Object -ExpandProperty NameExchange
+        }
 
         # Normalize $filter into an array
         if (-not ($filter -is [System.Collections.IEnumerable])) {
@@ -41,8 +47,10 @@ function HasCloudMX
 
         # Check results
         $filteredResults = @()
-        foreach ($pat in $filter) {
-            $filteredResults += $results | Where-Object { $_ -like $pat }
+        if($results.Count -gt 0) {
+            foreach ($pat in $filter) {
+                $filteredResults += $results | Where-Object { $_ -like $pat }
+            }
         }
 
         return $filteredResults.Count -gt 0
@@ -437,6 +445,97 @@ function GetMDIInstance
             }
         }
 
+        return $null
+    }
+}
+
+# Gets the tenant's initial domain (*.onmicrosoft.com) by tenant ID
+# Uses DKIM records (most reliable) or MS Graph API as fallback
+# Jan 8th 2026
+function Get-TenantNameByTenantId
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$TenantId,
+        [Parameter(Mandatory=$False)]
+        [String]$SubScope,
+        [Parameter(Mandatory=$False)]
+        [String]$Domain
+    )
+    Process
+    {
+        # Determine the correct onmicrosoft suffix based on subscope
+        switch($SubScope)
+        {
+            "DOD"    { $onmicrosoftSuffix = "\.onmicrosoft\.us$" }
+            "DODCON" { $onmicrosoftSuffix = "\.onmicrosoft\.us$" }
+            default  { $onmicrosoftSuffix = "\.onmicrosoft\.com$" }
+        }
+
+        # Method 1: Try DKIM records - most reliable unauthenticated method
+        # DKIM CNAME records point to selector1-<domain>._domainkey.<tenantname>.onmicrosoft.com
+        if(-not [string]::IsNullOrEmpty($Domain))
+        {
+            Write-Verbose "Trying to get tenant name from DKIM records for $Domain..."
+            $selectors = @("selector1", "selector2")
+            foreach($selector in $selectors)
+            {
+                try
+                {
+                    $dkimRecord = Resolve-DnsName -Name "$selector._domainkey.$Domain" -Type CNAME -DnsOnly -NoHostsFile -NoIdn -ErrorAction SilentlyContinue | 
+                                  Select-Object -ExpandProperty NameHost
+                    
+                    if($dkimRecord -match $onmicrosoftSuffix)
+                    {
+                        # Extract tenant name from: selector1-domain-com._domainkey.TENANTNAME.onmicrosoft.com
+                        $tenantName = ($dkimRecord -split '\._domainkey\.')[1]
+                        
+                        # Verify this tenant name belongs to the correct tenant ID
+                        $verifyTenantId = Get-TenantID -Domain $tenantName
+                        if($verifyTenantId -eq $TenantId)
+                        {
+                            Write-Verbose "Found tenant name from DKIM: $tenantName (verified)"
+                            return $tenantName
+                        }
+                        else
+                        {
+                            Write-Verbose "DKIM tenant name $tenantName belongs to different tenant: $verifyTenantId"
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+
+        # Method 2: Try MS Graph API with cached access token
+        Write-Verbose "Trying to get tenant info via MS Graph API..."
+        try
+        {
+            $AccessToken = Get-AccessTokenFromCache -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+            
+            if(-not [string]::IsNullOrEmpty($AccessToken))
+            {
+                Write-Verbose "Found cached MS Graph access token, querying tenant info..."
+                $results = Call-MSGraphAPI -AccessToken $AccessToken -API "tenantRelationships/findTenantInformationByTenantId(tenantId='$TenantId')"
+                
+                if(-not [string]::IsNullOrEmpty($results.defaultDomainName))
+                {
+                    Write-Verbose "Got default domain from MS Graph: $($results.defaultDomainName)"
+                    return $results.defaultDomainName
+                }
+            }
+            else
+            {
+                Write-Verbose "No cached MS Graph access token found."
+            }
+        }
+        catch 
+        { 
+            Write-Verbose "MS Graph API call failed: $_" 
+        }
+
+        Write-Verbose "Unable to determine tenant name."
         return $null
     }
 }
