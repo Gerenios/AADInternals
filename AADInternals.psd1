@@ -127,6 +127,8 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
         ".\SPO_utils.ps1"
         ".\SyncAgent.ps1"
         ".\Teams.ps1"
+        ".\TeamsAdmin.ps1"
+        ".\TeamsAdmin_utils.ps1"
         ".\Teams_utils.ps1"
 )
 
@@ -159,6 +161,7 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-AccessTokenForIntuneMDM"
     "Get-AccessTokenForCloudShell"
     "Get-AccessTokenForTeams"
+    "Get-AccessTokenForTeamsAdmin"
     "Get-AccessTokenForMSCommerce"
     "Get-AccessTokenForMSPartner"
     "Get-AccessTokenForAdmin"
@@ -408,6 +411,12 @@ DISCLAIMER: Functionality provided through this module are not supported by Micr
     "Get-Translation"
     "Get-MyTeams"
     "Get-TeamsExternalUserInformation"
+
+    # TeamsAdmin.ps1
+    "Get-CsTenant"
+    "Get-CsTenantFederationConfiguration"
+    "Get-CsTeamsExternalAccessConfiguration"
+    "Get-TeamsExternalChatConfiguration"
 
     # Teams_utils.ps1
     "Get-TeamsUserSettings"

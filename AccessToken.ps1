@@ -1541,6 +1541,92 @@ function Get-AccessTokenForTeams
     }
 }
 
+# Gets an access token for Teams Admin (Cs) API
+# Aug 1st 2026, Stefan Wey
+function Get-AccessTokenForTeamsAdmin
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Teams Admin (Cs) API
+
+    .DESCRIPTION
+    Gets OAuth Access Token for the internal Teams Admin (Cs) API (api.interfaces.records.teams.microsoft.com)
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user.
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user.
+
+    .Parameter UseDeviceCode
+    Use device code flow.
+
+    .Example
+    Get-AADIntAccessTokenForTeamsAdmin
+
+    .Example
+    PS C:\>Get-AADIntAccessTokenForTeamsAdmin -SaveToCache
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [Parameter(ParameterSetName='MSAL',Mandatory=$True)]
+        [switch]$UseMSAL,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$False)]
+        [string]$OTPSecretKey,
+        [Parameter(Mandatory=$False)]
+        [string]$TAP,
+
+        # PRT + SessionKey
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [String]$RefreshToken,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$True)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$False)]
+        [Parameter(Mandatory=$False)]
+        [String]$SessionKey,
+        [Parameter(ParameterSetName='PRT_Skey',Mandatory=$False)]
+        [Parameter(ParameterSetName='PRT_Settings',Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
+        $Settings,
+
+        # Continuous Access Evaluation
+        [Parameter(Mandatory=$False)]
+        [switch]$CAE,
+
+        # ESTS
+        [Parameter(ParameterSetName='ESTS',Mandatory=$True)]
+        [string]$ESTSAUTH
+    )
+    Process
+    {
+        Get-AccessToken -Resource "48ac35b8-9aa8-4d74-927d-1f4a14a0b239" -ClientId "1fec8e78-bce4-4aaf-ab1b-5451cc387264" -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -OTPSecretKey $OTPSecretKey -TAP $TAP -UseMSAL $UseMSAL -RefreshToken $RefreshToken -SessionKey $SessionKey -Settings $Settings -CAE $CAE -ESTSAUTH $ESTSAUTH
+    }
+}
+
 
 # Gets an access token for Azure AD Management API
 # Nov 11th 2020
