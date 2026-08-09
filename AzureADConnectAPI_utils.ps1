@@ -202,7 +202,22 @@ function Call-ADSyncAPI
         try
         {
             # Sometimes no error at all..?
-            $response=Invoke-WebRequest -UseBasicParsing -Uri "https://$Server/provisioningservice.svc" -ContentType "application/soap+msbin1" -Method POST -Body $envelope -Headers $headers
+            $requestParameters = @{
+                "UseBasicParsing" = $true
+                "Uri"             = "https://$Server/provisioningservice.svc"
+                "ContentType"     = "application/soap+msbin1"
+                "Method"          = "POST"
+                "Body"            = $envelope
+                "Headers"         = $headers
+            }
+
+            # PowerShell 6+ validates empty header values, while Windows PowerShell accepts them.
+            if((Get-Command Invoke-WebRequest).Parameters.ContainsKey("SkipHeaderValidation"))
+            {
+                $requestParameters["SkipHeaderValidation"] = $true
+            }
+
+            $response=Invoke-WebRequest @requestParameters
             $stream=$response.RawContentStream
         }
         catch

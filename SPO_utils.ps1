@@ -91,7 +91,19 @@ function Get-IDCRLToken
 
 "@
             # Invoke the command to get the SAML token
-            $response=Invoke-RestMethod -UseBasicParsing -Method Post -Uri $url -Body $body -ContentType "application/soap+xml; charset=utf-8" -Headers @{"User-Agent"=""} 
+            $requestParameters = @{
+                "UseBasicParsing" = $true
+                "Method"          = "Post"
+                "Uri"             = $url
+                "Body"            = $body
+                "ContentType"     = "application/soap+xml; charset=utf-8"
+                "Headers"         = @{"User-Agent"=""}
+            }
+            if((Get-Command Invoke-RestMethod).Parameters.ContainsKey("SkipHeaderValidation"))
+            {
+                $requestParameters["SkipHeaderValidation"] = $true
+            }
+            $response=Invoke-RestMethod @requestParameters
 
             $samlToken = $response.Envelope.Body.RequestSecurityTokenResponse.RequestedSecurityToken.InnerXml
 
@@ -154,7 +166,19 @@ function Get-IDCRLToken
        
         
         # Invoke the command
-        $response=Invoke-RestMethod -UseBasicParsing -Method Post -Uri $url -Body $body -ContentType "application/soap+xml; charset=utf-8" -Headers @{"User-Agent"=""} 
+        $requestParameters = @{
+            "UseBasicParsing" = $true
+            "Method"          = "Post"
+            "Uri"             = $url
+            "Body"            = $body
+            "ContentType"     = "application/soap+xml; charset=utf-8"
+            "Headers"         = @{"User-Agent"=""}
+        }
+        if((Get-Command Invoke-RestMethod).Parameters.ContainsKey("SkipHeaderValidation"))
+        {
+            $requestParameters["SkipHeaderValidation"] = $true
+        }
+        $response=Invoke-RestMethod @requestParameters
 
         # Extract the token
         $token = $response.Envelope.Body.RequestSecurityTokenResponse.RequestedSecurityToken.BinarySecurityToken.'#text'
