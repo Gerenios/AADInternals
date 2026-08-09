@@ -2140,6 +2140,20 @@ Function Invoke-WebRequest2
         {
             $arguments["SkipHttpErrorCheck"] = $true
         }
+
+        # PowerShell 6+ validates empty header values, while Windows PowerShell accepts them.
+        if(($Headers -ne $null) -and ((Get-Command Invoke-WebRequest).Parameters.ContainsKey("SkipHeaderValidation")))
+        {
+            foreach($header in $Headers.Values)
+            {
+                if(($header -is [string]) -and ($header.Length -eq 0))
+                {
+                    $arguments["SkipHeaderValidation"] = $true
+                    break
+                }
+            }
+        }
+
         Invoke-WebRequest @arguments
     }
 }

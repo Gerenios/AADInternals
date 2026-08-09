@@ -745,7 +745,19 @@ function Connect-ToAuthRelay
                                 # The cert must be "linked" to this web page by IE + it needs to be installed in the personal store.
                                 try
                                 {
-                                    Invoke-RestMethod -Uri $url -Method Post -Certificate $cert -Headers $headers -ContentType "" -ErrorAction SilentlyContinue
+                                    $requestParameters = @{
+                                        "Uri"         = $url
+                                        "Method"      = "Post"
+                                        "Certificate" = $cert
+                                        "Headers"     = $headers
+                                        "ContentType" = ""
+                                        "ErrorAction" = "SilentlyContinue"
+                                    }
+                                    if((Get-Command Invoke-RestMethod).Parameters.ContainsKey("SkipHeaderValidation"))
+                                    {
+                                        $requestParameters["SkipHeaderValidation"] = $true
+                                    }
+                                    Invoke-RestMethod @requestParameters
                                     #$response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Post -Certificate $cert -Headers $headers -ContentType "" -ErrorAction SilentlyContinue
                                 }
                                 catch
